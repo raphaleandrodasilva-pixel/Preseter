@@ -1,0 +1,72 @@
+{
+  "name": "preseter",
+  "version": "1.0.0",
+  "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "npm run build:main && npm run build:renderer",
+    "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
+    "typecheck:main": "tsc --noEmit -p tsconfig.main.json",
+    "typecheck:renderer": "tsc --noEmit -p tsconfig.renderer.json",
+    "dev": "npm run build:main && concurrently \"npm:dev:renderer\" \"npm:dev:main:watch\" \"npm:dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:main:watch": "tsc -p tsconfig.main.json --watch",
+    "dev:electron": "node scripts/dev-electron.js",
+    "package": "electron-builder build",
+    "preview": "npm run build && electron ."
+  },
+  "keywords": [
+    "vst",
+    "midi",
+    "mainstage",
+    "gig-performer",
+    "live-performance",
+    "music"
+  ],
+  "author": "Preseter Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.60",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.2.0",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.preseter.app",
+    "productName": "Preseter",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "!docs/**/*",
+      "!presets/**/*",
+      "!release/**/*",
+      "!scripts/**/*",
+      "!src/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

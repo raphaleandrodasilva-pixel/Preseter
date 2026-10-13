@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node", "electron"]
+  },
+  "include": ["src/main/**/*", "src/shared/**/*"],
+  "exclude": ["node_modules", "dist", "release", "docs"]
+}

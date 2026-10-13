@@ -1,0 +1,316 @@
+import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import * as path from 'path';
+import { VstManager } from './vst/VstManager';
+import { PresetManager } from './preset/PresetManager';
+import { LayoutManager } from './layout/LayoutManager';
+import {
+  Preset,
+  VstPluginInfo,
+  MidiBinding,
+  AppStatus,
+  ElectronChannels,
+} from '../shared/types';
+import { validateProgramNumber, DEFAULT_MIDI_CHANNEL } from '../shared/constants';
+
+class MainWindow {
+  private window: BrowserWindow | null = null;
+  private vstManager: VstManager;
+  private presetManager: PresetManager;
+  private layoutManager: LayoutManager;
+  private appStatus: AppStatus = {
+    isPlaying: false,
+    currentPresetId: null,
+    currentProgramNumber: 0,
+    tempo: 120,
+    isMetronomeOn: false,
+  };
+
+  constructor() {
+    this.vstManager = new VstManager();
+    this.presetManager = new PresetManager();
+    this.layoutManager = new LayoutManager();
+  }
+
+  init(): void {
+    // Carregar presets (rápido, JSON local)
+    this.presetManager.loadPresets();
+
+    // Registrar handlers IPC antes da janela existir
+    this.registerIpcHandlers();
+
+    // Configurar eventos do app
+    app.whenReady().then(() => {
+      this.configureMidiPermissions();
+      this.createWindow();
+      this.setupAutoScroll();
+      // Scan VST é síncrono e pode demorar: roda após a janela abrir
+      setImmediate(() => {
+        try {
+          this.vstManager.scanDefaultDirectories();
+        } catch (error) {
+          console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
+        }
+      });
+    });
+
+    app.on('window-all-closed', () => {
+      if (process.platform !== 'darwin') {
+        app.quit();
+      }
+    });
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        this.createWindow();
+      }
+    });
+  }
+
+  private createWindow(): void {
+    this.window = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      minWidth: 1200,
+      minHeight: 700,
+      backgroundColor: '#111827',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+      },
+      title: 'Preseter - Live Performance',
+    });
+
+    // Carregar a interface
+    const startUrl =
+      process.env.ELECTRON_START_URL ||
+      `file://${path.join(__dirname, '../renderer/index.html')}`;
+
+    this.window.loadURL(startUrl);
+
+    // Abrir ferramentas de desenvolvedor em modo dev
+    if (process.env.NODE_ENV === 'development') {
+      this.window.webContents.openDevTools({ mode: 'detach' });
+    }
+
+    // Enviar status inicial
+    this.window.webContents.on('did-finish-load', () => {
+      this.sendToRenderer('app-status-change', this.appStatus);
+      this.sendToRenderer('preset-list', this.presetManager.getAllPresets());
+    });
+  }
+
+  private sendToRenderer(channel: string, data: any): void {
+    this.window?.webContents.send(channel, data);
+  }
+
+  private registerIpcHandlers(): void {
+    // === MIDI Handlers ===
+
+    // === MIDI Program Change (pgm send) ===
+
+    ipcMain.handle('midi-program-change', async (_event, program: number, channel: number) => {
+      const validProgram = this.validateMidiProgramChange(program, channel);
+      const activated = await this.activateProgramNumber(validProgram.program, validProgram.channel);
+      return { ...validProgram, activated };
+    });
+
+    ipcMain.handle('midi-input-program-change', async (_event, program: number, channel: number) => {
+      const validProgram = this.validateMidiProgramChange(program, channel);
+      return this.activateProgramNumber(validProgram.program, validProgram.channel);
+    });
+
+    // === VST Handlers ===
+
+    ipcMain.handle('vst-scan', () => {
+      return this.vstManager.scanDefaultDirectories();
+    });
+
+    ipcMain.handle('vst-load', (_event, pluginPath: string) => {
+      return this.vstManager.loadPlugin(pluginPath);
+    });
+
+    ipcMain.handle('vst-unload', (_event, pluginId: string) => {
+      return this.vstManager.unloadPlugin(pluginId);
+    });
+
+    ipcMain.handle('vst-set-param', (_event, pluginId: string, paramId: string, value: number) => {
+      return this.vstManager.setParameter(pluginId, paramId, value);
+    });
+
+    ipcMain.handle('vst-get-state', (_event, pluginId: string) => {
+      return this.vstManager.getPluginState(pluginId);
+    });
+
+    ipcMain.handle('vst-set-state', (_event, pluginId: string, state: any) => {
+      return this.vstManager.setPluginState(pluginId, state);
+    });
+
+    ipcMain.handle('vst-list', () => {
+      return this.vstManager.getScannedPlugins();
+    });
+
+    ipcMain.handle('vst-loaded', () => {
+      return this.vstManager.getLoadedPlugins();
+    });
+
+    // === Preset Handlers ===
+
+    ipcMain.handle('preset-save', (_event, preset: Preset) => {
+      return this.presetManager.savePreset(preset);
+    });
+
+    ipcMain.handle('preset-load', (_event, presetId: string) => {
+      return this.loadPreset(presetId);
+    });
+
+    ipcMain.handle('preset-list', () => {
+      return this.presetManager.getAllPresets();
+    });
+
+    ipcMain.handle('preset-delete', (_event, presetId: string) => {
+      return this.presetManager.deletePreset(presetId);
+    });
+
+    ipcMain.handle('preset-by-program', (_event, programNumber: number) => {
+      return this.presetManager.findByProgramNumber(programNumber);
+    });
+
+    // === Layout Handlers ===
+
+    ipcMain.handle('layout-change', (_event, layout: any) => {
+      this.layoutManager.setLayout(layout);
+      this.sendToRenderer('layout-change', layout);
+      return true;
+    });
+
+    // === App Status Handlers ===
+
+    ipcMain.handle('app-status-change', (_event, status: Partial<AppStatus>) => {
+      this.appStatus = { ...this.appStatus, ...status };
+      this.updateAppStatus();
+      return this.appStatus;
+    });
+
+    ipcMain.handle('app-status-get', () => {
+      return this.appStatus;
+    });
+
+    // === UI Element Handlers ===
+
+    ipcMain.handle('ui-element-add', (_event, element: any) => {
+      this.layoutManager.addElement(element);
+      const layout = this.layoutManager.getLayout();
+      this.sendToRenderer('layout-change', layout);
+      return layout;
+    });
+
+    ipcMain.handle('ui-element-update', (_event, element: any) => {
+      this.layoutManager.updateElement(element);
+      const layout = this.layoutManager.getLayout();
+      this.sendToRenderer('layout-change', layout);
+      return layout;
+    });
+
+    ipcMain.handle('ui-element-remove', (_event, id: string) => {
+      this.layoutManager.removeElement(id);
+      const layout = this.layoutManager.getLayout();
+      this.sendToRenderer('layout-change', layout);
+      return layout;
+    });
+
+    // === Menu/Dialog Handlers ===
+
+    ipcMain.handle('open-plugin-dialog', async () => {
+      if (!this.window) return { canceled: true, filePaths: [] };
+      const result = await dialog.showOpenDialog(this.window, {
+        title: 'Selecione um plugin VST',
+        properties: ['openFile'],
+        filters: [{ name: 'Plugins VST3', extensions: ['vst3'] }],
+      });
+      return result;
+    });
+
+    ipcMain.handle('get-app-version', () => {
+      return app.getVersion();
+    });
+  }
+
+  private async loadPreset(presetId: string): Promise<boolean> {
+    const preset = this.presetManager.getPreset(presetId);
+    if (!preset) return false;
+
+    // Carregar VSTs do preset
+    const pluginStates = preset.vstStates;
+    for (const [pluginId, state] of Object.entries(pluginStates)) {
+      if (pluginId.startsWith('loaded_')) {
+        const actualPluginId = pluginId.replace('loaded_', '');
+        await this.vstManager.setPluginState(actualPluginId, state);
+      }
+    }
+
+    // Atualizar layout
+    this.layoutManager.setLayout(preset.layout);
+    this.sendToRenderer('layout-change', preset.layout);
+
+    // Enviar notificação de preset carregado
+    this.sendToRenderer('preset-loaded', {
+      presetId,
+      name: preset.name,
+      programNumber: preset.programNumber,
+    });
+
+    return true;
+  }
+
+  private updateAppStatus(): void {
+    this.sendToRenderer('app-status-change', this.appStatus);
+  }
+
+  private configureMidiPermissions(): void {
+    const appSession = session.defaultSession;
+    appSession.setPermissionCheckHandler((webContents, permission) => {
+      return permission === 'midi' && webContents === this.window?.webContents;
+    });
+    appSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      callback(permission === 'midi' && webContents === this.window?.webContents);
+    });
+  }
+
+  private validateMidiProgramChange(program: number, channel: number): { program: number; channel: number } {
+    if (!Number.isInteger(program) || program < 0 || program > 127) {
+      throw new RangeError('O número do programa MIDI deve estar entre 0 e 127.');
+    }
+    if (!Number.isInteger(channel) || channel < 0 || channel > 15) {
+      throw new RangeError('O canal MIDI deve estar entre 0 e 15.');
+    }
+    return { program: validateProgramNumber(program), channel };
+  }
+
+  private async activateProgramNumber(program: number, channel: number): Promise<boolean> {
+    this.appStatus.currentProgramNumber = program;
+    const preset = this.presetManager.findByProgramNumber(program);
+    this.appStatus.currentPresetId = preset?.id ?? null;
+    if (preset) {
+      await this.loadPreset(preset.id);
+    }
+
+    this.updateAppStatus();
+    this.sendToRenderer('midi-program-change', { program, channel, preset: preset ?? null });
+    return true;
+  }
+
+  private setupAutoScroll(): void {
+    // Mantém a janela ativa durante performance
+    this.window?.webContents.on('before-input-event', () => {
+      if (!this.window?.isFocused()) {
+        this.window?.focus();
+      }
+    });
+  }
+}
+
+// Inicializar aplicação
+const mainWindow = new MainWindow();
+mainWindow.init();
