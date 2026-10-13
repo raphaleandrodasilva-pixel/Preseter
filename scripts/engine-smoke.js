@@ -136,8 +136,12 @@ async function main() {
   }
 
   if (params.length) {
-    const changed = await request('setParam', { index: params[0].index, value: 0.5 });
-    console.log(`\nsetParam[0] -> ${changed.value.toFixed(2)} (${changed.text})`);
+    const target = params[0];
+    const newValue = target.value < 0.5 ? 0.9 : 0.1; // sempre um valor diferente do atual
+    const changed = await request('setParam', { index: target.index, value: newValue });
+    console.log(
+      `\nsetParam "${target.name}": ${target.value.toFixed(2)} -> ${changed.value.toFixed(2)} (${changed.text})`
+    );
   }
 
   if (flag('audio')) {

@@ -64,6 +64,21 @@ node scripts/engine-smoke.js --plugin=Surge --audio  # carrega um plugin e toca 
 
 Veja as opções no topo de `scripts/engine-smoke.js`.
 
+### Plugin de teste (sem depender de terceiros)
+
+O projeto traz um sintetizador VST3 mínimo (`engine/test-plugin/`, parâmetros
+Volume e Waveform). Para compilar e usar:
+
+```bash
+cmake -S engine -B engine/build -DPRESETER_BUILD_TEST_PLUGIN=ON
+cmake --build engine/build --target PreseterTestSynth_VST3 --config Release
+node scripts/engine-smoke.js --rescan --audio --plugin="Test Synth" \
+  --path=engine/build/test-plugin/PreseterTestSynth_artefacts/Release/VST3
+```
+
+Se tudo estiver certo você ouve uma nota senoidal por 1,5 s. Troque a forma de
+onda com `setParam` no índice 1 (valor 0 = Sine, 0.5 = Saw, 1 = Square).
+
 ## Protocolo
 
 Cada linha enviada ao motor é um objeto JSON com `id` (número, escolhido por
@@ -91,7 +106,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `load` | `plugin` (id) ou `path` | Carrega um plugin (substitui o anterior) |
 | `unload` | — | Descarrega o plugin |
 | `plugin` | — | Dados do plugin carregado |
-| `params` | — | Lista de parâmetros reais, valores normalizados 0..1 |
+| `params` | `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `index` / `index`, `value` | Lê / altera um parâmetro |
 | `noteOn` / `noteOff` | `note`, `velocity?`, `channel?` | Envia nota MIDI |
 | `midi` | `bytes` (1 a 3) | Envia MIDI cru |

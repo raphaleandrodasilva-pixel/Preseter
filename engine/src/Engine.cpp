@@ -97,6 +97,10 @@ juce::String Engine::startAudio (const juce::var& options)
     if (error.isNotEmpty())
         return error;
 
+    // O JUCE pode devolver "sem erro" mesmo sem nenhum dispositivo aberto.
+    if (deviceManager.getCurrentAudioDevice() == nullptr)
+        return utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
+
     if (! audioCallbackAttached)
     {
         player.setProcessor (&graph);
@@ -189,7 +193,7 @@ juce::var Engine::describeDevices()
 juce::String Engine::setMidiInputEnabled (const juce::String& identifier, bool enabled)
 {
     if (! isAudioRunning())
-        return "Inicie o áudio antes (comando audioStart).";
+        return utf8 ("Inicie o áudio antes (comando audioStart).");
 
     for (const auto& device : juce::MidiInput::getAvailableDevices())
     {
@@ -200,7 +204,7 @@ juce::String Engine::setMidiInputEnabled (const juce::String& identifier, bool e
         }
     }
 
-    return "Dispositivo MIDI não encontrado: " + identifier;
+    return utf8 ("Dispositivo MIDI não encontrado: ") + identifier;
 }
 
 // ---- Plugins -------------------------------------------------------------------
@@ -260,7 +264,7 @@ void Engine::scan (const juce::StringArray& extraPaths, bool rescan, Progress pr
 {
     if (scanState.active)
     {
-        done ({}, "Já existe uma varredura em andamento.");
+        done ({}, utf8 ("Já existe uma varredura em andamento."));
         return;
     }
 
@@ -365,7 +369,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, Done done)
     juce::PluginDescription description;
     if (! findDescription (idOrPath, description))
     {
-        done ({}, "Plugin não encontrado: " + idOrPath);
+        done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
         return;
     }
 
@@ -384,7 +388,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, Done done)
 
             if (instance == nullptr)
             {
-                done ({}, error.isNotEmpty() ? error : juce::String ("Falha ao criar a instância do plugin."));
+                done ({}, error.isNotEmpty() ? error : juce::String (utf8 ("Falha ao criar a instância do plugin.")));
                 return;
             }
 
@@ -414,6 +418,11 @@ juce::var Engine::describeLoadedPlugin() const
 
     const auto description = plugin->getPluginDescription();
 
+    int automatableCount = 0;
+    for (auto* parameter : plugin->getParameters())
+        if (parameter->isAutomatable())
+            ++automatableCount;
+
     return Obj()
         .set ("id", description.createIdentifierString())
         .set ("name", description.name)
@@ -423,10 +432,11 @@ juce::var Engine::describeLoadedPlugin() const
         .set ("isInstrument", description.isInstrument)
         .set ("inputs", plugin->getTotalNumInputChannels())
         .set ("outputs", plugin->getTotalNumOutputChannels())
-        .set ("parameterCount", plugin->getParameters().size());
+        .set ("parameterCount", automatableCount)
+        .set ("parameterCountTotal", plugin->getParameters().size());
 }
 
-juce::var Engine::listParameters() const
+juce::var Engine::listParameters (bool includeNonAutomatable) const
 {
     juce::Array<juce::var> list;
 
@@ -434,7 +444,8 @@ juce::var Engine::listParameters() const
     {
         const auto& params = plugin->getParameters();
         for (int i = 0; i < params.size(); ++i)
-            list.add (parameterToVar (*params[i], i));
+            if (includeNonAutomatable || params[i]->isAutomatable())
+                list.add (parameterToVar (*params[i], i));   // i = índice real no plugin
     }
 
     return juce::var (list);
@@ -448,7 +459,7 @@ juce::String Engine::setParameter (int index, float normalizedValue, juce::var& 
 
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
-        return "Índice de parâmetro inválido: " + juce::String (index);
+        return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
 
     auto* parameter = params[index];
     parameter->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normalizedValue));
@@ -465,7 +476,7 @@ juce::String Engine::getParameter (int index, juce::var& result) const
 
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
-        return "Índice de parâmetro inválido: " + juce::String (index);
+        return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
 
     result = parameterToVar (*params[index], index);
     return {};
@@ -513,7 +524,7 @@ void Engine::rebuildConnections()
 juce::String Engine::sendMidi (const juce::MidiMessage& message)
 {
     if (! isAudioRunning())
-        return "Inicie o áudio antes (comando audioStart).";
+        return utf8 ("Inicie o áudio antes (comando audioStart).");
 
     auto copy = message;
     copy.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);

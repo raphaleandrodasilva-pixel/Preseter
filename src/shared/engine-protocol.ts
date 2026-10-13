@@ -46,7 +46,10 @@ export interface EngineLoadedPlugin {
   isInstrument: boolean;
   inputs: number;
   outputs: number;
+  /** Só parâmetros automatizáveis (o que `params` lista por padrão). */
   parameterCount: number;
+  /** Inclui os ~2000 "MIDI CC" que o wrapper VST3 do JUCE cria. */
+  parameterCountTotal: number;
 }
 
 export interface EngineParameter {
@@ -114,7 +117,8 @@ export interface EngineCommands {
   load: { args: { plugin?: string; path?: string }; result: EngineLoadedPlugin };
   unload: { args: {}; result: { unloaded: boolean } };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
-  params: { args: {}; result: EngineParameter[] };
+  /** `all: true` inclui também os não automatizáveis. */
+  params: { args: { all?: boolean }; result: EngineParameter[] };
   getParam: { args: { index: number }; result: EngineParameter };
   setParam: { args: { index: number; value: number }; result: EngineParameter };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };

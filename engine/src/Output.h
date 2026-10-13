@@ -37,6 +37,13 @@ inline void emit (const juce::var& message)
     std::fflush (stdout);
 }
 
+/** Converte um literal UTF-8 (com acentos) em juce::String sem codificar duas vezes.
+    O construtor de String a partir de const char* assume ASCII. */
+inline juce::String utf8 (const char* text)
+{
+    return juce::String::fromUTF8 (text);
+}
+
 /** Log humano vai para stderr, para não misturar com o protocolo. */
 inline void logLine (const juce::String& text)
 {

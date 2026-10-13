@@ -45,7 +45,8 @@ public:
     bool unloadPlugin();
 
     juce::var describeLoadedPlugin() const;
-    juce::var listParameters() const;
+    /** Por padrão só os automatizáveis (esconde os ~2000 "MIDI CC" do wrapper VST3). */
+    juce::var listParameters (bool includeNonAutomatable = false) const;
     juce::String setParameter (int index, float normalizedValue, juce::var& result);
     juce::String getParameter (int index, juce::var& result) const;
 

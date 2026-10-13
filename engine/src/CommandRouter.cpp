@@ -39,7 +39,7 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (parsed.failed() || ! message.isObject())
     {
-        fail ({}, "JSON inválido: " + parsed.getErrorMessage());
+        fail ({}, utf8 ("JSON inválido: ") + parsed.getErrorMessage());
         return;
     }
 
@@ -172,7 +172,7 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (cmd == "params")
     {
-        ok (id, engine.listParameters());
+        ok (id, engine.listParameters (boolArg (message, "all", false)));
         return;
     }
 
