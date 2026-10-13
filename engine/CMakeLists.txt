@@ -74,6 +74,11 @@ if(UNIX AND NOT APPLE AND PRESETER_ENABLE_JACK)
     target_compile_definitions(PreseterEngine PRIVATE JUCE_JACK=1)
 endif()
 
+option(PRESETER_BUILD_TEST_PLUGIN "Compila um sintetizador VST3 de teste (para validar o motor)" OFF)
+if(PRESETER_BUILD_TEST_PLUGIN)
+    add_subdirectory(test-plugin)
+endif()
+
 target_link_libraries(PreseterEngine
     PRIVATE
         juce::juce_audio_utils
