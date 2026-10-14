@@ -14,7 +14,6 @@ const AppContent: React.FC = () => {
     loadPreset,
     createPreset,
     sendMidiMessage,
-    loadVstPlugin,
     setVstParameter,
   } = context;
 
@@ -65,16 +64,6 @@ const AppContent: React.FC = () => {
       const loaded = await loadPreset(preset.id);
       if (!loaded) {
         setError(`Não foi possível carregar o patch "${preset.name}".`);
-        return;
-      }
-      const missing: string[] = [];
-      for (const assignment of preset.plugins ?? []) {
-        if (loadedPlugins.some((plugin) => plugin.path === assignment.path)) continue;
-        const plugin = await loadVstPlugin(assignment.path);
-        if (!plugin) missing.push(assignment.name);
-      }
-      if (missing.length > 0) {
-        setError(`Patch carregado, mas sem localizar: ${missing.join(', ')}.`);
       }
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : 'Erro desconhecido.';

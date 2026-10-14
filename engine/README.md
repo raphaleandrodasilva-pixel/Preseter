@@ -30,6 +30,16 @@ cmake --build engine/build --config Release
 
 Executável: `engine/build/PreseterEngine_artefacts/Release/PreseterEngine.exe`
 
+O app Electron inicia esse executável ao escanear/carregar plugins. Ao carregar
+um plugin pela interface, o app abre automaticamente o dispositivo de áudio
+padrão (2 saídas; efeitos também pedem 2 entradas). O carregamento falha com
+uma mensagem explícita se não houver dispositivo de áudio disponível. Notas e
+mensagens MIDI enviadas pela interface são encaminhadas ao plugin carregado e
+continuam também podendo ser enviadas a uma saída MIDI externa.
+
+Para empacotar a versão Windows do Electron, compile primeiro o executável no
+caminho acima; o `electron-builder` o copia para `resources/engine/`.
+
 Latência baixa no Windows pede **ASIO**. Ele não vem ligado porque o SDK da
 Steinberg precisa ser baixado por você (e tem licença própria):
 
@@ -61,6 +71,9 @@ Com o motor compilado, na raiz do projeto:
 node scripts/engine-smoke.js                         # ping, dispositivos e scan
 node scripts/engine-smoke.js --plugin=Surge --audio  # carrega um plugin e toca uma nota
 ```
+
+No app, cada carregamento substitui o plugin atualmente carregado. Presets com
+mais de um plugin ainda não são suportados pelo engine da Fase 1.
 
 Veja as opções no topo de `scripts/engine-smoke.js`.
 

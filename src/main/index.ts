@@ -29,6 +29,9 @@ class MainWindow {
     this.vstManager = new VstManager();
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
+    this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
+    this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
+    this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
   }
 
   init(): void {
@@ -45,11 +48,9 @@ class MainWindow {
       this.setupAutoScroll();
       // Scan VST é síncrono e pode demorar: roda após a janela abrir
       setImmediate(() => {
-        try {
-          this.vstManager.scanDefaultDirectories();
-        } catch (error) {
+        void this.vstManager.scanDefaultDirectories().catch((error) => {
           console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
-        }
+        });
       });
     });
 
@@ -63,6 +64,14 @@ class MainWindow {
       if (BrowserWindow.getAllWindows().length === 0) {
         this.createWindow();
       }
+    });
+
+    let shuttingDown = false;
+    app.on('before-quit', (event) => {
+      if (shuttingDown) return;
+      event.preventDefault();
+      shuttingDown = true;
+      void this.vstManager.shutdown().finally(() => app.quit());
     });
   }
 
@@ -123,15 +132,15 @@ class MainWindow {
 
     // === VST Handlers ===
 
-    ipcMain.handle('vst-scan', () => {
+    ipcMain.handle('vst-scan', async () => {
       return this.vstManager.scanDefaultDirectories();
     });
 
-    ipcMain.handle('vst-load', (_event, pluginPath: string) => {
+    ipcMain.handle('vst-load', async (_event, pluginPath: string) => {
       return this.vstManager.loadPlugin(pluginPath);
     });
 
-    ipcMain.handle('vst-unload', (_event, pluginId: string) => {
+    ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
       return this.vstManager.unloadPlugin(pluginId);
     });
 
@@ -153,6 +162,10 @@ class MainWindow {
 
     ipcMain.handle('vst-loaded', () => {
       return this.vstManager.getLoadedPlugins();
+    });
+
+    ipcMain.handle('engine-midi', (_event, bytes: number[]) => {
+      return this.vstManager.sendMidi(bytes);
     });
 
     // === Preset Handlers ===
@@ -226,7 +239,7 @@ class MainWindow {
       if (!this.window) return { canceled: true, filePaths: [] };
       const result = await dialog.showOpenDialog(this.window, {
         title: 'Selecione um plugin VST',
-        properties: ['openFile'],
+        properties: ['openFile', 'openDirectory'],
         filters: [{ name: 'Plugins VST3', extensions: ['vst3'] }],
       });
       return result;
@@ -241,13 +254,36 @@ class MainWindow {
     const preset = this.presetManager.getPreset(presetId);
     if (!preset) return false;
 
-    // Carregar VSTs do preset
+    if ((preset.plugins?.length ?? 0) > 1) {
+      throw new Error(
+        `O engine JUCE da Fase 1 aceita um plugin por vez; "${preset.name}" tem ${preset.plugins!.length}.`
+      );
+    }
+
+    const restoredStateKeys = new Set<string>();
+    for (const assignment of preset.plugins ?? []) {
+      const plugin = await this.vstManager.loadPlugin(assignment.path);
+      const savedStateKeys = [
+        `loaded_${plugin.id}`,
+        plugin.id,
+        `loaded_${assignment.pluginId}`,
+        assignment.pluginId,
+      ];
+      const savedStateKey = savedStateKeys.find((key) => preset.vstStates[key] !== undefined);
+      if (savedStateKey) {
+        await this.vstManager.setPluginState(plugin.id, preset.vstStates[savedStateKey]);
+        restoredStateKeys.add(savedStateKey);
+      }
+    }
+
+    // Restaurar também estados de plugins carregados fora da lista de assignments.
     const pluginStates = preset.vstStates;
     for (const [pluginId, state] of Object.entries(pluginStates)) {
-      if (pluginId.startsWith('loaded_')) {
-        const actualPluginId = pluginId.replace('loaded_', '');
-        await this.vstManager.setPluginState(actualPluginId, state);
-      }
+      if (restoredStateKeys.has(pluginId)) continue;
+      const actualPluginId = pluginId.replace(/^loaded_/, '');
+      const loaded = this.vstManager.getLoadedPlugins().find((plugin) => plugin.id === actualPluginId);
+      if (!loaded) continue;
+      await this.vstManager.setPluginState(loaded.id, state);
     }
 
     // Atualizar layout

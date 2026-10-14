@@ -149,6 +149,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
 
           {tab === 'vst' && (
             <div className="space-y-4">
+              {midiError && (
+                <div className="rounded-xl border border-red-800 bg-red-950/60 px-3 py-2 text-xs text-red-200">
+                  {midiError}
+                </div>
+              )}
               <button
                 onClick={() => { setScanning(true); void scanVstPlugins().finally(() => setScanning(false)); }}
                 disabled={scanning}

@@ -93,7 +93,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     webMidi.current = new WebMidiService(
       (program, channel) => {
         setMidiLastMessage(`Program Change ${program} · canal ${channel + 1}`);
-        void window.electronAPI.midiInputProgramChange(program, channel);
+        void window.electronAPI.midiInputProgramChange(program, channel)
+          .then(() => setMidiError(null))
+          .catch((error: unknown) => {
+            setMidiError(error instanceof Error ? error.message : 'Falha ao ativar o preset MIDI.');
+          });
       },
       setMidiError
     );
@@ -184,13 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     window.electronAPI.onPluginLoaded((plugin) => {
-      setLoadedPlugins((prev) => {
-        const existing = prev.findIndex((entry) => entry.id === plugin.id);
-        if (existing === -1) return [...prev, plugin];
-        const next = [...prev];
-        next[existing] = plugin;
-        return next;
-      });
+      setLoadedPlugins([plugin]);
     });
 
     window.electronAPI.onPluginUnloaded((pluginId) => {
@@ -233,8 +231,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const loadPreset = useCallback(async (presetId: string): Promise<boolean> => {
-    const result = await window.electronAPI.presetLoad(presetId);
+    let result: boolean;
+    try {
+      result = await window.electronAPI.presetLoad(presetId);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao carregar o preset.');
+      return false;
+    }
     if (result) {
+      setLoadedPlugins(await window.electronAPI.vstLoaded());
       const preset = presets.find((p) => p.id === presetId);
       if (preset) {
         setCurrentPreset(preset);
@@ -441,13 +446,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const sendMidiMessage = useCallback(async (message: number[]) => {
+    let externalSent = false;
     try {
-      const sent = await webMidi.current!.send(message);
-      if (sent) setMidiError(null);
-      return sent;
+      externalSent = await webMidi.current!.send(message);
     } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar mensagem MIDI.');
-      return false;
+      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar MIDI para a saída externa.');
+    }
+
+    try {
+      const engineSent = await window.electronAPI.engineMidi(message);
+      if (externalSent || engineSent) setMidiError(null);
+      return externalSent || engineSent;
+    } catch (error) {
+      if (!externalSent) {
+        setMidiError(error instanceof Error ? error.message : 'Falha ao enviar MIDI ao engine.');
+      }
+      return externalSent;
     }
   }, []);
 
@@ -458,36 +472,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // === VST Actions ===
   const scanVstPlugins = useCallback(async () => {
-    const plugins = await window.electronAPI.vstScan();
-    setScannedPlugins(plugins);
-    return plugins;
+    try {
+      const plugins = await window.electronAPI.vstScan();
+      setScannedPlugins(plugins);
+      setMidiError(null);
+      return plugins;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao escanear plugins VST3.');
+      return [];
+    }
   }, []);
 
   const loadVstPlugin = useCallback(async (pluginPath: string) => {
-    const plugin = await window.electronAPI.vstLoad(pluginPath);
-    if (plugin) {
-      setLoadedPlugins((prev) => {
-        const existing = prev.findIndex((entry) => entry.id === plugin.id);
-        if (existing === -1) return [...prev, plugin];
-        const next = [...prev];
-        next[existing] = plugin;
-        return next;
-      });
+    try {
+      const plugin = await window.electronAPI.vstLoad(pluginPath);
+      if (plugin) setLoadedPlugins([plugin]);
+      setMidiError(null);
+      return plugin;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao carregar plugin VST3.');
+      return null;
     }
-    return plugin;
   }, []);
 
   const unloadVstPlugin = useCallback(async (pluginId: string): Promise<boolean> => {
-    const result = await window.electronAPI.vstUnload(pluginId);
-    if (result) {
-      setLoadedPlugins((prev) => prev.filter((p) => p.id !== pluginId));
+    try {
+      const result = await window.electronAPI.vstUnload(pluginId);
+      if (result) {
+        setLoadedPlugins((prev) => prev.filter((p) => p.id !== pluginId));
+      }
+      setMidiError(null);
+      return result;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao descarregar plugin VST3.');
+      return false;
     }
-    return result;
   }, []);
 
   const setVstParameter = useCallback(
     async (pluginId: string, paramId: string, value: number): Promise<boolean> => {
-      return await window.electronAPI.vstSetParam(pluginId, paramId, value);
+      try {
+        const result = await window.electronAPI.vstSetParam(pluginId, paramId, value);
+        setMidiError(result ? null : 'Não foi possível aplicar o parâmetro ao plugin carregado.');
+        return result;
+      } catch (error) {
+        setMidiError(error instanceof Error ? error.message : 'Falha ao alterar parâmetro VST.');
+        return false;
+      }
     },
     []
   );

@@ -62,7 +62,29 @@
       "!src/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "extraResources": [
+        {
+          "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine.exe",
+          "to": "engine/PreseterEngine.exe"
+        }
+      ]
+    },
+    "linux": {
+      "extraResources": [
+        {
+          "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine",
+          "to": "engine/PreseterEngine"
+        }
+      ]
+    },
+    "mac": {
+      "extraResources": [
+        {
+          "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine",
+          "to": "engine/PreseterEngine"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

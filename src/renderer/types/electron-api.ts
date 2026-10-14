@@ -21,6 +21,7 @@ export interface ElectronAPI {
   vstSetState: (pluginId: string, state: any) => Promise<boolean>;
   vstList: () => Promise<any[]>;
   vstLoaded: () => Promise<any[]>;
+  engineMidi: (bytes: number[]) => Promise<boolean>;
   openPluginDialog: () => Promise<any>;
 
   // Preset

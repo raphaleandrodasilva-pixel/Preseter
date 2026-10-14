@@ -1,350 +1,178 @@
 import { EventEmitter } from 'events';
-import { createHash } from 'crypto';
-import * as path from 'path';
-import * as fs from 'fs';
-import { VstPluginInfo, VstParameter } from '../../shared/types';
-import { PLUGIN_DIRECTORIES } from '../../shared/constants';
+import type {
+  EngineLoadedPlugin,
+  EngineParameter,
+  EnginePluginInfo,
+} from '../../shared/engine-protocol';
+import type { VstParameter, VstPluginInfo } from '../../shared/types';
+import { EngineProcess } from './EngineProcess';
 
-/**
- * VSTManager - Gerencia o carregamento e controle de plugins VST3
- *
- * IMPORTANTE: Para carregar plugins VST3 reais, esta classe precisa ser
- * estendida com um binding nativo (Node.js addon) que utilize o
- * VST3 SDK da Steinberg.
- *
- * O SDK VST3 pode ser baixado em: https://www.steinberg.net/sdk_downloads
- *
- * Esta implementação fornece a estrutura e API, mas o carregamento real
- * de plugins requer compilação nativa.
- *
- * Alternativas para integração VST3:
- * 1. vst3sdk + JUCE (recomendado para produção)
- * 2. Carla VST plugin host (Linux)
- * 3. Pedalboard (Python, para VST3 no Windows)
- */
 export class VstManager extends EventEmitter {
+  private readonly engine = new EngineProcess();
   private scannedPlugins: VstPluginInfo[] = [];
-  private loadedPlugins: Map<string, VstPluginInfo> = new Map();
-  private pluginStates: Map<string, any> = new Map();
+  private loadedPlugin: VstPluginInfo | null = null;
 
-  constructor() {
-    super();
+  async scanDefaultDirectories(): Promise<VstPluginInfo[]> {
+    const result = await this.engine.request('scan', { rescan: false }, 10 * 60 * 1000);
+    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+    this.emit('scanned', this.scannedPlugins);
+    return this.scannedPlugins;
   }
 
-  /**
-   * Scanear diretórios padrão por plugins VST3
-   */
-  scanDefaultDirectories(): Promise<VstPluginInfo[]> {
-    return this.scanDirectories(PLUGIN_DIRECTORIES);
+  async scanDirectories(directories: string[]): Promise<VstPluginInfo[]> {
+    const result = await this.engine.request('scan', { paths: directories, rescan: false }, 10 * 60 * 1000);
+    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+    this.emit('scanned', this.scannedPlugins);
+    return this.scannedPlugins;
   }
 
-  /**
-   * Escanear diretórios específicos por plugins VST3
-   */
-  scanDirectories(directories: string[]): Promise<VstPluginInfo[]> {
-    return new Promise((resolve) => {
-      const found: VstPluginInfo[] = [];
-
-      for (const dir of directories) {
-        if (!fs.existsSync(dir)) continue;
-
-        const files = this.readDirRecursive(dir);
-
-        for (const file of files) {
-          if (file.toLowerCase().endsWith('.vst3')) {
-            const pluginInfo: VstPluginInfo = {
-              id: this.generatePluginId(file),
-              name: path.basename(file, '.vst3'),
-              path: file,
-              isLoaded: false,
-              isInstrument: this.guessIsInstrument(file),
-              parameters: [],
-            };
-            found.push(pluginInfo);
-          }
-        }
+  async loadPlugin(pluginPathOrId: string): Promise<VstPluginInfo> {
+    const scanned = this.scannedPlugins.find(
+      (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
+    );
+    const request = scanned ? { plugin: scanned.id } : { path: pluginPathOrId };
+    const enginePlugin = await this.engine.request('load', request, 60_000);
+    const previous = this.loadedPlugin;
+    this.loadedPlugin = null;
+    if (previous) this.emit('plugin-unloaded', previous.id);
+    try {
+      const parameters = await this.engine.request('params', {});
+      const loaded = this.toVstPlugin(enginePlugin, parameters, true);
+      await this.engine.request('audioStart', {
+        inputs: loaded.isInstrument ? 0 : 2,
+        outputs: 2,
+      });
+      this.loadedPlugin = loaded;
+      this.emit('plugin-loaded', loaded);
+      return loaded;
+    } catch (error) {
+      try {
+        await this.engine.request('unload', {});
+      } catch (unloadError) {
+        console.warn('[Preseter] Não foi possível descarregar o plugin após falha:', unloadError);
       }
-
-      this.scannedPlugins = found;
-      console.log(`[VST] Encontrado ${found.length} plugins`);
-      this.emit('scanned', found);
-      resolve(found);
-    });
-  }
-
-  /**
-   * Carregar um plugin VST3 por caminho
-   */
-  async loadPlugin(pluginPath: string): Promise<VstPluginInfo | null> {
-    const exists = fs.existsSync(pluginPath);
-    if (!exists) {
-      console.error(`[VST] Plugin não encontrado: ${pluginPath}`);
-      return null;
+      throw new Error(
+        `Não foi possível preparar o plugin "${enginePlugin.name}" e iniciar o áudio: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-
-    const pluginId = this.generatePluginId(pluginPath);
-    const name = path.basename(pluginPath, '.vst3');
-
-    // Criar instância do plugin (stub - requer native addon)
-    const pluginInfo: VstPluginInfo = {
-      id: pluginId,
-      name,
-      path: pluginPath,
-      isLoaded: true,
-      isInstrument: this.guessIsInstrument(pluginPath),
-      parameters: this.getDefaultParameters(name),
-    };
-
-    this.loadedPlugins.set(pluginId, pluginInfo);
-
-    // Salvar estado inicial do plugin
-    this.pluginStates.set(pluginId, {
-      parameters: {},
-      bypass: false,
-    });
-
-    console.log(`[VST] Plugin carregado: ${name} (${pluginId})`);
-    this.emit('plugin-loaded', pluginInfo);
-    return pluginInfo;
   }
 
-  /**
-   * Carregar plugin por ID
-   */
   async loadPluginById(pluginId: string): Promise<VstPluginInfo | null> {
-    const plugin = this.scannedPlugins.find((p) => p.id === pluginId);
-    if (!plugin) {
-      console.error(`[VST] Plugin não encontrado: ${pluginId}`);
-      return null;
-    }
-
-    const loaded = this.loadedPlugins.get(pluginId);
-    if (loaded) return loaded;
-
-    return this.loadPlugin(plugin.path);
+    const plugin = this.scannedPlugins.find((entry) => entry.id === pluginId);
+    if (!plugin) return null;
+    return this.loadPlugin(plugin.id);
   }
 
-  /**
-   * Descarregar um plugin
-   */
-  unloadPlugin(pluginId: string): boolean {
-    const plugin = this.loadedPlugins.get(pluginId);
-    if (!plugin) return false;
-
-    this.loadedPlugins.delete(pluginId);
-    this.pluginStates.delete(pluginId);
-
-    console.log(`[VST] Plugin descarregado: ${plugin.name}`);
+  async unloadPlugin(pluginId: string): Promise<boolean> {
+    if (!this.loadedPlugin || this.loadedPlugin.id !== pluginId) return false;
+    const result = await this.engine.request('unload', {});
+    if (!result.unloaded) return false;
+    this.loadedPlugin = null;
     this.emit('plugin-unloaded', pluginId);
     return true;
   }
 
-  /**
-   * Definir valor de um parâmetro do plugin
-   */
-  setParameter(pluginId: string, paramId: string, value: number): boolean {
-    const plugin = this.loadedPlugins.get(pluginId);
-    if (!plugin) return false;
-
-    const param = plugin.parameters.find((p) => p.id === paramId);
-    if (!param) return false;
-
-    // Normalizar valor
-    const normalized = Math.max(0, Math.min(1, value));
-    param.value = normalized;
-
-    // Salvar no estado
-    const state = this.pluginStates.get(pluginId) || { parameters: {} };
-    state.parameters = { ...state.parameters, [paramId]: normalized };
-    this.pluginStates.set(pluginId, state);
-
-    console.log(`[VST] Parâmetro ${param.name} = ${normalized}`);
-    this.emit('parameter-changed', { pluginId, paramId, value: normalized });
+  async setParameter(pluginId: string, paramId: string, value: number): Promise<boolean> {
+    if (!this.loadedPlugin || this.loadedPlugin.id !== pluginId) return false;
+    const index = this.parameterIndex(paramId);
+    if (index === null) return false;
+    const parameter = await this.engine.request('setParam', { index, value });
+    this.loadedPlugin = this.withParameter(this.loadedPlugin, parameter);
+    this.emit('parameter-changed', { pluginId, paramId, value: parameter.value });
     return true;
   }
 
-  /**
-   * Obter estado completo de um plugin
-   */
-  getPluginState(pluginId: string): any | null {
-    return this.pluginStates.get(pluginId) || null;
+  async sendMidi(bytes: number[]): Promise<boolean> {
+    if (!this.loadedPlugin) return false;
+    await this.engine.request('midi', { bytes });
+    return true;
   }
 
-  /**
-   * Definir estado completo de um plugin
-   */
-  setPluginState(pluginId: string, state: any): boolean {
-    if (!this.loadedPlugins.has(pluginId)) {
-      console.warn(`[VST] Plugin não carregado: ${pluginId}`);
-      return false;
+  async getPluginState(pluginId: string): Promise<{ parameters: Record<string, number>; bypass: false } | null> {
+    if (!this.loadedPlugin || this.loadedPlugin.id !== pluginId) return null;
+    const parameters = await this.engine.request('params', {});
+    return {
+      parameters: Object.fromEntries(parameters.map((parameter) => [String(parameter.index), parameter.value])),
+      bypass: false,
+    };
+  }
+
+  async setPluginState(pluginId: string, state: unknown): Promise<boolean> {
+    if (!this.loadedPlugin || this.loadedPlugin.id !== pluginId) return false;
+    if (!state || typeof state !== 'object') throw new TypeError('O estado do plugin precisa ser um objeto.');
+
+    const stateRecord = state as { parameters?: unknown; bypass?: unknown };
+    if (stateRecord.bypass === true) {
+      throw new Error('O engine JUCE ainda não oferece controle de bypass do plugin.');
+    }
+    if (stateRecord.parameters === undefined) return true;
+    if (!stateRecord.parameters || typeof stateRecord.parameters !== 'object') {
+      throw new TypeError('O campo parameters do estado precisa ser um objeto.');
     }
 
-    this.pluginStates.set(pluginId, state);
-
-    if (state.parameters) {
-      const plugin = this.loadedPlugins.get(pluginId)!;
-      for (const [paramId, value] of Object.entries(state.parameters)) {
-        const param = plugin.parameters.find((p) => p.id === paramId);
-        if (param) {
-          param.value = value as number;
-        }
+    for (const [key, value] of Object.entries(stateRecord.parameters)) {
+      const index = this.parameterIndex(key);
+      if (index === null || typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new TypeError(`Parâmetro inválido no estado do plugin: ${key}.`);
       }
+      const parameter = await this.engine.request('setParam', { index, value });
+      this.loadedPlugin = this.withParameter(this.loadedPlugin, parameter);
     }
-
-    console.log(`[VST] Estado restaurado para: ${pluginId}`);
-    this.emit('state-restored', pluginId);
     return true;
   }
 
-  /**
-   * Obter todos os plugins encontrados no escaneamento
-   */
   getScannedPlugins(): VstPluginInfo[] {
     return this.scannedPlugins;
   }
 
-  /**
-   * Obter plugins atualmente carregados
-   */
   getLoadedPlugins(): VstPluginInfo[] {
-    return Array.from(this.loadedPlugins.values());
+    return this.loadedPlugin ? [this.loadedPlugin] : [];
   }
 
-  /**
-   * Obter informações de um plugin específico
-   */
-  getPlugin(pluginId: string): VstPluginInfo | undefined {
-    return this.loadedPlugins.get(pluginId);
+  async shutdown(): Promise<void> {
+    await this.engine.shutdown();
   }
 
-  /**
-   * Obter parâmetros de um plugin
-   */
-  getParameters(pluginId: string): VstParameter[] | null {
-    const plugin = this.loadedPlugins.get(pluginId);
-    return plugin ? plugin.parameters : null;
+  private toVstPlugin(
+    plugin: EnginePluginInfo | EngineLoadedPlugin,
+    engineParameters: EngineParameter[] = [],
+    isLoaded = false
+  ): VstPluginInfo {
+    const parameters: VstParameter[] = engineParameters.map((parameter) => ({
+      id: String(parameter.index),
+      name: parameter.name,
+      label: parameter.label,
+      value: parameter.value,
+      defaultValue: parameter.defaultValue,
+      minValue: 0,
+      maxValue: 1,
+      stepCount: parameter.stepCount,
+    }));
+    return {
+      id: plugin.id,
+      name: plugin.name,
+      path: plugin.path,
+      isLoaded,
+      isInstrument: plugin.isInstrument,
+      parameters,
+    };
   }
 
-  /**
-   * Processar áudio (stub - requer implementação nativa)
-   */
-  processAudio(
-    pluginId: string,
-    inputBuffer: Float32Array[],
-    outputBuffer: Float32Array[],
-    sampleRate: number,
-    numFrames: number
-  ): boolean {
-    // Este método requer a implementação real do processo de áudio do plugin
-    // A implementação real usará o VST3 SDK
-    return true;
+  private withParameter(plugin: VstPluginInfo, parameter: EngineParameter): VstPluginInfo {
+    const next = plugin.parameters.map((current) =>
+      current.id === String(parameter.index)
+        ? { ...current, value: parameter.value }
+        : current
+    );
+    return { ...plugin, parameters: next };
   }
 
-  /**
-   * Limpar todos os plugins carregados
-   */
-  clearAll(): void {
-    for (const pluginId of this.loadedPlugins.keys()) {
-      this.unloadPlugin(pluginId);
-    }
-  }
-
-  // Métodos auxiliares
-
-  private readDirRecursive(dir: string): string[] {
-    const results: string[] = [];
-
-    if (!fs.existsSync(dir)) return results;
-
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...this.readDirRecursive(fullPath));
-      } else {
-        results.push(fullPath);
-      }
-    }
-
-    return results;
-  }
-
-  private generatePluginId(filePath: string): string {
-    const normalizedPath = path.resolve(filePath).toLowerCase();
-    const pathHash = createHash('sha256').update(normalizedPath).digest('hex').slice(0, 16);
-    return `plugin_${pathHash}`;
-  }
-
-  private guessIsInstrument(filePath: string): boolean {
-    const name = path.basename(filePath).toLowerCase();
-    const instrumentKeywords = ['synth', 'piano', 'organ', 'bass', 'drum', 'sampler'];
-    return instrumentKeywords.some((kw) => name.includes(kw));
-  }
-
-  private getDefaultParameters(pluginName: string): VstParameter[] {
-    // Parâmetros padrão - serão substituídos quando o plugin real for carregado
-    // via native addon VST3 SDK
-    return [
-      {
-        id: 'param_0',
-        name: 'Volume',
-        label: 'dB',
-        value: 0.75,
-        defaultValue: 0.75,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-      {
-        id: 'param_1',
-        name: 'Pan',
-        label: 'pan',
-        value: 0.5,
-        defaultValue: 0.5,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-      {
-        id: 'param_2',
-        name: 'Drive',
-        label: '',
-        value: 0.3,
-        defaultValue: 0.3,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-      {
-        id: 'param_3',
-        name: 'Cutoff',
-        label: 'Hz',
-        value: 0.6,
-        defaultValue: 0.6,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-      {
-        id: 'param_4',
-        name: 'Resonance',
-        label: 'Q',
-        value: 0.2,
-        defaultValue: 0.2,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-      {
-        id: 'param_5',
-        name: 'Dry/Wet',
-        label: '%',
-        value: 0.5,
-        defaultValue: 0.5,
-        minValue: 0,
-        maxValue: 1,
-        stepCount: 0,
-      },
-    ];
+  private parameterIndex(paramId: string): number | null {
+    const match = /^(?:param_)?(\d+)$/.exec(paramId);
+    if (!match) return null;
+    const index = Number(match[1]);
+    return Number.isSafeInteger(index) ? index : null;
   }
 }

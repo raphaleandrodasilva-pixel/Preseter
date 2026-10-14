@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-state', pluginId, state),
   vstList: () => ipcRenderer.invoke('vst-list'),
   vstLoaded: () => ipcRenderer.invoke('vst-loaded'),
+  engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
   openPluginDialog: () => ipcRenderer.invoke('open-plugin-dialog'),
 
   // === Preset ===

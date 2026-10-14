@@ -169,6 +169,7 @@ export type ElectronChannels =
   | 'vst-set-state'
   | 'vst-list'
   | 'vst-loaded'
+  | 'engine-midi'
   | 'preset-save'
   | 'preset-load'
   | 'preset-list'
@@ -197,6 +198,7 @@ export interface ElectronEventMap {
   'vst-set-param': (pluginId: string, paramId: string, value: number) => void;
   'vst-get-state': (pluginId: string) => void;
   'vst-set-state': (pluginId: string, state: any) => void;
+  'engine-midi': (message: number[]) => void;
   'preset-save': (preset: Preset) => void;
   'preset-load': (presetId: string) => void;
   'preset-list': () => void;
