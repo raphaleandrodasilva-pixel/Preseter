@@ -13,7 +13,14 @@
  * Opções:
  *   --engine=CAMINHO   executável do motor (ou variável PRESETER_ENGINE)
  *   --plugin=TEXTO     nome (parcial) ou caminho .vst3 do plugin a carregar
- *   --audio            abre o dispositivo de áudio padrão e toca uma nota
+ *   --devices          só lista os dispositivos de áudio/MIDI e sai
+ *   --audio            abre o áudio e toca uma nota (dispositivo padrão, se nada abaixo)
+ *   --type=ASIO        tipo de áudio: use um nome exatamente como aparece em --devices
+ *   --output="NOME"    dispositivo de saída (ex.: o nome do driver ASIO)
+ *   --input="NOME"     dispositivo de entrada
+ *   --rate=48000       taxa de amostragem (deve combinar com a do painel do driver ASIO)
+ *   --buffer=512       tamanho do buffer em amostras
+ *   --inputs=N / --outputs=N   nº de canais (padrão 0 ou 2 entradas / 2 saídas)
  *   --note=60          nota MIDI a tocar (padrão 60 = Dó central)
  *   --rescan           ignora a lista salva e varre tudo de novo
  *   --path=PASTA       pasta extra de plugins (pode repetir)
@@ -106,9 +113,12 @@ async function main() {
   }
   console.log('\nDispositivos de áudio:');
   for (const t of devices.audioTypes) {
-    console.log(`  [${t.type}] saídas: ${t.outputs.join(' | ') || '-'}`);
+    console.log(`  [${t.type}]`);
+    console.log(`     saídas : ${t.outputs.join(' | ') || '-'}`);
+    console.log(`     entradas: ${t.inputs.join(' | ') || '-'}`);
   }
   console.log('MIDI de entrada:', devices.midiInputs.map((d) => d.name).join(' | ') || '(nenhum)');
+  if (flag('devices')) return;
 
   console.log('\nVarrendo plugins (pode demorar na primeira vez)...');
   const scan = await request(
@@ -193,10 +203,28 @@ async function main() {
   }
 
   if (flag('audio')) {
-    console.log('\nAbrindo áudio...');
-    const audio = await request('audioStart', { inputs: plugin.isInstrument ? 0 : 2, outputs: 2 });
+    const options = {
+      inputs: Number(first('inputs', plugin.isInstrument ? 0 : 2)),
+      outputs: Number(first('outputs', 2)),
+    };
+    if (first('type')) options.type = first('type');
+    if (first('output')) options.output = first('output');
+    if (first('input')) options.input = first('input');
+    if (first('rate')) options.sampleRate = Number(first('rate'));
+    if (first('buffer')) options.bufferSize = Number(first('buffer'));
+
+    console.log('\nAbrindo áudio com:', JSON.stringify(options));
+    const audio = await request('audioStart', options);
     const cur = audio.current;
-    console.log(`Áudio: ${cur.type} / ${cur.name} @ ${cur.sampleRate} Hz, buffer ${cur.bufferSize}`);
+    console.log(`Áudio aberto: [${cur.type}] ${cur.name}`);
+    console.log(
+      `  ${cur.sampleRate} Hz, buffer ${cur.bufferSize}, ` +
+        `${cur.inputChannels} entrada(s), ${cur.outputChannels} saída(s), ` +
+        `latência de saída ~${cur.outputLatencyMs.toFixed(1)} ms`
+    );
+    if (cur.outputChannels === 0) {
+      console.log('  ATENÇÃO: o dispositivo abriu com 0 canais de saída — não vai sair som.');
+    }
 
     const note = Number(first('note', 60));
     console.log(`Tocando a nota ${note} por 1,5 s — você deve ouvir o som.`);
