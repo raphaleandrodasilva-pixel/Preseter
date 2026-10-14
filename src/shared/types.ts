@@ -5,11 +5,15 @@
 // Tipo de plugin VST
 export interface VstPluginInfo {
   id: string;
+  /** Identidade da instância no patch; diferentes layers podem usar o mesmo VST. */
+  layerId?: string;
   name: string;
   path: string;
   isLoaded: boolean;
   isInstrument: boolean;
   parameters: VstParameter[];
+  minNote?: number;
+  maxNote?: number;
 }
 
 export interface VstParameter {
@@ -43,6 +47,7 @@ export interface Preset {
   notes?: string;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
+  masterMix?: MasterMixSettings;
   vstStates: Record<string, any>;
   layout: LayoutConfig;
   createdAt: number;
@@ -76,9 +81,77 @@ export interface Concert {
 
 export interface PresetPluginAssignment {
   pluginId: string;
+  /** Identidade única do layer dentro do patch. */
+  layerId?: string;
   name: string;
   path: string;
   role: 'instrument' | 'effect';
+  minNote?: number;
+  maxNote?: number;
+  mix?: LayerMixSettings;
+}
+
+export interface LayerMixSettings {
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  solo: boolean;
+}
+
+export interface MasterMixSettings {
+  volumeDb: number;
+  muted: boolean;
+}
+
+export interface LayerMixState extends LayerMixSettings {
+  layerId: string;
+  peakDb: number;
+}
+
+export interface EngineMixState {
+  layers: LayerMixState[];
+  master: MasterMixSettings & { peakDb: number };
+}
+
+export type LayerMixUpdate = Partial<LayerMixSettings>;
+export type MasterMixUpdate = Partial<MasterMixSettings>;
+
+export interface AudioStartOptions {
+  inputs?: number;
+  outputs?: number;
+  type?: string;
+  input?: string;
+  output?: string;
+  sampleRate?: number;
+  bufferSize?: number;
+  midi?: boolean;
+}
+
+export interface AudioDeviceSnapshot {
+  running: boolean;
+  asioSupported: boolean;
+  asioDriverAvailable: boolean;
+  asioUnavailableReason?: string;
+  current: null | {
+    type: string;
+    name: string;
+    sampleRate: number;
+    bufferSize: number;
+    inputChannels: number;
+    outputChannels: number;
+    outputLatencyMs: number;
+  };
+  audioTypes: Array<{ type: string; outputs: string[]; inputs: string[] }>;
+  midiInputs: Array<{ name: string; identifier: string; enabled: boolean }>;
+}
+
+export interface SavedAudioSettings extends AudioStartOptions {
+  enabled: boolean;
+}
+
+export interface AudioSettingsSnapshot {
+  devices: AudioDeviceSnapshot;
+  settings: SavedAudioSettings;
 }
 
 // Configuração de layout da interface

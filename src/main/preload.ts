@@ -27,7 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // === VST ===
   vstScan: () => ipcRenderer.invoke('vst-scan'),
-  vstLoad: (pluginPath: string) => ipcRenderer.invoke('vst-load', pluginPath),
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) =>
+    ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number) =>
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value),
@@ -37,6 +38,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstList: () => ipcRenderer.invoke('vst-list'),
   vstLoaded: () => ipcRenderer.invoke('vst-loaded'),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
+  vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>
+    ipcRenderer.invoke('vst-set-layer-range', layerId, minNote, maxNote),
+  vstMixGet: () => ipcRenderer.invoke('vst-mix-get'),
+  vstSetLayerMix: (layerId: string, update: unknown) =>
+    ipcRenderer.invoke('vst-set-layer-mix', layerId, update),
+  vstSetMasterMix: (update: unknown) => ipcRenderer.invoke('vst-set-master-mix', update),
+  audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
+  audioStart: (options: unknown) => ipcRenderer.invoke('audio-start', options),
+  audioStop: () => ipcRenderer.invoke('audio-stop'),
   openPluginDialog: () => ipcRenderer.invoke('open-plugin-dialog'),
 
   // === Preset ===

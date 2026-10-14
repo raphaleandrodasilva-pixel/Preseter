@@ -1,3 +1,14 @@
+import type {
+  AudioDeviceSnapshot,
+  AudioSettingsSnapshot,
+  AudioStartOptions,
+  EngineMixState,
+  LayerMixUpdate,
+  MasterMixUpdate,
+  SavedAudioSettings,
+  VstPluginInfo,
+} from '@shared/types';
+
 export interface ElectronAPI {
   // App Info
   getAppVersion: () => Promise<string>;
@@ -13,8 +24,8 @@ export interface ElectronAPI {
   onNoteOff: (callback: (data: any) => void) => void;
 
   // VST
-  vstScan: () => Promise<any[]>;
-  vstLoad: (pluginPath: string) => Promise<any>;
+  vstScan: () => Promise<VstPluginInfo[]>;
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => Promise<VstPluginInfo>;
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
   vstGetState: (pluginId: string) => Promise<any>;
@@ -22,6 +33,13 @@ export interface ElectronAPI {
   vstList: () => Promise<any[]>;
   vstLoaded: () => Promise<any[]>;
   engineMidi: (bytes: number[]) => Promise<boolean>;
+  vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;
+  vstMixGet: () => Promise<EngineMixState>;
+  vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
+  vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;
+  audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
+  audioStart: (options: AudioStartOptions) => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
+  audioStop: () => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
   openPluginDialog: () => Promise<any>;
 
   // Preset

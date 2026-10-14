@@ -6,6 +6,12 @@ import {
   UiElement,
   LayoutConfig,
   AppStatus,
+  AudioDeviceSnapshot,
+  AudioStartOptions,
+  EngineMixState,
+  LayerMixUpdate,
+  MasterMixUpdate,
+  SavedAudioSettings,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
@@ -17,7 +23,10 @@ export interface AppContextType {
   concertName: string;
   currentPreset: Preset | null;
   loadedPlugins: VstPluginInfo[];
+  mixState: EngineMixState | null;
   scannedPlugins: VstPluginInfo[];
+  audioDevices: AudioDeviceSnapshot | null;
+  audioSettings: SavedAudioSettings | null;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -60,9 +69,15 @@ export interface AppContextType {
 
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
-  loadVstPlugin: (pluginPath: string) => Promise<VstPluginInfo | null>;
+  loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
   setVstParameter: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
+  setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
+  setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
+  setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
+  refreshAudioSettings: () => Promise<void>;
+  startAudio: (options: AudioStartOptions) => Promise<boolean>;
+  stopAudio: () => Promise<boolean>;
 
   // Ações de Layout/UI
   addUIElement: (element: UiElement) => void;
@@ -119,7 +134,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
   const [currentPreset, setCurrentPreset] = useState<Preset | null>(null);
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
+  const [mixState, setMixState] = useState<EngineMixState | null>(null);
   const [scannedPlugins, setScannedPlugins] = useState<VstPluginInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<AudioDeviceSnapshot | null>(null);
+  const [audioSettings, setAudioSettings] = useState<SavedAudioSettings | null>(null);
   const [midiDevices, setMidiDevices] = useState<MidiDeviceInfo[]>([]);
   const [layout, setLayoutState] = useState<LayoutConfig | null>(null);
   const [appStatus, setAppStatus] = useState<AppStatus>({
@@ -138,11 +156,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
-      const presetList = await window.electronAPI.presetList();
-      setPresets(presetList);
-      setLoadedPlugins(await window.electronAPI.vstLoaded());
+      try {
+        const [presetList, loaded, audio] = await Promise.all([
+          window.electronAPI.presetList(),
+          window.electronAPI.vstLoaded(),
+          window.electronAPI.audioSettingsGet(),
+        ]);
+        setPresets(presetList);
+        setLoadedPlugins(loaded);
+        setAudioDevices(audio.devices);
+        setAudioSettings(audio.settings);
+      } catch (error) {
+        setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
+      }
     };
-    loadData();
+    void loadData();
   }, []);
 
   useEffect(() => {
@@ -188,18 +216,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     window.electronAPI.onPluginLoaded((plugin) => {
-      setLoadedPlugins([plugin]);
+      setLoadedPlugins((prev) => {
+        const layerId = plugin.layerId ?? plugin.id;
+        const next = prev.filter((item) => (item.layerId ?? item.id) !== layerId);
+        return [...next, plugin];
+      });
     });
 
     window.electronAPI.onPluginUnloaded((pluginId) => {
-      setLoadedPlugins((prev) => prev.filter((p) => p.id !== pluginId));
+      setLoadedPlugins((prev) => prev.filter((p) => (p.layerId ?? p.id) !== pluginId));
     });
 
     window.electronAPI.onParameterChanged((data) => {
       // Atualizar parâmetro visual
       setLoadedPlugins((prev) =>
         prev.map((plugin) => {
-          if (plugin.id !== data.pluginId) return plugin;
+          if ((plugin.layerId ?? plugin.id) !== (data.layerId ?? data.pluginId)) return plugin;
           return {
             ...plugin,
             parameters: plugin.parameters.map((p) =>
@@ -240,6 +272,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     if (result) {
       setLoadedPlugins(await window.electronAPI.vstLoaded());
+      try {
+        setMixState(await window.electronAPI.vstMixGet());
+      } catch (error) {
+        setMidiError(error instanceof Error ? error.message : 'Falha ao carregar a mixagem do patch.');
+      }
+      try {
+        const audio = await window.electronAPI.audioSettingsGet();
+        setAudioDevices(audio.devices);
+        setAudioSettings(audio.settings);
+      } catch (error) {
+        setMidiError(error instanceof Error ? error.message : 'Falha ao atualizar o estado de áudio.');
+      }
       const preset = presets.find((p) => p.id === presetId);
       if (preset) {
         setCurrentPreset(preset);
@@ -483,10 +527,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const loadVstPlugin = useCallback(async (pluginPath: string) => {
+  const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127) => {
     try {
-      const plugin = await window.electronAPI.vstLoad(pluginPath);
-      if (plugin) setLoadedPlugins([plugin]);
+      const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote);
+      if (plugin) {
+        setLoadedPlugins((previous) => [
+          ...previous.filter((current) => current.layerId !== plugin.layerId),
+          plugin,
+        ]);
+        void window.electronAPI.audioSettingsGet()
+          .then((snapshot) => {
+            setAudioDevices(snapshot.devices);
+            setAudioSettings(snapshot.settings);
+          })
+          .catch((error: unknown) => {
+            setMidiError(error instanceof Error ? error.message : 'Falha ao atualizar o estado de áudio.');
+          });
+      }
       setMidiError(null);
       return plugin;
     } catch (error) {
@@ -499,7 +556,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const result = await window.electronAPI.vstUnload(pluginId);
       if (result) {
-        setLoadedPlugins((prev) => prev.filter((p) => p.id !== pluginId));
+        setLoadedPlugins((prev) => prev.filter((p) => p.layerId !== pluginId && p.id !== pluginId));
       }
       setMidiError(null);
       return result;
@@ -513,6 +570,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async (pluginId: string, paramId: string, value: number): Promise<boolean> => {
       try {
         const result = await window.electronAPI.vstSetParam(pluginId, paramId, value);
+        if (result) {
+          setLoadedPlugins((previous) =>
+            previous.map((plugin) =>
+              plugin.layerId === pluginId
+                ? {
+                    ...plugin,
+                    parameters: plugin.parameters.map((parameter) =>
+                      parameter.id === paramId ? { ...parameter, value } : parameter
+                    ),
+                  }
+                : plugin
+            )
+          );
+        }
         setMidiError(result ? null : 'Não foi possível aplicar o parâmetro ao plugin carregado.');
         return result;
       } catch (error) {
@@ -522,6 +593,107 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     []
   );
+
+  const setVstLayerRange = useCallback(async (layerId: string, minNote: number, maxNote: number) => {
+    try {
+      const updated = await window.electronAPI.vstSetLayerRange(layerId, minNote, maxNote);
+      setLoadedPlugins((previous) =>
+        previous.map((plugin) => (plugin.layerId === layerId ? { ...plugin, ...updated } : plugin))
+      );
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar a região MIDI do layer.');
+      return false;
+    }
+  }, []);
+
+  const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
+    try {
+      setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o channel strip.');
+      return false;
+    }
+  }, []);
+
+  const setVstMasterMix = useCallback(async (update: MasterMixUpdate) => {
+    try {
+      setMixState(await window.electronAPI.vstSetMasterMix(update));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o channel strip Master.');
+      return false;
+    }
+  }, []);
+
+  const refreshAudioSettings = useCallback(async () => {
+    try {
+      const snapshot = await window.electronAPI.audioSettingsGet();
+      setAudioDevices(snapshot.devices);
+      setAudioSettings(snapshot.settings);
+      setMidiError(null);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao consultar dispositivos de áudio.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!audioDevices?.running || loadedPlugins.length === 0) {
+      setMixState(null);
+      return;
+    }
+
+    let active = true;
+    let pending = false;
+    const poll = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const snapshot = await window.electronAPI.vstMixGet();
+        if (active) setMixState(snapshot);
+      } catch (error) {
+        if (active) setMidiError(error instanceof Error ? error.message : 'Falha ao atualizar os medidores.');
+      } finally {
+        pending = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 100);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [audioDevices?.running, loadedPlugins.length]);
+
+  const startAudio = useCallback(async (options: AudioStartOptions) => {
+    try {
+      const snapshot = await window.electronAPI.audioStart(options);
+      setAudioDevices(snapshot.devices);
+      setAudioSettings(snapshot.settings);
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar o áudio.');
+      return false;
+    }
+  }, []);
+
+  const stopAudio = useCallback(async () => {
+    try {
+      const snapshot = await window.electronAPI.audioStop();
+      setAudioDevices(snapshot.devices);
+      setAudioSettings(snapshot.settings);
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao parar o áudio.');
+      return false;
+    }
+  }, []);
 
   // === Layout Actions ===
   const addUIElement = useCallback((element: UiElement) => {
@@ -582,7 +754,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertName,
     currentPreset,
     loadedPlugins,
+    mixState,
     scannedPlugins,
+    audioDevices,
+    audioSettings,
     midiDevices,
     midiError,
     midiLastMessage,
@@ -614,6 +789,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadVstPlugin,
     unloadVstPlugin,
     setVstParameter,
+    setVstLayerRange,
+    setVstLayerMix,
+    setVstMasterMix,
+    refreshAudioSettings,
+    startAudio,
+    stopAudio,
     addUIElement,
     updateUIElement,
     removeUIElement,

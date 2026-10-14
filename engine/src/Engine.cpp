@@ -2,10 +2,170 @@
 
 #include "Output.h"
 
+#include <array>
+#include <atomic>
+#include <cmath>
+
 namespace preseter
 {
 namespace
 {
+class NoteRangeFilter final : public juce::AudioProcessor
+{
+public:
+    NoteRangeFilter()
+        : juce::AudioProcessor (BusesProperties())
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Note Range"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout&) const override { return true; }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (audio);
+        juce::MidiBuffer accepted;
+        for (const auto metadata : midi)
+        {
+            const auto message = metadata.getMessage();
+            bool pass = true;
+            if (message.isNoteOn())
+            {
+                pass = message.getNoteNumber() >= minimum.load()
+                    && message.getNoteNumber() <= maximum.load();
+                if (pass)
+                    ++activeNotes[(size_t) message.getChannel() - 1][(size_t) message.getNoteNumber()];
+            }
+            else if (message.isNoteOff())
+            {
+                auto& count = activeNotes[(size_t) message.getChannel() - 1][(size_t) message.getNoteNumber()];
+                pass = count > 0;
+                if (pass) --count;
+            }
+            else if (message.isAllNotesOff() || message.isAllSoundOff())
+            {
+                activeNotes = {};
+            }
+
+            if (pass)
+                accepted.addEvent (message, metadata.samplePosition);
+        }
+        midi.swapWith (accepted);
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return true; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void setRange (int minNote, int maxNote)
+    {
+        minimum.store (minNote);
+        maximum.store (maxNote);
+    }
+
+private:
+    std::atomic<int> minimum { 0 };
+    std::atomic<int> maximum { 127 };
+    std::array<std::array<unsigned int, 128>, 16> activeNotes {};
+};
+
+class ChannelStripProcessor final : public juce::AudioProcessor
+{
+public:
+    explicit ChannelStripProcessor (std::atomic<int>* soloCount = nullptr)
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+          sharedSoloCount (soloCount)
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Channel Strip"; }
+    void prepareToPlay (double rate, int blockSize) override
+    {
+        peakDecay = std::pow (0.5f, (float) blockSize / (float) (juce::jmax (1.0, rate) * 0.35));
+    }
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        const auto isSoloed = solo.load();
+        const auto shouldSilence = muted.load()
+            || (sharedSoloCount != nullptr && sharedSoloCount->load() > 0 && ! isSoloed);
+        const auto gain = juce::Decibels::decibelsToGain (volumeDb.load());
+        const auto balance = pan.load();
+        const auto leftGain = gain * (balance > 0.0f ? 1.0f - balance : 1.0f);
+        const auto rightGain = gain * (balance < 0.0f ? 1.0f + balance : 1.0f);
+        float blockPeak = 0.0f;
+
+        if (shouldSilence)
+        {
+            audio.clear();
+        }
+        else
+        {
+            for (int channel = 0; channel < audio.getNumChannels(); ++channel)
+            {
+                auto* samples = audio.getWritePointer (channel);
+                const auto channelGain = channel == 0 ? leftGain : rightGain;
+                for (int sample = 0; sample < audio.getNumSamples(); ++sample)
+                {
+                    samples[sample] *= channelGain;
+                    blockPeak = juce::jmax (blockPeak, std::abs (samples[sample]));
+                }
+            }
+        }
+
+        const auto decayedPeak = peak.load() * peakDecay;
+        peak.store (juce::jmax (blockPeak, decayedPeak));
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void setVolumeDb (float value) { volumeDb.store (value); }
+    void setPan (float value) { pan.store (value); }
+    void setMuted (bool value) { muted.store (value); }
+    void setSolo (bool value) { solo.store (value); }
+    float getVolumeDb() const { return volumeDb.load(); }
+    float getPan() const { return pan.load(); }
+    bool isMuted() const { return muted.load(); }
+    bool isSolo() const { return solo.load(); }
+    float getPeakDb() const { return juce::Decibels::gainToDecibels (peak.load(), -100.0f); }
+
+private:
+    std::atomic<int>* sharedSoloCount = nullptr;
+    std::atomic<float> volumeDb { 0.0f };
+    std::atomic<float> pan { 0.0f };
+    std::atomic<float> peak { 0.0f };
+    std::atomic<bool> muted { false };
+    std::atomic<bool> solo { false };
+    float peakDecay = 0.99f;
+};
+
 juce::var toVarArray (const juce::StringArray& strings)
 {
     juce::Array<juce::var> list;
@@ -48,6 +208,7 @@ Engine::Engine()
     audioInNode  = graph.addNode (std::make_unique<IO> (IO::audioInputNode));
     audioOutNode = graph.addNode (std::make_unique<IO> (IO::audioOutputNode));
     midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
+    masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
 
     deviceManager.addChangeListener (this);
 }
@@ -147,6 +308,8 @@ bool Engine::isAudioRunning() const
 juce::var Engine::describeDevices()
 {
     juce::Array<juce::var> types;
+    bool asioBackendAvailable = false;
+    bool asioDriverAvailable = false;
 
     for (auto* type : deviceManager.getAvailableDeviceTypes())
     {
@@ -155,6 +318,11 @@ juce::var Engine::describeDevices()
         juce::Array<juce::var> outputs, inputs;
         for (const auto& name : type->getDeviceNames (false)) outputs.add (name);
         for (const auto& name : type->getDeviceNames (true))  inputs.add (name);
+        if (type->getTypeName().containsIgnoreCase ("ASIO"))
+        {
+            asioBackendAvailable = true;
+            asioDriverAvailable = ! outputs.isEmpty() || ! inputs.isEmpty();
+        }
 
         types.add (Obj()
                        .set ("type", type->getTypeName())
@@ -187,7 +355,148 @@ juce::var Engine::describeDevices()
         .set ("running", isAudioRunning())
         .set ("current", current)
         .set ("audioTypes", juce::var (types))
-        .set ("midiInputs", juce::var (midiInputs));
+        .set ("midiInputs", juce::var (midiInputs))
+        .set ("asioSupported", asioBackendAvailable)
+        .set ("asioDriverAvailable", asioDriverAvailable)
+        .set ("asioUnavailableReason", asioBackendAvailable
+            ? (asioDriverAvailable ? juce::String() : juce::String ("Backend ASIO compilado, mas nenhum driver ASIO foi encontrado."))
+            : audioConfigurationError());
+}
+
+juce::var Engine::describeAudioConfiguration()
+{
+    return describeDevices();
+}
+
+juce::String Engine::audioConfigurationError()
+{
+    for (auto* type : deviceManager.getAvailableDeviceTypes())
+        if (type->getTypeName().containsIgnoreCase ("ASIO"))
+            return {};
+    return "ASIO indisponível neste engine. Recompile com PRESETER_ENABLE_ASIO=ON e informe o caminho do ASIO SDK da Steinberg.";
+}
+
+juce::var Engine::describeMixState() const
+{
+    juce::Array<juce::var> layerStates;
+    for (const auto& layer : layers)
+    {
+        auto* strip = layer.stripNode != nullptr
+            ? dynamic_cast<ChannelStripProcessor*> (layer.stripNode->getProcessor())
+            : nullptr;
+        if (strip == nullptr)
+            continue;
+
+        layerStates.add (Obj()
+            .set ("layerId", layer.id)
+            .set ("volumeDb", strip->getVolumeDb())
+            .set ("pan", strip->getPan())
+            .set ("muted", strip->isMuted())
+            .set ("solo", strip->isSolo())
+            .set ("peakDb", strip->getPeakDb()));
+    }
+
+    auto* master = masterNode != nullptr
+        ? dynamic_cast<ChannelStripProcessor*> (masterNode->getProcessor())
+        : nullptr;
+    auto masterState = Obj()
+        .set ("volumeDb", master != nullptr ? master->getVolumeDb() : 0.0f)
+        .set ("muted", master != nullptr && master->isMuted())
+        .set ("peakDb", master != nullptr ? master->getPeakDb() : -100.0f);
+
+    return Obj()
+        .set ("layers", juce::var (layerStates))
+        .set ("master", masterState);
+}
+
+juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& options,
+                                  juce::var& result)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return "Layer de instrumento não encontrado.";
+    auto* strip = dynamic_cast<ChannelStripProcessor*> (
+        layers[(size_t) index].stripNode->getProcessor());
+    if (strip == nullptr)
+        return "O channel strip deste layer não está disponível.";
+
+    auto volumeDb = strip->getVolumeDb();
+    auto pan = strip->getPan();
+    auto muted = strip->isMuted();
+    auto solo = strip->isSolo();
+    if (options.hasProperty ("volumeDb"))
+    {
+        const auto& value = options["volumeDb"];
+        if (! (value.isInt() || value.isInt64() || value.isDouble())
+            || ! std::isfinite ((double) value)
+            || (double) value < -60.0 || (double) value > 6.0)
+            return "O volume deve ser um número entre -60 e +6 dB.";
+        volumeDb = (float) (double) value;
+    }
+    if (options.hasProperty ("pan"))
+    {
+        const auto& value = options["pan"];
+        if (! (value.isInt() || value.isInt64() || value.isDouble())
+            || ! std::isfinite ((double) value)
+            || (double) value < -1.0 || (double) value > 1.0)
+            return "O pan deve ser um número entre -1 (esquerda) e +1 (direita).";
+        pan = (float) (double) value;
+    }
+    if (options.hasProperty ("muted"))
+    {
+        const auto& value = options["muted"];
+        if (! value.isBool())
+            return "O estado muted deve ser booleano.";
+        muted = (bool) value;
+    }
+    if (options.hasProperty ("solo"))
+    {
+        const auto& value = options["solo"];
+        if (! value.isBool())
+            return "O estado solo deve ser booleano.";
+        solo = (bool) value;
+    }
+
+    strip->setVolumeDb (volumeDb);
+    strip->setPan (pan);
+    strip->setMuted (muted);
+    strip->setSolo (solo);
+    updateSoloState();
+    result = describeMixState();
+    return {};
+}
+
+juce::String Engine::setMasterMix (const juce::var& options, juce::var& result)
+{
+    auto* strip = masterNode != nullptr
+        ? dynamic_cast<ChannelStripProcessor*> (masterNode->getProcessor())
+        : nullptr;
+    if (strip == nullptr)
+        return "O channel strip Master não está disponível.";
+
+    auto volumeDb = strip->getVolumeDb();
+    auto muted = strip->isMuted();
+    if (options.hasProperty ("volumeDb"))
+    {
+        const auto& value = options["volumeDb"];
+        if (! (value.isInt() || value.isInt64() || value.isDouble())
+            || ! std::isfinite ((double) value)
+            || (double) value < -60.0 || (double) value > 6.0)
+            return "O volume Master deve ser um número entre -60 e +6 dB.";
+        volumeDb = (float) (double) value;
+    }
+    if (options.hasProperty ("muted"))
+    {
+        const auto& value = options["muted"];
+        if (! value.isBool())
+            return "O estado muted Master deve ser booleano.";
+        muted = (bool) value;
+    }
+
+    strip->setVolumeDb (volumeDb);
+    strip->setMuted (muted);
+    result = describeMixState();
+    return {};
 }
 
 juce::String Engine::setMidiInputEnabled (const juce::String& identifier, bool enabled)
@@ -356,15 +665,32 @@ bool Engine::findDescription (const juce::String& key, juce::PluginDescription& 
     return false;
 }
 
-juce::AudioPluginInstance* Engine::getPlugin() const
+int Engine::findLayer (const juce::String& layerId) const
 {
-    if (pluginNode == nullptr)
-        return nullptr;
-
-    return dynamic_cast<juce::AudioPluginInstance*> (pluginNode->getProcessor());
+    for (size_t i = 0; i < layers.size(); ++i)
+        if (layers[i].id == layerId)
+            return (int) i;
+    return -1;
 }
 
-void Engine::loadPlugin (const juce::String& idOrPath, Done done)
+juce::String Engine::resolveLayerId (const juce::String& layerId) const
+{
+    if (layerId.isNotEmpty())
+        return layerId;
+    return layers.empty() ? juce::String() : layers.front().id;
+}
+
+juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayerId) const
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    if (index < 0 || layers[(size_t) index].pluginNode == nullptr)
+        return nullptr;
+    return dynamic_cast<juce::AudioPluginInstance*> (layers[(size_t) index].pluginNode->getProcessor());
+}
+
+void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& requestedLayerId,
+                         int minNote, int maxNote, Done done)
 {
     juce::PluginDescription description;
     if (! findDescription (idOrPath, description))
@@ -372,58 +698,134 @@ void Engine::loadPlugin (const juce::String& idOrPath, Done done)
         done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
         return;
     }
+    if (! description.isInstrument)
+    {
+        done ({}, "Nesta etapa Layers aceita instrumentos; efeitos serão adicionados depois.");
+        return;
+    }
+    if (minNote < 0 || maxNote > 127 || minNote > maxNote)
+    {
+        done ({}, "A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim.");
+        return;
+    }
+
+    const auto layerId = requestedLayerId.isNotEmpty() ? requestedLayerId : juce::Uuid().toString();
+    if (findLayer (layerId) >= 0 || loadingLayerIds.contains (layerId))
+    {
+        done ({}, "Já existe um instrumento com este identificador de layer.");
+        return;
+    }
+    if (layers.size() + (size_t) loadingLayerIds.size() >= 4)
+    {
+        done ({}, "Um patch pode ter no máximo quatro instrumentos.");
+        return;
+    }
+    loadingLayerIds.add (layerId);
 
     const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
     const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
-
+    const auto pluginId = description.createIdentifierString();
     std::weak_ptr<bool> alive = aliveFlag;
 
     formatManager.createPluginInstanceAsync (
         description, sampleRate, blockSize,
-        [this, alive, done] (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
+        [this, alive, done, layerId, pluginId, minNote, maxNote] (
+            std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             const auto stillAlive = alive.lock();
             if (stillAlive == nullptr || ! *stillAlive)
                 return;
 
+            loadingLayerIds.removeString (layerId);
             if (instance == nullptr)
             {
                 done ({}, error.isNotEmpty() ? error : juce::String (utf8 ("Falha ao criar a instância do plugin.")));
                 return;
             }
 
-            unloadPlugin();
-            pluginNode = graph.addNode (std::move (instance));
-            rebuildConnections();
+            Layer layer;
+            layer.id = layerId;
+            layer.pluginId = pluginId;
+            layer.minNote = minNote;
+            layer.maxNote = maxNote;
+            layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+            layer.pluginNode = graph.addNode (std::move (instance));
+            layer.stripNode = graph.addNode (
+                std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+            if (layer.midiFilterNode == nullptr || layer.pluginNode == nullptr
+                || layer.stripNode == nullptr)
+            {
+                if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+                if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
+                if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+                done ({}, "Não foi possível adicionar o instrumento ao grafo de áudio.");
+                return;
+            }
+            if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+                filter->setRange (minNote, maxNote);
 
-            done (describeLoadedPlugin(), {});
+            layers.push_back (std::move (layer));
+            updateSoloState();
+            rebuildConnections();
+            done (describeLoadedPlugin (layerId), {});
         });
 }
 
-bool Engine::unloadPlugin()
+bool Engine::unloadPlugin (const juce::String& requestedLayerId)
 {
-    if (pluginNode == nullptr)
-        return false;
+    if (requestedLayerId.isEmpty())
+    {
+        const bool hadLayers = ! layers.empty();
+        while (! layers.empty())
+            unloadPlugin (layers.back().id);
+        return hadLayers;
+    }
 
-    graph.removeNode (pluginNode->nodeID);
-    pluginNode = nullptr;
+    const int index = findLayer (requestedLayerId);
+    if (index < 0)
+        return false;
+    const auto layer = layers[(size_t) index];
+    graph.removeNode (layer.pluginNode->nodeID);
+    graph.removeNode (layer.midiFilterNode->nodeID);
+    graph.removeNode (layer.stripNode->nodeID);
+    layers.erase (layers.begin() + index);
+    updateSoloState();
+    rebuildConnections();
     return true;
 }
 
-juce::var Engine::describeLoadedPlugin() const
+juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, int maxNote)
 {
-    auto* plugin = getPlugin();
-    if (plugin == nullptr)
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return "Layer de instrumento não encontrado.";
+    if (minNote < 0 || maxNote > 127 || minNote > maxNote)
+        return "A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim.";
+
+    auto& layer = layers[(size_t) index];
+    layer.minNote = minNote;
+    layer.maxNote = maxNote;
+    if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+        filter->setRange (minNote, maxNote);
+    return {};
+}
+
+juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) const
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    auto* plugin = getPlugin (layerId);
+    if (index < 0 || plugin == nullptr)
         return {};
 
+    const auto& layer = layers[(size_t) index];
     const auto description = plugin->getPluginDescription();
-
     int automatableCount = 0;
     for (auto* parameter : plugin->getParameters())
-        if (parameter->isAutomatable())
-            ++automatableCount;
+        if (parameter->isAutomatable()) ++automatableCount;
 
     return Obj()
+        .set ("layerId", layer.id)
         .set ("id", description.createIdentifierString())
         .set ("name", description.name)
         .set ("manufacturer", description.manufacturerName)
@@ -432,52 +834,53 @@ juce::var Engine::describeLoadedPlugin() const
         .set ("isInstrument", description.isInstrument)
         .set ("inputs", plugin->getTotalNumInputChannels())
         .set ("outputs", plugin->getTotalNumOutputChannels())
+        .set ("minNote", layer.minNote)
+        .set ("maxNote", layer.maxNote)
         .set ("parameterCount", automatableCount)
         .set ("parameterCountTotal", plugin->getParameters().size());
 }
 
-juce::var Engine::listParameters (bool includeNonAutomatable) const
+juce::var Engine::describeLoadedPlugins() const
 {
     juce::Array<juce::var> list;
+    for (const auto& layer : layers)
+        list.add (describeLoadedPlugin (layer.id));
+    return juce::var (list);
+}
 
-    if (auto* plugin = getPlugin())
+juce::var Engine::listParameters (const juce::String& requestedLayerId, bool includeNonAutomatable) const
+{
+    juce::Array<juce::var> list;
+    if (auto* plugin = getPlugin (requestedLayerId))
     {
         const auto& params = plugin->getParameters();
         for (int i = 0; i < params.size(); ++i)
             if (includeNonAutomatable || params[i]->isAutomatable())
-                list.add (parameterToVar (*params[i], i));   // i = índice real no plugin
+                list.add (parameterToVar (*params[i], i));
     }
-
     return juce::var (list);
 }
 
-juce::String Engine::setParameter (int index, float normalizedValue, juce::var& result)
+juce::String Engine::setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result)
 {
-    auto* plugin = getPlugin();
-    if (plugin == nullptr)
-        return "Nenhum plugin carregado.";
-
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr) return "Nenhum instrumento carregado neste layer.";
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
-
     auto* parameter = params[index];
     parameter->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, normalizedValue));
-
     result = parameterToVar (*parameter, index);
     return {};
 }
 
-juce::String Engine::getParameter (int index, juce::var& result) const
+juce::String Engine::getParameter (const juce::String& layerId, int index, juce::var& result) const
 {
-    auto* plugin = getPlugin();
-    if (plugin == nullptr)
-        return "Nenhum plugin carregado.";
-
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr) return "Nenhum instrumento carregado neste layer.";
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
-
     result = parameterToVar (*params[index], index);
     return {};
 }
@@ -494,30 +897,46 @@ void Engine::rebuildConnections()
     for (const auto& connection : graph.getConnections())
         graph.removeConnection (connection);
 
-    auto* plugin = getPlugin();
-    if (plugin == nullptr)
-        return;
-
     const int graphIn  = graph.getMainBusNumInputChannels();
     const int graphOut = graph.getMainBusNumOutputChannels();
-    const int plugIn   = plugin->getMainBusNumInputChannels();
-    const int plugOut  = plugin->getMainBusNumOutputChannels();
+    if (masterNode != nullptr && audioOutNode != nullptr)
+        for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
+            graph.addConnection ({ { masterNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
 
-    // Saída: plugin -> dispositivo (mono é duplicado nos dois lados).
-    for (int ch = 0; ch < juce::jmin (plugOut, graphOut); ++ch)
-        graph.addConnection ({ { pluginNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
+    for (const auto& layer : layers)
+    {
+        auto* plugin = getPlugin (layer.id);
+        if (plugin == nullptr || layer.stripNode == nullptr)
+            continue;
 
-    if (plugOut == 1 && graphOut >= 2)
-        graph.addConnection ({ { pluginNode->nodeID, 0 }, { audioOutNode->nodeID, 1 } });
+        const int plugOut = plugin->getMainBusNumOutputChannels();
+        for (int ch = 0; ch < juce::jmin (plugOut, 2); ++ch)
+            graph.addConnection ({ { layer.pluginNode->nodeID, ch }, { layer.stripNode->nodeID, ch } });
+        if (plugOut == 1)
+            graph.addConnection ({ { layer.pluginNode->nodeID, 0 }, { layer.stripNode->nodeID, 1 } });
+        for (int ch = 0; ch < 2; ++ch)
+            graph.addConnection ({ { layer.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
 
-    // Efeitos recebem o áudio de entrada; instrumentos não (evita microfonia).
-    if (! plugin->getPluginDescription().isInstrument)
-        for (int ch = 0; ch < juce::jmin (plugIn, graphIn); ++ch)
-            graph.addConnection ({ { audioInNode->nodeID, ch }, { pluginNode->nodeID, ch } });
+        if (! plugin->getPluginDescription().isInstrument)
+            for (int ch = 0; ch < juce::jmin (plugin->getMainBusNumInputChannels(), graphIn); ++ch)
+                graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } });
 
-    // MIDI dos dispositivos -> plugin.
-    graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
-                           { pluginNode->nodeID, Graph::midiChannelIndex } });
+        graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
+                               { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
+        graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
+                               { layer.pluginNode->nodeID, Graph::midiChannelIndex } });
+    }
+}
+
+void Engine::updateSoloState()
+{
+    int count = 0;
+    for (const auto& layer : layers)
+        if (auto* strip = layer.stripNode != nullptr
+                ? dynamic_cast<ChannelStripProcessor*> (layer.stripNode->getProcessor())
+                : nullptr)
+            count += strip->isSolo() ? 1 : 0;
+    soloLayerCount.store (count);
 }
 
 // ---- MIDI manual -----------------------------------------------------------------

@@ -17,6 +17,7 @@
  *   --note=60          nota MIDI a tocar (padrão 60 = Dó central)
  *   --rescan           ignora a lista salva e varre tudo de novo
  *   --path=PASTA       pasta extra de plugins (pode repetir)
+ *   --require-asio     falha se este engine não tiver o backend ASIO compilado
  */
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -99,6 +100,10 @@ async function main() {
   console.log('ping: ok');
 
   const devices = await request('devices');
+  console.log(`ASIO: backend ${devices.asioSupported ? 'compilado' : 'indisponível'}; driver ${devices.asioDriverAvailable ? 'encontrado' : 'não encontrado'}`);
+  if (flag('require-asio') && !devices.asioSupported) {
+    throw new Error('O engine foi compilado sem o backend ASIO.');
+  }
   console.log('\nDispositivos de áudio:');
   for (const t of devices.audioTypes) {
     console.log(`  [${t.type}] saídas: ${t.outputs.join(' | ') || '-'}`);
@@ -130,6 +135,49 @@ async function main() {
   const plugin = await request('load', { plugin: target }, 60000);
   console.log(`Carregado: ${plugin.name} — ${plugin.parameterCount} parâmetros`);
 
+  let mix = await request('mix');
+  let layerMix = mix.layers.find((layer) => layer.layerId === plugin.layerId);
+  if (!layerMix) throw new Error('O estado de mixagem não inclui o instrumento carregado.');
+  if (layerMix.volumeDb !== 0 || layerMix.pan !== 0 || layerMix.muted || layerMix.solo) {
+    throw new Error('Os controles do channel strip não iniciaram nos valores padrão.');
+  }
+
+  mix = await request('setLayerMix', {
+    layerId: plugin.layerId,
+    volumeDb: -12,
+    pan: 0.25,
+    muted: true,
+    solo: true,
+  });
+  layerMix = mix.layers.find((layer) => layer.layerId === plugin.layerId);
+  if (layerMix?.volumeDb !== -12 || layerMix.pan !== 0.25 || !layerMix.muted || !layerMix.solo) {
+    throw new Error('Os controles de volume, pan, mute ou solo não foram aplicados.');
+  }
+
+  mix = await request('setMasterMix', { volumeDb: -3, muted: true });
+  if (mix.master.volumeDb !== -3 || !mix.master.muted) {
+    throw new Error('Os controles do channel strip Master não foram aplicados.');
+  }
+
+  let invalidMixRejected = false;
+  try {
+    await request('setLayerMix', { layerId: plugin.layerId, volumeDb: 7 });
+  } catch (error) {
+    if (!/volume/i.test(error.message)) throw error;
+    invalidMixRejected = true;
+  }
+  if (!invalidMixRejected) throw new Error('O engine aceitou um volume fora do limite de +6 dB.');
+  console.log('Mixagem: volume, pan, mute, solo, Master e validação de limites: ok');
+
+  await request('setLayerMix', {
+    layerId: plugin.layerId,
+    volumeDb: 0,
+    pan: 0,
+    muted: false,
+    solo: false,
+  });
+  await request('setMasterMix', { volumeDb: 0, muted: false });
+
   const params = await request('params');
   for (const p of params.slice(0, 10)) {
     console.log(`  [${p.index}] ${p.name}: ${p.text} ${p.label}`.trimEnd());
@@ -152,8 +200,34 @@ async function main() {
 
     const note = Number(first('note', 60));
     console.log(`Tocando a nota ${note} por 1,5 s — você deve ouvir o som.`);
+    let secondTestLayer;
+    if (plugin.name === 'Preseter Test Synth') {
+      secondTestLayer = await request('load', { plugin: target, layerId: 'smoke-solo-check' }, 60000);
+      await request('setLayerMix', { layerId: plugin.layerId, solo: true });
+      await request('setMasterMix', { muted: true });
+    }
     await request('noteOn', { note, velocity: 100 });
-    await sleep(1500);
+    await sleep(300);
+    mix = await request('mix');
+    layerMix = mix.layers.find((layer) => layer.layerId === plugin.layerId);
+    if (plugin.name === 'Preseter Test Synth' && (!layerMix || layerMix.peakDb <= -100)) {
+      throw new Error('O medidor do instrumento Test Synth não detectou sinal de áudio.');
+    }
+    if (secondTestLayer) {
+      const soloedOut = mix.layers.find((layer) => layer.layerId === secondTestLayer.layerId);
+      if (!soloedOut || soloedOut.peakDb > -99) {
+        throw new Error('O solo não silenciou o outro channel strip.');
+      }
+      if (mix.master.peakDb > -99) {
+        throw new Error('O mute Master não silenciou a saída do grafo.');
+      }
+      await request('noteOff', { note });
+      await request('setMasterMix', { muted: false });
+      await request('setLayerMix', { layerId: plugin.layerId, solo: false });
+      await request('unload', { layerId: secondTestLayer.layerId });
+    }
+    console.log(`Medidor do instrumento: ${layerMix?.peakDb.toFixed(1) ?? 'indisponível'} dBFS`);
+    await sleep(1200);
     await request('noteOff', { note });
     await sleep(1000);
     await request('panic');

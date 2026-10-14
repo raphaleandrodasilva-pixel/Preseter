@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Preset, UiElement } from '@shared/types';
+import type {
+  LayerMixUpdate,
+  MasterMixUpdate,
+  Preset,
+  PresetPluginAssignment,
+  UiElement,
+  VstPluginInfo,
+} from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -31,6 +38,7 @@ interface ConcertShellProps {
   onSaveDraft: () => void;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  onError: (message: string) => void;
 }
 
 export const ConcertShell: React.FC<ConcertShellProps> = ({
@@ -51,6 +59,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   onSaveDraft,
   onMidiMessage,
   onSetVstParameter,
+  onError,
 }) => {
   const ctx = useAppContext();
   const {
@@ -59,7 +68,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
     movePresetToSet, reorderPatchesInSet, reorderSets, togglePresetSkipped,
     resetProgramNumbers, deletePreset, activeNotes, sendMidiMessage,
+    loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
+    mixState, setVstLayerMix, setVstMasterMix,
   } = ctx;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
@@ -70,6 +83,135 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const updateDraft = (update: Partial<Preset>) => {
     if (draft) onDraftChange({ ...draft, ...update, updatedAt: Date.now() });
+  };
+  const addLayer = async (plugin: VstPluginInfo) => {
+    if (!draft || (draft.plugins?.length ?? 0) >= 4) return false;
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const loaded = await loadVstPlugin(plugin.path, layerId, 0, 127);
+    if (!loaded) {
+      onError(`Não foi possível carregar o instrumento "${plugin.name}".`);
+      return false;
+    }
+    const assignment: PresetPluginAssignment = {
+      pluginId: plugin.id,
+      layerId,
+      name: plugin.name,
+      path: plugin.path,
+      role: 'instrument',
+      minNote: 0,
+      maxNote: 127,
+    };
+    onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), assignment], updatedAt: Date.now() });
+    onError('');
+    return true;
+  };
+  const removeLayer = async (assignment: PresetPluginAssignment, layerId: string) => {
+    if (!draft) return;
+    const removed = await unloadVstPlugin(layerId);
+    if (!removed) {
+      onError(`Não foi possível remover o layer "${assignment.name}".`);
+      return;
+    }
+    onDraftChange({
+      ...draft,
+      plugins: (draft.plugins ?? []).filter((plugin) => plugin.layerId !== layerId),
+      vstStates: Object.fromEntries(Object.entries(draft.vstStates).filter(([key]) => key !== layerId && key !== `loaded_${layerId}`)),
+      updatedAt: Date.now(),
+    });
+    onError('');
+  };
+  const copyLayer = async (assignment: PresetPluginAssignment, sourceLayerId: string) => {
+    if (!draft || (draft.plugins?.length ?? 0) >= 4) return false;
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const loaded = await loadVstPlugin(
+      assignment.path,
+      layerId,
+      assignment.minNote ?? 0,
+      assignment.maxNote ?? 127
+    );
+    if (!loaded) {
+      onError(`Não foi possível copiar o instrumento "${assignment.name}".`);
+      return false;
+    }
+    try {
+      const state = await window.electronAPI.vstGetState(sourceLayerId);
+      const stateApplied = await window.electronAPI.vstSetState(layerId, state);
+      if (!stateApplied) throw new Error('O engine não confirmou a cópia dos parâmetros.');
+      const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
+      if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
+      const copy: PresetPluginAssignment = { ...assignment, layerId };
+      onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), copy], updatedAt: Date.now() });
+      onError('');
+      return true;
+    } catch (cause) {
+      await unloadVstPlugin(layerId);
+      onError(`Falha ao copiar "${assignment.name}": ${cause instanceof Error ? cause.message : String(cause)}`);
+      return false;
+    }
+  };
+  const changeLayerRange = async (
+    assignment: PresetPluginAssignment,
+    layerId: string,
+    minNote: number,
+    maxNote: number
+  ) => {
+    if (!draft) return;
+    const updated = await setVstLayerRange(layerId, minNote, maxNote);
+    if (!updated) {
+      onError(`Não foi possível atualizar a região MIDI de "${assignment.name}".`);
+      return;
+    }
+    onDraftChange({
+      ...draft,
+      plugins: (draft.plugins ?? []).map((plugin) =>
+        plugin.layerId === layerId ? { ...plugin, minNote, maxNote } : plugin
+      ),
+      updatedAt: Date.now(),
+    });
+  };
+  const changeLayerMix = async (layerId: string, update: LayerMixUpdate) => {
+    if (!await setVstLayerMix(layerId, update)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) =>
+        (assignment.layerId ?? `${current.id}:layer:${index}`) === layerId
+        ? {
+            ...assignment,
+            mix: {
+              volumeDb: assignment.mix?.volumeDb ?? 0,
+              pan: assignment.mix?.pan ?? 0,
+              muted: assignment.mix?.muted ?? false,
+              solo: assignment.mix?.solo ?? false,
+              ...update,
+            },
+          }
+        : assignment),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+  const changeMasterMix = async (update: MasterMixUpdate) => {
+    if (!await setVstMasterMix(update)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      masterMix: {
+        volumeDb: current.masterMix?.volumeDb ?? 0,
+        muted: current.masterMix?.muted ?? false,
+        ...update,
+      },
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
   };
   const updateElement = (id: string, update: Partial<UiElement>) => {
     if (!draft) return;
@@ -354,14 +496,32 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             <ControlPalette armedKey={armedKey} onArm={armItem} />
           )}
         </main>
-        {mode === 'edit' && <ChannelStrips preset={draft ?? currentPreset} />}
+        {mode === 'edit' && (
+          <ChannelStrips
+            preset={draft ?? currentPreset}
+            editable={!!draft}
+            scannedPlugins={scannedPlugins}
+            loadedPlugins={loadedPlugins}
+            mixState={mixState}
+            onRequestScan={scanVstPlugins}
+            onAdd={addLayer}
+            onRemove={removeLayer}
+            onCopy={copyLayer}
+            onRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
+            onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}
+            onSetLayerMix={(layerId, update) => void changeLayerMix(layerId, update)}
+            onSetMasterMix={(update) => void changeMasterMix(update)}
+          />
+        )}
       </div>
       <div className="flex h-6 shrink-0 items-center gap-4 border-t px-4 text-[10px]" style={{ borderColor: '#2E2E34', background: '#131316', color: '#9A9AA0' }}>
         <span>Programa {appStatus.currentProgramNumber + 1}</span>
         <span>Patches: {presets.length} · Sets: {sets.length}</span>
         {midiLastMessage && <span className="truncate" style={{ color: '#2DFF6A' }}>{midiLastMessage}</span>}
         {toast && <span className="truncate" style={{ color: '#EDEDEF' }}>{toast}</span>}
-        <span className="ml-auto" style={{ color: 'rgba(45,255,106,0.7)' }}>Host VST de áudio ainda não implementado</span>
+        <span className="ml-auto" style={{ color: ctx.audioDevices?.running ? '#2DFF6A' : '#9A9AA0' }}>
+          {ctx.audioDevices?.running ? 'Áudio ativo' : 'Áudio parado — configure em Configurações'}
+        </span>
       </div>
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />

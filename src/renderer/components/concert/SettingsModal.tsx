@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 
-export type SettingsTab = 'midi' | 'vst';
+export type SettingsTab = 'midi' | 'vst' | 'audio';
 
 interface SettingsModalProps {
   initialTab: SettingsTab;
@@ -13,12 +13,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const {
     midiDevices, midiError, midiLastMessage, listMidiDevices, openMidiPort,
     scannedPlugins, loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstParameter,
+    audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
-  const [activePluginId, setActivePluginId] = useState<string | null>(null);
+  const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
+  const [audioType, setAudioType] = useState('');
+  const [audioInput, setAudioInput] = useState('');
+  const [audioOutput, setAudioOutput] = useState('');
+  const [sampleRate, setSampleRate] = useState(48000);
+  const [bufferSize, setBufferSize] = useState(512);
+  const [audioBusy, setAudioBusy] = useState(false);
 
   useEffect(() => setTab(initialTab), [initialTab]);
+  useEffect(() => {
+    if (tab === 'audio') void refreshAudioSettings();
+  }, [tab, refreshAudioSettings]);
+  useEffect(() => {
+    if (!audioDevices) return;
+    const savedType = audioSettings?.type ?? audioDevices.current?.type ?? audioDevices.audioTypes[0]?.type ?? '';
+    setAudioType(savedType);
+    const type = audioDevices.audioTypes.find((item) => item.type === savedType);
+    setAudioInput(audioSettings?.input ?? audioDevices.current?.name ?? type?.inputs[0] ?? '');
+    setAudioOutput(audioSettings?.output ?? audioDevices.current?.name ?? type?.outputs[0] ?? '');
+    setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
+    setBufferSize(audioSettings?.bufferSize ?? audioDevices.current?.bufferSize ?? 512);
+  }, [audioDevices, audioSettings]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -31,7 +51,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const outputs = midiDevices.filter((d) => d.type === 'output');
   const lcdText = tab === 'midi'
     ? `MIDI · ${inputs.length + outputs.length} disp`
-    : `VST · ${loadedPlugins.length} plugins`;
+    : tab === 'vst'
+      ? `VST · ${loadedPlugins.length} layers`
+      : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
+  const selectedAudioType = audioDevices?.audioTypes.find((item) => item.type === audioType);
+  const asioAvailable = audioDevices?.asioSupported === true;
+  const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
 
   const accentBtn: React.CSSProperties = {
     background: '#2DFF6A',
@@ -85,9 +110,147 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           >
             Plugins VST
           </button>
+          <button
+            onClick={() => setTab('audio')}
+            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            style={tab === 'audio'
+              ? { background: '#131316', color: '#fff', borderColor: '#2DFF6A' }
+              : { color: '#9A9AA0' }}
+          >
+            Áudio
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {tab === 'audio' && (
+            <div className="space-y-4">
+              {midiError && (
+                <div className="rounded-xl border border-red-800 bg-red-950/60 px-3 py-2 text-xs text-red-200">
+                  {midiError}
+                </div>
+              )}
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Dispositivo ativo</h4>
+                {audioDevices?.current ? (
+                  <p className="text-xs text-slate-200">
+                    {audioDevices.current.type} · {audioDevices.current.name} · {audioDevices.current.sampleRate} Hz · buffer {audioDevices.current.bufferSize}
+                  </p>
+                ) : (
+                  <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum dispositivo de áudio ativo.</p>
+                )}
+                <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                  Driver / tipo
+                  <select
+                    value={audioType}
+                    onChange={(event) => {
+                      setAudioType(event.target.value);
+                      const next = audioDevices?.audioTypes.find((item) => item.type === event.target.value);
+                      setAudioInput(next?.inputs[0] ?? '');
+                      setAudioOutput(next?.outputs[0] ?? '');
+                    }}
+                    className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                  >
+                    <option value="">Selecione o driver</option>
+                    {audioDevices?.audioTypes.map((item) => (
+                      <option key={item.type} value={item.type}>{item.type}</option>
+                    ))}
+                  </select>
+                </label>
+                {!asioAvailable && (
+                  <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                    <strong className="block">ASIO não está ativo nesta compilação.</strong>
+                    {audioDevices?.asioUnavailableReason ?? 'Este engine foi compilado sem o backend ASIO.'}
+                    {' '}Para ativá-lo, instale o ASIO SDK da Steinberg e recompile com PRESETER_ENABLE_ASIO=ON e PRESETER_ASIO_SDK_DIR apontando para o SDK. O SDK deve ser obtido e licenciado separadamente. Os drivers listados acima continuam disponíveis sem ASIO.
+                  </p>
+                )}
+                {asioAvailable && (
+                  asioDriverAvailable ? (
+                    <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 p-2 text-[11px] text-emerald-200">
+                      Backend ASIO habilitado e driver encontrado. Selecione ASIO em Driver / tipo para escolher o dispositivo.
+                    </p>
+                  ) : (
+                    <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                      Backend ASIO habilitado, mas nenhum driver ASIO foi encontrado. Instale o driver ASIO do dispositivo de áudio; os outros drivers continuam disponíveis.
+                    </p>
+                  )
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                    Entrada
+                    <select
+                      value={audioInput}
+                      onChange={(event) => setAudioInput(event.target.value)}
+                      className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                    >
+                      <option value="">Sem entrada</option>
+                      {selectedAudioType?.inputs.map((name) => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                    Saída
+                    <select
+                      value={audioOutput}
+                      onChange={(event) => setAudioOutput(event.target.value)}
+                      className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                    >
+                      <option value="">Saída padrão</option>
+                      {selectedAudioType?.outputs.map((name) => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                    Taxa de amostragem
+                    <select value={sampleRate} onChange={(event) => setSampleRate(Number(event.target.value))} className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100">
+                      {[44100, 48000, 88200, 96000, 176400, 192000].map((rate) => <option key={rate} value={rate}>{rate} Hz</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                    Tamanho do buffer
+                    <select value={bufferSize} onChange={(event) => setBufferSize(Number(event.target.value))} className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100">
+                      {[64, 128, 256, 480, 512, 1024, 2048].map((size) => <option key={size} value={size}>{size} samples</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setAudioBusy(true);
+                      await startAudio({
+                        type: audioType || undefined,
+                        input: audioInput || undefined,
+                        output: audioOutput || undefined,
+                        inputs: audioInput ? 2 : 0,
+                        outputs: 2,
+                        sampleRate,
+                        bufferSize,
+                      });
+                      setAudioBusy(false);
+                    }}
+                    disabled={audioBusy}
+                    className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    style={accentBtn}
+                  >
+                    {audioBusy ? 'Aplicando…' : 'Aplicar e iniciar áudio'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setAudioBusy(true);
+                      await stopAudio();
+                      setAudioBusy(false);
+                    }}
+                    disabled={audioBusy || !audioDevices?.running}
+                    className="hw-squarebtn px-3 py-2 text-xs disabled:opacity-50"
+                    style={{ color: '#EDEDEF' }}
+                  >
+                    Parar
+                  </button>
+                </div>
+                <p className="text-[10px]" style={{ color: '#77777E' }}>
+                  As preferências são salvas e reaplicadas quando o Preseter abre.
+                </p>
+              </section>
+            </div>
+          )}
+
           {tab === 'midi' && (
             <div className="space-y-4">
               {midiError && (
@@ -167,15 +330,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 <div className="max-h-48 space-y-1.5 overflow-y-auto">
                   {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin. Escaneie os diretórios VST3.</p>}
                   {scannedPlugins.map((p) => {
-                    const loaded = loadedPlugins.some((l) => l.id === p.id);
+                    const loadedCount = loadedPlugins.filter((l) => l.id === p.id).length;
                     return (
                       <div key={p.id} className="hw-inset flex items-center gap-2 px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs font-medium" style={{ color: '#EDEDEF' }}>{p.name}</div>
                           <div className="text-[10px]" style={{ color: '#9A9AA0' }}>{p.isInstrument ? 'Instrumento' : 'Efeito'}</div>
                         </div>
-                        {loaded
-                          ? <span className="rounded-lg px-2 py-1 text-[10px] font-semibold" style={{ background: 'rgba(45,255,106,0.18)', color: '#2DFF6A', border: '1px solid #2DFF6A' }}>Carregado</span>
+                        {loadedCount > 0
+                          ? <span className="rounded-lg px-2 py-1 text-[10px] font-semibold" style={{ background: 'rgba(45,255,106,0.18)', color: '#2DFF6A', border: '1px solid #2DFF6A' }}>{loadedCount} carregado(s)</span>
                           : <button onClick={() => void loadVstPlugin(p.path)} className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110" style={accentBtn}>Carregar</button>}
                       </div>
                     );
@@ -186,14 +349,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 <h4 className="hw-label mb-2">Carregados ({loadedPlugins.length})</h4>
                 <div className="space-y-1.5">
                   {loadedPlugins.map((p) => {
-                    const open = activePluginId === p.id;
+                    const layerId = p.layerId ?? p.id;
+                    const open = activeLayerId === layerId;
                     return (
-                      <div key={p.id} className="hw-inset overflow-hidden">
-                        <div className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => setActivePluginId(open ? null : p.id)}>
+                      <div key={layerId} className="hw-inset overflow-hidden">
+                        <div className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => setActiveLayerId(open ? null : layerId)}>
                           <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: '#EDEDEF' }}>{p.name}</span>
                           <span className="text-[10px]" style={{ color: '#9A9AA0' }}>{open ? '▾' : '▸'}</span>
                           <button
-                            onClick={(e) => { e.stopPropagation(); void unloadVstPlugin(p.id); }}
+                            onClick={(e) => { e.stopPropagation(); void unloadVstPlugin(layerId); }}
                             className="rounded px-1.5 text-xs hover:text-red-300"
                             style={{ color: '#9A9AA0' }}
                             title="Descarregar"
@@ -216,7 +380,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                                   max={param.maxValue}
                                   step={(param.maxValue - param.minValue) / 100}
                                   value={param.value}
-                                  onChange={(e) => void setVstParameter(p.id, param.id, parseFloat(e.target.value))}
+                                  onChange={(e) => void setVstParameter(layerId, param.id, parseFloat(e.target.value))}
                                   className="w-full"
                                   style={{ accentColor: '#2DFF6A' }}
                                 />

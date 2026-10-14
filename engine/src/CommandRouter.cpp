@@ -76,6 +76,39 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "audioConfiguration")
+    {
+        ok (id, engine.describeAudioConfiguration());
+        return;
+    }
+
+    if (cmd == "mix")
+    {
+        ok (id, engine.describeMixState());
+        return;
+    }
+
+    if (cmd == "setLayerMix")
+    {
+        juce::var result;
+        if (auto error = engine.setLayerMix (message["layerId"].toString(), message, result);
+            error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, result);
+        return;
+    }
+
+    if (cmd == "setMasterMix")
+    {
+        juce::var result;
+        if (auto error = engine.setMasterMix (message, result); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, result);
+        return;
+    }
+
     if (cmd == "audioStop")
     {
         engine.stopAudio();
@@ -150,7 +183,10 @@ void CommandRouter::handleLine (const juce::String& line)
             return;
         }
 
-        engine.loadPlugin (key, [this, id] (juce::var result, juce::String error)
+        auto layerId = message["layerId"].toString();
+        const int minNote = intArg (message, "minNote", 0);
+        const int maxNote = intArg (message, "maxNote", 127);
+        engine.loadPlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
         {
             if (error.isNotEmpty()) fail (id, error);
             else                    ok (id, result);
@@ -160,7 +196,24 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (cmd == "unload")
     {
-        ok (id, Obj().set ("unloaded", engine.unloadPlugin()));
+        ok (id, Obj().set ("unloaded", engine.unloadPlugin (message["layerId"].toString())));
+        return;
+    }
+
+    if (cmd == "setLayerRange")
+    {
+        const auto error = engine.setLayerRange (
+            message["layerId"].toString(),
+            intArg (message, "minNote", -1),
+            intArg (message, "maxNote", -1));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, engine.describeLoadedPlugin (message["layerId"].toString()));
+        return;
+    }
+
+    if (cmd == "layers")
+    {
+        ok (id, engine.describeLoadedPlugins());
         return;
     }
 
@@ -172,18 +225,19 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (cmd == "params")
     {
-        ok (id, engine.listParameters (boolArg (message, "all", false)));
+        ok (id, engine.listParameters (message["layerId"].toString(), boolArg (message, "all", false)));
         return;
     }
 
     if (cmd == "getParam" || cmd == "setParam")
     {
         const int index = intArg (message, "index", -1);
+        const auto layerId = message["layerId"].toString();
         juce::var result;
 
         const auto error = (cmd == "setParam")
-            ? engine.setParameter (index, (float) (double) message["value"], result)
-            : engine.getParameter (index, result);
+            ? engine.setParameter (layerId, index, (float) (double) message["value"], result)
+            : engine.getParameter (layerId, index, result);
 
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);

@@ -4,7 +4,13 @@
  * Transporte: JSON, uma mensagem por linha, via stdin/stdout do processo filho.
  * Veja engine/README.md para a descrição completa.
  */
-import type { VstParameter } from './types';
+import type {
+  AudioDeviceSnapshot,
+  EngineMixState,
+  LayerMixUpdate,
+  MasterMixUpdate,
+  VstParameter,
+} from './types';
 
 // ---- Mensagens -------------------------------------------------------------
 
@@ -38,6 +44,7 @@ export interface EnginePluginInfo {
 }
 
 export interface EngineLoadedPlugin {
+  layerId: string;
   id: string;
   name: string;
   manufacturer: string;
@@ -46,6 +53,8 @@ export interface EngineLoadedPlugin {
   isInstrument: boolean;
   inputs: number;
   outputs: number;
+  minNote: number;
+  maxNote: number;
   /** Só parâmetros automatizáveis (o que `params` lista por padrão). */
   parameterCount: number;
   /** Inclui os ~2000 "MIDI CC" que o wrapper VST3 do JUCE cria. */
@@ -68,20 +77,7 @@ export interface EngineParameter {
   automatable: boolean;
 }
 
-export interface EngineDevices {
-  running: boolean;
-  current: null | {
-    type: string;
-    name: string;
-    sampleRate: number;
-    bufferSize: number;
-    inputChannels: number;
-    outputChannels: number;
-    outputLatencyMs: number;
-  };
-  audioTypes: Array<{ type: string; outputs: string[]; inputs: string[] }>;
-  midiInputs: Array<{ name: string; identifier: string; enabled: boolean }>;
-}
+export interface EngineDevices extends AudioDeviceSnapshot {}
 
 export interface EngineScanResult {
   count: number;
@@ -96,6 +92,7 @@ export interface EngineCommands {
   ping: { args: {}; result: { pong: true } };
   quit: { args: {}; result: null };
   devices: { args: {}; result: EngineDevices };
+  audioConfiguration: { args: {}; result: EngineDevices };
   audioStart: {
     args: {
       inputs?: number;
@@ -111,16 +108,27 @@ export interface EngineCommands {
     result: EngineDevices;
   };
   audioStop: { args: {}; result: null };
+  mix: { args: {}; result: EngineMixState };
+  setLayerMix: { args: LayerMixUpdate & { layerId: string }; result: EngineMixState };
+  setMasterMix: { args: MasterMixUpdate; result: EngineMixState };
   midiEnable: { args: { identifier?: string; enabled?: boolean }; result: EngineDevices };
   plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[] } };
   scan: { args: { paths?: string[]; rescan?: boolean }; result: EngineScanResult };
-  load: { args: { plugin?: string; path?: string }; result: EngineLoadedPlugin };
-  unload: { args: {}; result: { unloaded: boolean } };
+  load: {
+    args: { plugin?: string; path?: string; layerId?: string; minNote?: number; maxNote?: number };
+    result: EngineLoadedPlugin;
+  };
+  unload: { args: { layerId?: string }; result: { unloaded: boolean } };
+  setLayerRange: {
+    args: { layerId: string; minNote: number; maxNote: number };
+    result: EngineLoadedPlugin;
+  };
+  layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */
-  params: { args: { all?: boolean }; result: EngineParameter[] };
-  getParam: { args: { index: number }; result: EngineParameter };
-  setParam: { args: { index: number; value: number }; result: EngineParameter };
+  params: { args: { all?: boolean; layerId?: string }; result: EngineParameter[] };
+  getParam: { args: { index: number; layerId?: string }; result: EngineParameter };
+  setParam: { args: { index: number; value: number; layerId?: string }; result: EngineParameter };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };
   noteOff: { args: { note: number; velocity?: number; channel?: number }; result: null };
   midi: { args: { bytes: number[] }; result: null };

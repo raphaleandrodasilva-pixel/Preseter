@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
 import { PresetManager } from './preset/PresetManager';
@@ -9,6 +10,10 @@ import {
   MidiBinding,
   AppStatus,
   ElectronChannels,
+  AudioStartOptions,
+  LayerMixUpdate,
+  MasterMixUpdate,
+  SavedAudioSettings,
 } from '../shared/types';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL } from '../shared/constants';
 
@@ -17,6 +22,7 @@ class MainWindow {
   private vstManager: VstManager;
   private presetManager: PresetManager;
   private layoutManager: LayoutManager;
+  private audioSettingsPath: string;
   private appStatus: AppStatus = {
     isPlaying: false,
     currentPresetId: null,
@@ -29,6 +35,7 @@ class MainWindow {
     this.vstManager = new VstManager();
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
+    this.audioSettingsPath = path.join(app.getPath('userData'), 'audio-settings.json');
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
@@ -46,11 +53,9 @@ class MainWindow {
       this.configureMidiPermissions();
       this.createWindow();
       this.setupAutoScroll();
-      // Scan VST é síncrono e pode demorar: roda após a janela abrir
+      // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
-        void this.vstManager.scanDefaultDirectories().catch((error) => {
-          console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
-        });
+        void this.initializeEngine();
       });
     });
 
@@ -98,11 +103,6 @@ class MainWindow {
 
     this.window.loadURL(startUrl);
 
-    // Abrir ferramentas de desenvolvedor em modo dev
-    if (process.env.NODE_ENV === 'development') {
-      this.window.webContents.openDevTools({ mode: 'detach' });
-    }
-
     // Enviar status inicial
     this.window.webContents.on('did-finish-load', () => {
       this.sendToRenderer('app-status-change', this.appStatus);
@@ -136,8 +136,8 @@ class MainWindow {
       return this.vstManager.scanDefaultDirectories();
     });
 
-    ipcMain.handle('vst-load', async (_event, pluginPath: string) => {
-      return this.vstManager.loadPlugin(pluginPath);
+    ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => {
+      return this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote);
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
@@ -166,6 +166,36 @@ class MainWindow {
 
     ipcMain.handle('engine-midi', (_event, bytes: number[]) => {
       return this.vstManager.sendMidi(bytes);
+    });
+
+    ipcMain.handle('vst-set-layer-range', (_event, layerId: string, minNote: number, maxNote: number) => {
+      return this.vstManager.setLayerRange(layerId, minNote, maxNote);
+    });
+
+    ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());
+    ipcMain.handle('vst-set-layer-mix', (_event, layerId: string, update: LayerMixUpdate) => {
+      return this.vstManager.setLayerMix(layerId, update);
+    });
+    ipcMain.handle('vst-set-master-mix', (_event, update: MasterMixUpdate) => {
+      return this.vstManager.setMasterMix(update);
+    });
+
+    ipcMain.handle('audio-settings-get', async () => ({
+      devices: await this.vstManager.getAudioDevices(),
+      settings: this.readAudioSettings(),
+    }));
+
+    ipcMain.handle('audio-start', async (_event, options: AudioStartOptions) => {
+      const devices = await this.vstManager.startAudio(options);
+      this.writeAudioSettings({ ...options, enabled: true });
+      return { devices, settings: this.readAudioSettings() };
+    });
+
+    ipcMain.handle('audio-stop', async () => {
+      await this.vstManager.stopAudio();
+      const saved = this.readAudioSettings();
+      this.writeAudioSettings({ ...saved, enabled: false });
+      return { devices: await this.vstManager.getAudioDevices(), settings: this.readAudioSettings() };
     });
 
     // === Preset Handlers ===
@@ -254,16 +284,31 @@ class MainWindow {
     const preset = this.presetManager.getPreset(presetId);
     if (!preset) return false;
 
-    if ((preset.plugins?.length ?? 0) > 1) {
-      throw new Error(
-        `O engine JUCE da Fase 1 aceita um plugin por vez; "${preset.name}" tem ${preset.plugins!.length}.`
-      );
+    const assignments = preset.plugins ?? [];
+    if (assignments.length > 4) {
+      throw new Error(`O patch "${preset.name}" excede o limite de quatro instrumentos.`);
+    }
+
+    for (const loaded of this.vstManager.getLoadedPlugins()) {
+      await this.vstManager.unloadPlugin(loaded.layerId ?? loaded.id);
     }
 
     const restoredStateKeys = new Set<string>();
-    for (const assignment of preset.plugins ?? []) {
-      const plugin = await this.vstManager.loadPlugin(assignment.path);
+    for (const [index, assignment] of assignments.entries()) {
+      if (assignment.role !== 'instrument') {
+        throw new Error(`O layer "${assignment.name}" é um efeito; efeitos ainda não fazem parte desta etapa.`);
+      }
+      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      const plugin = await this.vstManager.loadPlugin(
+        assignment.path,
+        layerId,
+        assignment.minNote ?? 0,
+        assignment.maxNote ?? 127
+      );
+      await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
       const savedStateKeys = [
+        `loaded_${layerId}`,
+        layerId,
         `loaded_${plugin.id}`,
         plugin.id,
         `loaded_${assignment.pluginId}`,
@@ -271,19 +316,22 @@ class MainWindow {
       ];
       const savedStateKey = savedStateKeys.find((key) => preset.vstStates[key] !== undefined);
       if (savedStateKey) {
-        await this.vstManager.setPluginState(plugin.id, preset.vstStates[savedStateKey]);
+        await this.vstManager.setPluginState(layerId, preset.vstStates[savedStateKey]);
         restoredStateKeys.add(savedStateKey);
       }
     }
+    await this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false });
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
     const pluginStates = preset.vstStates;
     for (const [pluginId, state] of Object.entries(pluginStates)) {
       if (restoredStateKeys.has(pluginId)) continue;
       const actualPluginId = pluginId.replace(/^loaded_/, '');
-      const loaded = this.vstManager.getLoadedPlugins().find((plugin) => plugin.id === actualPluginId);
+      const loaded = this.vstManager.getLoadedPlugins().find(
+        (plugin) => plugin.layerId === actualPluginId || plugin.id === actualPluginId
+      );
       if (!loaded) continue;
-      await this.vstManager.setPluginState(loaded.id, state);
+      await this.vstManager.setPluginState(loaded.layerId ?? loaded.id, state);
     }
 
     // Atualizar layout
@@ -298,6 +346,46 @@ class MainWindow {
     });
 
     return true;
+  }
+
+  private async initializeEngine(): Promise<void> {
+    const saved = this.readAudioSettings();
+    if (saved.enabled) {
+      try {
+        await this.vstManager.startAudio(saved);
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível restaurar a configuração de áudio:', error);
+      }
+    }
+
+    try {
+      await this.vstManager.scanDefaultDirectories();
+    } catch (error) {
+      console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
+    }
+  }
+
+  private readAudioSettings(): SavedAudioSettings {
+    const defaults: SavedAudioSettings = { enabled: false, inputs: 0, outputs: 2, midi: true };
+    try {
+      if (!fs.existsSync(this.audioSettingsPath)) return defaults;
+      const data: unknown = JSON.parse(fs.readFileSync(this.audioSettingsPath, 'utf8'));
+      if (!data || typeof data !== 'object') throw new TypeError('O arquivo de áudio precisa conter um objeto.');
+      const saved = data as Partial<SavedAudioSettings>;
+      return {
+        ...defaults,
+        ...saved,
+        enabled: saved.enabled === true,
+      };
+    } catch (error) {
+      console.warn('[Preseter] Configuração de áudio salva inválida; usando padrões:', error);
+      return defaults;
+    }
+  }
+
+  private writeAudioSettings(settings: SavedAudioSettings): void {
+    fs.mkdirSync(path.dirname(this.audioSettingsPath), { recursive: true });
+    fs.writeFileSync(this.audioSettingsPath, JSON.stringify(settings, null, 2), 'utf8');
   }
 
   private updateAppStatus(): void {

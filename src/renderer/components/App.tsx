@@ -48,7 +48,12 @@ const AppContent: React.FC = () => {
   const editPreset = (preset: Preset) => {
     setDraft({
       ...preset,
-      plugins: [...(preset.plugins ?? [])],
+      plugins: (preset.plugins ?? []).map((plugin, index) => ({
+        ...plugin,
+        layerId: plugin.layerId ?? `${preset.id}:layer:${index}`,
+        minNote: plugin.minNote ?? 0,
+        maxNote: plugin.maxNote ?? 127,
+      })),
       layout: { ...preset.layout, elements: preset.layout.elements.map((e) => ({ ...e })) },
     });
     setSelectedId(null);
@@ -95,7 +100,13 @@ const AppContent: React.FC = () => {
     }
     setSaving(true);
     try {
-      const saved = await savePreset({ ...draft, updatedAt: Date.now() });
+      const vstStates = { ...draft.vstStates };
+      for (const [index, assignment] of (draft.plugins ?? []).entries()) {
+        const layerId = assignment.layerId ?? `${draft.id}:layer:${index}`;
+        const loaded = loadedPlugins.some((plugin) => plugin.layerId === layerId);
+        if (loaded) vstStates[`loaded_${layerId}`] = await window.electronAPI.vstGetState(layerId);
+      }
+      const saved = await savePreset({ ...draft, vstStates, updatedAt: Date.now() });
       if (!saved) setError('O armazenamento não confirmou que o patch foi salvo.');
       else {
         setError(null);
@@ -130,6 +141,7 @@ const AppContent: React.FC = () => {
           onSaveDraft={() => void saveDraft()}
           onMidiMessage={(message) => void sendMidiMessage(message)}
           onSetVstParameter={(pluginPath, parameterId, value) => void updatePresetVstParameter(pluginPath, parameterId, value)}
+          onError={(message) => setError(message || null)}
         />
       </div>
     </div>

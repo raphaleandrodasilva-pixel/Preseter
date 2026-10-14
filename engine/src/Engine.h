@@ -2,13 +2,15 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include <atomic>
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace preseter
 {
 /**
- * Núcleo do motor (Fase 1): um dispositivo de áudio, um grafo e UM plugin.
+ * Núcleo do motor: um dispositivo de áudio e até quatro instrumentos em layers.
  *
  * Tudo aqui deve ser chamado da message thread do JUCE. As Fases 3/4 vão
  * generalizar para vários plugins (slots/patches).
@@ -41,14 +43,24 @@ public:
     void scan (const juce::StringArray& extraPaths, bool rescan, Progress progress, Done done);
 
     /** idOrPath é um id retornado por scan/plugins ou o caminho do .vst3. */
-    void loadPlugin (const juce::String& idOrPath, Done done);
-    bool unloadPlugin();
+    void loadPlugin (const juce::String& idOrPath, const juce::String& layerId,
+                     int minNote, int maxNote, Done done);
+    bool unloadPlugin (const juce::String& layerId = {});
+    juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
 
-    juce::var describeLoadedPlugin() const;
+    juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
+    juce::var describeLoadedPlugins() const;
     /** Por padrão só os automatizáveis (esconde os ~2000 "MIDI CC" do wrapper VST3). */
-    juce::var listParameters (bool includeNonAutomatable = false) const;
-    juce::String setParameter (int index, float normalizedValue, juce::var& result);
-    juce::String getParameter (int index, juce::var& result) const;
+    juce::var listParameters (const juce::String& layerId, bool includeNonAutomatable = false) const;
+    juce::String setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result);
+    juce::String getParameter (const juce::String& layerId, int index, juce::var& result) const;
+
+    juce::var describeAudioConfiguration();
+    juce::String audioConfigurationError();
+    juce::var describeMixState() const;
+    juce::String setLayerMix (const juce::String& layerId, const juce::var& options,
+                              juce::var& result);
+    juce::String setMasterMix (const juce::var& options, juce::var& result);
 
     // ---- MIDI manual -----------------------------------------------------
     juce::String sendMidi (const juce::MidiMessage& message);
@@ -59,8 +71,11 @@ private:
     void timerCallback() override;
 
     void rebuildConnections();
+    void updateSoloState();
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
-    juce::AudioPluginInstance* getPlugin() const;
+    juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {}) const;
+    juce::String resolveLayerId (const juce::String& layerId) const;
+    int findLayer (const juce::String& layerId) const;
     juce::var pluginToVar (const juce::PluginDescription& description) const;
 
     bool beginNextScanFormat();
@@ -73,7 +88,20 @@ private:
     Graph graph;
     juce::AudioProcessorPlayer player;
 
-    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, pluginNode;
+    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, masterNode;
+    std::atomic<int> soloLayerCount { 0 };
+    struct Layer
+    {
+        juce::String id;
+        juce::String pluginId;
+        Graph::Node::Ptr midiFilterNode;
+        Graph::Node::Ptr pluginNode;
+        Graph::Node::Ptr stripNode;
+        int minNote = 0;
+        int maxNote = 127;
+    };
+    std::vector<Layer> layers;
+    juce::StringArray loadingLayerIds;
 
     juce::File dataDirectory, knownPluginsFile, deadMansFile;
 
