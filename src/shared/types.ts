@@ -218,6 +218,22 @@ export interface PresetPluginAssignment {
   minNote?: number;
   maxNote?: number;
   mix?: LayerMixSettings;
+  /** Slots de insert (efeitos) do channel strip (Fase 3.1). */
+  inserts?: Insert[];
+}
+
+/** Quantidade de slots de insert por channel strip (Fase 3.1). */
+export const MAX_INSERTS = 4;
+
+/** Um slot de insert (efeito VST3) de um channel strip. */
+export interface Insert {
+  /** Slot do channel strip (0 a `MAX_INSERTS - 1`). */
+  slot: number;
+  pluginId: string;
+  name: string;
+  path: string;
+  /** Quando true, o efeito fica carregado mas fora da cadeia de áudio. */
+  bypass: boolean;
 }
 
 export interface LayerMixSettings {

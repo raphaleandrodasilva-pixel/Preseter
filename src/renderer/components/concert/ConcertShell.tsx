@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  Insert,
   LayerMixUpdate,
   MasterMixUpdate,
   Preset,
@@ -183,7 +184,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onDraftChange({
       ...draft,
       plugins: (draft.plugins ?? []).filter((plugin) => plugin.layerId !== layerId),
-      vstStates: Object.fromEntries(Object.entries(draft.vstStates).filter(([key]) => key !== layerId && key !== `loaded_${layerId}`)),
+      vstStates: Object.fromEntries(
+        Object.entries(draft.vstStates).filter(
+          ([key]) => key !== layerId && key !== `loaded_${layerId}` && !key.startsWith(`insert_${layerId}_`)
+        )
+      ),
       updatedAt: Date.now(),
     });
     onError('');
@@ -209,7 +214,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if (!stateApplied) throw new Error('O engine não confirmou a cópia dos parâmetros.');
       const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
       if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
-      const copy: PresetPluginAssignment = { ...assignment, layerId };
+      const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+      for (const insert of inserts) {
+        await window.electronAPI.vstInsertSet(layerId, insert.slot, insert.path, insert.bypass);
+        const insertState = await window.electronAPI.vstInsertStateGet(sourceLayerId, insert.slot);
+        if (insertState) await window.electronAPI.vstInsertStateSet(layerId, insert.slot, insertState.data);
+      }
+      const copy: PresetPluginAssignment = { ...assignment, layerId, inserts };
       onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), copy], updatedAt: Date.now() });
       onError('');
       return true;
@@ -279,6 +290,63 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     draftRef.current = next;
     onDraftChange(next);
   };
+
+  // === Inserts (efeitos do channel strip, Fase 3.1) ===
+
+  const mutateInserts = (layerId: string, update: (inserts: Insert[]) => Insert[]) => {
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) => {
+        const id = assignment.layerId ?? `${current.id}:layer:${index}`;
+        if (id !== layerId) return assignment;
+        const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+        return { ...assignment, inserts: update(inserts).sort((a, b) => a.slot - b.slot) };
+      }),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
+  const addInsert = async (layerId: string, slot: number, plugin: VstPluginInfo) => {
+    if (!draft) return false;
+    try {
+      await window.electronAPI.vstInsertSet(layerId, slot, plugin.path, false);
+    } catch (cause) {
+      onError(`Não foi possível carregar o efeito "${plugin.name}": ${cause instanceof Error ? cause.message : String(cause)}`);
+      return false;
+    }
+    const insert: Insert = { slot, pluginId: plugin.id, name: plugin.name, path: plugin.path, bypass: false };
+    mutateInserts(layerId, (inserts) => [...inserts.filter((item) => item.slot !== slot), insert]);
+    onError('');
+    return true;
+  };
+
+  const removeInsertFromStrip = async (layerId: string, slot: number) => {
+    if (!draft) return;
+    try {
+      await window.electronAPI.vstInsertRemove(layerId, slot);
+    } catch (cause) {
+      onError(`Não foi possível remover o efeito: ${cause instanceof Error ? cause.message : String(cause)}`);
+      return;
+    }
+    mutateInserts(layerId, (inserts) => inserts.filter((item) => item.slot !== slot));
+    onError('');
+  };
+
+  const toggleInsertBypass = async (layerId: string, slot: number, bypass: boolean) => {
+    if (!await window.electronAPI.vstInsertBypass(layerId, slot, bypass)) return;
+    mutateInserts(layerId, (inserts) =>
+      inserts.map((item) => (item.slot === slot ? { ...item, bypass } : item))
+    );
+  };
+
+  const openInsertEditor = (layerId: string, slot: number) => {
+    void window.electronAPI.vstInsertOpenEditor(layerId, slot);
+  };
+
   const updateElement = (id: string, update: Partial<UiElement>) => {
     if (!draft) return;
     onDraftChange({
@@ -620,6 +688,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onAdd={addLayer}
             onRemove={removeLayer}
             onCopy={copyLayer}
+            onAddInsert={addInsert}
+            onRemoveInsert={removeInsertFromStrip}
+            onToggleInsertBypass={toggleInsertBypass}
+            onOpenInsertEditor={openInsertEditor}
             onSelectedLayerChange={setSelectedLayerId}
             onOpenEditor={togglePluginEditor}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}

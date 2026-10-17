@@ -7,6 +7,7 @@ import type {
   PresetPluginAssignment,
   VstPluginInfo,
 } from '@shared/types';
+import { MAX_INSERTS } from '@shared/types';
 
 interface ChannelStripsProps {
   preset: Preset | null;
@@ -18,6 +19,10 @@ interface ChannelStripsProps {
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
   onCopy: (assignment: PresetPluginAssignment, layerId: string) => Promise<boolean>;
+  onAddInsert: (layerId: string, slot: number, plugin: VstPluginInfo) => Promise<boolean>;
+  onRemoveInsert: (layerId: string, slot: number) => Promise<void>;
+  onToggleInsertBypass: (layerId: string, slot: number, bypass: boolean) => Promise<void>;
+  onOpenInsertEditor: (layerId: string, slot: number) => void;
   onSelectedLayerChange?: (layerId: string | null) => void;
   onOpenEditor?: (layerId: string) => void;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
@@ -38,6 +43,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onAdd,
   onRemove,
   onCopy,
+  onAddInsert,
+  onRemoveInsert,
+  onToggleInsertBypass,
+  onOpenInsertEditor,
   onSelectedLayerChange,
   onOpenEditor,
   onSetParameter,
@@ -46,8 +55,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
 }) => {
   const plugins = preset?.plugins ?? [];
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
+  const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [insertPicker, setInsertPicker] = useState<{ layerId: string; slot: number } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
@@ -97,6 +108,75 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       setScanning(true);
       void onRequestScan().finally(() => setScanning(false));
     }
+  };
+
+  const openInsertPicker = (layerId: string, slot: number) => {
+    setInsertPicker({ layerId, slot });
+    if (effects.length === 0 && !scanning) {
+      setScanning(true);
+      void onRequestScan().finally(() => setScanning(false));
+    }
+  };
+
+  const renderInsertSlot = (assignment: PresetPluginAssignment, layerId: string, slot: number) => {
+    const insert = (assignment.inserts ?? []).find((item) => item.slot === slot);
+    return (
+      <div
+        key={slot}
+        className="hw-inset flex items-center gap-1 px-1 py-0.5 text-[8px]"
+        style={{ color: insert ? '#E5E5EA' : '#8E8E93' }}
+      >
+        <span className="w-2 shrink-0" style={{ color: '#6E6E73' }}>{slot + 1}</span>
+        {insert ? (
+          <>
+            <span
+              className="min-w-0 flex-1 truncate"
+              title={`${insert.name} — ${insert.bypass ? 'em bypass' : 'ativo'}`}
+              style={insert.bypass ? { color: '#8E8E93', textDecoration: 'line-through' } : undefined}
+            >
+              {insert.name}
+            </span>
+            <button
+              className="hw-squarebtn shrink-0 px-1 disabled:opacity-40"
+              aria-pressed={insert.bypass}
+              aria-label={`Bypass de ${insert.name}`}
+              title="Bypass do efeito"
+              disabled={!editable || busy}
+              onClick={(event) => { event.stopPropagation(); void onToggleInsertBypass(layerId, slot, !insert.bypass); }}
+              style={insert.bypass ? { color: '#FFB74D', borderColor: '#FFB74D' } : undefined}
+            >
+              B
+            </button>
+            <button
+              className="hw-squarebtn shrink-0 px-1"
+              aria-label={`Abrir a janela de ${insert.name}`}
+              title="Abrir a janela do efeito"
+              onClick={(event) => { event.stopPropagation(); onOpenInsertEditor(layerId, slot); }}
+            >
+              E
+            </button>
+            <button
+              className="hw-squarebtn shrink-0 px-1 disabled:opacity-40"
+              aria-label={`Remover ${insert.name}`}
+              title="Remover o efeito"
+              disabled={!editable || busy}
+              onClick={(event) => { event.stopPropagation(); void onRemoveInsert(layerId, slot); }}
+            >
+              ✕
+            </button>
+          </>
+        ) : (
+          <button
+            className="min-w-0 flex-1 truncate rounded text-left disabled:opacity-40"
+            disabled={!editable || busy}
+            title={editable ? 'Carregar um efeito VST3 neste slot' : 'Edite o patch para alterar os inserts'}
+            onClick={(event) => { event.stopPropagation(); openInsertPicker(layerId, slot); }}
+          >
+            ＋ vazio
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -261,9 +341,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     style={mix.solo ? { color: '#FFFFFF', background: '#0A84FF' } : undefined}
                   >SOLO</button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-1 text-center text-[8px]" style={{ color: '#8E8E93' }}>
-                  <div className="hw-inset py-1">FX · indisponível</div>
-                  <div className="hw-inset py-1">SEND · indisponível</div>
+                <div className="mt-2">
+                  <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
+                  <div className="mt-1 space-y-0.5">
+                    {Array.from({ length: MAX_INSERTS }, (_, slot) => renderInsertSlot(assignment, layerId, slot))}
+                  </div>
+                  <div className="hw-inset mt-1 py-1 text-center text-[8px]" style={{ color: '#8E8E93' }}>SEND · indisponível</div>
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-auto py-1">
                   {loaded?.parameters.slice(0, 4).map((parameter) => (
@@ -371,6 +454,42 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         </div>
       </div>
+      {insertPicker && (
+        <div className="absolute bottom-2 left-2 right-2 z-40 max-h-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
+          <div className="mb-1 flex items-center justify-between px-1">
+            <span className="hw-label">Carregar efeito — slot {insertPicker.slot + 1}</span>
+            <button className="px-1 text-xs text-slate-400" onClick={() => setInsertPicker(null)}>✕</button>
+          </div>
+          {effects.length === 0 ? (
+            <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
+              {scanning ? 'Escaneando VST3…' : 'Nenhum efeito encontrado.'}
+              {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+            </div>
+          ) : effects.map((plugin) => (
+            <button
+              key={plugin.id}
+              disabled={busy}
+              className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+              title={plugin.path}
+              onClick={() => {
+                const target = insertPicker;
+                setInsertPicker(null);
+                void (async () => {
+                  setBusy(true);
+                  try {
+                    const added = await onAddInsert(target.layerId, target.slot, plugin);
+                    if (!added) setInsertPicker(target);
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              {plugin.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
         Selecione um strip e use a aba Channel Strip do Inspector para definir as teclas (Low/High Key).
       </div>

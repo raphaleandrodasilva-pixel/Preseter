@@ -47,6 +47,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstSetLayerMix: (layerId: string, update: unknown) =>
     ipcRenderer.invoke('vst-set-layer-mix', layerId, update),
   vstSetMasterMix: (update: unknown) => ipcRenderer.invoke('vst-set-master-mix', update),
+  vstInsertSet: (layerId: string, slot: number, pluginPath: string, bypass?: boolean) =>
+    ipcRenderer.invoke('vst-insert-set', layerId, slot, pluginPath, bypass),
+  vstInsertRemove: (layerId: string, slot: number) =>
+    ipcRenderer.invoke('vst-insert-remove', layerId, slot),
+  vstInsertBypass: (layerId: string, slot: number, bypass: boolean) =>
+    ipcRenderer.invoke('vst-insert-bypass', layerId, slot, bypass),
+  vstInserts: (layerId: string) => ipcRenderer.invoke('vst-inserts', layerId),
+  vstInsertStateGet: (layerId: string, slot: number) =>
+    ipcRenderer.invoke('vst-insert-state-get', layerId, slot),
+  vstInsertStateSet: (layerId: string, slot: number, data: string) =>
+    ipcRenderer.invoke('vst-insert-state-set', layerId, slot, data),
+  vstInsertOpenEditor: (layerId: string, slot: number) =>
+    ipcRenderer.invoke('vst-insert-open-editor', layerId, slot),
+  vstInsertCloseEditor: (layerId: string, slot: number) =>
+    ipcRenderer.invoke('vst-insert-close-editor', layerId, slot),
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
   preferencesGet: () => ipcRenderer.invoke('preferences-get'),
   preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),

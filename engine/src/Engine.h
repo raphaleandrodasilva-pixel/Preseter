@@ -2,6 +2,7 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include <array>
 #include <atomic>
 #include <functional>
 #include <map>
@@ -23,6 +24,9 @@ public:
     using Graph    = juce::AudioProcessorGraph;
     using Done     = std::function<void (juce::var result, juce::String error)>;
     using Progress = std::function<void (const juce::String& pluginName)>;
+
+    /** Slots de insert (efeitos) por channel strip (Fase 3.1). */
+    static constexpr int kMaxInserts = 4;
 
     Engine();
     ~Engine() override;
@@ -61,16 +65,32 @@ public:
     juce::String setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result);
     juce::String getParameter (const juce::String& layerId, int index, juce::var& result) const;
 
-    /** Estado completo do plugin (`getStateInformation`) codificado em base64. */
-    juce::String getPluginState (const juce::String& layerId, juce::var& result) const;
+    /** Estado completo do plugin (`getStateInformation`) codificado em base64.
+        `insertSlot >= 0` busca o efeito do slot de insert; -1 busca o instrumento. */
+    juce::String getPluginState (const juce::String& layerId, juce::var& result,
+                                 int insertSlot = -1) const;
     /** Aplica um estado completo (base64) via `setStateInformation`. */
     juce::String setPluginState (const juce::String& layerId, const juce::String& base64,
-                                 juce::var& result);
+                                 juce::var& result, int insertSlot = -1);
 
-    /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer. */
-    juce::String openPluginEditor (const juce::String& layerId, juce::var& result);
-    /** Fecha a janela de edição do plugin do layer, se estiver aberta. */
-    juce::String closePluginEditor (const juce::String& layerId, juce::var& result);
+    /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer/slot. */
+    juce::String openPluginEditor (const juce::String& layerId, juce::var& result,
+                                   int insertSlot = -1);
+    /** Fecha a janela de edição do plugin do layer/slot, se estiver aberta. */
+    juce::String closePluginEditor (const juce::String& layerId, juce::var& result,
+                                    int insertSlot = -1);
+
+    // ---- Inserts (efeitos por channel strip, Fase 3.1) -------------------
+    /** Carrega (substituindo o que houver) um efeito no slot de insert do layer. */
+    void setInsert (const juce::String& layerId, int slot, const juce::String& idOrPath,
+                    bool bypass, Done done);
+    /** Remove o efeito de um slot de insert, se houver. */
+    juce::String removeInsert (const juce::String& layerId, int slot, juce::var& result);
+    /** Liga/desliga (bypass) o efeito de um slot, sem descarregá-lo. */
+    juce::String setInsertBypass (const juce::String& layerId, int slot, bool bypass,
+                                  juce::var& result);
+    /** Descreve os slots de insert de um layer (sempre os `kMaxInserts` slots). */
+    juce::var describeInserts (const juce::String& layerId) const;
 
     juce::var describeAudioConfiguration();
     juce::String audioConfigurationError();
@@ -90,11 +110,17 @@ private:
     void rebuildConnections();
     void updateSoloState();
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
-    juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {}) const;
+    juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {},
+                                          int insertSlot = -1) const;
+    juce::var describeInsert (const juce::String& layerId, int slot) const;
     juce::String resolveLayerId (const juce::String& layerId) const;
     int findLayer (const juce::String& layerId) const;
     juce::var pluginToVar (const juce::PluginDescription& description) const;
-    bool destroyEditorWindow (const juce::String& layerId);
+    /** Chave da janela de edição: o próprio layer para o instrumento, layer#insert#n para um insert. */
+    juce::String editorKey (const juce::String& layerId, int insertSlot) const;
+    /** Fecha as janelas de edição do layer (instrumento e inserts). */
+    void destroyEditorWindowsFor (const juce::String& layerId);
+    bool destroyEditorWindow (const juce::String& key);
     /** Descarrega os layers do patch anterior quando as caudas acabam. */
     void drainLingeringLayers();
     void updateTailTimer();
@@ -121,6 +147,10 @@ private:
         Graph::Node::Ptr midiFilterNode;
         Graph::Node::Ptr pluginNode;
         Graph::Node::Ptr stripNode;
+        /** Efeitos de insert do channel strip; o índice é o slot (Fase 3.1). */
+        std::array<Graph::Node::Ptr, kMaxInserts> insertNodes;
+        /** Slot com bypass ligado: o efeito continua carregado, mas fora da cadeia de áudio. */
+        std::array<bool, kMaxInserts> insertBypass {};
         int minNote = 0;
         int maxNote = 127;
         Role role = Role::active;
@@ -129,6 +159,8 @@ private:
     };
     std::vector<Layer> layers;
     juce::StringArray loadingLayerIds;
+    /** Slots de insert em carregamento, no formato layerId#slot. */
+    juce::StringArray loadingInsertKeys;
 
     /** Janela nativa de edição de um plugin. Fecha via botão e avisa o Engine. */
     struct PluginEditorWindow final : juce::DocumentWindow

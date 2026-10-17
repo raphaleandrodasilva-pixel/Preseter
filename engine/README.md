@@ -15,12 +15,14 @@ Electron (UI) ⇄ main (Node) ⇄ stdin/stdout JSON ⇄ preseter-engine (JUCE)
                                                    └─ MIDI de entrada
 ```
 
-**Status: Layers e configuração de áudio.** Um patch pode carregar vários
+**Status: Layers, inserts e configuração de áudio.** Um patch pode carregar vários
 instrumentos VST3 simultaneamente. Cada layer tem uma faixa MIDI independente
 (notas 0–127 por padrão), volume (-60 a +6 dB), pan, mute, solo e medidor de pico
-dBFS. O strip Master controla volume, mute e pico após a soma. As configurações
-de mixagem são salvas junto ao patch. Os slots de efeitos e sends são apenas
-visuais nesta etapa e não processam áudio.
+dBFS, além de **4 slots de insert** para efeitos VST3 (com bypass) na cadeia de
+áudio: instrumento → inserts → channel strip → Master. O strip Master controla
+volume, mute e pico após a soma. As configurações de mixagem e os inserts (com o
+estado de cada efeito) são salvos junto ao patch. Os sends ainda são apenas
+visuais e não processam áudio.
 
 ## Compilar
 
@@ -96,10 +98,11 @@ esse teste valida o backend, não a instalação de um driver ASIO.
 Na interface, crie/edite um patch e use **Adicionar**, **Remover** e **Copiar**
 no painel **Layers**. Os limites de cada layer podem ser digitados em notas MIDI
 ou arrastados na representação do teclado. Ajuste o fader, pan, mute e solo de
-cada strip e o fader/mute Master; os medidores mostram o pico em dBFS. Essas
-configurações ficam salvas no patch. Um patch aceita quantos instrumentos você
-precisar; a partir de quatro channel strips o processamento pode pesar. Os slots
-de FX/sends são placeholders.
+cada strip e o fader/mute Master; os medidores mostram o pico em dBFS. Cada strip
+tem 4 slots de insert: clique em um slot para escolher um efeito VST3, use **B** para
+deixá-lo em bypass e **E** para abrir a janela do efeito. Essas configurações ficam
+salvas no patch. Um patch aceita quantos instrumentos você precisar; a partir de
+quatro channel strips o processamento pode pesar. Os slots de sends são placeholders.
 
 ### Plugin de teste (sem depender de terceiros)
 
@@ -152,10 +155,14 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |
-| `getState` | `layerId?` | Estado completo do plugin (`getStateInformation`) codificado em base64 |
-| `setState` | `layerId?`, `data` | Aplica um estado completo (base64) via `setStateInformation` |
-| `openEditor` | `layerId?` | Abre (ou traz para a frente) a janela de edição nativa do plugin |
-| `closeEditor` | `layerId?` | Fecha a janela de edição do plugin |
+| `getState` | `layerId?`, `slot?` | Estado completo do plugin (`getStateInformation`) codificado em base64; `slot` escolhe um insert |
+| `setState` | `layerId?`, `data`, `slot?` | Aplica um estado completo (base64) via `setStateInformation` |
+| `openEditor` | `layerId?`, `slot?` | Abre (ou traz para a frente) a janela de edição nativa do plugin |
+| `closeEditor` | `layerId?`, `slot?` | Fecha a janela de edição do plugin |
+| `inserts` | `layerId?` | Lista os 4 slots de insert de um channel strip |
+| `setInsert` | `layerId?`, `slot`, `plugin` (id) ou `path`, `bypass?` | Carrega (substituindo) um efeito VST3 no slot de insert |
+| `removeInsert` | `layerId?`, `slot` | Remove o efeito de um slot |
+| `setInsertBypass` | `layerId?`, `slot`, `bypass` | Liga/desliga (bypass) o efeito do slot, sem descarregá-lo |
 | `noteOn` / `noteOff` | `note`, `velocity?`, `channel?` | Envia nota MIDI |
 | `midi` | `bytes` (1 a 3) | Envia MIDI cru |
 | `panic` | — | All notes off + all sound off nos 16 canais |
@@ -175,7 +182,10 @@ Windows, `~/.config` no Linux): `known-plugins.xml` (lista do scan) e
   próxima execução. Scan em processo separado continua planejado.
 - A faixa MIDI é aplicada a notas; automação/edição de parâmetros do plugin é
   por layer, mas janelas do editor VST ainda não estão disponíveis.
-- Plugins de efeito não são aceitos como layers nesta etapa.
+- Os inserts são cadeias de efeitos fixas de 4 slots por channel strip; efeitos
+  com múltiplas entradas/saídas (side-chain, surround) não são suportados.
+- A configuração de áudio grava para disco ao alterar a mixagem; o estado dos
+  inserts é salvo no patch pelo app, não pelo motor.
 
 ## Licença do JUCE
 

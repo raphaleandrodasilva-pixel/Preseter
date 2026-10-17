@@ -121,6 +121,10 @@ const AppContent: React.FC = () => {
         const layerId = assignment.layerId ?? `${draft.id}:layer:${index}`;
         const loaded = loadedPlugins.some((plugin) => plugin.layerId === layerId);
         if (loaded) vstStates[`loaded_${layerId}`] = await window.electronAPI.vstGetState(layerId);
+        for (const insert of assignment.inserts ?? []) {
+          const state = await window.electronAPI.vstInsertStateGet(layerId, insert.slot);
+          if (state) vstStates[`insert_${layerId}_${insert.slot}`] = state;
+        }
       }
       const saved = await savePreset({ ...draft, vstStates, updatedAt: Date.now() });
       if (!saved) setError('O armazenamento não confirmou que o patch foi salvo.');

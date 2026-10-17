@@ -97,6 +97,24 @@ export interface EnginePluginStateApplied {
 export interface EngineEditorState {
   layerId: string;
   open: boolean;
+  /** Presente quando a janela é de um slot de insert (Fase 3.1). */
+  slot?: number;
+}
+
+/** Estado de um slot de insert (efeito) de um channel strip (Fase 3.1). */
+export interface EngineInsertState {
+  layerId: string;
+  /** Slot do channel strip (0 a `MAX_INSERTS - 1`). */
+  slot: number;
+  loaded: boolean;
+  bypass: boolean;
+  id: string;
+  name: string;
+  manufacturer: string;
+  format: string;
+  path: string;
+  inputs: number;
+  outputs: number;
 }
 
 /** Resultado de efetivar uma troca de patch sem corte. */
@@ -164,14 +182,25 @@ export interface EngineCommands {
   params: { args: { all?: boolean; layerId?: string }; result: EngineParameter[] };
   getParam: { args: { index: number; layerId?: string }; result: EngineParameter };
   setParam: { args: { index: number; value: number; layerId?: string }; result: EngineParameter };
-  /** Estado completo do plugin (chunk) em base64. */
-  getState: { args: { layerId?: string }; result: EnginePluginStateChunk };
+  /** Estado completo do plugin (chunk) em base64. `slot` busca um insert; sem ele, o instrumento. */
+  getState: { args: { layerId?: string; slot?: number }; result: EnginePluginStateChunk };
   /** Aplica um estado completo (chunk) em base64. */
-  setState: { args: { layerId?: string; data: string }; result: EnginePluginStateApplied };
+  setState: { args: { layerId?: string; data: string; slot?: number }; result: EnginePluginStateApplied };
   /** Abre (ou traz para a frente) a janela de edição do plugin. */
-  openEditor: { args: { layerId?: string }; result: EngineEditorState };
+  openEditor: { args: { layerId?: string; slot?: number }; result: EngineEditorState };
   /** Fecha a janela de edição do plugin. */
-  closeEditor: { args: { layerId?: string }; result: EngineEditorState };
+  closeEditor: { args: { layerId?: string; slot?: number }; result: EngineEditorState };
+  /** Slots de insert de um channel strip (Fase 3.1). */
+  inserts: { args: { layerId?: string }; result: EngineInsertState[] };
+  /** Carrega (substituindo) um efeito num slot de insert do channel strip. */
+  setInsert: {
+    args: { layerId?: string; slot: number; plugin?: string; path?: string; bypass?: boolean };
+    result: EngineInsertState;
+  };
+  /** Remove o efeito de um slot de insert. */
+  removeInsert: { args: { layerId?: string; slot: number }; result: EngineInsertState };
+  /** Liga/desliga (bypass) o efeito de um slot, sem descarregá-lo. */
+  setInsertBypass: { args: { layerId?: string; slot: number; bypass: boolean }; result: EngineInsertState };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };
   noteOff: { args: { note: number; velocity?: number; channel?: number }; result: null };
   midi: { args: { bytes: number[] }; result: null };

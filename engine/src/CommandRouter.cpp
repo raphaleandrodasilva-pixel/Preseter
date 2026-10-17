@@ -275,7 +275,8 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "getState")
     {
         juce::var result;
-        const auto error = engine.getPluginState (message["layerId"].toString(), result);
+        const auto error = engine.getPluginState (message["layerId"].toString(), result,
+                                                  intArg (message, "slot", -1));
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;
@@ -285,7 +286,8 @@ void CommandRouter::handleLine (const juce::String& line)
     {
         juce::var result;
         const auto error = engine.setPluginState (message["layerId"].toString(),
-                                                  message["data"].toString(), result);
+                                                  message["data"].toString(), result,
+                                                  intArg (message, "slot", -1));
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;
@@ -294,7 +296,8 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "openEditor")
     {
         juce::var result;
-        const auto error = engine.openPluginEditor (message["layerId"].toString(), result);
+        const auto error = engine.openPluginEditor (message["layerId"].toString(), result,
+                                                    intArg (message, "slot", -1));
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;
@@ -303,7 +306,58 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "closeEditor")
     {
         juce::var result;
-        const auto error = engine.closePluginEditor (message["layerId"].toString(), result);
+        const auto error = engine.closePluginEditor (message["layerId"].toString(), result,
+                                                     intArg (message, "slot", -1));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    // ---- Inserts (efeitos por channel strip) -------------------------------
+    if (cmd == "inserts")
+    {
+        ok (id, engine.describeInserts (message["layerId"].toString()));
+        return;
+    }
+
+    if (cmd == "setInsert")
+    {
+        auto key = message["plugin"].toString();
+        if (key.isEmpty()) key = message["path"].toString();
+
+        if (key.isEmpty())
+        {
+            fail (id, "Informe \"plugin\" (id) ou \"path\" do efeito.");
+            return;
+        }
+
+        const int slot = intArg (message, "slot", -1);
+        const bool bypass = boolArg (message, "bypass", false);
+        engine.setInsert (message["layerId"].toString(), slot, key, bypass,
+                          [this, id] (juce::var result, juce::String error)
+                          {
+                              if (error.isNotEmpty()) fail (id, error);
+                              else                    ok (id, result);
+                          });
+        return;
+    }
+
+    if (cmd == "removeInsert")
+    {
+        juce::var result;
+        const auto error = engine.removeInsert (message["layerId"].toString(),
+                                                intArg (message, "slot", -1), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "setInsertBypass")
+    {
+        juce::var result;
+        const auto error = engine.setInsertBypass (message["layerId"].toString(),
+                                                   intArg (message, "slot", -1),
+                                                   boolArg (message, "bypass", false), result);
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;

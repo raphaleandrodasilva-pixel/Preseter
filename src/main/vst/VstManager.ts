@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import type {
+  EngineInsertState,
   EngineLoadedPlugin,
   EngineParameter,
   EnginePluginInfo,
@@ -234,6 +235,70 @@ export class VstManager extends EventEmitter {
       this.loadedPlugins.set(plugin.layerId, this.withParameter(plugin, parameter));
     }
     return true;
+  }
+
+  // ---- Inserts (efeitos por channel strip, Fase 3.1) --------------------
+
+  /** Carrega (substituindo) um efeito no slot de insert do channel strip. */
+  async setInsert(
+    layerId: string,
+    slot: number,
+    pluginPathOrId: string,
+    bypass = false
+  ): Promise<EngineInsertState> {
+    return this.enqueueLoad(async () => {
+      const scanned = this.scannedPlugins.find(
+        (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
+      );
+      const request = scanned
+        ? { layerId, slot, plugin: scanned.id, bypass }
+        : { layerId, slot, path: pluginPathOrId, bypass };
+      const state = await this.engine.request('setInsert', request, 60_000);
+      try {
+        const devices = await this.getAudioDevices();
+        if (!devices.running) await this.startAudio({ outputs: 2, inputs: 0 });
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível garantir o áudio após o insert:', error);
+      }
+      return state;
+    });
+  }
+
+  async removeInsert(layerId: string, slot: number): Promise<EngineInsertState> {
+    return this.engine.request('removeInsert', { layerId, slot });
+  }
+
+  async setInsertBypass(layerId: string, slot: number, bypass: boolean): Promise<EngineInsertState> {
+    return this.engine.request('setInsertBypass', { layerId, slot, bypass });
+  }
+
+  async getInserts(layerId: string): Promise<EngineInsertState[]> {
+    return this.engine.request('inserts', { layerId });
+  }
+
+  /** Estado completo do efeito do slot (base64), ou null se não estiver carregado. */
+  async getInsertState(layerId: string, slot: number): Promise<{ data: string } | null> {
+    try {
+      const chunk = await this.engine.request('getState', { layerId, slot });
+      return { data: chunk.data };
+    } catch {
+      return null;
+    }
+  }
+
+  async setInsertState(layerId: string, slot: number, data: string): Promise<boolean> {
+    await this.engine.request('setState', { layerId, slot, data });
+    return true;
+  }
+
+  async openInsertEditor(layerId: string, slot: number): Promise<boolean> {
+    const result = await this.engine.request('openEditor', { layerId, slot });
+    return result.open === true;
+  }
+
+  async closeInsertEditor(layerId: string, slot: number): Promise<boolean> {
+    const result = await this.engine.request('closeEditor', { layerId, slot });
+    return result.open === false;
   }
 
   getScannedPlugins(): VstPluginInfo[] {

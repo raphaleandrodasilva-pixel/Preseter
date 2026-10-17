@@ -222,6 +222,31 @@ class MainWindow {
       return this.vstManager.setMasterMix(update);
     });
 
+    ipcMain.handle('vst-insert-set', (_event, layerId: string, slot: number, pluginPath: string, bypass?: boolean) => {
+      return this.vstManager.setInsert(layerId, slot, pluginPath, bypass === true);
+    });
+    ipcMain.handle('vst-insert-remove', (_event, layerId: string, slot: number) => {
+      return this.vstManager.removeInsert(layerId, slot);
+    });
+    ipcMain.handle('vst-insert-bypass', (_event, layerId: string, slot: number, bypass: boolean) => {
+      return this.vstManager.setInsertBypass(layerId, slot, bypass === true);
+    });
+    ipcMain.handle('vst-inserts', (_event, layerId: string) => {
+      return this.vstManager.getInserts(layerId);
+    });
+    ipcMain.handle('vst-insert-state-get', (_event, layerId: string, slot: number) => {
+      return this.vstManager.getInsertState(layerId, slot);
+    });
+    ipcMain.handle('vst-insert-state-set', (_event, layerId: string, slot: number, data: string) => {
+      return this.vstManager.setInsertState(layerId, slot, data);
+    });
+    ipcMain.handle('vst-insert-open-editor', (_event, layerId: string, slot: number) => {
+      return this.vstManager.openInsertEditor(layerId, slot);
+    });
+    ipcMain.handle('vst-insert-close-editor', (_event, layerId: string, slot: number) => {
+      return this.vstManager.closeInsertEditor(layerId, slot);
+    });
+
     ipcMain.handle('audio-settings-get', async () => ({
       devices: await this.vstManager.getAudioDevices(),
       settings: this.readAudioSettings(),
@@ -376,9 +401,6 @@ class MainWindow {
     // depois troca o grafo de uma vez. O patch anterior segue soando até as caudas acabarem.
     const restoredStateKeys = new Set<string>();
     for (const [index, assignment] of assignments.entries()) {
-      if (assignment.role !== 'instrument') {
-        throw new Error(`O layer "${assignment.name}" é um efeito; efeitos ainda não fazem parte desta etapa.`);
-      }
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
       const plugin = await this.vstManager.stageLoad(
         assignment.path,
@@ -404,6 +426,24 @@ class MainWindow {
 
     await this.vstManager.commitPatchSwap(silencePrevious);
     await this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false });
+
+    // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
+    for (const [index, assignment] of assignments.entries()) {
+      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+      for (const insert of inserts) {
+        try {
+          await this.vstManager.setInsert(layerId, insert.slot, insert.path, insert.bypass ?? false);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível carregar o efeito "${insert.name}":`, error);
+          continue;
+        }
+        const savedInsertState = preset.vstStates[`insert_${layerId}_${insert.slot}`];
+        if (typeof savedInsertState?.data === 'string') {
+          await this.vstManager.setInsertState(layerId, insert.slot, savedInsertState.data);
+        }
+      }
+    }
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
     const pluginStates = preset.vstStates;

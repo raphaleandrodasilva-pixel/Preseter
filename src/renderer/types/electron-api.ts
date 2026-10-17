@@ -15,6 +15,7 @@ import type {
   SavedAudioSettings,
   VstPluginInfo,
 } from '@shared/types';
+import type { EngineInsertState } from '@shared/engine-protocol';
 
 export interface ElectronAPI {
   // App Info
@@ -47,6 +48,14 @@ export interface ElectronAPI {
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;
+  vstInsertSet: (layerId: string, slot: number, pluginPath: string, bypass?: boolean) => Promise<EngineInsertState>;
+  vstInsertRemove: (layerId: string, slot: number) => Promise<EngineInsertState>;
+  vstInsertBypass: (layerId: string, slot: number, bypass: boolean) => Promise<EngineInsertState>;
+  vstInserts: (layerId: string) => Promise<EngineInsertState[]>;
+  vstInsertStateGet: (layerId: string, slot: number) => Promise<{ data: string } | null>;
+  vstInsertStateSet: (layerId: string, slot: number, data: string) => Promise<boolean>;
+  vstInsertOpenEditor: (layerId: string, slot: number) => Promise<boolean>;
+  vstInsertCloseEditor: (layerId: string, slot: number) => Promise<boolean>;
   audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
   preferencesGet: () => Promise<AppPreferences>;
   preferencesSet: (update: Partial<AppPreferences>) => Promise<AppPreferences>;

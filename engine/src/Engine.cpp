@@ -682,13 +682,28 @@ juce::String Engine::resolveLayerId (const juce::String& layerId) const
     return layers.empty() ? juce::String() : layers.front().id;
 }
 
-juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayerId) const
+juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayerId,
+                                              int insertSlot) const
 {
     const auto layerId = resolveLayerId (requestedLayerId);
     const int index = findLayer (layerId);
-    if (index < 0 || layers[(size_t) index].pluginNode == nullptr)
+    if (index < 0)
         return nullptr;
-    return dynamic_cast<juce::AudioPluginInstance*> (layers[(size_t) index].pluginNode->getProcessor());
+
+    const auto& layer = layers[(size_t) index];
+    Graph::Node::Ptr node;
+    if (insertSlot < 0)
+    {
+        node = layer.pluginNode;
+    }
+    else if (insertSlot < kMaxInserts)
+    {
+        node = layer.insertNodes[(size_t) insertSlot];
+    }
+
+    if (node == nullptr)
+        return nullptr;
+    return dynamic_cast<juce::AudioPluginInstance*> (node->getProcessor());
 }
 
 void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& requestedLayerId,
@@ -698,11 +713,6 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
     if (! findDescription (idOrPath, description))
     {
         done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
-        return;
-    }
-    if (! description.isInstrument)
-    {
-        done ({}, utf8 ("Nesta etapa Layers aceita instrumentos; efeitos serão adicionados depois."));
         return;
     }
     if (minNote < 0 || maxNote > 127 || minNote > maxNote)
@@ -752,6 +762,14 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 filter->setRange (minNote, maxNote);
 
             // Some com o layer antigo, mas preserva o nó do plugin (agora é do novo layer).
+            // Os inserts do patch anterior não seguem junto: o patch novo recarrega os seus.
+            destroyEditorWindowsFor (candidate.id);
+            for (auto& insertNode : candidate.insertNodes)
+                if (insertNode != nullptr)
+                {
+                    graph.removeNode (insertNode->nodeID);
+                    insertNode = nullptr;
+                }
             candidate.pluginNode = nullptr;
             if (candidate.midiFilterNode != nullptr) graph.removeNode (candidate.midiFilterNode->nodeID);
             if (candidate.stripNode != nullptr) graph.removeNode (candidate.stripNode->nodeID);
@@ -875,10 +893,15 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
     if (index < 0)
         return false;
     const auto layer = layers[(size_t) index];
-    destroyEditorWindow (layer.id);
-    graph.removeNode (layer.pluginNode->nodeID);
-    graph.removeNode (layer.midiFilterNode->nodeID);
-    graph.removeNode (layer.stripNode->nodeID);
+    destroyEditorWindowsFor (layer.id);
+    for (const auto& insertNode : layer.insertNodes)
+        if (insertNode != nullptr)
+            graph.removeNode (insertNode->nodeID);
+    if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
+    if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+    if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+    for (int slot = 0; slot < kMaxInserts; ++slot)
+        loadingInsertKeys.removeString (layer.id + "#" + juce::String (slot));
     layers.erase (layers.begin() + index);
     updateSoloState();
     rebuildConnections();
@@ -898,6 +921,169 @@ juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, in
     layer.maxNote = maxNote;
     if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
         filter->setRange (minNote, maxNote);
+    return {};
+}
+
+// ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------
+
+juce::var Engine::describeInsert (const juce::String& layerId, int slot) const
+{
+    const int index = findLayer (layerId);
+    const bool validSlot = slot >= 0 && slot < kMaxInserts;
+    auto* plugin = validSlot ? getPlugin (layerId, slot) : nullptr;
+    const bool loaded = index >= 0 && validSlot && plugin != nullptr;
+    const bool bypass = index >= 0 && validSlot
+        ? layers[(size_t) index].insertBypass[(size_t) slot] : false;
+
+    auto out = Obj()
+        .set ("layerId", resolveLayerId (layerId))
+        .set ("slot", slot)
+        .set ("loaded", loaded)
+        .set ("bypass", bypass);
+
+    if (! loaded)
+        return out.set ("id", juce::String())
+                   .set ("name", juce::String())
+                   .set ("manufacturer", juce::String())
+                   .set ("format", juce::String())
+                   .set ("path", juce::String())
+                   .set ("inputs", 0)
+                   .set ("outputs", 0);
+
+    const auto description = plugin->getPluginDescription();
+    return out.set ("id", description.createIdentifierString())
+               .set ("name", description.name)
+               .set ("manufacturer", description.manufacturerName)
+               .set ("format", description.pluginFormatName)
+               .set ("path", description.fileOrIdentifier)
+               .set ("inputs", plugin->getTotalNumInputChannels())
+               .set ("outputs", plugin->getTotalNumOutputChannels());
+}
+
+juce::var Engine::describeInserts (const juce::String& layerId) const
+{
+    juce::Array<juce::var> list;
+    for (int slot = 0; slot < kMaxInserts; ++slot)
+        list.add (describeInsert (layerId, slot));
+    return juce::var (list);
+}
+
+void Engine::setInsert (const juce::String& requestedLayerId, int slot,
+                        const juce::String& idOrPath, bool bypass, Done done)
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    if (findLayer (layerId) < 0)
+    {
+        done ({}, utf8 ("Layer não encontrado para carregar o efeito."));
+        return;
+    }
+    if (slot < 0 || slot >= kMaxInserts)
+    {
+        done ({}, utf8 ("Slot de insert inválido (use 0 a ") + juce::String (kMaxInserts - 1) + ").");
+        return;
+    }
+
+    juce::PluginDescription description;
+    if (! findDescription (idOrPath, description))
+    {
+        done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
+        return;
+    }
+
+    const auto key = layerId + "#" + juce::String (slot);
+    if (loadingInsertKeys.contains (key))
+    {
+        done ({}, utf8 ("Este slot de insert já está carregando."));
+        return;
+    }
+    loadingInsertKeys.add (key);
+
+    const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
+    const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
+    std::weak_ptr<bool> alive = aliveFlag;
+
+    formatManager.createPluginInstanceAsync (
+        description, sampleRate, blockSize,
+        [this, alive, done, layerId, slot, bypass] (
+            std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
+        {
+            const auto stillAlive = alive.lock();
+            if (stillAlive == nullptr || ! *stillAlive)
+                return;
+
+            loadingInsertKeys.removeString (layerId + "#" + juce::String (slot));
+            if (instance == nullptr)
+            {
+                done ({}, error.isNotEmpty() ? error
+                                             : juce::String (utf8 ("Falha ao criar a instância do efeito.")));
+                return;
+            }
+
+            const int layerIndex = findLayer (layerId);
+            if (layerIndex < 0)
+            {
+                // O channel strip foi removido enquanto o efeito carregava.
+                done ({}, utf8 ("O channel strip foi removido antes do efeito terminar de carregar."));
+                return;
+            }
+
+            auto& layer = layers[(size_t) layerIndex];
+            if (layer.insertNodes[(size_t) slot] != nullptr)
+            {
+                destroyEditorWindow (editorKey (layerId, slot));
+                graph.removeNode (layer.insertNodes[(size_t) slot]->nodeID);
+                layer.insertNodes[(size_t) slot] = nullptr;
+            }
+
+            auto node = graph.addNode (std::move (instance));
+            if (node == nullptr)
+            {
+                done ({}, utf8 ("Não foi possível adicionar o efeito ao grafo de áudio."));
+                return;
+            }
+
+            layer.insertNodes[(size_t) slot] = node;
+            layer.insertBypass[(size_t) slot] = bypass;
+            rebuildConnections();
+            done (describeInsert (layerId, slot), {});
+        });
+}
+
+juce::String Engine::removeInsert (const juce::String& requestedLayerId, int slot, juce::var& result)
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer não encontrado para remover o efeito.");
+    if (slot < 0 || slot >= kMaxInserts)
+        return utf8 ("Slot de insert inválido.");
+
+    auto& layer = layers[(size_t) index];
+    if (layer.insertNodes[(size_t) slot] != nullptr)
+    {
+        destroyEditorWindow (editorKey (layerId, slot));
+        graph.removeNode (layer.insertNodes[(size_t) slot]->nodeID);
+        layer.insertNodes[(size_t) slot] = nullptr;
+    }
+    layer.insertBypass[(size_t) slot] = false;
+    rebuildConnections();
+    result = describeInsert (layerId, slot);
+    return {};
+}
+
+juce::String Engine::setInsertBypass (const juce::String& requestedLayerId, int slot, bool bypass,
+                                      juce::var& result)
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer não encontrado para o efeito.");
+    if (slot < 0 || slot >= kMaxInserts)
+        return utf8 ("Slot de insert inválido.");
+
+    layers[(size_t) index].insertBypass[(size_t) slot] = bypass;
+    rebuildConnections();
+    result = describeInsert (layerId, slot);
     return {};
 }
 
@@ -976,49 +1162,69 @@ juce::String Engine::getParameter (const juce::String& layerId, int index, juce:
     return {};
 }
 
-juce::String Engine::getPluginState (const juce::String& layerId, juce::var& result) const
+juce::String Engine::getPluginState (const juce::String& layerId, juce::var& result,
+                                     int insertSlot) const
 {
-    auto* plugin = getPlugin (layerId);
+    auto* plugin = getPlugin (layerId, insertSlot);
     if (plugin == nullptr)
-        return utf8 ("Nenhum instrumento carregado neste layer.");
+        return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
+                              : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
     juce::MemoryBlock state;
     plugin->getStateInformation (state);
-    result = Obj()
+    auto out = Obj()
         .set ("layerId", resolveLayerId (layerId))
         .set ("data", juce::Base64::toBase64 (state.getData(), state.getSize()));
+    if (insertSlot >= 0)
+        out = out.set ("slot", insertSlot);
+    result = out;
     return {};
 }
 
-juce::String Engine::setPluginState (const juce::String& layerId, const juce::String& base64, juce::var& result)
+juce::String Engine::setPluginState (const juce::String& layerId, const juce::String& base64,
+                                     juce::var& result, int insertSlot)
 {
-    auto* plugin = getPlugin (layerId);
+    auto* plugin = getPlugin (layerId, insertSlot);
     if (plugin == nullptr)
-        return utf8 ("Nenhum instrumento carregado neste layer.");
+        return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
+                              : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
     juce::MemoryOutputStream decoded;
     if (! juce::Base64::convertFromBase64 (decoded, base64))
         return utf8 ("Estado do plugin inválido (base64).");
 
     plugin->setStateInformation (decoded.getData(), (int) decoded.getDataSize());
-    result = Obj()
+    auto out = Obj()
         .set ("layerId", resolveLayerId (layerId))
         .set ("bytes", (int) decoded.getDataSize());
+    if (insertSlot >= 0)
+        out = out.set ("slot", insertSlot);
+    result = out;
     return {};
 }
 
-juce::String Engine::openPluginEditor (const juce::String& layerId, juce::var& result)
+juce::String Engine::editorKey (const juce::String& layerId, int insertSlot) const
 {
-    auto* plugin = getPlugin (layerId);
+    return insertSlot < 0 ? layerId : layerId + "#insert#" + juce::String (insertSlot);
+}
+
+juce::String Engine::openPluginEditor (const juce::String& requestedLayerId, juce::var& result,
+                                       int insertSlot)
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    auto* plugin = getPlugin (layerId, insertSlot);
     if (plugin == nullptr)
-        return utf8 ("Nenhum instrumento carregado neste layer.");
+        return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
+                              : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
-    const auto resolved = resolveLayerId (layerId);
+    const auto key = editorKey (layerId, insertSlot);
 
-    if (auto existing = editorWindows.find (resolved); existing != editorWindows.end())
+    if (auto existing = editorWindows.find (key); existing != editorWindows.end())
     {
         existing->second->toFront (true);
-        result = Obj().set ("layerId", resolved).set ("open", true);
+        auto open = Obj().set ("layerId", layerId).set ("open", true);
+        if (insertSlot >= 0) open = open.set ("slot", insertSlot);
+        result = open;
         return {};
     }
 
@@ -1027,34 +1233,51 @@ juce::String Engine::openPluginEditor (const juce::String& layerId, juce::var& r
         return utf8 ("Este plugin não tem janela de edição.");
 
     std::weak_ptr<bool> alive = aliveFlag;
-    editorWindows[resolved] = std::make_unique<PluginEditorWindow> (
+    editorWindows[key] = std::make_unique<PluginEditorWindow> (
         plugin->getName(), editor,
-        [this, alive, resolved]
+        [this, alive, key]
         {
             if (auto stillAlive = alive.lock(); stillAlive != nullptr && *stillAlive)
-                destroyEditorWindow (resolved);
+                destroyEditorWindow (key);
         });
 
-    result = Obj().set ("layerId", resolved).set ("open", true);
+    auto open = Obj().set ("layerId", layerId).set ("open", true);
+    if (insertSlot >= 0) open = open.set ("slot", insertSlot);
+    result = open;
     return {};
 }
 
-juce::String Engine::closePluginEditor (const juce::String& layerId, juce::var& result)
+juce::String Engine::closePluginEditor (const juce::String& requestedLayerId, juce::var& result,
+                                        int insertSlot)
 {
-    const auto resolved = resolveLayerId (layerId);
-    destroyEditorWindow (resolved);
-    result = Obj().set ("layerId", resolved).set ("open", false);
+    const auto layerId = resolveLayerId (requestedLayerId);
+    destroyEditorWindow (editorKey (layerId, insertSlot));
+    auto closed = Obj().set ("layerId", layerId).set ("open", false);
+    if (insertSlot >= 0) closed = closed.set ("slot", insertSlot);
+    result = closed;
     return {};
 }
 
-bool Engine::destroyEditorWindow (const juce::String& layerId)
+bool Engine::destroyEditorWindow (const juce::String& key)
 {
-    const auto it = editorWindows.find (layerId);
+    const auto it = editorWindows.find (key);
     if (it == editorWindows.end())
         return false;
 
     editorWindows.erase (it);
     return true;
+}
+
+void Engine::destroyEditorWindowsFor (const juce::String& layerId)
+{
+    const auto prefix = layerId + "#insert#";
+    for (auto it = editorWindows.begin(); it != editorWindows.end();)
+    {
+        if (it->first == layerId || it->first.startsWith (prefix))
+            it = editorWindows.erase (it);
+        else
+            ++it;
+    }
 }
 
 // ---- Grafo ---------------------------------------------------------------------
@@ -1075,6 +1298,33 @@ void Engine::rebuildConnections()
         for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
             graph.addConnection ({ { masterNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
 
+    // Liga `from` → `to` respeitando mono/estéreo: fonte mono duplica no canal
+    // direito; destino mono soma os dois canais (canais de insert podem ser mono).
+    auto connectAudio = [this] (Graph::Node::Ptr from, Graph::Node::Ptr to)
+    {
+        if (from == nullptr || to == nullptr)
+            return;
+        auto* fromProc = from->getProcessor();
+        auto* toProc = to->getProcessor();
+        if (fromProc == nullptr || toProc == nullptr)
+            return;
+
+        const int outCh = juce::jmax (1, fromProc->getMainBusNumOutputChannels());
+        const int inCh  = juce::jmax (1, toProc->getMainBusNumInputChannels());
+
+        if (inCh == 1 && outCh >= 2)
+        {
+            for (int ch = 0; ch < juce::jmin (2, outCh); ++ch)
+                graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, 0 } });
+            return;
+        }
+
+        for (int ch = 0; ch < juce::jmin (2, outCh, inCh); ++ch)
+            graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, ch } });
+        if (outCh == 1 && inCh >= 2)
+            graph.addConnection ({ { from->nodeID, 0 }, { to->nodeID, 1 } });
+    };
+
     for (const auto& layer : layers)
     {
         auto* plugin = getPlugin (layer.id);
@@ -1083,11 +1333,17 @@ void Engine::rebuildConnections()
 
         const bool audible = layer.role != Layer::Role::staged;
 
-        const int plugOut = plugin->getMainBusNumOutputChannels();
-        for (int ch = 0; ch < juce::jmin (plugOut, 2); ++ch)
-            graph.addConnection ({ { layer.pluginNode->nodeID, ch }, { layer.stripNode->nodeID, ch } });
-        if (plugOut == 1)
-            graph.addConnection ({ { layer.pluginNode->nodeID, 0 }, { layer.stripNode->nodeID, 1 } });
+        // Cadeia de áudio: instrumento → inserts (pulando os com bypass) → channel strip.
+        Graph::Node::Ptr previous = layer.pluginNode;
+        for (int slot = 0; slot < kMaxInserts; ++slot)
+        {
+            if (layer.insertNodes[(size_t) slot] == nullptr || layer.insertBypass[(size_t) slot])
+                continue;
+            connectAudio (previous, layer.insertNodes[(size_t) slot]);
+            previous = layer.insertNodes[(size_t) slot];
+        }
+        connectAudio (previous, layer.stripNode);
+
         if (audible)
             for (int ch = 0; ch < 2; ++ch)
                 graph.addConnection ({ { layer.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
