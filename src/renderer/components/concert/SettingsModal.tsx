@@ -144,9 +144,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     value={audioType}
                     onChange={(event) => {
                       setAudioType(event.target.value);
-                      const next = audioDevices?.audioTypes.find((item) => item.type === event.target.value);
-                      setAudioInput(next?.inputs[0] ?? '');
-                      setAudioOutput(next?.outputs[0] ?? '');
+                      // Ao trocar o driver não pré-selecionamos o primeiro dispositivo:
+                      // o usuário escolhe. Sem entrada escolhida aplicamos inputs: 0.
+                      setAudioInput('');
+                      setAudioOutput('');
                     }}
                     className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
                   >
