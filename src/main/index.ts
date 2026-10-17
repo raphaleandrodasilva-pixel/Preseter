@@ -325,9 +325,6 @@ class MainWindow {
     this.lastLoadedPresetId = preset.id;
 
     const assignments = preset.plugins ?? [];
-    if (assignments.length > 4) {
-      throw new Error(`O patch "${preset.name}" excede o limite de quatro instrumentos.`);
-    }
 
     const silencePrevious = this.readPreferences().silencePreviousPatch;
 

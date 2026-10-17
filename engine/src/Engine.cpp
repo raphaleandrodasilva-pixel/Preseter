@@ -718,21 +718,6 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
         return;
     }
 
-    // Numa troca de patch o limite vale para os layers que estão chegando; o patch
-    // anterior (lingering) fica fora da conta enquanto as caudas tocam.
-    int counted = 0;
-    for (const auto& layer : layers)
-    {
-        const bool incoming = layer.role == Layer::Role::staged || layer.role == Layer::Role::adopted;
-        if (staged ? incoming : layer.role != Layer::Role::lingering)
-            ++counted;
-    }
-    if ((size_t) counted + (size_t) loadingLayerIds.size() >= 4)
-    {
-        done ({}, utf8 ("Um patch pode ter no máximo quatro instrumentos."));
-        return;
-    }
-
     const auto pluginId = description.createIdentifierString();
 
     // Reaproveita a instância do mesmo plugin do patch atual (ou de um que ainda toca).

@@ -137,7 +137,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     if (draft) onDraftChange({ ...draft, ...update, updatedAt: Date.now() });
   };
   const addLayer = async (plugin: VstPluginInfo) => {
-    if (!draft || (draft.plugins?.length ?? 0) >= 4) return false;
+    if (!draft) return false;
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
@@ -175,7 +175,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onError('');
   };
   const copyLayer = async (assignment: PresetPluginAssignment, sourceLayerId: string) => {
-    if (!draft || (draft.plugins?.length ?? 0) >= 4) return false;
+    if (!draft) return false;
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;

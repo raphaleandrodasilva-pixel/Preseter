@@ -15,7 +15,7 @@ Electron (UI) ⇄ main (Node) ⇄ stdin/stdout JSON ⇄ preseter-engine (JUCE)
                                                    └─ MIDI de entrada
 ```
 
-**Status: Layers e configuração de áudio.** Um patch pode carregar até quatro
+**Status: Layers e configuração de áudio.** Um patch pode carregar vários
 instrumentos VST3 simultaneamente. Cada layer tem uma faixa MIDI independente
 (notas 0–127 por padrão), volume (-60 a +6 dB), pan, mute, solo e medidor de pico
 dBFS. O strip Master controla volume, mute e pico após a soma. As configurações
@@ -97,9 +97,9 @@ Na interface, crie/edite um patch e use **Adicionar**, **Remover** e **Copiar**
 no painel **Layers**. Os limites de cada layer podem ser digitados em notas MIDI
 ou arrastados na representação do teclado. Ajuste o fader, pan, mute e solo de
 cada strip e o fader/mute Master; os medidores mostram o pico em dBFS. Essas
-configurações ficam salvas no patch. Um patch aceita no máximo quatro
-instrumentos; os slots de FX/sends são placeholders e janelas de editor VST
-ainda não fazem parte desta etapa.
+configurações ficam salvas no patch. Um patch aceita quantos instrumentos você
+precisar; a partir de quatro channel strips o processamento pode pesar. Os slots
+de FX/sends são placeholders.
 
 ### Plugin de teste (sem depender de terceiros)
 
@@ -143,7 +143,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `midiEnable` | `identifier?`, `enabled?` | Liga/desliga uma entrada MIDI (ou todas) |
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |
 | `plugins` | — | Lista os plugins já conhecidos |
-| `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Adiciona um instrumento (máximo quatro) |
+| `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Adiciona um instrumento |
 | `stageLoad` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Carrega um instrumento em modo encadeado para troca de patch; reaproveita a instância se o mesmo plugin já estiver carregado |
 | `commitPatchSwap` | `silence?` | Efetiva a troca: ativa os layers encadeados e silencia (`silence: true`) ou mantém o patch anterior até as caudas acabarem |
 | `unload` | `layerId?` | Descarrega um layer (sem ID, todos) |

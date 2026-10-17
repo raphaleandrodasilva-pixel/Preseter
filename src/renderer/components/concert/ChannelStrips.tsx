@@ -66,7 +66,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     ? plugins.map((assignment, index) => ({ assignment, layerId: layerIdFor(preset, assignment, index), index }))
     : [];
   const selectedLayer = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0] ?? null;
-  const canAdd = editable && layers.length < 4;
+  const canAdd = editable;
   const selectedKey = selectedLayer?.layerId ?? null;
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,7 +120,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       />
       <div className="relative flex flex-wrap items-center gap-1.5 px-3 py-2.5" style={{ borderBottom: '1px solid #3A3A3C' }}>
         <span className="hw-label mr-auto">Layers {preset ? `— ${preset.name}` : ''}</span>
-        <span className="text-[9px]" style={{ color: '#8E8E93' }}>{layers.length} / 4 instrumentos</span>
+        <span className="text-[9px]" style={{ color: '#8E8E93' }}>
+          {layers.length} {layers.length === 1 ? 'instrumento' : 'instrumentos'}
+        </span>
+        {layers.length > 3 && (
+          <span
+            className="text-[9px] font-semibold"
+            style={{ color: '#FFB74D' }}
+            title="Como no MainStage: cada channel strip usa processamento; acima de três o patch pode pesar ao vivo."
+          >
+            ⚠ acima de 3 pode pesar
+          </span>
+        )}
         {pickerOpen && (
           <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
             <div className="mb-1 flex items-center justify-between px-1">
@@ -275,12 +286,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 <div className="mt-1 flex gap-1 border-t pt-1.5" style={{ borderColor: '#3A3A3C' }}>
                   <button
                     className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
-                    disabled={!editable || busy || layers.length >= 4}
+                    disabled={!editable || busy}
                     onClick={(event) => {
                       event.stopPropagation();
                       void withLoadingMessage(() => onCopy(assignment, layerId));
                     }}
-                    title={layers.length >= 4 ? 'Limite de quatro instrumentos' : 'Copiar channel strip'}
+                    title="Copiar channel strip"
                   >
                     Copiar
                   </button>
@@ -353,7 +364,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               className="hw-squarebtn mt-auto w-full px-2 py-2 text-[10px] disabled:opacity-40"
               disabled={!canAdd || busy}
               onClick={openPicker}
-              title={!editable ? 'Edite ou crie um patch para carregar instrumentos' : layers.length >= 4 ? 'Limite de quatro instrumentos por patch' : 'Carregar instrumento VST'}
+              title={!editable ? 'Edite ou crie um patch para carregar instrumentos' : 'Carregar instrumento VST'}
             >
               {busy ? 'Carregando…' : '＋ Carregar VST'}
             </button>

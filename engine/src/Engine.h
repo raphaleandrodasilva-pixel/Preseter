@@ -11,7 +11,7 @@
 namespace preseter
 {
 /**
- * Núcleo do motor: um dispositivo de áudio e até quatro instrumentos em layers.
+ * Núcleo do motor: um dispositivo de áudio e vários instrumentos em layers.
  *
  * Tudo aqui deve ser chamado da message thread do JUCE. As Fases 3/4 vão
  * generalizar para vários plugins (slots/patches).
