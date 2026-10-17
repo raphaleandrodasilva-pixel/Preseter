@@ -77,11 +77,11 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 ## Fase 5 — Patch List e biblioteca
 
 - [ ] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
-- [ ] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
-- [ ] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
-- [ ] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
-- [ ] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
-- [ ] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
+- [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
+- [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
+- [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
+- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
+- [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
 
 ## Fase 6 — Perform e extras
 
