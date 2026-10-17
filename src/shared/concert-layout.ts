@@ -18,6 +18,8 @@ const MAPPING_KEYS = [
   'parameterId',
   'noteNumber',
   'velocity',
+  'mappingMin',
+  'mappingMax',
 ] as const satisfies readonly (keyof UiElement)[];
 
 /** Extrai os mappings de um layout (usado ao salvar um patch e na migração). */

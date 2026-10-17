@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **20 completos**
+- **21 completos**
 - **8 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **10 não implementados**
+- **9 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -73,8 +73,8 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Fase 4 — Assignments e Mappings
 
 - [x] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
-- [ ] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle — **Parcial:** existe MIDI Learn com porta e canal no inspetor do controle, mas falta o atalho `Cmd/Ctrl+L` e o fluxo completo hardware → controle de tela.
-- [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`) — **Parcial:** dá para escolher plugin e parâmetro por dropdown; faltam faixa mínima/máxima e aprender clicando no parâmetro. A `MappingTable` é somente leitura.
+- [x] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle.
+- [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`) — **Parcial:** faixa mín./máx. e navegador de parâmetros implementados; falta aprender o parâmetro clicando nele.
 - [ ] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative — **Não implementado.**
 - [ ] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa) — **Não implementado:** existe só um checkbox `midiThru`; o motor não trata o repasse.
 - [ ] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`) — **Não implementado:** `ConcertMapping` existe apenas no tipo e no arquivo `.preseter`, sem UI nem runtime.

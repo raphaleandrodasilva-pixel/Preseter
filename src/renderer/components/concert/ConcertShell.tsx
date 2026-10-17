@@ -53,6 +53,8 @@ const MAPPING_FIELDS = new Set<keyof UiElement>([
   'parameterId',
   'noteNumber',
   'velocity',
+  'mappingMin',
+  'mappingMax',
 ]);
 
 interface ConcertShellProps {  mode: ConcertMode;
@@ -131,7 +133,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
     reorderSets, togglePresetSkipped, savePreset,
-    resetProgramNumbers, deletePreset, activeNotes, enginePanic,
+    resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState,
@@ -140,6 +142,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const currentPresetRef = useRef(currentPreset);
+  currentPresetRef.current = currentPreset;
+  const [liveValues, setLiveValues] = useState<Record<string, number>>({});
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
@@ -421,6 +426,66 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       window.clearInterval(timer);
     };
   }, [mode, activePreset?.audioInput?.enabled, getAudioInputState]);
+
+  // Assignments: MIDI de hardware move o controle de tela e o parâmetro mapeado (Fase 4.2).
+  useEffect(() => {
+    const unsubscribe = subscribeMidiLearn((event) => {
+      const preset = draftRef.current ?? currentPresetRef.current;
+      for (const element of preset?.layout.elements ?? []) {
+        const binding = element.midiCommand;
+        if (!binding) continue;
+        if (element.midiPort && event.deviceId && element.midiPort !== event.deviceId) continue;
+        if ((binding.channel ?? 0) !== event.channel) continue;
+
+        const min = element.minValue ?? 0;
+        const max = element.maxValue ?? 1;
+        const applyValue = (normalized: number) => {
+          const norm = Math.max(0, Math.min(1, normalized));
+          const value = min + norm * (max - min);
+          setLiveValues((previous) => ({ ...previous, [element.id]: value }));
+          if (element.pluginPath && element.parameterId) {
+            const mappingMin = element.mappingMin ?? 0;
+            const mappingMax = element.mappingMax ?? 1;
+            onSetVstParameter(
+              element.pluginPath,
+              element.parameterId,
+              mappingMin + norm * (mappingMax - mappingMin)
+            );
+          }
+        };
+
+        if (binding.type === 'cc' && event.kind === 'cc' && binding.controllerNumber === event.number) {
+          applyValue(event.value / 127);
+        } else if (binding.type === 'note' && event.kind === 'note' && binding.controllerNumber === event.number) {
+          applyValue(event.value > 0 ? 1 : 0);
+        } else if (binding.type === 'pc' && event.kind === 'pc' && binding.programNumber === event.number) {
+          applyValue(1);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [subscribeMidiLearn, onSetVstParameter]);
+
+  useEffect(() => {
+    setLiveValues({});
+  }, [currentPreset?.id, draft?.id]);
+
+  const baseElements = useMemo(() => (draft ?? currentPreset)?.layout.elements ?? [], [draft, currentPreset]);
+  const displayElements = useMemo(
+    () =>
+      baseElements.map((element) =>
+        liveValues[element.id] !== undefined ? { ...element, value: liveValues[element.id] } : element
+      ),
+    [baseElements, liveValues]
+  );
+  const performElements = useMemo(
+    () =>
+      (currentPreset?.layout.elements ?? []).map((element) =>
+        liveValues[element.id] !== undefined ? { ...element, value: liveValues[element.id] } : element
+      ),
+    [currentPreset, liveValues]
+  );
+
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -1166,7 +1231,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors, masterMuted]);
 
   if (mode === 'perform') {
-    const elements = currentPreset?.layout.elements ?? [];
+    const elements = performElements;
     return (
       <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
         <div
@@ -1313,7 +1378,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             {(draft ?? currentPreset) ? (
               <>
                 <ComposerCanvas
-                  elements={(draft ?? currentPreset)?.layout.elements ?? []}
+                  elements={displayElements}
                   selectedId={mode === 'layout' ? selectedId : selectedId}
                   armed={mode === 'layout' && armedKey !== null && !!draft}
                   locked={!draft || mode !== 'layout'}

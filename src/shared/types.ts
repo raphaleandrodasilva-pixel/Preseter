@@ -76,6 +76,9 @@ export interface PatchMapping {
   parameterId?: string;
   noteNumber?: number;
   velocity?: number;
+  /** Faixa do parâmetro de destino para este mapping (0..1). */
+  mappingMin?: number;
+  mappingMax?: number;
 }
 
 /** Set (pasta) — MainStage style */
@@ -556,6 +559,9 @@ export interface UiElement {
   noteNumber?: number;
   velocity?: number;
   value?: number;
+  /** Faixa mínima/máxima do parâmetro de destino (0..1) — Fase 4.3. */
+  mappingMin?: number;
+  mappingMax?: number;
   // Exibição do rótulo (Text Labels do inspector)
   labelDisplay?: 'name' | 'value' | 'both';
   // Porta MIDI de entrada vinculada (usada pelo motor na Fase E)

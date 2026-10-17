@@ -14,6 +14,8 @@ export interface RawMidiEvent {
   number: number;
   /** velocity / valor (0 para note-off) */
   value: number;
+  /** Porta/dispositivo que enviou a mensagem (id do Web MIDI). */
+  deviceId?: string;
 }
 
 export class WebMidiService {
@@ -58,7 +60,7 @@ export class WebMidiService {
       }
       await input.open();
       input.onmidimessage = (event) => {
-        if (event.data) this.handleMessage(event.data);
+        if (event.data) this.handleMessage(event.data, deviceId);
       };
       return true;
     }
@@ -123,21 +125,21 @@ export class WebMidiService {
     }
   }
 
-  private handleMessage(data: Uint8Array): void {
+  private handleMessage(data: Uint8Array, deviceId?: string): void {
     if (data.length < 2) return;
 
     const channel = data[0] & 0x0f;
     const status = data[0] & 0xf0;
     if (status === 0xc0 && data[1] <= 127) {
       this.onProgramChange(data[1], channel);
-      this.emitRaw({ kind: 'pc', channel, number: data[1], value: 0 });
+      this.emitRaw({ kind: 'pc', channel, number: data[1], value: 0, deviceId });
     } else if (status === 0x90 || status === 0x80) {
       if (data.length < 3) return;
       const value = status === 0x80 ? 0 : data[2];
-      this.emitRaw({ kind: 'note', channel, number: data[1], value });
+      this.emitRaw({ kind: 'note', channel, number: data[1], value, deviceId });
     } else if (status === 0xb0) {
       if (data.length < 3) return;
-      this.emitRaw({ kind: 'cc', channel, number: data[1], value: data[2] });
+      this.emitRaw({ kind: 'cc', channel, number: data[1], value: data[2], deviceId });
     }
   }
 

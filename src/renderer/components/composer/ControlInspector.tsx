@@ -75,6 +75,20 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learning, element?.id]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!element) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input,textarea,select')) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        setLearning((value) => !value);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [element?.id]);
+
   if (!element) {
     return (
       <div className="rounded border border-slate-800 p-3 text-[11px] leading-relaxed text-slate-500">
@@ -254,6 +268,34 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
                 ))}
             </select>
           </label>
+        )}
+        {element.pluginPath && element.parameterId && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className={classLabel}>Mínimo (%)
+              <input
+                className={`${classInput} mt-1`}
+                type="number"
+                min={0}
+                max={100}
+                value={Math.round((element.mappingMin ?? 0) * 100)}
+                onChange={(event) => onUpdate(element.id, {
+                  mappingMin: Math.max(0, Math.min(100, Number(event.target.value) || 0)) / 100,
+                })}
+              />
+            </label>
+            <label className={classLabel}>Máximo (%)
+              <input
+                className={`${classInput} mt-1`}
+                type="number"
+                min={0}
+                max={100}
+                value={Math.round((element.mappingMax ?? 1) * 100)}
+                onChange={(event) => onUpdate(element.id, {
+                  mappingMax: Math.max(0, Math.min(100, Number(event.target.value) || 0)) / 100,
+                })}
+              />
+            </label>
+          </div>
         )}
       </section>
 

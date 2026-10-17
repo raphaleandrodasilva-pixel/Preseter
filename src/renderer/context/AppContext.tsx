@@ -759,6 +759,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const listMidiDevices = useCallback(async () => {
     try {
       const devices = await webMidi.current!.listDevices();
+      // As entradas ficam abertas para o MIDI Learn e os assignments (Fase 4.2).
+      await Promise.all(
+        devices
+          .filter((device) => device.type === 'input')
+          .map((device) => webMidi.current!.openPort(device.id, 'input').catch(() => false))
+      );
       setMidiDevices(devices);
       setMidiError(null);
       return devices;
@@ -768,6 +774,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [];
     }
   }, []);
+
+  useEffect(() => {
+    void listMidiDevices();
+  }, [listMidiDevices]);
 
   const openMidiPort = useCallback(async (deviceId: string, type: 'input' | 'output'): Promise<boolean> => {
     try {

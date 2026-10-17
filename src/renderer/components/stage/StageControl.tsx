@@ -51,7 +51,14 @@ export const StageControl: React.FC<StageControlProps> = ({
     const clamped = Math.min(max, Math.max(min, next));
     setValue(clamped);
     if (element.pluginPath && element.parameterId) {
-      onSetVstParameter(element.pluginPath, element.parameterId, clamped);
+      const normalized = normOf(clamped, min, max);
+      const mappingMin = element.mappingMin ?? 0;
+      const mappingMax = element.mappingMax ?? 1;
+      onSetVstParameter(
+        element.pluginPath,
+        element.parameterId,
+        mappingMin + normalized * (mappingMax - mappingMin)
+      );
     }
     const binding = element.midiCommand;
     if (binding?.type === 'cc' && binding.controllerNumber !== undefined) {
