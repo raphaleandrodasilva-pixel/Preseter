@@ -123,6 +123,15 @@ export class ConcertManager extends EventEmitter {
     return this.file.patches.find((preset) => preset.programNumber === programNumber);
   }
 
+  duplicatePreset(presetId: string): Preset | null {
+    const src = this.file.patches.find((p) => p.id === presetId);
+    if (!src) return null;
+    const copy: Preset = { ...src, id: `${src.id}_copy_${Date.now()}`, name: src.name + ' (cópia)', createdAt: Date.now(), updatedAt: Date.now() };
+    this.file.patches.push(copy);
+    this.emitChanged();
+    return copy;
+  }
+
   getRecent(): RecentConcert[] {
     return this.recent;
   }
