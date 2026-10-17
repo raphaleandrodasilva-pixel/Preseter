@@ -10,11 +10,13 @@ import {
   ConcertBusSettings,
   ConcertMapping,
   ConcertSettings,
+  ConcertStrip,
   LayoutConfig,
   PanLaw,
   Preset,
   PresetSet,
   PreseterConcertFile,
+  StripOverride,
 } from '../../shared/types';
 import {
   CONCERT_FILE_FORMAT,
@@ -111,6 +113,7 @@ export function createEmptyConcert(name: string = 'Meu Concert', tempo: number =
     name,
     tempo,
     settings: createDefaultConcertSettings(),
+    strips: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -187,7 +190,7 @@ export function parseConcertFile(text: string): PreseterConcertFile {
     format: CONCERT_FILE_FORMAT,
     version,
     concert: normalizeConcert(raw.concert),
-    sets: normalizeObjectArray<PresetSet>(raw.sets, 'sets'),
+    sets: normalizeSets(raw.sets),
     patches: normalizeObjectArray<Preset>(raw.patches, 'patches'),
     layout: normalizeLayout(raw.layout),
     mappings: normalizeObjectArray<ConcertMapping>(raw.mappings, 'mappings'),
@@ -205,6 +208,41 @@ function normalizeObjectArray<T>(value: unknown, field: string): T[] {
     }
   });
   return value as T[];
+}
+
+/** Channel strips definidos no concert/set (Fase 3.3): só confere a forma básica. */
+function normalizeStrips(value: unknown, field: string): ConcertStrip[] {
+  return normalizeObjectArray<ConcertStrip>(value, field);
+}
+
+/** Sobreposições de strips (`{ [stripId]: StripOverride }`) de um set (Fase 3.3). */
+function normalizeStripOverrides(value: unknown, field: string): Record<string, StripOverride> {
+  if (value === undefined || value === null) return {};
+  if (!isObject(value)) {
+    throw new Error(`O campo "${field}" do concert está inválido.`);
+  }
+  const overrides: Record<string, StripOverride> = {};
+  for (const [stripId, override] of Object.entries(value)) {
+    if (!isObject(override)) {
+      throw new Error(`A sobreposição do channel strip "${stripId}" está inválida.`);
+    }
+    overrides[stripId] = override as StripOverride;
+  }
+  return overrides;
+}
+
+/** Sets do concert, normalizando os channel strips e as sobreposições (Fase 3.3). */
+function normalizeSets(value: unknown): PresetSet[] {
+  return normalizeObjectArray<PresetSet>(value, 'sets').map((set) => {
+    const next: PresetSet = { ...set };
+    if (set.strips !== undefined) {
+      next.strips = normalizeStrips(set.strips, 'sets[].strips');
+    }
+    if (set.stripOverrides !== undefined) {
+      next.stripOverrides = normalizeStripOverrides(set.stripOverrides, 'sets[].stripOverrides');
+    }
+    return next;
+  });
 }
 
 function normalizeLayout(value: unknown): LayoutConfig {
@@ -233,6 +271,7 @@ function normalizeConcert(value: unknown): Concert {
     name,
     tempo: toPositiveNumber(value.tempo, DEFAULT_TEMPO),
     settings: normalizeSettings(value.settings),
+    strips: normalizeStrips(value.strips, 'concert.strips'),
     createdAt: toTimestamp(value.createdAt),
     updatedAt: toTimestamp(value.updatedAt),
   };
@@ -337,6 +376,7 @@ export function migrateLegacyConcert(input: LegacyConcertInput): PreseterConcert
       name: (input.concertName ?? '').trim() || 'Meu Concert',
       tempo,
       settings: createDefaultConcertSettings(),
+      strips: [],
       createdAt: now,
       updatedAt: now,
     },

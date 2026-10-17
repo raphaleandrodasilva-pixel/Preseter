@@ -163,6 +163,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
       name: template.concertName,
       tempo: template.tempo,
       settings: createDefaultConcertSettings(),
+      strips: [],
       createdAt: now,
       updatedAt: now,
     },

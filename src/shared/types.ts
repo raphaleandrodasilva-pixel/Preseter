@@ -7,6 +7,8 @@ export interface VstPluginInfo {
   id: string;
   /** Identidade da instância no patch; diferentes layers podem usar o mesmo VST. */
   layerId?: string;
+  /** Strip do concert/set, carregado fora da troca de patch (Fase 3.3). */
+  pinned?: boolean;
   name: string;
   path: string;
   isLoaded: boolean;
@@ -47,6 +49,8 @@ export interface Preset {
   notes?: string;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
+  /** Valores que este patch sobrepõe nos strips herdados do set/concert (Fase 3.3). */
+  stripOverrides?: Record<string, StripOverride>;
   masterMix?: MasterMixSettings;
   vstStates: Record<string, any>;
   layout: LayoutConfig;
@@ -60,6 +64,10 @@ export interface PresetSet {
   name: string;
   /** Ordem dos sets (para drag-reorder) */
   order: number;
+  /** Channel strips deste set, visíveis em todos os patches dele (Fase 3.3). */
+  strips?: ConcertStrip[];
+  /** Valores que este set sobrepõe nos strips do concert (Fase 3.3). */
+  stripOverrides?: Record<string, StripOverride>;
   /** Se expandido na sidebar */
   expanded?: boolean;
   /** Quando true, é pulado na navegação por Program Change / setas */
@@ -75,6 +83,8 @@ export interface Concert {
   tempo: number;
   /** Compasso, MIDI, channel strips, metrônomo e anotações (Fase 2.4). */
   settings: ConcertSettings;
+  /** Channel strips do concert, visíveis em todos os patches (Fase 3.3). */
+  strips?: ConcertStrip[];
   createdAt: number;
   updatedAt: number;
 }
@@ -173,6 +183,8 @@ export interface ConcertState {
   dirty: boolean;
   /** Configurações do concert (Concert Settings, Fase 2.4). */
   settings: ConcertSettings;
+  /** Channel strips do concert, herdados por todos os patches (Fase 3.3). */
+  strips: ConcertStrip[];
   /** Último patch usado, para reabrir já selecionado. */
   lastPatchId: string | null;
 }
@@ -183,6 +195,8 @@ export interface ConcertSyncPayload {
   tempo: number;
   sets: PresetSet[];
   settings: ConcertSettings;
+  /** Channel strips do concert (Fase 3.3). */
+  strips: ConcertStrip[];
 }
 
 /** Dados lembrados entre execuções (userData/session.json). */
@@ -328,6 +342,79 @@ export interface EngineBusState {
 export type LayerMixUpdate = Partial<LayerMixSettings>;
 export type MasterMixUpdate = Partial<MasterMixSettings>;
 export type BusMixUpdate = Partial<Pick<BusSettings, 'volumeDb' | 'pan' | 'muted' | 'output'>>;
+
+// ---- Channel strips por nível (Fase 3.3) -----------------------------------
+
+/** Nível onde um channel strip foi definido. */
+export type StripLevel = 'concert' | 'set' | 'patch';
+
+/** Atributos de um channel strip que um set/patch pode sobrepor (Fase 3.3). */
+export type StripAttribute =
+  | 'volumeDb'
+  | 'pan'
+  | 'muted'
+  | 'solo'
+  | 'minNote'
+  | 'maxNote'
+  | 'output'
+  | 'sends'
+  | 'inserts';
+
+export const STRIP_ATTRIBUTES: readonly StripAttribute[] = [
+  'volumeDb',
+  'pan',
+  'muted',
+  'solo',
+  'minNote',
+  'maxNote',
+  'output',
+  'sends',
+  'inserts',
+];
+
+/** Valores que um set ou um patch define para um strip herdado (Fase 3.3). */
+export interface StripOverride {
+  volumeDb?: number;
+  pan?: number;
+  muted?: boolean;
+  solo?: boolean;
+  minNote?: number;
+  maxNote?: number;
+  output?: number;
+  sends?: number[];
+  /** Substitui a cadeia de inserts definida no nível de cima. */
+  inserts?: Insert[];
+}
+
+/** Channel strip definido no concert ou no set (Fase 3.3). */
+export interface ConcertStrip extends Omit<PresetPluginAssignment, 'layerId'> {
+  /** Identidade estável do strip; vira o `layerId` do layer no motor. */
+  id: string;
+}
+
+/**
+ * Channel strip resolvido para um patch (Fase 3.3): o valor final de cada
+ * atributo e o nível que o forneceu (para a UI mostrar o que foi sobreposto).
+ */
+export interface EffectiveStrip {
+  id: string;
+  name: string;
+  pluginId: string;
+  path: string;
+  role: 'instrument' | 'effect';
+  level: StripLevel;
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  solo: boolean;
+  minNote: number;
+  maxNote: number;
+  output: number;
+  sends: number[];
+  inserts: Insert[];
+  /** Atributo → nível que forneceu o valor final. */
+  sources: Partial<Record<StripAttribute, StripLevel>>;
+}
 
 export interface AudioStartOptions {
   inputs?: number;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Preset } from '@shared/types';
+import { EffectiveStrip, Preset } from '@shared/types';
+import { resolveStrips } from '@shared/concert-strips';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
@@ -24,6 +25,8 @@ const AppContent: React.FC = () => {
     sendMidiMessage,
     setVstParameter,
     concertSettings,
+    concertStrips,
+    sets,
   } = context;
 
   const [mode, setMode] = useState<ConcertMode>('edit');
@@ -109,6 +112,22 @@ const AppContent: React.FC = () => {
     }
   };
 
+  /**
+   * Channel strips herdados do concert/set visíveis neste patch (Fase 3.3).
+   * Os valores deles vivem no set/concert; o patch guarda o estado dos plugins.
+   */
+  const inheritedStrips = (patch: Preset): EffectiveStrip[] => {
+    const set = patch.setId ? sets.find((item) => item.id === patch.setId) : undefined;
+    return resolveStrips({
+      concertStrips,
+      setStrips: set?.strips,
+      patchStrips: patch.plugins,
+      patchId: patch.id,
+      setOverrides: set?.stripOverrides,
+      patchOverrides: patch.stripOverrides,
+    }).filter((strip) => strip.level !== 'patch');
+  };
+
   const saveDraft = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
@@ -136,6 +155,17 @@ const AppContent: React.FC = () => {
         for (const insert of bus.inserts ?? []) {
           const state = await window.electronAPI.vstInsertStateGet(id, insert.slot);
           if (state) vstStates[`insert_${id}_${insert.slot}`] = state;
+        }
+      }
+      // Channel strips do concert/set: o estado do plugin e dos inserts fica no
+      // patch que está sendo salvo (Fase 3.3).
+      for (const strip of inheritedStrips(draft)) {
+        if (loadedPlugins.some((plugin) => plugin.layerId === strip.id)) {
+          vstStates[`loaded_${strip.id}`] = await window.electronAPI.vstGetState(strip.id);
+        }
+        for (const insert of strip.inserts) {
+          const state = await window.electronAPI.vstInsertStateGet(strip.id, insert.slot);
+          if (state) vstStates[`insert_${strip.id}_${insert.slot}`] = state;
         }
       }
       const saved = await savePreset({ ...draft, vstStates, updatedAt: Date.now() });

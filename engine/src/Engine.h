@@ -54,7 +54,7 @@ public:
 
     /** idOrPath é um id retornado por scan/plugins ou o caminho do .vst3. */
     void loadPlugin (const juce::String& idOrPath, const juce::String& layerId,
-                     int minNote, int maxNote, Done done, bool staged = false);
+                     int minNote, int maxNote, Done done, bool staged = false, bool pinned = false);
     /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
     void stagePlugin (const juce::String& idOrPath, const juce::String& layerId,
                       int minNote, int maxNote, Done done);
@@ -183,6 +183,8 @@ private:
         int minNote = 0;
         int maxNote = 127;
         Role role = Role::active;
+        /** Strip do concert/set (Fase 3.3): fica carregado entre patches e não entra na troca. */
+        bool pinned = false;
         /** Leituras seguidas de silêncio usadas para descarregar as caudas do patch anterior. */
         int silentChecks = 0;
         /** Nível dos sends post-fader para cada Aux, em dB (kSendOffDb ou menos = desligado). */

@@ -186,11 +186,12 @@ void CommandRouter::handleLine (const juce::String& line)
         auto layerId = message["layerId"].toString();
         const int minNote = intArg (message, "minNote", 0);
         const int maxNote = intArg (message, "maxNote", 127);
+        const bool pinned = boolArg (message, "pinned", false);
         engine.loadPlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
         {
             if (error.isNotEmpty()) fail (id, error);
             else                    ok (id, result);
-        });
+        }, false, pinned);
         return;
     }
 

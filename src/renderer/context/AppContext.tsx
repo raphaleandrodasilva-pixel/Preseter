@@ -17,6 +17,7 @@ import {
   ConcertState,
   ConcertSyncPayload,
   ConcertSettings,
+  ConcertStrip,
   ConcertTemplateSummary,
   MenuAction,
 } from '@shared/types';
@@ -30,6 +31,7 @@ interface ConcertSnapshot {
   tempo: number;
   sets: PresetSet[];
   settings: ConcertSettings;
+  strips: ConcertStrip[];
   patches: Preset[];
 }
 
@@ -57,6 +59,10 @@ export interface AppContextType {
   concertSettings: ConcertSettings | null;
   /** Atualiza uma seção das configurações do concert. */
   updateConcertSettings: (patch: Partial<ConcertSettings>) => void;
+  /** Channel strips do concert, herdados por todos os patches (Fase 3.3). */
+  concertStrips: ConcertStrip[];
+  /** Substitui os channel strips do concert. */
+  updateConcertStrips: (strips: ConcertStrip[]) => void;
   /** Desfazer/Refazer edições do concert (Fase 2.5). */
   canUndo: boolean;
   canRedo: boolean;
@@ -181,6 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
   const [concertSettings, setConcertSettings] = useState<ConcertSettings | null>(null);
+  const [concertStrips, setConcertStrips] = useState<ConcertStrip[]>([]);
   const [concertRevision, setConcertRevision] = useState(0);
   const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -223,6 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConcertDirty(state.dirty);
     setLayoutState(state.layout);
     setConcertSettings(state.settings);
+    setConcertStrips(state.strips ?? []);
     setAppStatus((prev) => ({ ...prev, tempo: state.tempo, currentPresetId: null, currentProgramNumber: 0 }));
     setConcertRevision((revision) => revision + 1);
   }, []);
@@ -453,6 +461,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tempo: appStatus.tempo,
         sets,
         settings: concertSettings,
+        strips: concertStrips,
       };
       window.electronAPI
         .concertSync(payload)
@@ -462,10 +471,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, presets]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets]);
 
   const updateConcertSettings = useCallback((patch: Partial<ConcertSettings>) => {
     setConcertSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
+  const updateConcertStrips = useCallback((strips: ConcertStrip[]) => {
+    setConcertStrips(strips);
   }, []);
 
   // === Desfazer / Refazer (Fase 2.5) ===
@@ -479,6 +492,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAppStatus((prev) => ({ ...prev, tempo: snapshot.tempo }));
     setSets(snapshot.sets);
     setConcertSettings(snapshot.settings);
+    setConcertStrips(snapshot.strips);
     setPresets(snapshot.patches);
   }, []);
 
@@ -497,12 +511,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tempo: appStatus.tempo,
         sets,
         settings: concertSettings,
+        strips: concertStrips,
         patches: presets,
       };
       if (history.commit(snapshot)) setHistoryVersion((version) => version + 1);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, presets, history]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, history]);
 
   const undo = useCallback(() => {
     const previous = history.undo();
@@ -1077,6 +1092,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertError,
     concertSettings,
     updateConcertSettings,
+    concertStrips,
+    updateConcertStrips,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undo,

@@ -59,9 +59,12 @@ export class VstManager extends EventEmitter {
     pluginPathOrId: string,
     layerId = `layer_${randomUUID()}`,
     minNote = 0,
-    maxNote = 127
+    maxNote = 127,
+    pinned = false
   ): Promise<VstPluginInfo> {
-    return this.enqueueLoad(() => this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote));
+    return this.enqueueLoad(() =>
+      this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote, pinned)
+    );
   }
 
   /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
@@ -95,14 +98,15 @@ export class VstManager extends EventEmitter {
     pluginPathOrId: string,
     layerId: string,
     minNote: number,
-    maxNote: number
+    maxNote: number,
+    pinned = false
   ): Promise<VstPluginInfo> {
     const scanned = this.scannedPlugins.find(
       (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
     );
     const request = scanned
-      ? { plugin: scanned.id, layerId, minNote, maxNote }
-      : { path: pluginPathOrId, layerId, minNote, maxNote };
+      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned }
+      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned };
     const enginePlugin = await this.engine.request(command, request, 60_000);
     try {
       const devices = await this.getAudioDevices();
@@ -387,6 +391,7 @@ export class VstManager extends EventEmitter {
         layerId: plugin.layerId,
         minNote: plugin.minNote,
         maxNote: plugin.maxNote,
+        pinned: plugin.pinned === true,
       } : {}),
       name: plugin.name,
       path: plugin.path,

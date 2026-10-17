@@ -16,6 +16,8 @@ import {
   AudioStartOptions,
   BusMixUpdate,
   BusSettings,
+  EffectiveStrip,
+  Insert,
   LayerMixUpdate,
   MasterMixUpdate,
   SavedAudioSettings,
@@ -28,7 +30,27 @@ import {
   MAX_OUTPUT_BUSES,
 } from '../shared/types';
 import type { EngineInsertState } from '../shared/engine-protocol';
+import { resolveStrips } from '../shared/concert-strips';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL, CONCERT_FILE_EXTENSION } from '../shared/constants';
+
+/**
+ * Compara caminhos de plugin tolerando o caminho interno que o VST3 devolve:
+ * o motor reporta `...\Foo.vst3\Contents\x86_64-win\Foo.vst3` para um plugin
+ * carregado a partir do bundle `...\Foo.vst3`. Serve para saber se um efeito ou
+ * instrumento já está carregado sem recarregá-lo a cada troca de patch.
+ */
+function samePluginPath(a: unknown, b: unknown): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string' || a === '' || b === '') return false;
+  if (a === b) return true;
+  const left = a.toLowerCase();
+  const right = b.toLowerCase();
+  return (
+    left.startsWith(`${right}\\`) ||
+    left.startsWith(`${right}/`) ||
+    right.startsWith(`${left}\\`) ||
+    right.startsWith(`${left}/`)
+  );
+}
 
 class MainWindow {
   private window: BrowserWindow | null = null;
@@ -478,6 +500,21 @@ class MainWindow {
       }
     }
 
+    // Channel strips do concert/set (Fase 3.3): ficam carregados fora da troca de
+    // patch e recebem os overrides deste patch; o estado dos inserts volta abaixo.
+    const inheritedStrips = await this.syncInheritedStrips(preset);
+    for (const strip of inheritedStrips) {
+      for (const insert of strip.inserts) {
+        const saved = preset.vstStates[`insert_${strip.id}_${insert.slot}`];
+        if (typeof saved?.data !== 'string') continue;
+        try {
+          await this.vstManager.setInsertState(strip.id, insert.slot, saved.data);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível restaurar o efeito do strip ${strip.id}:`, error);
+        }
+      }
+    }
+
     // Barramentos Aux/Output do concert: alinha o motor com o concert e restaura
     // o estado dos efeitos guardado neste patch (Fase 3.2).
     await this.applyConcertBuses();
@@ -538,47 +575,51 @@ class MainWindow {
   }
 
   /**
-   * Alinha os barramentos Aux/Output do concert com o motor. Idempotente: só
-   * recarrega um insert quando o efeito desejado (caminho) muda, para não cortar
-   * as caudas dos efeitos do concert a cada troca de patch.
+   * Alinha a cadeia de inserts de um channel strip (layer ou barramento) com o
+   * desejado. Idempotente: só recarrega um insert quando o efeito (caminho) muda,
+   * para não cortar as caudas dos efeitos a cada troca de patch.
    */
+  private async alignInserts(ownerId: string, inserts: Insert[] | undefined): Promise<void> {
+    let current: EngineInsertState[] = [];
+    try {
+      current = await this.vstManager.getInserts(ownerId);
+    } catch (error) {
+      console.warn(`[Preseter] Não foi possível ler os inserts de "${ownerId}":`, error);
+    }
+
+    const wanted = [...(inserts ?? [])].sort((a, b) => a.slot - b.slot);
+    for (const slotState of current) {
+      const want = wanted.find((item) => item.slot === slotState.slot);
+      if (slotState.loaded && (!want || !samePluginPath(want.path, slotState.path))) {
+        try {
+          await this.vstManager.removeInsert(ownerId, slotState.slot);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível remover o efeito de "${ownerId}":`, error);
+        }
+      }
+    }
+
+    for (const insert of wanted) {
+      const loaded = current.find((item) => item.slot === insert.slot);
+      const bypass = insert.bypass ?? false;
+      if (loaded?.loaded === true && samePluginPath(loaded.path, insert.path)) {
+        if (loaded.bypass !== bypass) {
+          await this.vstManager.setInsertBypass(ownerId, insert.slot, bypass);
+        }
+        continue;
+      }
+      try {
+        await this.vstManager.setInsert(ownerId, insert.slot, insert.path, bypass);
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível carregar o efeito "${insert.name}" em "${ownerId}":`, error);
+      }
+    }
+  }
+
+  /** Alinha os barramentos Aux/Output do concert com o motor (Fase 3.2). */
   private async applyConcertBuses(): Promise<void> {
     for (const { id, bus } of this.concertBusList()) {
-      let current: EngineInsertState[] = [];
-      try {
-        current = await this.vstManager.getInserts(id);
-      } catch (error) {
-        console.warn(`[Preseter] Não foi possível ler os inserts do barramento ${id}:`, error);
-      }
-
-      const wanted = [...(bus.inserts ?? [])].sort((a, b) => a.slot - b.slot);
-      for (const slotState of current) {
-        const want = wanted.find((item) => item.slot === slotState.slot);
-        if (slotState.loaded && (!want || want.path !== slotState.path)) {
-          try {
-            await this.vstManager.removeInsert(id, slotState.slot);
-          } catch (error) {
-            console.warn(`[Preseter] Não foi possível remover o efeito do barramento ${id}:`, error);
-          }
-        }
-      }
-
-      for (const insert of wanted) {
-        const loaded = current.find((item) => item.slot === insert.slot);
-        const bypass = insert.bypass ?? false;
-        if (loaded?.loaded === true && loaded.path === insert.path) {
-          if (loaded.bypass !== bypass) {
-            await this.vstManager.setInsertBypass(id, insert.slot, bypass);
-          }
-          continue;
-        }
-        try {
-          await this.vstManager.setInsert(id, insert.slot, insert.path, bypass);
-        } catch (error) {
-          console.warn(`[Preseter] Não foi possível carregar o efeito "${insert.name}" no barramento ${id}:`, error);
-        }
-      }
-
+      await this.alignInserts(id, bus.inserts);
       try {
         await this.vstManager.setBusMix(id, {
           volumeDb: bus.volumeDb,
@@ -589,6 +630,95 @@ class MainWindow {
       } catch (error) {
         console.warn(`[Preseter] Não foi possível ajustar o barramento ${id}:`, error);
       }
+    }
+  }
+
+  // === Channel strips do concert/set (Fase 3.3) ===
+
+  /** Strips visíveis no patch, já resolvidos (patch > set > concert). */
+  private resolvedStrips(preset: Preset | null): EffectiveStrip[] {
+    const state = this.concertManager.getState();
+    const set = preset?.setId ? this.concertManager.getSet(preset.setId) : undefined;
+    return resolveStrips({
+      concertStrips: state.strips,
+      setStrips: set?.strips,
+      patchStrips: preset?.plugins,
+      patchId: preset?.id ?? '',
+      setOverrides: set?.stripOverrides,
+      patchOverrides: preset?.stripOverrides,
+    });
+  }
+
+  /**
+   * Carrega e ajusta no motor os strips herdados do concert e do set (Fase 3.3).
+   * Eles entram como layers `pinned`: sobrevivem à troca de patch e recebem MIDI
+   * em todos os patches. Idempotente e sem estado próprio — o motor é a fonte da
+   * verdade (`pinned`) — para não cortar as caudas a cada troca de patch.
+   */
+  private async syncInheritedStrips(preset: Preset | null): Promise<EffectiveStrip[]> {
+    const desired = this.resolvedStrips(preset).filter((strip) => strip.level !== 'patch');
+    const desiredIds = new Set(desired.map((strip) => strip.id));
+
+    // Layers `pinned` são os strips do concert/set (de agora ou de um concert anterior).
+    const loaded = new Map<string, VstPluginInfo>();
+    for (const plugin of this.vstManager.getLoadedPlugins()) {
+      if (plugin.layerId && (plugin.pinned === true || desiredIds.has(plugin.layerId))) {
+        loaded.set(plugin.layerId, plugin);
+      }
+    }
+
+    // Strips que não valem mais neste concert/set saem do motor.
+    for (const id of [...loaded.keys()]) {
+      if (desiredIds.has(id)) continue;
+      await this.unloadLayerQuietly(id);
+      loaded.delete(id);
+    }
+
+    for (const strip of desired) {
+      let current = loaded.get(strip.id);
+      if (current && !samePluginPath(current.path, strip.path)) {
+        await this.unloadLayerQuietly(strip.id);
+        current = undefined;
+      }
+      if (!current) {
+        try {
+          current = await this.vstManager.loadPlugin(strip.path, strip.id, strip.minNote, strip.maxNote, true);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível carregar o channel strip "${strip.name}":`, error);
+          continue;
+        }
+      }
+
+      try {
+        await this.vstManager.setLayerMix(strip.id, {
+          volumeDb: strip.volumeDb,
+          pan: strip.pan,
+          muted: strip.muted,
+          solo: strip.solo,
+        });
+        if (current.minNote !== strip.minNote || current.maxNote !== strip.maxNote) {
+          await this.vstManager.setLayerRange(strip.id, strip.minNote, strip.maxNote);
+        }
+        await this.vstManager.setLayerOutput(strip.id, this.clampOutput(strip.output));
+        for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+          await this.vstManager.setSend(strip.id, aux, strip.sends[aux - 1]);
+        }
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível ajustar o channel strip "${strip.name}":`, error);
+      }
+
+      // A cadeia de inserts pode vir sobreposta pelo set/patch.
+      await this.alignInserts(strip.id, strip.inserts);
+    }
+
+    return desired;
+  }
+
+  private async unloadLayerQuietly(layerId: string): Promise<void> {
+    try {
+      await this.vstManager.unloadPlugin(layerId);
+    } catch (error) {
+      console.warn(`[Preseter] Não foi possível descarregar o layer "${layerId}":`, error);
     }
   }
 

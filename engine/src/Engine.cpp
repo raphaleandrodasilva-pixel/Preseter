@@ -859,7 +859,7 @@ bool* Engine::insertSlotBypass (const juce::String& ownerId, int slot)
 }
 
 void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& requestedLayerId,
-                         int minNote, int maxNote, Done done, bool staged)
+                         int minNote, int maxNote, Done done, bool staged, bool pinned)
 {
     juce::PluginDescription description;
     if (! findDescription (idOrPath, description))
@@ -883,12 +883,13 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
     const auto pluginId = description.createIdentifierString();
 
     // Reaproveita a instância do mesmo plugin do patch atual (ou de um que ainda toca).
+    // Strips do concert/set (pinned) não são reaproveitados: continuam carregados.
     if (staged)
     {
         for (int i = 0; i < (int) layers.size(); ++i)
         {
             auto& candidate = layers[(size_t) i];
-            if (candidate.pluginId != pluginId)
+            if (candidate.pluginId != pluginId || candidate.pinned)
                 continue;
             if (candidate.role != Layer::Role::active && candidate.role != Layer::Role::lingering)
                 continue;
@@ -949,7 +950,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
 
     formatManager.createPluginInstanceAsync (
         description, sampleRate, blockSize,
-        [this, alive, done, layerId, pluginId, minNote, maxNote, staged] (
+        [this, alive, done, layerId, pluginId, minNote, maxNote, staged, pinned] (
             std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             const auto stillAlive = alive.lock();
@@ -969,6 +970,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.minNote = minNote;
             layer.maxNote = maxNote;
             layer.role = staged ? Layer::Role::staged : Layer::Role::active;
+            layer.pinned = pinned;
             layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
             layer.pluginNode = graph.addNode (std::move (instance));
             layer.stripNode = graph.addNode (
@@ -1002,6 +1004,9 @@ juce::var Engine::commitPatchSwap (bool silencePrevious)
 {
     for (auto& layer : layers)
     {
+        // Strips do concert/set não pertencem a nenhum patch: seguem como estão.
+        if (layer.pinned)
+            continue;
         if (layer.role == Layer::Role::staged || layer.role == Layer::Role::adopted)
             layer.role = Layer::Role::active;
         else if (layer.role == Layer::Role::active)
@@ -1414,6 +1419,7 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
         .set ("outputs", plugin->getTotalNumOutputChannels())
         .set ("minNote", layer.minNote)
         .set ("maxNote", layer.maxNote)
+        .set ("pinned", layer.pinned)
         .set ("parameterCount", automatableCount)
         .set ("parameterCountTotal", plugin->getParameters().size());
 }
@@ -1665,6 +1671,8 @@ void Engine::rebuildConnections()
             continue;
 
         const bool audible = layer.role != Layer::Role::staged;
+        // Strip do concert/set (pinned) vale como atual mesmo fora da troca de patch.
+        const bool current = layer.role == Layer::Role::active || layer.pinned;
 
         // Cadeia de áudio: instrumento → inserts (pulando os com bypass) → channel strip.
         Graph::Node::Ptr previous = layer.pluginNode;
@@ -1697,8 +1705,9 @@ void Engine::rebuildConnections()
             for (int ch = 0; ch < juce::jmin (plugin->getMainBusNumInputChannels(), graphIn); ++ch)
                 graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } });
 
-        // Só o patch atual recebe MIDI; o anterior (lingering) fica só com o áudio das caudas.
-        if (layer.role == Layer::Role::active)
+        // Só o patch atual (e os strips do concert/set) recebem MIDI; o anterior
+        // (lingering) fica só com o áudio das caudas.
+        if (current)
         {
             graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
                                    { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });

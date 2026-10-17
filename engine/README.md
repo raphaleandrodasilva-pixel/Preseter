@@ -37,6 +37,11 @@ Output 1..4 → Master → hardware
 Os comandos de insert endereçam qualquer channel strip: `layerId` aceita o id de
 um layer **ou** o id de um barramento (`aux1`..`aux4` / `output1`..`output4`).
 
+Um layer carregado com `pinned: true` (channel strip do concert ou do set, Fase 3.3)
+fica fora da troca de patch: `commitPatchSwap` não o promove nem o drena, e ele
+recebe MIDI e soa em todos os patches como qualquer strip atual. O campo `pinned`
+aparece em `layers` e `plugin`.
+
 ## Compilar
 
 Precisa de CMake ≥ 3.22 e um compilador C++17. O JUCE é baixado sozinho.
@@ -163,11 +168,11 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `midiEnable` | `identifier?`, `enabled?` | Liga/desliga uma entrada MIDI (ou todas) |
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |
 | `plugins` | — | Lista os plugins já conhecidos |
-| `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Adiciona um instrumento |
-| `stageLoad` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Carrega um instrumento em modo encadeado para troca de patch; reaproveita a instância se o mesmo plugin já estiver carregado |
-| `commitPatchSwap` | `silence?` | Efetiva a troca: ativa os layers encadeados e silencia (`silence: true`) ou mantém o patch anterior até as caudas acabarem |
+| `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?`, `pinned?` | Adiciona um instrumento; com `pinned: true` é um strip do concert/set e fica carregado entre patches |
+| `stageLoad` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Carrega um instrumento em modo encadeado para troca de patch; reaproveita a instância se o mesmo plugin já estiver carregado (nunca reaproveita um layer `pinned`) |
+| `commitPatchSwap` | `silence?` | Efetiva a troca: ativa os layers encadeados e silencia (`silence: true`) ou mantém o patch anterior até as caudas acabarem (layers `pinned` ficam como estão) |
 | `unload` | `layerId?` | Descarrega um layer (sem ID, todos) |
-| `layers` | — | Lista os instrumentos carregados e suas regiões |
+| `layers` | — | Lista os instrumentos carregados, suas regiões e se são `pinned` |
 | `setLayerRange` | `layerId`, `minNote`, `maxNote` | Altera a região MIDI de um layer |
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |

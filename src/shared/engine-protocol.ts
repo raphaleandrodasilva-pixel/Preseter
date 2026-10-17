@@ -57,6 +57,8 @@ export interface EngineLoadedPlugin {
   outputs: number;
   minNote: number;
   maxNote: number;
+  /** Strip do concert/set: fica carregado entre patches e não entra na troca (Fase 3.3). */
+  pinned: boolean;
   /** Só parâmetros automatizáveis (o que `params` lista por padrão). */
   parameterCount: number;
   /** Inclui os ~2000 "MIDI CC" que o wrapper VST3 do JUCE cria. */
@@ -164,7 +166,15 @@ export interface EngineCommands {
   plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[] } };
   scan: { args: { paths?: string[]; rescan?: boolean }; result: EngineScanResult };
   load: {
-    args: { plugin?: string; path?: string; layerId?: string; minNote?: number; maxNote?: number };
+    args: {
+      plugin?: string;
+      path?: string;
+      layerId?: string;
+      minNote?: number;
+      maxNote?: number;
+      /** Strip do concert/set (Fase 3.3): fica carregado entre patches. */
+      pinned?: boolean;
+    };
     result: EngineLoadedPlugin;
   };
   /** Carrega um instrumento em modo encadeado (troca de patch sem corte). */

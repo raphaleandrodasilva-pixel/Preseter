@@ -24,8 +24,11 @@ export const CONFIG_DIR = 'config';
 
 // Concert como arquivo (Fase 2)
 export const CONCERT_FILE_FORMAT = 'preseter.concert';
-/** Versão do formato gravada em todo arquivo `.preseter`. */
-export const CONCERT_FILE_VERSION = 1;
+/**
+ * Versão do formato gravada em todo arquivo `.preseter`.
+ * 1 → 2 (Fase 3.3): channel strips do concert/set e sobreposições por set/patch.
+ */
+export const CONCERT_FILE_VERSION = 2;
 export const CONCERT_FILE_EXTENSION = '.preseter';
 export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 
