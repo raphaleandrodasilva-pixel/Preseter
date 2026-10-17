@@ -52,7 +52,6 @@ class MainWindow {
     app.whenReady().then(() => {
       this.configureMidiPermissions();
       this.createWindow();
-      this.setupAutoScroll();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
         void this.initializeEngine();
@@ -423,15 +422,6 @@ class MainWindow {
     this.updateAppStatus();
     this.sendToRenderer('midi-program-change', { program, channel, preset: preset ?? null });
     return true;
-  }
-
-  private setupAutoScroll(): void {
-    // Mantém a janela ativa durante performance
-    this.window?.webContents.on('before-input-event', () => {
-      if (!this.window?.isFocused()) {
-        this.window?.focus();
-      }
-    });
   }
 }
 
