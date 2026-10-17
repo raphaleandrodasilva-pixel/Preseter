@@ -6,7 +6,7 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 ## Regras para o agente (leia antes de qualquer tarefa)
 
-1. Trabalhe **somente no branch `feat/engine-juce`** (ou em branches criados a partir dele). Nunca na `main`.
+1. Trabalhe na **`main`** (projeto solo). Faça commits pequenos e `git push` após cada tarefa.
 2. **Nunca** faça commit de `engine/build/`, `node_modules/`, `dist/` ou arquivos gerados. Antes de cada commit rode `git status` e confira.
 3. Faça **uma tarefa por vez**. Termine, teste e faça commit antes de começar a próxima. Um commit por tarefa, mensagem no formato `feat(area): resumo`.
 4. Textos da interface e mensagens de erro em **português do Brasil**. No código C++ do motor, todo texto com acento deve usar `utf8("...")` (veja `engine/src/Output.h`).
