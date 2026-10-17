@@ -59,7 +59,7 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 ## Fase 3 — Channel strips completas
 
 - [x] **3.1 Inserts (efeitos).** Slots de insert por channel strip carregando VST3 de efeito; remover a rejeição de `role: 'effect'` em `loadPreset` e `Engine.cpp`.
-- [ ] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
+- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
 - [ ] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
 - [ ] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
 - [ ] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).
