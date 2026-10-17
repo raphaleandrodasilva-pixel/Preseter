@@ -85,11 +85,11 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 ## Fase 6 — Perform e extras
 
-- [ ] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip.
-- [ ] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
-- [ ] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual).
-- [ ] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
-- [ ] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
+- [x] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip.
+- [x] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
+- [x] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual).
+- [x] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
+- [x] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
 
 ## Como saber se terminou uma tarefa
 
