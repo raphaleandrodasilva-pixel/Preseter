@@ -15,6 +15,7 @@ import {
   AppPreferences,
   ConcertState,
   ConcertSyncPayload,
+  ConcertSettings,
   ConcertTemplateSummary,
   MenuAction,
 } from '@shared/types';
@@ -41,6 +42,10 @@ export interface AppContextType {
   concertDirty: boolean;
   /** Erro de Arquivo (abrir/salvar) do concert. */
   concertError: string | null;
+  /** Configurações do concert (Concert Settings, Fase 2.4). */
+  concertSettings: ConcertSettings | null;
+  /** Atualiza uma seção das configurações do concert. */
+  updateConcertSettings: (patch: Partial<ConcertSettings>) => void;
   /** Incrementa a cada concert novo/aberto, para o shell descartar rascunhos. */
   concertRevision: number;
   /** Templates disponíveis ao criar um concert novo (Fase 2.3). */
@@ -153,6 +158,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertPath, setConcertPath] = useState<string | null>(null);
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
+  const [concertSettings, setConcertSettings] = useState<ConcertSettings | null>(null);
   const [concertRevision, setConcertRevision] = useState(0);
   const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -194,6 +200,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConcertPath(state.path);
     setConcertDirty(state.dirty);
     setLayoutState(state.layout);
+    setConcertSettings(state.settings);
     setAppStatus((prev) => ({ ...prev, tempo: state.tempo, currentPresetId: null, currentProgramNumber: 0 }));
     setConcertRevision((revision) => revision + 1);
   }, []);
@@ -417,9 +424,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Reenvia nome, tempo e sets ao main, que mantém o arquivo do concert.
   // A lista de patches é sincronizada por preset-save/preset-delete.
   useEffect(() => {
-    if (!concertReady.current) return;
+    if (!concertReady.current || !concertSettings) return;
     const handle = window.setTimeout(() => {
-      const payload: ConcertSyncPayload = { name: concertName, tempo: appStatus.tempo, sets };
+      const payload: ConcertSyncPayload = {
+        name: concertName,
+        tempo: appStatus.tempo,
+        sets,
+        settings: concertSettings,
+      };
       window.electronAPI
         .concertSync(payload)
         .then((result) => setConcertDirty(result.dirty))
@@ -428,7 +440,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, presets]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, presets]);
+
+  const updateConcertSettings = useCallback((patch: Partial<ConcertSettings>) => {
+    setConcertSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
 
   // === Arquivo (menu nativo) ===
   const handleMenuAction = useCallback(
@@ -950,6 +966,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertPath,
     concertDirty,
     concertError,
+    concertSettings,
+    updateConcertSettings,
     concertRevision,
     concertTemplates,
     templatePickerOpen,

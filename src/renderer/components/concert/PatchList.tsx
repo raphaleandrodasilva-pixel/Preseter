@@ -5,6 +5,9 @@ interface PatchListProps {
   presets: Preset[];
   sets: PresetSet[];
   currentPresetId: string | null;
+  concertName: string;
+  concertSelected: boolean;
+  onSelectConcert: () => void;
   onSelectPreset: (preset: Preset) => void;
   onEditPreset: (preset: Preset) => void;
   onNewPatch: (setId?: string) => void;
@@ -35,6 +38,9 @@ export const PatchList: React.FC<PatchListProps> = ({
   presets,
   sets,
   currentPresetId,
+  concertName,
+  concertSelected,
+  onSelectConcert,
   onSelectPreset,
   onEditPreset,
   onNewPatch,
@@ -188,6 +194,20 @@ export const PatchList: React.FC<PatchListProps> = ({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        <button
+          onClick={onSelectConcert}
+          className="mb-1 flex w-full items-center gap-1.5 rounded px-1.5 py-[5px] text-left text-xs font-semibold"
+          style={
+            concertSelected
+              ? { background: 'linear-gradient(to bottom, #2F93FF, #0A6FE0)', color: '#fff' }
+              : { background: 'rgba(255,255,255,0.06)', color: '#EDEDEF' }
+          }
+          title="Concert — abrir as configurações do concert"
+        >
+          <span className="w-4 shrink-0 text-center">♫</span>
+          <span className="min-w-0 flex-1 truncate">{concertName}</span>
+          <span style={{ color: concertSelected ? 'rgba(255,255,255,0.8)' : '#8E8E93' }}>Concert</span>
+        </button>
         {presets.length === 0 && (
           <div className="rounded-lg p-3 text-center text-[11px]" style={{ border: '1px solid #3A3A3C', color: '#9A9AA0' }}>
             Concert vazio. Crie um Set e seu primeiro Patch.

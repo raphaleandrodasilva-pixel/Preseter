@@ -169,6 +169,8 @@ export interface ConcertState {
   patches: Preset[];
   layout: LayoutConfig;
   dirty: boolean;
+  /** Configurações do concert (Concert Settings, Fase 2.4). */
+  settings: ConcertSettings;
   /** Último patch usado, para reabrir já selecionado. */
   lastPatchId: string | null;
 }
@@ -178,6 +180,7 @@ export interface ConcertSyncPayload {
   name: string;
   tempo: number;
   sets: PresetSet[];
+  settings: ConcertSettings;
 }
 
 /** Dados lembrados entre execuções (userData/session.json). */

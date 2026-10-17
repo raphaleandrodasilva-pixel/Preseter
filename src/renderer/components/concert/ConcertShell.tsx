@@ -12,6 +12,7 @@ import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
 import { ChannelStrips } from './ChannelStrips';
 import { Inspector } from './Inspector';
+import { ConcertSettingsPanel } from './ConcertSettingsPanel';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { ComposerCanvas } from '../composer/ComposerCanvas';
 import { ControlPalette } from '../composer/ControlPalette';
@@ -101,11 +102,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix,
     openVstEditor, closeVstEditor,
+    concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
@@ -131,6 +134,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const activePreset = draft ?? currentPreset;
   const scannedParams = useMemo(() => buildScannedParams(scannedPlugins), [scannedPlugins]);
+  const midiInputNames = useMemo(
+    () => midiDevices.filter((device) => device.type === 'input').map((device) => device.name),
+    [midiDevices]
+  );
+  useEffect(() => {
+    if (concertSelected) void listMidiDevices();
+  }, [concertSelected, listMidiDevices]);
+  // Concert novo/aberto: volta a mostrar o patch, não as configurações.
+  useEffect(() => {
+    setConcertSelected(false);
+  }, [concertRevision]);
   const selected = activePreset?.layout.elements.find((e) => e.id === selectedId) ?? null;
 
   const updateDraft = (update: Partial<Preset>) => {
@@ -472,8 +486,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         presetCount={presets.length}
         currentPresetName={currentPreset?.name ?? null}
         midiLastMessage={midiLastMessage}
-        isMetronomeOn={appStatus.isMetronomeOn}
-        onToggleMetronome={() => void setAppStatus({ isMetronomeOn: !appStatus.isMetronomeOn })}
+        isMetronomeOn={concertSettings?.metronome.enabled ?? appStatus.isMetronomeOn}
+        onToggleMetronome={() => {
+          if (concertSettings) {
+            updateConcertSettings({ metronome: { ...concertSettings.metronome, enabled: !concertSettings.metronome.enabled } });
+          } else {
+            void setAppStatus({ isMetronomeOn: !appStatus.isMetronomeOn });
+          }
+        }}
         onPanic={panic}
         onOpenSettings={(tab) => setSettingsTab(tab)}
       />
@@ -482,7 +502,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           presets={presets}
           sets={sets}
           currentPresetId={currentPreset?.id ?? null}
-          onSelectPreset={onSelectPreset}
+          concertName={concertName}
+          concertSelected={concertSelected}
+          onSelectConcert={() => { setConcertSelected(true); onSelectedId(null); }}
+          onSelectPreset={(preset) => { setConcertSelected(false); onSelectPreset(preset); }}
           onEditPreset={onEditPreset}
           onNewPatch={onNewPatch}
           onNewSet={() => createSet()}
@@ -555,7 +578,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               </div>
             )}
           </div>
-          {draft && (
+          {concertSelected && concertSettings ? (
+            <ConcertSettingsPanel
+              settings={concertSettings}
+              tempo={appStatus.tempo}
+              onChange={updateConcertSettings}
+              onTempoChange={(tempo) => void setAppStatus({ tempo })}
+              midiInputNames={midiInputNames}
+            />
+          ) : draft ? (
             <Inspector
               draft={draft}
               scannedPlugins={scannedPlugins}
@@ -573,7 +604,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               onSave={onSaveDraft}
               saving={saving}
             />
-          )}
+          ) : null}
           {mode === 'layout' && (
             <ControlPalette armedKey={armedKey} onArm={armItem} />
           )}

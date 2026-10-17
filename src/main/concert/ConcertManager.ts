@@ -96,6 +96,7 @@ export class ConcertManager extends EventEmitter {
       patches: this.file.patches,
       layout: this.file.layout,
       dirty: this.isDirty(),
+      settings: this.file.concert.settings,
       lastPatchId: this.session.lastPatchId,
     };
   }
@@ -191,17 +192,21 @@ export class ConcertManager extends EventEmitter {
 
   // === Edição ===
 
-  /** Aplica o estado editado no renderer (nome, tempo e sets). */
+  /** Aplica o estado editado no renderer (nome, tempo, sets e configurações). */
   applyEditors(payload: ConcertSyncPayload): boolean {
     const nextSets = Array.isArray(payload.sets) ? payload.sets : [];
+    const nextSettings =
+      payload.settings && typeof payload.settings === 'object' ? payload.settings : this.file.concert.settings;
     const changed =
       this.file.concert.name !== payload.name ||
       this.file.concert.tempo !== payload.tempo ||
-      signature(this.file.sets) !== signature(nextSets);
+      signature(this.file.sets) !== signature(nextSets) ||
+      signature(this.file.concert.settings) !== signature(nextSettings);
     if (!changed) return false;
 
     this.file.concert.name = payload.name;
     this.file.concert.tempo = payload.tempo;
+    this.file.concert.settings = nextSettings;
     this.file.concert.updatedAt = Date.now();
     this.file.sets = nextSets;
     this.emitChanged();
