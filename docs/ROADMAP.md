@@ -34,7 +34,7 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 - [x] **0.1 ASIO**: em `SettingsModal.tsx` (aba Áudio), ao trocar o tipo de driver não pré-selecionar o primeiro dispositivo; deixar o usuário escolher e usar entradas = 0 por padrão. Aplicar com `inputs: 0` quando nenhuma entrada for escolhida.
 - [x] **0.2 Acentos no motor**: envolver com `utf8()` os literais com acento em `engine/src/Engine.cpp` (procure por `"` com caracteres acentuados fora de `utf8(`).
-- [ ] **0.3 Foco da janela**: remover `setupAutoScroll` e a chamada em `src/main/index.ts`.
+- [x] **0.3 Foco da janela**: remover `setupAutoScroll` e a chamada em `src/main/index.ts`.
 
 ## Fase 1 — Tocar ao vivo sem falhas (prioridade máxima)
 
