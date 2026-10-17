@@ -29,6 +29,8 @@ export interface AppContextType {
   audioDevices: AudioDeviceSnapshot | null;
   audioSettings: SavedAudioSettings | null;
   preferences: AppPreferences | null;
+  /** Mensagem quando o motor de áudio caiu (null = tudo certo). */
+  engineError: string | null;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -146,6 +148,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [audioDevices, setAudioDevices] = useState<AudioDeviceSnapshot | null>(null);
   const [audioSettings, setAudioSettings] = useState<SavedAudioSettings | null>(null);
   const [preferences, setPreferences] = useState<AppPreferences | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
   const [midiDevices, setMidiDevices] = useState<MidiDeviceInfo[]>([]);
   const [layout, setLayoutState] = useState<LayoutConfig | null>(null);
   const [appStatus, setAppStatus] = useState<AppStatus>({
@@ -252,6 +255,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         })
       );
+    });
+
+    window.electronAPI.onEngineCrashed((data) => {
+      setEngineError(data?.message ?? 'O motor de áudio encerrou.');
+    });
+
+    window.electronAPI.onEngineRecovered(() => {
+      setEngineError(null);
+      void (async () => {
+        try {
+          const [loaded, mix] = await Promise.all([
+            window.electronAPI.vstLoaded(),
+            window.electronAPI.vstMixGet(),
+          ]);
+          setLoadedPlugins(loaded);
+          setMixState(mix);
+        } catch {
+          /* a UI também se atualiza pelos eventos plugin-loaded/plugin-unloaded */
+        }
+      })();
     });
   }, []);
 
@@ -810,6 +833,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     audioDevices,
     audioSettings,
     preferences,
+    engineError,
     midiDevices,
     midiError,
     midiLastMessage,

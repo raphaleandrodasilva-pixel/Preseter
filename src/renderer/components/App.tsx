@@ -10,6 +10,7 @@ const AppContent: React.FC = () => {
     presets,
     loadedPlugins,
     midiError,
+    engineError,
     savePreset,
     loadPreset,
     createPreset,
@@ -122,6 +123,22 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="relative flex h-screen w-full flex-col overflow-hidden text-slate-200" style={{ background: '#1C1C1E' }}>
+      {engineError && (
+        <div
+          className="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-xs font-semibold"
+          style={{ background: '#3A1414', borderColor: '#7A1F1F', color: '#FFB4A9' }}
+          role="alert"
+        >
+          <span
+            className="inline-block h-2 w-2 animate-pulse rounded-full"
+            style={{ background: '#FF554D' }}
+          />
+          <span>
+            O motor de áudio caiu e está reiniciando. Recarregando o patch…
+            <span className="ml-1 font-normal" style={{ color: '#D89A93' }}>({engineError})</span>
+          </span>
+        </div>
+      )}
       <div className="min-h-0 flex-1">
         <ConcertShell
           mode={mode}

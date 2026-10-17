@@ -19,6 +19,24 @@ export class VstManager extends EventEmitter {
   private readonly engine = new EngineProcess();
   private scannedPlugins: VstPluginInfo[] = [];
   private loadedPlugins = new Map<string, VstPluginInfo>();
+  /** Fila para serializar cargas concorrentes de plugins. */
+  private loadQueue: Promise<unknown> = Promise.resolve();
+
+  constructor() {
+    super();
+    this.engine.on('crashed', (error: Error) => {
+      // O motor reinicia vazio: o que estava carregado deixou de existir.
+      this.loadedPlugins.clear();
+      this.emit('engine-crashed', error);
+    });
+  }
+
+  /** Serializa cargas de plugin: nunca roda duas ao mesmo tempo. */
+  private enqueueLoad<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.loadQueue.then(task, task);
+    this.loadQueue = run.then(() => undefined, () => undefined);
+    return run;
+  }
 
   async scanDefaultDirectories(): Promise<VstPluginInfo[]> {
     const result = await this.engine.request('scan', { rescan: false }, 10 * 60 * 1000);
@@ -40,7 +58,7 @@ export class VstManager extends EventEmitter {
     minNote = 0,
     maxNote = 127
   ): Promise<VstPluginInfo> {
-    return this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote);
+    return this.enqueueLoad(() => this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote));
   }
 
   /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
@@ -50,7 +68,7 @@ export class VstManager extends EventEmitter {
     minNote = 0,
     maxNote = 127
   ): Promise<VstPluginInfo> {
-    return this.loadWithCommand('stageLoad', pluginPathOrId, layerId, minNote, maxNote);
+    return this.enqueueLoad(() => this.loadWithCommand('stageLoad', pluginPathOrId, layerId, minNote, maxNote));
   }
 
   /**

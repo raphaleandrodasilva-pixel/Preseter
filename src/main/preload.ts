@@ -90,4 +90,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('plugin-unloaded', (_event: Electron.IpcRendererEvent, pluginId: unknown) => callback(String(pluginId))),
   onParameterChanged: (callback: (data: any) => void) =>
     ipcRenderer.on('parameter-changed', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as any)),
+  onEngineCrashed: (callback: (data: { message: string }) => void) =>
+    ipcRenderer.on('engine-crashed', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { message: string })),
+  onEngineRecovered: (callback: (data: { presetId: string | null }) => void) =>
+    ipcRenderer.on('engine-recovered', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { presetId: string | null })),
 });

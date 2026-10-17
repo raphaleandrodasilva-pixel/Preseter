@@ -75,6 +75,8 @@ export interface ElectronAPI {
   onPluginLoaded: (callback: (plugin: any) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;
   onParameterChanged: (callback: (data: any) => void) => void;
+  onEngineCrashed: (callback: (data: { message: string }) => void) => void;
+  onEngineRecovered: (callback: (data: { presetId: string | null }) => void) => void;
 }
 
 declare global {

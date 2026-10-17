@@ -255,6 +255,8 @@ export type ElectronChannels =
   | 'preferences-get'
   | 'preferences-set'
   | 'window-set-fullscreen'
+  | 'engine-crashed'
+  | 'engine-recovered'
   | 'preset-save'
   | 'preset-load'
   | 'preset-list'
@@ -287,6 +289,8 @@ export interface ElectronEventMap {
   'vst-close-editor': (pluginId: string) => void;
   'engine-midi': (message: number[]) => void;
   'engine-panic': () => void;
+  'engine-crashed': (payload: { message: string }) => void;
+  'engine-recovered': (payload: { presetId: string | null }) => void;
   'preset-save': (preset: Preset) => void;
   'preset-load': (presetId: string) => void;
   'preset-list': () => void;

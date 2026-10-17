@@ -25,6 +25,9 @@ class MainWindow {
   private layoutManager: LayoutManager;
   private audioSettingsPath: string;
   private preferencesPath: string;
+  /** Último patch carregado, para recarregar após uma queda do motor. */
+  private lastLoadedPresetId: string | null = null;
+  private recovering: Promise<void> | null = null;
   private appStatus: AppStatus = {
     isPlaying: false,
     currentPresetId: null,
@@ -42,6 +45,12 @@ class MainWindow {
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
+    this.vstManager.on('engine-crashed', (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'O motor de áudio encerrou.';
+      console.warn('[Preseter] O motor de áudio caiu:', message);
+      this.sendToRenderer('engine-crashed', { message });
+      void this.recoverEngine();
+    });
   }
 
   init(): void {
@@ -313,6 +322,8 @@ class MainWindow {
     const preset = this.presetManager.getPreset(presetId);
     if (!preset) return false;
 
+    this.lastLoadedPresetId = preset.id;
+
     const assignments = preset.plugins ?? [];
     if (assignments.length > 4) {
       throw new Error(`O patch "${preset.name}" excede o limite de quatro instrumentos.`);
@@ -394,6 +405,42 @@ class MainWindow {
     } catch (error) {
       console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
     }
+  }
+
+  /** Recupera o motor após uma queda: reinicia, reabre o áudio e recarrega o patch atual. */
+  private async recoverEngine(): Promise<void> {
+    if (this.recovering) return this.recovering;
+
+    this.recovering = (async () => {
+      try {
+        // Dá um instante para o processo antigo terminar de sair antes de recriá-lo.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const saved = this.readAudioSettings();
+        if (saved.enabled) {
+          try {
+            await this.vstManager.startAudio(saved);
+          } catch (error) {
+            console.warn('[Preseter] Não foi possível reabrir o áudio após a queda do motor:', error);
+          }
+        }
+
+        const presetId = this.lastLoadedPresetId;
+        if (presetId) {
+          try {
+            await this.loadPreset(presetId);
+          } catch (error) {
+            console.warn('[Preseter] Não foi possível recarregar o patch após a queda do motor:', error);
+          }
+        }
+
+        this.sendToRenderer('engine-recovered', { presetId });
+      } finally {
+        this.recovering = null;
+      }
+    })();
+
+    return this.recovering;
   }
 
   private readAudioSettings(): SavedAudioSettings {

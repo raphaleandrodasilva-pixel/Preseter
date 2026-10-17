@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createInterface } from 'readline';
@@ -11,12 +12,18 @@ type PendingRequest = {
   timeout: NodeJS.Timeout;
 };
 
-export class EngineProcess {
+export class EngineProcess extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
   private pending = new Map<number, PendingRequest>();
   private nextId = 1;
   private startup: Promise<void> | null = null;
   private stopping: Promise<void> | null = null;
+  /** true quando o encerramento foi pedido por nós (não é uma queda). */
+  private intentionalStop = false;
+
+  constructor() {
+    super();
+  }
 
   async request<K extends EngineCommandName>(
     command: K,
@@ -65,6 +72,7 @@ export class EngineProcess {
     if (!child) return;
 
     this.stopping = (async () => {
+      this.intentionalStop = true;
       child.stdin.end();
       if (child.exitCode === null) {
         await new Promise<void>((resolve) => {
@@ -100,6 +108,7 @@ export class EngineProcess {
 
     const child = spawn(enginePath, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     this.child = child;
+    this.intentionalStop = false;
 
     this.startup = new Promise<void>((resolve, reject) => {
       let ready = false;
@@ -155,6 +164,8 @@ export class EngineProcess {
         const error = new Error(`O engine JUCE encerrou (código ${code ?? 'null'}, sinal ${signal ?? 'null'}).`);
         this.failPending(error);
         if (!ready) reject(error);
+        // Só é "queda" se o motor chegou a subir; falha de inicialização é tratada pelo request.
+        if (ready && !this.intentionalStop) this.emit('crashed', error);
       });
     }).finally(() => {
       this.startup = null;
