@@ -5,6 +5,7 @@ import type {
   AppPreferences,
   ConcertState,
   ConcertSyncPayload,
+  ConcertTemplateSummary,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -64,7 +65,8 @@ export interface ElectronAPI {
   // Concert (Arquivo)
   concertInit: (legacy: { sets?: PresetSet[]; name?: string; tempo?: number }) => Promise<ConcertState>;
   concertGet: () => Promise<ConcertState>;
-  concertNew: () => Promise<ConcertState>;
+  concertNew: (templateId?: string) => Promise<ConcertState>;
+  concertTemplates: () => Promise<ConcertTemplateSummary[]>;
   concertOpen: () => Promise<ConcertState | null>;
   concertOpenRecent: (filePath: string) => Promise<ConcertState>;
   concertSave: (asNew?: boolean) => Promise<ConcertState | null>;

@@ -198,6 +198,13 @@ export type MenuAction =
   | { action: 'new' | 'open' | 'save' | 'save-as' }
   | { action: 'open-recent'; path: string };
 
+/** Resumo de um template de concert mostrado no seletor (Fase 2.3). */
+export interface ConcertTemplateSummary {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface PresetPluginAssignment {
   pluginId: string;
   /** Identidade única do layer dentro do patch. */
@@ -391,6 +398,7 @@ export type ElectronChannels =
   | 'concert-init'
   | 'concert-get'
   | 'concert-new'
+  | 'concert-templates'
   | 'concert-open'
   | 'concert-open-recent'
   | 'concert-save'

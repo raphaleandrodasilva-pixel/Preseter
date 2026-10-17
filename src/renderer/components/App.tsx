@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Preset } from '@shared/types';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { ConcertShell } from './concert/ConcertShell';
+import { TemplatePicker } from './concert/TemplatePicker';
 import type { ConcertMode } from './concert/ModeToolbar';
 
 const AppContent: React.FC = () => {
@@ -13,6 +14,10 @@ const AppContent: React.FC = () => {
     engineError,
     concertError,
     concertRevision,
+    concertTemplates,
+    templatePickerOpen,
+    chooseTemplate,
+    cancelTemplatePicker,
     savePreset,
     loadPreset,
     createPreset,
@@ -171,6 +176,13 @@ const AppContent: React.FC = () => {
           onError={(message) => setError(message || null)}
         />
       </div>
+      {templatePickerOpen && (
+        <TemplatePicker
+          templates={concertTemplates}
+          onPick={(templateId) => void chooseTemplate(templateId)}
+          onCancel={cancelTemplatePicker}
+        />
+      )}
     </div>
   );
 };

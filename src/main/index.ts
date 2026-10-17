@@ -5,6 +5,7 @@ import { VstManager } from './vst/VstManager';
 import { PresetManager } from './preset/PresetManager';
 import { LayoutManager } from './layout/LayoutManager';
 import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
+import { listTemplates } from './concert/templates';
 import {
   Preset,
   PresetSet,
@@ -283,7 +284,9 @@ class MainWindow {
 
     ipcMain.handle('concert-get', () => this.concertManager.getState());
 
-    ipcMain.handle('concert-new', () => this.concertManager.newConcert());
+    ipcMain.handle('concert-new', (_event, templateId?: string) => this.concertManager.newConcert(templateId));
+
+    ipcMain.handle('concert-templates', () => listTemplates());
 
     ipcMain.handle('concert-open', () => this.openConcertDialog());
 

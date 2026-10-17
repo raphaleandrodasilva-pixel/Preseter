@@ -66,7 +66,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === Concert (Arquivo) ===
   concertInit: (legacy: unknown) => ipcRenderer.invoke('concert-init', legacy),
   concertGet: () => ipcRenderer.invoke('concert-get'),
-  concertNew: () => ipcRenderer.invoke('concert-new'),
+  concertNew: (templateId?: string) => ipcRenderer.invoke('concert-new', templateId),
+  concertTemplates: () => ipcRenderer.invoke('concert-templates'),
   concertOpen: () => ipcRenderer.invoke('concert-open'),
   concertOpenRecent: (filePath: string) => ipcRenderer.invoke('concert-open-recent', filePath),
   concertSave: (asNew?: boolean) => ipcRenderer.invoke('concert-save', asNew),

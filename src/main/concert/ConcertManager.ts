@@ -25,6 +25,7 @@ import {
   parseConcertFile,
   serializeConcertFile,
 } from './ConcertFile';
+import { buildTemplateConcert } from './templates';
 
 const MAX_RECENT = 10;
 
@@ -134,8 +135,8 @@ export class ConcertManager extends EventEmitter {
 
   // === Ciclo de vida do concert ===
 
-  newConcert(name = 'Meu Concert', tempo = 120): ConcertState {
-    this.file = createEmptyConcertFile(name, tempo);
+  newConcert(templateId = 'vazio'): ConcertState {
+    this.file = buildTemplateConcert(templateId);
     this.filePath = null;
     this.savedSignature = signature(this.file);
     this.writeSession({ concertPath: null });

@@ -15,6 +15,7 @@ import {
   AppPreferences,
   ConcertState,
   ConcertSyncPayload,
+  ConcertTemplateSummary,
   MenuAction,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
@@ -42,6 +43,14 @@ export interface AppContextType {
   concertError: string | null;
   /** Incrementa a cada concert novo/aberto, para o shell descartar rascunhos. */
   concertRevision: number;
+  /** Templates disponíveis ao criar um concert novo (Fase 2.3). */
+  concertTemplates: ConcertTemplateSummary[];
+  /** true quando o seletor de templates está aberto. */
+  templatePickerOpen: boolean;
+  /** Cria um concert novo a partir de um template. */
+  chooseTemplate: (templateId: string) => Promise<void>;
+  /** Fecha o seletor de templates sem criar nada. */
+  cancelTemplatePicker: () => void;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -145,6 +154,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
   const [concertRevision, setConcertRevision] = useState(0);
+  const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   /** true depois que o estado do concert foi carregado do main (libera o sync). */
   const concertReady = useRef(false);
   /** Patch a reabrir depois que a lista de patches estiver pronta. */
@@ -425,7 +436,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setConcertError(null);
       try {
         if (action.action === 'new') {
-          applyConcertState(await window.electronAPI.concertNew());
+          const templates = await window.electronAPI.concertTemplates();
+          setConcertTemplates(templates);
+          setTemplatePickerOpen(true);
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
           if (state) applyConcertState(state);
@@ -445,6 +458,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [applyConcertState]
   );
   menuHandlerRef.current = handleMenuAction;
+
+  const chooseTemplate = useCallback(
+    async (templateId: string) => {
+      setTemplatePickerOpen(false);
+      setConcertError(null);
+      try {
+        applyConcertState(await window.electronAPI.concertNew(templateId));
+      } catch (error) {
+        setConcertError(error instanceof Error ? error.message : 'Falha ao criar o concert.');
+      }
+    },
+    [applyConcertState]
+  );
+
+  const cancelTemplatePicker = useCallback(() => setTemplatePickerOpen(false), []);
 
   useEffect(() => {
     window.electronAPI.onMenuAction((action) => void menuHandlerRef.current(action));
@@ -923,6 +951,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertDirty,
     concertError,
     concertRevision,
+    concertTemplates,
+    templatePickerOpen,
+    chooseTemplate,
+    cancelTemplatePicker,
     midiDevices,
     midiError,
     midiLastMessage,
