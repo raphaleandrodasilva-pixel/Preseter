@@ -1,5 +1,7 @@
 import type {
   AudioDeviceSnapshot,
+  AudioInputSettings,
+  AudioInputState,
   AudioSettingsSnapshot,
   AudioStartOptions,
   AppPreferences,
@@ -48,6 +50,8 @@ export interface ElectronAPI {
   enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;
   vstSetLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<VstPluginInfo>;
+  audioInputSet: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState>;
+  audioInputState: () => Promise<AudioInputState>;
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;

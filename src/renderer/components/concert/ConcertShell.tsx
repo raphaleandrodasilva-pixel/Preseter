@@ -12,8 +12,11 @@ import type {
   StripAttribute,
   UiElement,
   VstPluginInfo,
+  AudioInputSettings,
+  AudioInputState,
 } from '@shared/types';
 import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
+import { defaultAudioInput } from '@shared/audio-input';
 import {
   clearOverride,
   isMasked,
@@ -120,7 +123,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     resetProgramNumbers, deletePreset, activeNotes, enginePanic,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
-    openVstEditor, closeVstEditor,
+    openVstEditor, closeVstEditor, setAudioInput, getAudioInputState,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     concertStrips, updateConcertStrips, updateSet,
   } = ctx;
@@ -131,6 +134,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
+  const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   /** Abre/fecha a janela nativa do plugin do layer (tecla V ou botão do channel strip). */
@@ -330,6 +334,82 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const updateDraft = (update: Partial<Preset>) => {
     if (draft) onDraftChange({ ...draft, ...update, updatedAt: Date.now() });
   };
+
+  // === Strip de entrada de áudio (Fase 3.5) ===
+
+  const applyAudioInput = async (settings: AudioInputSettings, resetFeedback = false) => {
+    const state = await setAudioInput({ ...settings, resetFeedback });
+    if (state) setAudioInputState(state);
+  };
+
+  const changeAudioInput = (update: Partial<AudioInputSettings>) => {
+    if (!draft) return;
+    const next: AudioInputSettings = {
+      ...defaultAudioInput(),
+      ...(draft.audioInput ?? {}),
+      ...update,
+      enabled: true,
+    };
+    onDraftChange({ ...draft, audioInput: next, updatedAt: Date.now() });
+    void applyAudioInput(next);
+  };
+
+  const addAudioInput = () => {
+    if (!draft) return;
+    const next = { ...defaultAudioInput(), enabled: true };
+    onDraftChange({ ...draft, audioInput: next, updatedAt: Date.now() });
+    void applyAudioInput(next, true);
+  };
+
+  const removeAudioInput = () => {
+    if (!draft) return;
+    const next = { ...(draft.audioInput ?? defaultAudioInput()), enabled: false };
+    onDraftChange({ ...draft, audioInput: next, updatedAt: Date.now() });
+    setAudioInputState(null);
+    void applyAudioInput(next);
+  };
+
+  const resetAudioFeedback = () => {
+    const current = { ...defaultAudioInput(), ...(draft?.audioInput ?? {}), enabled: true, muted: false };
+    if (draft) onDraftChange({ ...draft, audioInput: current, updatedAt: Date.now() });
+    void applyAudioInput(current, true);
+  };
+
+  const keepAudioInputMuted = () => {
+    const current = { ...defaultAudioInput(), ...(draft?.audioInput ?? {}), enabled: true, muted: true };
+    if (draft) onDraftChange({ ...draft, audioInput: current, updatedAt: Date.now() });
+    void applyAudioInput(current, true);
+  };
+
+  const disableAudioFeedbackProtection = () => {
+    const current = {
+      ...defaultAudioInput(),
+      ...(draft?.audioInput ?? {}),
+      enabled: true,
+      feedbackProtection: false,
+      muted: false,
+    };
+    if (draft) onDraftChange({ ...draft, audioInput: current, updatedAt: Date.now() });
+    void applyAudioInput(current, true);
+  };
+
+  useEffect(() => {
+    if (mode !== 'edit' || !activePreset?.audioInput?.enabled) {
+      setAudioInputState(null);
+      return;
+    }
+    let cancelled = false;
+    const tick = async () => {
+      const state = await getAudioInputState();
+      if (!cancelled) setAudioInputState(state);
+    };
+    void tick();
+    const timer = window.setInterval(() => void tick(), 500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [mode, activePreset?.audioInput?.enabled, getAudioInputState]);
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -1272,6 +1352,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             setStrips={currentSet?.strips ?? []}
             setName={currentSet?.name ?? null}
             setOverrides={currentSet?.stripOverrides}
+            audioInput={activePreset?.audioInput}
+            audioInputState={audioInputState}
+            audioInputChannels={ctx.audioDevices?.current?.inputChannels ?? 0}
+            onAddAudioInput={addAudioInput}
+            onRemoveAudioInput={removeAudioInput}
+            onAudioInputChange={changeAudioInput}
+            onResetAudioFeedback={resetAudioFeedback}
+            onKeepAudioMuted={keepAudioInputMuted}
+            onDisableAudioFeedbackProtection={disableAudioFeedbackProtection}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onRemove={removeLayer}

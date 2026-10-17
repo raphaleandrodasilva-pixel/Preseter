@@ -6,6 +6,8 @@
  */
 import type {
   AudioDeviceSnapshot,
+  AudioInputSettings,
+  AudioInputState,
   BusMixUpdate,
   EngineBusState,
   EngineMixState,
@@ -196,6 +198,10 @@ export interface EngineCommands {
   };
   /** Transpose global em semitons (patch + set + concert), aplicado a todas as notas. */
   setTranspose: { args: { semitones: number }; result: null };
+  /** Configura o strip de entrada de áudio (Fase 3.5). */
+  setAudioInput: { args: Partial<AudioInputSettings> & { resetFeedback?: boolean }; result: AudioInputState };
+  /** Estado do strip de entrada de áudio (configuração + peak/feedback). */
+  audioInput: { args: {}; result: AudioInputState };
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */

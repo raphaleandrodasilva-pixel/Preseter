@@ -7,6 +7,8 @@ import type {
   EnginePluginInfo,
 } from '../../shared/engine-protocol';
 import type {
+  AudioInputSettings,
+  AudioInputState,
   AudioStartOptions,
   BusMixUpdate,
   EngineBusState,
@@ -185,6 +187,16 @@ export class VstManager extends EventEmitter {
   async setTranspose(semitones: number): Promise<boolean> {
     await this.engine.request('setTranspose', { semitones });
     return true;
+  }
+
+  /** Configura o strip de entrada de áudio do patch (Fase 3.5). */
+  async setAudioInput(settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }): Promise<AudioInputState> {
+    return this.engine.request('setAudioInput', settings);
+  }
+
+  /** Estado do strip de entrada (configuração + peak/feedback). */
+  async getAudioInputState(): Promise<AudioInputState> {
+    return this.engine.request('audioInput', {});
   }
 
   async sendMidi(bytes: number[]): Promise<boolean> {

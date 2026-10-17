@@ -12,6 +12,7 @@ import {
   VstPluginInfo,
   MidiBinding,
   AppStatus,
+  AudioInputSettings,
   ElectronChannels,
   AudioStartOptions,
   BusMixUpdate,
@@ -31,6 +32,7 @@ import {
 } from '../shared/types';
 import type { EngineInsertState } from '../shared/engine-protocol';
 import { resolveStrips } from '../shared/concert-strips';
+import { normalizeAudioInput } from '../shared/audio-input';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL, CONCERT_FILE_EXTENSION } from '../shared/constants';
 
 /**
@@ -246,6 +248,14 @@ class MainWindow {
       return this.vstManager.setLayerVelocityRange(layerId, minVelocity, maxVelocity);
     });
 
+    ipcMain.handle('audio-input-set', (_event, settings: unknown) => {
+      return this.vstManager.setAudioInput(settings as Partial<AudioInputSettings> & { resetFeedback?: boolean });
+    });
+
+    ipcMain.handle('audio-input-state', () => {
+      return this.vstManager.getAudioInputState();
+    });
+
     ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());
     ipcMain.handle('vst-set-layer-mix', (_event, layerId: string, update: LayerMixUpdate) => {
       return this.vstManager.setLayerMix(layerId, update);
@@ -327,7 +337,10 @@ class MainWindow {
 
     ipcMain.handle('preset-save', (_event, preset: Preset) => {
       this.concertManager.upsertPatch(preset);
-      if (preset.id === this.lastLoadedPresetId) void this.applyCurrentTranspose(preset);
+      if (preset.id === this.lastLoadedPresetId) {
+        void this.applyCurrentTranspose(preset);
+        void this.applyCurrentAudioInput(preset);
+      }
       return true;
     });
 
@@ -462,6 +475,19 @@ class MainWindow {
     }
   }
 
+  /** Envia ao motor o strip de entrada de áudio do patch (Fase 3.5). */
+  private async applyCurrentAudioInput(preset?: Preset | null): Promise<void> {
+    const current = preset ?? (this.lastLoadedPresetId
+      ? this.concertManager.getPreset(this.lastLoadedPresetId) ?? null
+      : null);
+    const settings = normalizeAudioInput(current?.audioInput);
+    try {
+      await this.vstManager.setAudioInput(settings);
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível aplicar a entrada de áudio:', error);
+    }
+  }
+
   private async loadPreset(presetId: string): Promise<boolean> {
     const preset = this.concertManager.getPreset(presetId);
     if (!preset) return false;
@@ -502,6 +528,7 @@ class MainWindow {
 
     await this.vstManager.commitPatchSwap(silencePrevious);
     await this.applyCurrentTranspose(preset);
+    await this.applyCurrentAudioInput(preset);
     // Faixa de velocity por layer (Fase 3.4).
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;

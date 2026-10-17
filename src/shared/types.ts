@@ -51,6 +51,8 @@ export interface Preset {
   notes?: string;
   /** Transpose deste patch, em semitons (soma com set e concert na Fase 3.4). */
   transpose?: number;
+  /** Strip de entrada de áudio (guitarra/microfone) deste patch (Fase 3.5). */
+  audioInput?: AudioInputSettings;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
   /** Valores que este patch sobrepõe nos strips herdados do set/concert (Fase 3.3). */
@@ -80,6 +82,31 @@ export interface PresetSet {
   transpose?: number;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Formato do strip de entrada de áudio (Fase 3.5). */
+export type AudioInputMode = 'mono' | 'stereo';
+
+/** Strip de entrada de áudio (guitarra/microfone) de um patch (Fase 3.5). */
+export interface AudioInputSettings {
+  enabled: boolean;
+  /** Canal de entrada do dispositivo (0 = primeiro). Em estéreo usa também o seguinte. */
+  inputChannel: number;
+  mode: AudioInputMode;
+  /** Volume inicial 0 dB, como no MainStage. */
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  /** Silencia o canal quando detecta feedback (Fase 3.5). */
+  feedbackProtection: boolean;
+  /** Saída (Output 1..4). */
+  output: number;
+}
+
+/** Estado do strip de entrada de áudio no motor (peak/feedback em tempo real). */
+export interface AudioInputState extends AudioInputSettings {
+  peakDb: number;
+  feedback: boolean;
 }
 
 /** Concert — nível raiz estilo MainStage (Concert → Sets → Patches) */

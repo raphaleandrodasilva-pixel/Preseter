@@ -127,6 +127,136 @@ private:
     std::array<std::array<int, 128>, 16> noteMap {};
 };
 
+/** Strip de entrada de áudio (guitarra/microfone) do patch (Fase 3.5). */
+class AudioInputProcessor final : public juce::AudioProcessor
+{
+public:
+    AudioInputProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Audio Input"; }
+    void prepareToPlay (double rate, int) override { sampleRate = rate > 0 ? rate : 44100.0; }
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        const int samples = audio.getNumSamples();
+        const int channels = audio.getNumChannels();
+        if (samples <= 0 || channels <= 0)
+            return;
+
+        const float gain = juce::Decibels::decibelsToGain (volumeDb.load());
+        const float panValue = pan.load();
+        const float leftGain = panValue <= 0.0f ? 1.0f : 1.0f - panValue;
+        const float rightGain = panValue >= 0.0f ? 1.0f : 1.0f + panValue;
+        const bool isMono = mono.load();
+        const bool silent = muted.load() || feedbackDetected.load();
+        float peak = 0.0f;
+
+        for (int sample = 0; sample < samples; ++sample)
+        {
+            const float left = audio.getSample (0, sample);
+            const float right = (! isMono && channels > 1) ? audio.getSample (1, sample) : left;
+            const float outLeft = left * gain * leftGain;
+            const float outRight = right * gain * rightGain;
+            peak = juce::jmax (peak, juce::jmax (std::abs (outLeft), std::abs (outRight)));
+
+            audio.setSample (0, sample, silent ? 0.0f : outLeft);
+            if (channels > 1)
+                audio.setSample (1, sample, silent ? 0.0f : outRight);
+        }
+
+        peakLevel.store (peak);
+
+        // Detector simples de feedback: nível altíssimo por ~2 s silencia o canal.
+        if (feedbackProtection.load() && ! silent)
+        {
+            if (peak > 0.9f)
+                ++loudBlocks;
+            else
+                loudBlocks = juce::jmax (0, loudBlocks - 2);
+
+            const int blocksForTwoSeconds = juce::jmax (1, (int) std::round (sampleRate * 2.0 / juce::jmax (1, samples)));
+            if (loudBlocks > blocksForTwoSeconds)
+            {
+                loudBlocks = 0;
+                feedbackDetected.store (true);
+            }
+        }
+        else
+        {
+            loudBlocks = 0;
+        }
+    }
+
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void configure (bool shouldBeEnabled, int channel, bool shouldBeMono, float volume,
+                    float panPosition, bool shouldBeMuted, bool protect, int outputBus)
+    {
+        enabled.store (shouldBeEnabled);
+        inputChannel.store (juce::jmax (0, channel));
+        mono.store (shouldBeMono);
+        volumeDb.store (volume);
+        pan.store (panPosition);
+        muted.store (shouldBeMuted);
+        feedbackProtection.store (protect);
+        output.store (juce::jlimit (1, 4, outputBus));
+    }
+
+    void resetFeedback()
+    {
+        feedbackDetected.store (false);
+        loudBlocks = 0;
+    }
+
+    bool isEnabled() const { return enabled.load(); }
+    bool isMono() const { return mono.load(); }
+    int getInputChannel() const { return inputChannel.load(); }
+    int getOutput() const { return output.load(); }
+    bool isMuted() const { return muted.load(); }
+    bool isFeedbackProtection() const { return feedbackProtection.load(); }
+    bool hasFeedback() const { return feedbackDetected.load(); }
+    float getVolumeDb() const { return volumeDb.load(); }
+    float getPan() const { return pan.load(); }
+    float getPeak() const { return peakLevel.load(); }
+
+private:
+    std::atomic<bool> enabled { false };
+    std::atomic<int> inputChannel { 0 };
+    std::atomic<bool> mono { true };
+    std::atomic<float> volumeDb { 0.0f };
+    std::atomic<float> pan { 0.0f };
+    std::atomic<bool> muted { false };
+    std::atomic<bool> feedbackProtection { true };
+    std::atomic<bool> feedbackDetected { false };
+    std::atomic<float> peakLevel { 0.0f };
+    std::atomic<int> output { 1 };
+    double sampleRate = 44100.0;
+    int loudBlocks = 0;
+};
+
 class ChannelStripProcessor final : public juce::AudioProcessor
 {
 public:
@@ -300,6 +430,7 @@ Engine::Engine()
     audioInNode  = graph.addNode (std::make_unique<IO> (IO::audioInputNode));
     audioOutNode = graph.addNode (std::make_unique<IO> (IO::audioOutputNode));
     midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
+    audioInputNode = graph.addNode (std::make_unique<AudioInputProcessor>());
     masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
 
     // Barramentos do concert: 4 Aux + 4 Output (Fase 3.2). O strip do barramento
@@ -609,6 +740,62 @@ juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& 
     updateSoloState();
     result = describeMixState();
     return {};
+}
+
+juce::String Engine::setAudioInput (const juce::var& options, juce::var& result)
+{
+    auto* input = audioInputNode != nullptr
+        ? dynamic_cast<AudioInputProcessor*> (audioInputNode->getProcessor())
+        : nullptr;
+    if (input == nullptr)
+        return utf8 ("O strip de entrada de áudio não está disponível.");
+
+    const bool enabled = options.hasProperty ("enabled") ? (bool) options["enabled"] : false;
+    const int channel = options.hasProperty ("inputChannel")
+        ? juce::jlimit (0, 15, (int) options["inputChannel"])
+        : 0;
+    const bool mono = ! (options.hasProperty ("mode") && options["mode"].toString() == "stereo");
+    const float volume = options.hasProperty ("volumeDb")
+        ? juce::jlimit (-60.0f, 6.0f, (float) (double) options["volumeDb"])
+        : 0.0f;
+    const float panPosition = options.hasProperty ("pan")
+        ? juce::jlimit (-1.0f, 1.0f, (float) (double) options["pan"])
+        : 0.0f;
+    const bool muted = options.hasProperty ("muted") && (bool) options["muted"];
+    const bool protect = ! options.hasProperty ("feedbackProtection")
+        || (bool) options["feedbackProtection"];
+    const int output = options.hasProperty ("output")
+        ? juce::jlimit (1, 4, (int) options["output"])
+        : 1;
+
+    input->configure (enabled, channel, mono, volume, panPosition, muted, protect, output);
+    if (options.hasProperty ("resetFeedback") && (bool) options["resetFeedback"])
+        input->resetFeedback();
+
+    rebuildConnections();
+    result = describeAudioInput();
+    return {};
+}
+
+juce::var Engine::describeAudioInput() const
+{
+    auto* input = audioInputNode != nullptr
+        ? dynamic_cast<AudioInputProcessor*> (audioInputNode->getProcessor())
+        : nullptr;
+    if (input == nullptr)
+        return Obj().set ("enabled", false);
+
+    return Obj()
+        .set ("enabled", input->isEnabled())
+        .set ("inputChannel", input->getInputChannel())
+        .set ("mode", input->isMono() ? "mono" : "stereo")
+        .set ("volumeDb", (double) input->getVolumeDb())
+        .set ("pan", (double) input->getPan())
+        .set ("muted", input->isMuted())
+        .set ("feedbackProtection", input->isFeedbackProtection())
+        .set ("output", input->getOutput())
+        .set ("peakDb", (double) juce::Decibels::gainToDecibels (input->getPeak(), -100.0f))
+        .set ("feedback", input->hasFeedback());
 }
 
 juce::String Engine::setMasterMix (const juce::var& options, juce::var& result)
@@ -1729,6 +1916,23 @@ void Engine::rebuildConnections()
         }
         connectAudio (previous, bus.stripNode);
     };
+
+    // Strip de entrada de áudio (guitarra/microfone, Fase 3.5). O canal do
+    // dispositivo escolhido entra no processador; em estéreo usa também o seguinte.
+    if (audioInputNode != nullptr && graphIn > 0)
+    {
+        if (auto* input = dynamic_cast<AudioInputProcessor*> (audioInputNode->getProcessor());
+            input != nullptr && input->isEnabled())
+        {
+            const int start = juce::jlimit (0, graphIn - 1, input->getInputChannel());
+            graph.addConnection ({ { audioInNode->nodeID, start }, { audioInputNode->nodeID, 0 } });
+            if (! input->isMono() && start + 1 < graphIn)
+                graph.addConnection ({ { audioInNode->nodeID, start + 1 }, { audioInputNode->nodeID, 1 } });
+
+            if (const int outIndex = findBus (outputBusId (input->getOutput())); outIndex >= 0)
+                connectToBus (audioInputNode, buses[(size_t) outIndex]);
+        }
+    }
 
     // Output → Master.
     for (const auto& bus : buses)

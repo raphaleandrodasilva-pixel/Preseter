@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **18 completos**
+- **19 completos**
 - **8 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **12 não implementados**
+- **11 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -68,7 +68,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
 - [x] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
 - [x] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
-- [ ] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso) — **Não implementado.**
+- [x] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).
 
 ## Fase 4 — Assignments e Mappings
 

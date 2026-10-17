@@ -7,6 +7,8 @@ import {
   LayoutConfig,
   AppStatus,
   AudioDeviceSnapshot,
+  AudioInputSettings,
+  AudioInputState,
   AudioStartOptions,
   EngineMixState,
   BusMixUpdate,
@@ -131,6 +133,8 @@ export interface AppContextType {
   closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
   setVstLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<boolean>;
+  setAudioInput: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState | null>;
+  getAudioInputState: () => Promise<AudioInputState | null>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
   /** Altera um barramento Aux/Output do concert (Fase 3.2). */
@@ -914,6 +918,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setAudioInput = useCallback(async (
+    settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }
+  ): Promise<AudioInputState | null> => {
+    try {
+      const state = await window.electronAPI.audioInputSet(settings);
+      setMidiError(null);
+      return state;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao configurar a entrada de áudio.');
+      return null;
+    }
+  }, []);
+
+  const getAudioInputState = useCallback(async (): Promise<AudioInputState | null> => {
+    try {
+      return await window.electronAPI.audioInputState();
+    } catch {
+      return null;
+    }
+  }, []);
+
   const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
@@ -1164,6 +1189,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     closeVstEditor,
     setVstLayerRange,
     setVstLayerVelocity,
+    setAudioInput,
+    getAudioInputState,
     setVstLayerMix,
     setVstMasterMix,
     setVstBusMix,

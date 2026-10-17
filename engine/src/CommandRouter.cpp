@@ -259,6 +259,21 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setAudioInput")
+    {
+        juce::var result;
+        const auto error = engine.setAudioInput (message, result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "audioInput")
+    {
+        ok (id, engine.describeAudioInput());
+        return;
+    }
+
     if (cmd == "layers")
     {
         ok (id, engine.describeLoadedPlugins());

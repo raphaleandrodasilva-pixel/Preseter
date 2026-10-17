@@ -227,6 +227,29 @@ async function main() {
     console.log(`Velocity do layer: ${minVelocity}..${maxVelocity}: ok`);
   }
 
+  if (flag('audio-input')) {
+    const mode = first('input-mode', 'mono') === 'stereo' ? 'stereo' : 'mono';
+    const configured = await request('setAudioInput', {
+      enabled: true,
+      inputChannel: Number(first('input-channel', 0)),
+      mode,
+      volumeDb: 0,
+      pan: 0,
+      muted: false,
+      feedbackProtection: true,
+      output: 1,
+    });
+    if (!configured.enabled || configured.mode !== mode || configured.feedbackProtection !== true) {
+      throw new Error('O strip de entrada de áudio não foi configurado corretamente.');
+    }
+    const state = await request('audioInput');
+    if (!state.enabled || state.mode !== mode) {
+      throw new Error('O estado da entrada de áudio não confere com a configuração.');
+    }
+    await request('setAudioInput', { enabled: false });
+    console.log(`Entrada de áudio: ${mode}, canal ${configured.inputChannel + 1}: ok`);
+  }
+
   const params = await request('params');
   for (const p of params.slice(0, 10)) {
     console.log(`  [${p.index}] ${p.name}: ${p.text} ${p.label}`.trimEnd());

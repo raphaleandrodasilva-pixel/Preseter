@@ -114,6 +114,10 @@ public:
     juce::var describeAudioConfiguration();
     juce::String audioConfigurationError();
     juce::var describeMixState() const;
+    /** Configura o strip de entrada de áudio do patch (Fase 3.5). */
+    juce::String setAudioInput (const juce::var& options, juce::var& result);
+    /** Estado do strip de entrada (configuração + peak/feedback). */
+    juce::var describeAudioInput() const;
     juce::String setLayerMix (const juce::String& layerId, const juce::var& options,
                               juce::var& result);
     juce::String setMasterMix (const juce::var& options, juce::var& result);
@@ -168,7 +172,7 @@ private:
     Graph graph;
     juce::AudioProcessorPlayer player;
 
-    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, masterNode;
+    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, audioInputNode, masterNode;
     std::atomic<int> soloLayerCount { 0 };
     /** Transpose aplicado no filtro MIDI de cada layer (Fase 3.4). */
     std::atomic<int> transposeSemitones { 0 };
