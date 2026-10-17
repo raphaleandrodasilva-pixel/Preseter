@@ -388,7 +388,7 @@ void CommandRouter::handleLine (const juce::String& line)
         const int aux = intArg (message, "aux", -1);
         if (! message.hasProperty ("levelDb"))
         {
-            fail (id, "Informe \"levelDb\" (nível do send em dB).");
+            fail (id, utf8 ("Informe \"levelDb\" (nível do send em dB)."));
             return;
         }
         const double level = (double) message["levelDb"];
