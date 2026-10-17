@@ -561,8 +561,8 @@ class MainWindow {
       {
         label: 'Editar',
         submenu: [
-          { role: 'undo', label: 'Desfazer' },
-          { role: 'redo', label: 'Refazer' },
+          { label: 'Desfazer', accelerator: 'CmdOrCtrl+Z', click: () => this.sendMenuAction({ action: 'undo' }) },
+          { label: 'Refazer', accelerator: 'CmdOrCtrl+Shift+Z', click: () => this.sendMenuAction({ action: 'redo' }) },
           { type: 'separator' },
           { role: 'cut', label: 'Recortar' },
           { role: 'copy', label: 'Copiar' },

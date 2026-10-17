@@ -198,7 +198,7 @@ export interface RecentConcert {
 
 /** Ação disparada pelo menu nativo "Arquivo". */
 export type MenuAction =
-  | { action: 'new' | 'open' | 'save' | 'save-as' }
+  | { action: 'new' | 'open' | 'save' | 'save-as' | 'undo' | 'redo' }
   | { action: 'open-recent'; path: string };
 
 /** Resumo de um template de concert mostrado no seletor (Fase 2.3). */

@@ -21,6 +21,16 @@ import {
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
+import { ConcertHistory } from '@shared/concert-history';
+
+/** Instantâneo do concert para o desfazer/refazer (Fase 2.5). */
+interface ConcertSnapshot {
+  name: string;
+  tempo: number;
+  sets: PresetSet[];
+  settings: ConcertSettings;
+  patches: Preset[];
+}
 
 export interface AppContextType {
   // Estado
@@ -46,6 +56,11 @@ export interface AppContextType {
   concertSettings: ConcertSettings | null;
   /** Atualiza uma seção das configurações do concert. */
   updateConcertSettings: (patch: Partial<ConcertSettings>) => void;
+  /** Desfazer/Refazer edições do concert (Fase 2.5). */
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
   /** Incrementa a cada concert novo/aberto, para o shell descartar rascunhos. */
   concertRevision: number;
   /** Templates disponíveis ao criar um concert novo (Fase 2.3). */
@@ -446,6 +461,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConcertSettings((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
+  // === Desfazer / Refazer (Fase 2.5) ===
+  const historyRef = useRef<ConcertHistory<ConcertSnapshot> | null>(null);
+  if (!historyRef.current) historyRef.current = new ConcertHistory<ConcertSnapshot>();
+  const history = historyRef.current;
+  const [historyVersion, setHistoryVersion] = useState(0);
+
+  const applySnapshot = useCallback((snapshot: ConcertSnapshot) => {
+    setConcertNameState(snapshot.name);
+    setAppStatus((prev) => ({ ...prev, tempo: snapshot.tempo }));
+    setSets(snapshot.sets);
+    setConcertSettings(snapshot.settings);
+    setPresets(snapshot.patches);
+  }, []);
+
+  // Concert novo/aberto: recomeça o histórico.
+  useEffect(() => {
+    history.reset();
+    setHistoryVersion((version) => version + 1);
+  }, [concertRevision, history]);
+
+  // Guarda o estado anterior a cada edição (agrupada) do concert.
+  useEffect(() => {
+    if (!concertReady.current || !concertSettings) return;
+    const handle = window.setTimeout(() => {
+      const snapshot: ConcertSnapshot = {
+        name: concertName,
+        tempo: appStatus.tempo,
+        sets,
+        settings: concertSettings,
+        patches: presets,
+      };
+      if (history.commit(snapshot)) setHistoryVersion((version) => version + 1);
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [concertName, appStatus.tempo, sets, concertSettings, presets, history]);
+
+  const undo = useCallback(() => {
+    const previous = history.undo();
+    if (!previous) return;
+    applySnapshot(previous);
+    setHistoryVersion((version) => version + 1);
+  }, [applySnapshot, history]);
+
+  const redo = useCallback(() => {
+    const next = history.redo();
+    if (!next) return;
+    applySnapshot(next);
+    setHistoryVersion((version) => version + 1);
+  }, [applySnapshot, history]);
+
   // === Arquivo (menu nativo) ===
   const handleMenuAction = useCallback(
     async (action: MenuAction) => {
@@ -466,12 +531,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConcertPath(state.path);
             setConcertDirty(state.dirty);
           }
+        } else if (action.action === 'undo') {
+          undo();
+        } else if (action.action === 'redo') {
+          redo();
         }
       } catch (error) {
         setConcertError(error instanceof Error ? error.message : 'Falha na operação de arquivo.');
       }
     },
-    [applyConcertState]
+    [applyConcertState, undo, redo]
   );
   menuHandlerRef.current = handleMenuAction;
 
@@ -968,6 +1037,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertError,
     concertSettings,
     updateConcertSettings,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    undo,
+    redo,
     concertRevision,
     concertTemplates,
     templatePickerOpen,
