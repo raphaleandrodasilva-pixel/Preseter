@@ -2,15 +2,30 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BusMixUpdate,
   BusSettings,
+  ConcertStrip,
+  EffectiveStrip,
   Insert,
   LayerMixUpdate,
   MasterMixUpdate,
   Preset,
   PresetPluginAssignment,
+  StripAttribute,
   UiElement,
   VstPluginInfo,
 } from '@shared/types';
 import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
+import {
+  clearOverride,
+  isMasked,
+  replaceStrip,
+  stripLevelViews,
+  viewAt,
+  withOverride,
+  withStripValue,
+  type StripEditTarget,
+  type StripValue,
+} from '@shared/strip-levels';
+import { defaultSends } from '@shared/concert-strips';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -107,6 +122,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
+    concertStrips, updateConcertStrips, updateSet,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -465,6 +481,257 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     void window.electronAPI.vstInsertOpenEditor(busId, slot);
   };
 
+  // === Channel strips do concert/set (Fase 3.3) ===
+
+  /** Set do patch atual: guarda os strips do set e as sobreposições dele. */
+  const currentSet = useMemo(
+    () => (activePreset?.setId ? sets.find((set) => set.id === activePreset.setId) : undefined),
+    [sets, activePreset?.setId]
+  );
+
+  /** Strips herdados resolvidos por nível — a mesma conta que o main aplica. */
+  const stripViews = useMemo(
+    () => stripLevelViews({
+      concertStrips,
+      setStrips: currentSet?.strips,
+      setOverrides: currentSet?.stripOverrides,
+      patch: activePreset,
+    }),
+    [concertStrips, currentSet, activePreset]
+  );
+
+  /** Nível que define um strip herdado (o concert tem prioridade). */
+  const stripOwnerLevel = (stripId: string): 'concert' | 'set' =>
+    concertStrips.some((strip) => strip.id === stripId) ? 'concert' : 'set';
+
+  /** Grava um atributo de um strip herdado no nível pedido (patch, set ou concert). */
+  const writeStripValue = (
+    target: StripEditTarget,
+    stripId: string,
+    attr: StripAttribute,
+    value: StripValue
+  ) => {
+    if (target === 'patch') {
+      const current = draftRef.current;
+      if (!current) return;
+      const next: Preset = {
+        ...current,
+        stripOverrides: withOverride(current.stripOverrides, stripId, attr, value),
+        updatedAt: Date.now(),
+      };
+      draftRef.current = next;
+      onDraftChange(next);
+      return;
+    }
+    if (target === 'set') {
+      if (!currentSet) return;
+      if (stripOwnerLevel(stripId) === 'set') {
+        const strip = (currentSet.strips ?? []).find((item) => item.id === stripId);
+        if (!strip) return;
+        updateSet(currentSet.id, {
+          strips: replaceStrip(currentSet.strips ?? [], withStripValue(strip, attr, value)),
+        });
+      } else {
+        updateSet(currentSet.id, {
+          stripOverrides: withOverride(currentSet.stripOverrides, stripId, attr, value),
+        });
+      }
+      return;
+    }
+    const strip = concertStrips.find((item) => item.id === stripId);
+    if (!strip) return;
+    updateConcertStrips(replaceStrip(concertStrips, withStripValue(strip, attr, value)));
+  };
+
+  /** Aplica um atributo de um strip herdado no motor. */
+  const applyStripValue = async (strip: EffectiveStrip, attr: StripAttribute, value: StripValue) => {
+    try {
+      switch (attr) {
+        case 'volumeDb':
+        case 'pan':
+        case 'muted':
+        case 'solo':
+          await setVstLayerMix(strip.id, { [attr]: value } as LayerMixUpdate);
+          break;
+        case 'minNote':
+          await setVstLayerRange(strip.id, value as number, strip.maxNote);
+          break;
+        case 'maxNote':
+          await setVstLayerRange(strip.id, strip.minNote, value as number);
+          break;
+        case 'output':
+          await setVstLayerOutput(strip.id, value as number);
+          break;
+        case 'sends': {
+          const sends = value as number[];
+          for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+            await setVstSend(strip.id, aux, sends[aux - 1] ?? SEND_OFF_DB);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (cause) {
+      onError(`Não foi possível ajustar "${strip.name}": ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+  };
+
+  /**
+   * Edita um atributo de um strip herdado. Grava no nível escolhido e só mexe no
+   * motor quando o valor gravado é o que está valendo (se um nível mais
+   * específico manda, o som não muda).
+   */
+  const changeStripValue = (
+    target: StripEditTarget,
+    stripId: string,
+    attr: StripAttribute,
+    value: StripValue
+  ) => {
+    if (!draft) return;
+    const full = stripViews.patch.find((strip) => strip.id === stripId);
+    writeStripValue(target, stripId, attr, value);
+    if (full && !isMasked(full, target, attr)) void applyStripValue(full, attr, value);
+  };
+
+  /** Carrega, remove e atualiza no motor a diferença entre duas cadeias de inserts. */
+  const applyInsertChain = async (
+    stripId: string,
+    label: string,
+    current: Insert[],
+    wanted: Insert[]
+  ): Promise<boolean> => {
+    try {
+      const before = [...current].sort((a, b) => a.slot - b.slot);
+      const after = [...wanted].sort((a, b) => a.slot - b.slot);
+      for (const existing of before) {
+        const want = after.find((item) => item.slot === existing.slot);
+        if (!want || want.path !== existing.path) {
+          await window.electronAPI.vstInsertRemove(stripId, existing.slot);
+        }
+      }
+      for (const want of after) {
+        const existing = before.find((item) => item.slot === want.slot);
+        if (!existing || existing.path !== want.path) {
+          await window.electronAPI.vstInsertSet(stripId, want.slot, want.path, want.bypass);
+        } else if (existing.bypass !== want.bypass) {
+          await window.electronAPI.vstInsertBypass(stripId, want.slot, want.bypass);
+        }
+      }
+      return true;
+    } catch (cause) {
+      onError(`Não foi possível alterar os inserts de "${label}": ${cause instanceof Error ? cause.message : String(cause)}`);
+      return false;
+    }
+  };
+
+  /** Ajusta a cadeia de inserts de um strip herdado no nível pedido. */
+  const changeStripInserts = async (
+    target: StripEditTarget,
+    stripId: string,
+    inserts: Insert[]
+  ): Promise<boolean> => {
+    if (!draft) return false;
+    const full = stripViews.patch.find((strip) => strip.id === stripId);
+    const view = viewAt(stripViews, target, stripId);
+    if (!full || !view) return false;
+    const wanted = [...inserts].sort((a, b) => a.slot - b.slot);
+    if (!isMasked(full, target, 'inserts')) {
+      if (!await applyInsertChain(stripId, full.name, view.inserts, wanted)) return false;
+    }
+    writeStripValue(target, stripId, 'inserts', wanted);
+    onError('');
+    return true;
+  };
+
+  /** Tira o atributo dos níveis que o sobrepõem e volta ao valor herdado. */
+  const revertStripAttribute = (target: StripEditTarget, stripId: string, attr: StripAttribute) => {
+    if (!draft) return;
+    const current = draftRef.current;
+    if (current) {
+      const next: Preset = {
+        ...current,
+        stripOverrides: clearOverride(current.stripOverrides, stripId, attr),
+        updatedAt: Date.now(),
+      };
+      draftRef.current = next;
+      onDraftChange(next);
+    }
+    if (target !== 'patch' && stripOwnerLevel(stripId) === 'concert' && currentSet) {
+      updateSet(currentSet.id, { stripOverrides: clearOverride(currentSet.stripOverrides, stripId, attr) });
+    }
+    const inherited = stripViews.set.find((strip) => strip.id === stripId);
+    if (!inherited) return;
+    if (attr === 'inserts') {
+      void applyInsertChain(stripId, inherited.name, stripViews.patch.find((s) => s.id === stripId)?.inserts ?? [], inherited.inserts);
+      return;
+    }
+    void applyStripValue(inherited, attr, inherited[attr]);
+  };
+
+  /** Cria um channel strip do concert ou do set a partir de um plugin escaneado. */
+  const addStrip = async (level: 'concert' | 'set', plugin: VstPluginInfo): Promise<boolean> => {
+    if (!draft) return false;
+    if (level === 'set' && !currentSet) {
+      onError('Este patch não está num set. Mova-o para um set antes de criar channel strips do set.');
+      return false;
+    }
+    const stripId = `strip_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    // Strip herdado nasce pinado: sobrevive à troca de patch e toca em todos.
+    const loaded = await loadVstPlugin(plugin.path, stripId, 0, 127, true);
+    if (!loaded) {
+      onError(`Não foi possível carregar o plugin "${plugin.name}".`);
+      return false;
+    }
+    const strip: ConcertStrip = {
+      id: stripId,
+      pluginId: plugin.id,
+      name: plugin.name,
+      path: plugin.path,
+      role: plugin.isInstrument ? 'instrument' : 'effect',
+      minNote: 0,
+      maxNote: 127,
+      mix: { volumeDb: 0, pan: 0, muted: false, solo: false },
+      inserts: [],
+      output: 1,
+      sends: defaultSends(),
+    };
+    if (level === 'concert') updateConcertStrips([...concertStrips, strip]);
+    else if (currentSet) updateSet(currentSet.id, { strips: [...(currentSet.strips ?? []), strip] });
+    onError('');
+    return true;
+  };
+
+  /** Remove um channel strip herdado e tira o plugin do motor. */
+  const removeStrip = async (level: 'concert' | 'set', stripId: string) => {
+    if (!draft) return;
+    await unloadVstPlugin(stripId);
+    if (level === 'concert') {
+      updateConcertStrips(concertStrips.filter((strip) => strip.id !== stripId));
+    } else if (currentSet) {
+      const overrides = { ...(currentSet.stripOverrides ?? {}) };
+      delete overrides[stripId];
+      updateSet(currentSet.id, {
+        strips: (currentSet.strips ?? []).filter((strip) => strip.id !== stripId),
+        stripOverrides: overrides,
+      });
+    }
+    onError('');
+  };
+
+  /** Renomeia um channel strip herdado no nível que o define. */
+  const renameStrip = (level: 'concert' | 'set', stripId: string, name: string) => {
+    if (level === 'concert') {
+      updateConcertStrips(concertStrips.map((strip) => (strip.id === stripId ? { ...strip, name } : strip)));
+    } else if (currentSet) {
+      updateSet(currentSet.id, {
+        strips: (currentSet.strips ?? []).map((strip) => (strip.id === stripId ? { ...strip, name } : strip)),
+      });
+    }
+  };
+
   const updateElement = (id: string, update: Partial<UiElement>) => {
     if (!draft) return;
     onDraftChange({
@@ -803,6 +1070,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             loadedPlugins={loadedPlugins}
             mixState={mixState}
             busSettings={concertSettings?.buses ?? null}
+            concertStrips={concertStrips}
+            setStrips={currentSet?.strips ?? []}
+            setName={currentSet?.name ?? null}
+            setOverrides={currentSet?.stripOverrides}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onRemove={removeLayer}
@@ -818,6 +1089,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onRemoveBusInsert={removeBusInsert}
             onToggleBusInsertBypass={toggleBusInsertBypass}
             onOpenBusInsertEditor={openBusInsertEditor}
+            onAddStrip={addStrip}
+            onRemoveStrip={removeStrip}
+            onRenameStrip={renameStrip}
+            onSetStripValue={changeStripValue}
+            onSetStripInserts={changeStripInserts}
+            onRevertStripAttribute={revertStripAttribute}
             onSelectedLayerChange={setSelectedLayerId}
             onOpenEditor={togglePluginEditor}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}

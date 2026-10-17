@@ -63,6 +63,8 @@ export interface AppContextType {
   concertStrips: ConcertStrip[];
   /** Substitui os channel strips do concert. */
   updateConcertStrips: (strips: ConcertStrip[]) => void;
+  /** Aplica alterações a um set (channel strips do set e sobreposições). */
+  updateSet: (setId: string, patch: Partial<PresetSet>) => void;
   /** Desfazer/Refazer edições do concert (Fase 2.5). */
   canUndo: boolean;
   canRedo: boolean;
@@ -122,7 +124,7 @@ export interface AppContextType {
 
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
-  loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => Promise<VstPluginInfo | null>;
+  loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
   setVstParameter: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
   openVstEditor: (pluginId: string) => Promise<boolean>;
@@ -523,6 +525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const previous = history.undo();
     if (!previous) return;
     applySnapshot(previous);
+    void window.electronAPI.concertStripsRealign();
     setHistoryVersion((version) => version + 1);
   }, [applySnapshot, history]);
 
@@ -530,6 +533,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const next = history.redo();
     if (!next) return;
     applySnapshot(next);
+    void window.electronAPI.concertStripsRealign();
     setHistoryVersion((version) => version + 1);
   }, [applySnapshot, history]);
 
@@ -602,6 +606,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const renameSet = useCallback((setId: string, name: string) => {
     setSets((prev) => prev.map((s) => (s.id === setId ? { ...s, name, updatedAt: Date.now() } : s)));
+  }, []);
+
+  /** Aplica alterações a um set (channel strips do set, sobreposições, etc.). */
+  const updateSet = useCallback((setId: string, patch: Partial<PresetSet>) => {
+    setSets((prev) => prev.map((s) => (s.id === setId ? { ...s, ...patch, updatedAt: Date.now() } : s)));
   }, []);
 
   const deleteSet = useCallback((setId: string) => {
@@ -789,9 +798,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127) => {
+  const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127, pinned = false) => {
     try {
-      const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote);
+      const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote, pinned);
       if (plugin) {
         setLoadedPlugins((previous) => [
           ...previous.filter((current) => current.layerId !== plugin.layerId),
@@ -1094,6 +1103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateConcertSettings,
     concertStrips,
     updateConcertStrips,
+    updateSet,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
     undo,

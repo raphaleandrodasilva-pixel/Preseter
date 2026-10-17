@@ -1,17 +1,30 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BusMixUpdate,
   BusSettings,
   ConcertBusSettings,
+  ConcertStrip,
+  EffectiveStrip,
   EngineMixState,
   Insert,
   LayerMixUpdate,
   MasterMixUpdate,
   Preset,
   PresetPluginAssignment,
+  StripAttribute,
+  StripLevel,
+  StripOverride,
   VstPluginInfo,
 } from '@shared/types';
-import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
+import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
+import {
+  maskedAttributes,
+  stripLevelViews,
+  stripTargets,
+  viewAt,
+  type StripEditTarget,
+  type StripValue,
+} from '@shared/strip-levels';
 
 interface ChannelStripsProps {
   preset: Preset | null;
@@ -21,6 +34,11 @@ interface ChannelStripsProps {
   mixState: EngineMixState | null;
   /** Barramentos Aux/Output definidos no concert (Fase 3.2). */
   busSettings: ConcertBusSettings | null;
+  /** Channel strips do concert e do set do patch atual (Fase 3.3). */
+  concertStrips: ConcertStrip[];
+  setStrips: ConcertStrip[];
+  setName: string | null;
+  setOverrides: Record<string, StripOverride> | undefined;
   onRequestScan: () => Promise<unknown>;
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
@@ -38,6 +56,19 @@ interface ChannelStripsProps {
   onRemoveBusInsert: (bus: string, slot: number) => Promise<void>;
   onToggleBusInsertBypass: (bus: string, slot: number, bypass: boolean) => Promise<void>;
   onOpenBusInsertEditor: (bus: string, slot: number) => void;
+  /** Channel strips do concert/set: edição por nível e sobreposições (Fase 3.3). */
+  onAddStrip: (level: 'concert' | 'set', plugin: VstPluginInfo) => Promise<boolean>;
+  onRemoveStrip: (level: 'concert' | 'set', stripId: string) => Promise<void>;
+  onRenameStrip: (level: 'concert' | 'set', stripId: string, name: string) => void;
+  onSetStripValue: (
+    target: StripEditTarget,
+    stripId: string,
+    attr: StripAttribute,
+    value: StripValue
+  ) => void;
+  onSetStripInserts: (target: StripEditTarget, stripId: string, inserts: Insert[]) => Promise<boolean>;
+  /** Tira o atributo do nível em que ele está sobreposto (volta ao herdado). */
+  onRevertStripAttribute: (target: StripEditTarget, stripId: string, attr: StripAttribute) => void;
   onSelectedLayerChange?: (layerId: string | null) => void;
   onOpenEditor?: (layerId: string) => void;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
@@ -45,13 +76,67 @@ interface ChannelStripsProps {
   onSetMasterMix: (update: MasterMixUpdate) => void;
 }
 
+/** Onde o seletor de plugins está carregando: num layer do patch ou num strip herdado. */
+type PickerTarget = { kind: 'layer' } | { kind: 'strip'; level: 'concert' | 'set' };
+
 const layerIdFor = (preset: Preset, assignment: PresetPluginAssignment, index: number) =>
   assignment.layerId ?? `${preset.id}:layer:${index}`;
 
-/** Id de barramento gerado pelo motor: aux1..aux4 / output1..output4. */
-const isBusId = (id: string) => /^(?:aux|output)[1-9]$/.test(id);
-
 const meterHeight = (peakDb: number) => Math.max(0, Math.min(100, ((peakDb + 60) / 60) * 100));
+
+/** Nota MIDI válida (0 a 127). */
+const clampNote = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(127, Math.round(value))) : 0);
+
+/** Nome do atributo na UI (Fase 3.3). */
+const STRIP_ATTRIBUTE_LABELS: Record<StripAttribute, string> = {
+  volumeDb: 'Volume',
+  pan: 'Pan',
+  muted: 'Mute',
+  solo: 'Solo',
+  minNote: 'Low Key',
+  maxNote: 'High Key',
+  output: 'Saída',
+  sends: 'Sends',
+  inserts: 'Inserts',
+};
+
+/** Níveis que a UI pode editar. */
+const STRIP_TARGET_LABELS: Record<StripEditTarget, string> = {
+  patch: 'Patch',
+  set: 'Set',
+  concert: 'Concert',
+};
+
+/** Valor de um atributo em texto curto, para avisar o que está sobreposto. */
+const formatStripValue = (strip: EffectiveStrip | undefined, attr: StripAttribute): string => {
+  if (!strip) return '—';
+  switch (attr) {
+    case 'volumeDb':
+      return `${strip.volumeDb.toFixed(1)} dB`;
+    case 'pan':
+      return strip.pan === 0
+        ? 'C'
+        : strip.pan < 0
+          ? `L ${Math.round(-strip.pan * 100)}`
+          : `R ${Math.round(strip.pan * 100)}`;
+    case 'muted':
+      return strip.muted ? 'ligado' : 'desligado';
+    case 'solo':
+      return strip.solo ? 'ligado' : 'desligado';
+    case 'minNote':
+      return `nota ${strip.minNote}`;
+    case 'maxNote':
+      return `nota ${strip.maxNote}`;
+    case 'output':
+      return `Output ${strip.output}`;
+    case 'sends':
+      return strip.sends.map((level, index) => `A${index + 1} ${level > SEND_OFF_DB ? level.toFixed(0) : '−∞'}`).join(' · ');
+    case 'inserts':
+      return strip.inserts.length === 0 ? 'nenhum' : strip.inserts.map((insert) => insert.name).join(' · ');
+    default:
+      return '—';
+  }
+};
 
 export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   preset,
@@ -60,6 +145,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   loadedPlugins,
   mixState,
   busSettings,
+  concertStrips,
+  setStrips,
+  setName,
+  setOverrides,
   onRequestScan,
   onAdd,
   onRemove,
@@ -75,6 +164,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onRemoveBusInsert,
   onToggleBusInsertBypass,
   onOpenBusInsertEditor,
+  onAddStrip,
+  onRemoveStrip,
+  onRenameStrip,
+  onSetStripValue,
+  onSetStripInserts,
+  onRevertStripAttribute,
   onSelectedLayerChange,
   onOpenEditor,
   onSetParameter,
@@ -85,10 +180,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [insertPicker, setInsertPicker] = useState<{ layerId: string; slot: number } | null>(null);
+  const [picker, setPicker] = useState<PickerTarget | null>(null);
+  const [insertPicker, setInsertPicker] = useState<{
+    title: string;
+    slot: number;
+    pick: (plugin: VstPluginInfo) => Promise<boolean>;
+  } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [stripEditTargets, setStripEditTargets] = useState<Record<string, StripEditTarget>>({});
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [width, setWidth] = useState<number>(() => {
     try {
@@ -106,6 +206,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     : [];
   const selectedLayer = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0] ?? null;
   const canAdd = editable;
+  /** Valores dos strips herdados em cada nível (concert/set/patch) — Fase 3.3. */
+  const stripViews = useMemo(
+    () => stripLevelViews({ concertStrips, setStrips, setOverrides, patch: preset }),
+    [concertStrips, setStrips, setOverrides, preset]
+  );
+  /** Nível em que este strip está sendo editado (Patch por padrão). */
+  const editTargetFor = (stripId: string, level: StripLevel): StripEditTarget => {
+    const allowed = stripTargets(level);
+    const chosen = stripEditTargets[stripId];
+    return chosen && allowed.includes(chosen) ? chosen : allowed[0];
+  };
   const selectedKey = selectedLayer?.layerId ?? null;
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -130,20 +241,27 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     }
   };
 
-  const openPicker = () => {
-    setPickerOpen(true);
-    if (instruments.length === 0 && !scanning) {
+  const requestScanIfEmpty = (empty: boolean) => {
+    if (empty && !scanning) {
       setScanning(true);
       void onRequestScan().finally(() => setScanning(false));
     }
   };
 
-  const openInsertPicker = (layerId: string, slot: number) => {
-    setInsertPicker({ layerId, slot });
-    if (effects.length === 0 && !scanning) {
-      setScanning(true);
-      void onRequestScan().finally(() => setScanning(false));
-    }
+  /** Seletor de plugin: um layer novo no patch ou um channel strip do concert/set. */
+  const openPicker = (target: PickerTarget) => {
+    setPicker(target);
+    requestScanIfEmpty(target.kind === 'layer' ? instruments.length === 0 : scannedPlugins.length === 0);
+  };
+
+  /** Seletor de efeito para um slot de insert, com o dono resolvido pelo chamador. */
+  const openInsertPicker = (
+    title: string,
+    slot: number,
+    pick: (plugin: VstPluginInfo) => Promise<boolean>
+  ) => {
+    setInsertPicker({ title, slot, pick });
+    requestScanIfEmpty(effects.length === 0);
   };
 
   const renderInsertSlot = (options: {
@@ -153,6 +271,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     onToggleBypass: (ownerId: string, slot: number, bypass: boolean) => void;
     onRemove: (ownerId: string, slot: number) => void;
     onOpenEditor: (ownerId: string, slot: number) => void;
+    onRequestInsert: () => void;
   }) => {
     const { ownerId, slot, insert } = options;
     return (
@@ -205,7 +324,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             className="min-w-0 flex-1 truncate rounded text-left disabled:opacity-40"
             disabled={!editable || busy}
             title={editable ? 'Carregar um efeito VST3 neste slot' : 'Edite o patch para alterar os inserts'}
-            onClick={(event) => { event.stopPropagation(); openInsertPicker(ownerId, slot); }}
+            onClick={(event) => { event.stopPropagation(); options.onRequestInsert(); }}
           >
             ＋ vazio
           </button>
@@ -213,6 +332,169 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       </div>
     );
   };
+
+  /** Medidor, volume, pan, mute e solo de um channel strip (layer ou herdado). */
+  const renderFader = (options: {
+    label: string;
+    peakDb: number;
+    volumeDb: number;
+    pan: number;
+    muted: boolean;
+    solo: boolean;
+    disabled: boolean;
+    onMix: (update: LayerMixUpdate) => void;
+  }) => {
+    const { label, disabled } = options;
+    const percent = meterHeight(options.peakDb);
+    return (
+      <>
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label={`${label} peak`} aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, options.peakDb)}>
+            <div className="absolute bottom-0 w-full" style={{ height: `${percent}%`, background: percent > 90 ? '#FF554D' : '#30D158' }} />
+          </div>
+          <div className="flex h-28 flex-col items-center justify-between">
+            <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{options.volumeDb.toFixed(1)} dB</span>
+            <input
+              aria-label={`Volume de ${label}`}
+              type="range"
+              min={-60}
+              max={6}
+              step={0.1}
+              value={options.volumeDb}
+              disabled={disabled}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => options.onMix({ volumeDb: Number(event.target.value) })}
+              className="h-20 w-4"
+              style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
+            />
+            <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
+          </div>
+        </div>
+        <label className="mt-2 block text-[8px]" style={{ color: '#9A9AA0' }}>
+          PAN <span className="float-right">{options.pan === 0 ? 'C' : options.pan < 0 ? `L ${Math.round(-options.pan * 100)}` : `R ${Math.round(options.pan * 100)}`}</span>
+          <input
+            aria-label={`Pan de ${label}`}
+            type="range"
+            min={-1}
+            max={1}
+            step={0.01}
+            value={options.pan}
+            disabled={disabled}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => options.onMix({ pan: Number(event.target.value) })}
+            className="w-full"
+            style={{ accentColor: '#0A84FF' }}
+          />
+        </label>
+        <div className="mt-1 flex gap-1">
+          <button
+            className="hw-squarebtn flex-1 px-1 py-1 text-[9px]"
+            aria-pressed={options.muted}
+            disabled={disabled}
+            onClick={(event) => { event.stopPropagation(); options.onMix({ muted: !options.muted }); }}
+            style={options.muted ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
+          >MUTE</button>
+          <button
+            className="hw-squarebtn flex-1 px-1 py-1 text-[9px]"
+            aria-pressed={options.solo}
+            disabled={disabled}
+            onClick={(event) => { event.stopPropagation(); options.onMix({ solo: !options.solo }); }}
+            style={options.solo ? { color: '#FFFFFF', background: '#0A84FF' } : undefined}
+          >SOLO</button>
+        </div>
+      </>
+    );
+  };
+
+  /** Os 4 slots de insert de um channel strip (layer, barramento ou herdado). */
+  const renderInserts = (options: {
+    ownerId: string;
+    inserts: Insert[];
+    onToggleBypass: (ownerId: string, slot: number, bypass: boolean) => void;
+    onRemove: (ownerId: string, slot: number) => void;
+    onOpenEditor: (ownerId: string, slot: number) => void;
+    onRequestInsert: (slot: number) => void;
+  }) => (
+    <div className="mt-2">
+      <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
+      <div className="mt-1 space-y-0.5">
+        {Array.from({ length: MAX_INSERTS }, (_, slot) => (
+          <span key={slot}>
+            {renderInsertSlot({
+              ownerId: options.ownerId,
+              slot,
+              insert: options.inserts.find((item) => item.slot === slot),
+              onToggleBypass: options.onToggleBypass,
+              onRemove: options.onRemove,
+              onOpenEditor: options.onOpenEditor,
+              onRequestInsert: () => options.onRequestInsert(slot),
+            })}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+
+  /** Os 4 sends post-fader para os Aux e a escolha de saída. */
+  const renderSends = (options: {
+    label: string;
+    sends: number[];
+    output: number;
+    disabled: boolean;
+    onSend: (aux: number, levelDb: number) => void;
+    onOutput: (output: number) => void;
+  }) => (
+    <div className="mt-2">
+      <span className="hw-label" style={{ fontSize: 8 }}>SENDS (Aux)</span>
+      <div className="mt-1 space-y-0.5">
+        {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
+          const aux = index + 1;
+          const level = options.sends[index] ?? SEND_OFF_DB;
+          const active = level > SEND_OFF_DB;
+          return (
+            <label
+              key={aux}
+              className="flex items-center gap-1 text-[8px]"
+              style={{ color: active ? '#9AD1FF' : '#8E8E93' }}
+              title={`Send post-fader para Aux ${aux}`}
+            >
+              <span className="w-5 shrink-0">A{aux}</span>
+              <input
+                aria-label={`Send para Aux ${aux} de ${options.label}`}
+                type="range"
+                min={SEND_OFF_DB}
+                max={6}
+                step={0.5}
+                value={Math.max(SEND_OFF_DB, level)}
+                disabled={options.disabled}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => options.onSend(aux, Number(event.target.value))}
+                className="h-1 min-w-0 flex-1"
+                style={{ accentColor: '#FF9F0A' }}
+              />
+              <span className="w-6 shrink-0 text-right">{active ? level.toFixed(0) : '−∞'}</span>
+            </label>
+          );
+        })}
+      </div>
+      <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+        OUT
+        <select
+          aria-label={`Saída de ${options.label}`}
+          className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none"
+          style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          value={options.output}
+          disabled={options.disabled}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => options.onOutput(Number(event.target.value))}
+        >
+          {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
+            <option key={index + 1} value={index + 1}>Output {index + 1}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
 
   /** Strip de um barramento (Aux/Output) do concert (Fase 3.2). */
   const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output', settings: BusSettings) => {
@@ -310,26 +592,244 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             </select>
           </label>
         )}
-        <div className="mt-2">
-          <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
-          <div className="mt-1 space-y-0.5">
-            {Array.from({ length: MAX_INSERTS }, (_, slot) => (
-              <span key={slot}>
-                {renderInsertSlot({
-                  ownerId,
-                  slot,
-                  insert: inserts.find((item) => item.slot === slot),
-                  onToggleBypass: (id, targetSlot, bypass) => void onToggleBusInsertBypass(id, targetSlot, bypass),
-                  onRemove: (id, targetSlot) => void onRemoveBusInsert(id, targetSlot),
-                  onOpenEditor: onOpenBusInsertEditor,
-                })}
-              </span>
+        {renderInserts({
+          ownerId,
+          inserts,
+          onToggleBypass: (id, targetSlot, bypass) => void onToggleBusInsertBypass(id, targetSlot, bypass),
+          onRemove: (id, targetSlot) => void onRemoveBusInsert(id, targetSlot),
+          onOpenEditor: onOpenBusInsertEditor,
+          onRequestInsert: (slot) => openInsertPicker(
+            `Carregar efeito no ${label}`,
+            slot,
+            (plugin) => onAddBusInsert(ownerId, slot, plugin)
+          ),
+        })}
+      </section>
+    );
+  };
+
+  /**
+   * Channel strip herdado do concert ou do set (Fase 3.3). Os controles mostram
+   * o valor do nível escolhido em "NÍVEL"; os avisos listam o que um nível mais
+   * específico está sobrepondo, com o botão de voltar ao herdado.
+   */
+  const renderInheritedStrip = (level: 'concert' | 'set', strip: ConcertStrip) => {
+    const targets = stripTargets(level);
+    const target = editTargetFor(strip.id, level);
+    const view = viewAt(stripViews, target, strip.id);
+    if (!view) return null;
+    const full = stripViews.patch.find((item) => item.id === strip.id);
+    const loaded = loadedPlugins.find((plugin) => plugin.layerId === strip.id);
+    const liveMix = mixState?.layers.find((state) => state.layerId === strip.id);
+    const masked = maskedAttributes(full, target, STRIP_ATTRIBUTES);
+    const isInstrument = strip.role === 'instrument';
+    return (
+      <section
+        key={strip.id}
+        className="flex w-[152px] shrink-0 flex-col rounded-xl p-2"
+        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #202024, #26262B)' }}
+        data-testid={`inherited-strip-${strip.id}`}
+      >
+        <div className="flex items-center gap-1 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+          <span
+            className="rounded px-1 py-0.5 text-[9px] font-bold"
+            style={{ background: isInstrument ? '#0A84FF' : '#30D158', color: '#FFFFFF' }}
+          >
+            {isInstrument ? 'INST' : 'FX'}
+          </span>
+          <span
+            className="rounded px-1 py-0.5 text-[8px] font-bold"
+            style={{ background: '#3A3A3C', color: '#C6C6CB' }}
+            title={`Channel strip do ${level === 'concert' ? 'concert' : 'set'}`}
+          >
+            {level === 'concert' ? 'CONCERT' : 'SET'}
+          </span>
+        </div>
+        <input
+          className="mt-1 min-w-0 rounded px-1 py-0.5 text-[10px] font-semibold text-white outline-none disabled:opacity-60"
+          style={{ border: '1px solid transparent', background: 'transparent' }}
+          aria-label={`Nome do channel strip ${strip.name}`}
+          value={strip.name}
+          disabled={!editable}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onRenameStrip(level, strip.id, event.target.value)}
+        />
+        <div className="hw-inset mt-1 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
+          Insert: {loaded ? 'VST3' : 'Carregando…'}
+        </div>
+        <button
+          className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
+          style={{ background: '#3A3A3C', color: '#E5E5EA' }}
+          disabled={!loaded}
+          title="Abrir/fechar a janela do plugin (V)"
+          onClick={(event) => { event.stopPropagation(); onOpenEditor?.(strip.id); }}
+        >
+          Editor (V)
+        </button>
+        <label className="mt-1.5 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+          NÍVEL
+          <select
+            aria-label={`Nível de edição de ${strip.name}`}
+            className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none disabled:opacity-60"
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+            value={target}
+            disabled={!editable || targets.length === 1}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => setStripEditTargets((prev) => ({ ...prev, [strip.id]: event.target.value as StripEditTarget }))}
+            title="Nível em que este strip é editado (o mais específico vence)"
+          >
+            {targets.map((item) => (
+              <option key={item} value={item}>Editar no {STRIP_TARGET_LABELS[item]}</option>
             ))}
+          </select>
+        </label>
+        {masked.length > 0 && (
+          <div
+            className="hw-inset mt-1 space-y-0.5 px-1 py-1 text-[8px]"
+            style={{ color: '#CFE5FF' }}
+            data-testid={`inherited-masked-${strip.id}`}
+          >
+            {masked.map((attr) => {
+              const source = full?.sources[attr] ?? 'patch';
+              return (
+                <div key={attr} className="flex items-center gap-1">
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    title={`${STRIP_ATTRIBUTE_LABELS[attr]} vem do ${STRIP_TARGET_LABELS[source]}`}
+                  >
+                    {STRIP_ATTRIBUTE_LABELS[attr]}: {formatStripValue(full, attr)} ({STRIP_TARGET_LABELS[source]})
+                  </span>
+                  <button
+                    className="hw-squarebtn shrink-0 px-1 disabled:opacity-40"
+                    aria-label={`Voltar ao herdado: ${STRIP_ATTRIBUTE_LABELS[attr]} de ${strip.name}`}
+                    title="Voltar ao valor herdado"
+                    disabled={!editable}
+                    onClick={(event) => { event.stopPropagation(); onRevertStripAttribute(target, strip.id, attr); }}
+                  >
+                    ↩
+                  </button>
+                </div>
+              );
+            })}
           </div>
+        )}
+        <div className="mt-1.5 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+          <span className="shrink-0">KEY</span>
+          <input
+            aria-label={`Low Key de ${strip.name}`}
+            type="number"
+            min={0}
+            max={127}
+            value={view.minNote}
+            disabled={!editable}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSetStripValue(target, strip.id, 'minNote', clampNote(Number(event.target.value)))}
+            className="w-9 rounded px-1 py-0.5 text-[8px] outline-none"
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          />
+          <span className="shrink-0">–</span>
+          <input
+            aria-label={`High Key de ${strip.name}`}
+            type="number"
+            min={0}
+            max={127}
+            value={view.maxNote}
+            disabled={!editable}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSetStripValue(target, strip.id, 'maxNote', clampNote(Number(event.target.value)))}
+            className="w-9 rounded px-1 py-0.5 text-[8px] outline-none"
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          />
+        </div>
+        {renderFader({
+          label: strip.name,
+          peakDb: liveMix?.peakDb ?? -100,
+          volumeDb: view.volumeDb,
+          pan: view.pan,
+          muted: view.muted,
+          solo: view.solo,
+          disabled: !editable || !loaded,
+          onMix: (update) => {
+            if (update.volumeDb !== undefined) onSetStripValue(target, strip.id, 'volumeDb', update.volumeDb);
+            if (update.pan !== undefined) onSetStripValue(target, strip.id, 'pan', update.pan);
+            if (update.muted !== undefined) onSetStripValue(target, strip.id, 'muted', update.muted);
+            if (update.solo !== undefined) onSetStripValue(target, strip.id, 'solo', update.solo);
+          },
+        })}
+        {renderInserts({
+          ownerId: strip.id,
+          inserts: view.inserts,
+          onToggleBypass: (ownerId, slot, bypass) => void onSetStripInserts(
+            target,
+            ownerId,
+            view.inserts.map((item) => (item.slot === slot ? { ...item, bypass } : item))
+          ),
+          onRemove: (ownerId, slot) => void onSetStripInserts(target, ownerId, view.inserts.filter((item) => item.slot !== slot)),
+          onOpenEditor: onOpenInsertEditor,
+          onRequestInsert: (slot) => openInsertPicker(
+            `Carregar efeito em ${strip.name}`,
+            slot,
+            (plugin) => onSetStripInserts(target, strip.id, [
+              ...view.inserts.filter((item) => item.slot !== slot),
+              { slot, pluginId: plugin.id, name: plugin.name, path: plugin.path, bypass: false },
+            ])
+          ),
+        })}
+        {renderSends({
+          label: strip.name,
+          sends: view.sends,
+          output: view.output,
+          disabled: !editable || !loaded,
+          onSend: (aux, levelDb) => {
+            const next = [...view.sends];
+            next[aux - 1] = levelDb;
+            onSetStripValue(target, strip.id, 'sends', next);
+          },
+          onOutput: (output) => onSetStripValue(target, strip.id, 'output', output),
+        })}
+        <div className="mt-1 flex gap-1 border-t pt-1.5" style={{ borderColor: '#3A3A3C' }}>
+          <button
+            className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
+            disabled={!editable || busy}
+            onClick={(event) => { event.stopPropagation(); void onRemoveStrip(level, strip.id); }}
+            title="Remover este channel strip do concert/set"
+          >
+            Remover
+          </button>
         </div>
       </section>
     );
   };
+
+  /** Grupo de channel strips de um nível, com o botão de adicionar (Fase 3.3). */
+  const renderInheritedGroup = (level: 'concert' | 'set', strips: ConcertStrip[]) => (
+    <div
+      key={level}
+      className="flex shrink-0 items-stretch gap-1.5 self-stretch rounded-xl p-1.5"
+      style={{ border: '1px dashed #3A3A3C', background: 'rgba(22,22,24,0.6)' }}
+      data-testid={`inherited-group-${level}`}
+    >
+      <div className="flex w-[24px] shrink-0 flex-col items-center justify-between">
+        <span
+          className="hw-label text-center"
+          style={{ fontSize: 8, writingMode: 'vertical-rl' }}
+          title={level === 'concert' ? 'Channel strips do concert: valem em todos os patches' : 'Channel strips deste set'}
+        >
+          {level === 'concert' ? 'CONCERT' : 'SET'}
+        </span>
+        <button
+          className="hw-squarebtn px-1 py-0.5 text-[10px] disabled:opacity-40"
+          aria-label={`Adicionar channel strip ao ${level === 'concert' ? 'concert' : 'set'}`}
+          title={`Adicionar channel strip ao ${level === 'concert' ? 'concert' : 'set'}`}
+          disabled={!editable || busy}
+          onClick={(event) => { event.stopPropagation(); openPicker({ kind: 'strip', level }); }}
+        >
+          ＋
+        </button>
+      </div>
+      {strips.map((strip) => renderInheritedStrip(level, strip))}
+    </div>
+  );
 
   return (
     <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}>
@@ -364,34 +864,43 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             ⚠ acima de 3 pode pesar
           </span>
         )}
-        {pickerOpen && (
-          <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
-            <div className="mb-1 flex items-center justify-between px-1">
-              <span className="hw-label">Carregar instrumento</span>
-              <button className="px-1 text-xs text-slate-400" onClick={() => setPickerOpen(false)}>✕</button>
-            </div>
-            {instruments.length === 0 ? (
-              <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
-                {scanning ? 'Escaneando VST3…' : 'Nenhum instrumento encontrado.'}
-                {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+        {picker && (() => {
+          const isLayerPicker = picker.kind === 'layer';
+          const list = isLayerPicker ? instruments : scannedPlugins;
+          const title = isLayerPicker
+            ? 'Carregar instrumento'
+            : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
+          return (
+            <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
+              <div className="mb-1 flex items-center justify-between px-1">
+                <span className="hw-label">{title}</span>
+                <button className="px-1 text-xs text-slate-400" onClick={() => setPicker(null)}>✕</button>
               </div>
-            ) : instruments.map((plugin) => (
-              <button
-                key={plugin.id}
-                disabled={busy}
-                className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => void withLoadingMessage(async () => {
-                  const added = await onAdd(plugin);
-                  if (added) setPickerOpen(false);
-                  return added;
-                })}
-                title={plugin.path}
-              >
-                {plugin.name}
-              </button>
-            ))}
-          </div>
-        )}
+              {list.length === 0 ? (
+                <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
+                  {scanning ? 'Escaneando VST3…' : isLayerPicker ? 'Nenhum instrumento encontrado.' : 'Nenhum plugin encontrado.'}
+                  {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+                </div>
+              ) : list.map((plugin) => (
+                <button
+                  key={plugin.id}
+                  disabled={busy}
+                  className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+                  onClick={() => void withLoadingMessage(async () => {
+                    const added = picker.kind === 'layer'
+                      ? await onAdd(plugin)
+                      : await onAddStrip(picker.level, plugin);
+                    if (added) setPicker(null);
+                    return added;
+                  })}
+                  title={`${plugin.name} — ${plugin.path}`}
+                >
+                  {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2">
         {loadingMessage && (
@@ -401,6 +910,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
+          {renderInheritedGroup('concert', concertStrips)}
+          {setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
             const loaded = loadedPlugins.find((plugin) => plugin.layerId === layerId);
             const liveMix = mixState?.layers.find((state) => state.layerId === layerId);
@@ -441,127 +952,36 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 >
                   Editor (V)
                 </button>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label={`${assignment.name} peak`} aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, mix.peakDb)}>
-                    <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#30D158' }} />
-                  </div>
-                  <div className="flex h-28 flex-col items-center justify-between">
-                    <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{mix.volumeDb.toFixed(1)} dB</span>
-                    <input
-                      aria-label={`Volume de ${assignment.name}`}
-                      type="range"
-                      min={-60}
-                      max={6}
-                      step={0.1}
-                      value={mix.volumeDb}
-                      disabled={!loaded}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => onSetLayerMix(layerId, { volumeDb: Number(event.target.value) })}
-                      className="h-20 w-4"
-                      style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
-                    />
-                    <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
-                  </div>
-                </div>
-                <label className="mt-2 block text-[8px]" style={{ color: '#9A9AA0' }}>
-                  PAN <span className="float-right">{mix.pan === 0 ? 'C' : mix.pan < 0 ? `L ${Math.round(-mix.pan * 100)}` : `R ${Math.round(mix.pan * 100)}`}</span>
-                  <input
-                    aria-label={`Pan de ${assignment.name}`}
-                    type="range"
-                    min={-1}
-                    max={1}
-                    step={0.01}
-                    value={mix.pan}
-                    disabled={!loaded}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => onSetLayerMix(layerId, { pan: Number(event.target.value) })}
-                    className="w-full"
-                    style={{ accentColor: '#0A84FF' }}
-                  />
-                </label>
-                <div className="mt-1 flex gap-1">
-                  <button
-                    className="hw-squarebtn flex-1 px-1 py-1 text-[9px]"
-                    aria-pressed={mix.muted}
-                    disabled={!loaded}
-                    onClick={(event) => { event.stopPropagation(); onSetLayerMix(layerId, { muted: !mix.muted }); }}
-                    style={mix.muted ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
-                  >MUTE</button>
-                  <button
-                    className="hw-squarebtn flex-1 px-1 py-1 text-[9px]"
-                    aria-pressed={mix.solo}
-                    disabled={!loaded}
-                    onClick={(event) => { event.stopPropagation(); onSetLayerMix(layerId, { solo: !mix.solo }); }}
-                    style={mix.solo ? { color: '#FFFFFF', background: '#0A84FF' } : undefined}
-                  >SOLO</button>
-                </div>
-                <div className="mt-2">
-                  <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
-                  <div className="mt-1 space-y-0.5">
-                    {Array.from({ length: MAX_INSERTS }, (_, slot) => (
-                      <span key={slot}>
-                        {renderInsertSlot({
-                          ownerId: layerId,
-                          slot,
-                          insert: (assignment.inserts ?? []).find((item) => item.slot === slot),
-                          onToggleBypass: (id, targetSlot, bypass) => void onToggleInsertBypass(id, targetSlot, bypass),
-                          onRemove: (id, targetSlot) => void onRemoveInsert(id, targetSlot),
-                          onOpenEditor: onOpenInsertEditor,
-                        })}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <span className="hw-label" style={{ fontSize: 8 }}>SENDS (Aux)</span>
-                  <div className="mt-1 space-y-0.5">
-                    {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
-                      const aux = index + 1;
-                      const level = mix.sends?.[index] ?? SEND_OFF_DB;
-                      const active = level > SEND_OFF_DB;
-                      return (
-                        <label
-                          key={aux}
-                          className="flex items-center gap-1 text-[8px]"
-                          style={{ color: active ? '#9AD1FF' : '#8E8E93' }}
-                          title={`Send post-fader para Aux ${aux}`}
-                        >
-                          <span className="w-5 shrink-0">A{aux}</span>
-                          <input
-                            aria-label={`Send para Aux ${aux} de ${assignment.name}`}
-                            type="range"
-                            min={SEND_OFF_DB}
-                            max={6}
-                            step={0.5}
-                            value={Math.max(SEND_OFF_DB, level)}
-                            disabled={!editable || !loaded}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) => onSetSend(layerId, aux, Number(event.target.value))}
-                            className="h-1 min-w-0 flex-1"
-                            style={{ accentColor: '#FF9F0A' }}
-                          />
-                          <span className="w-6 shrink-0 text-right">{active ? level.toFixed(0) : '−∞'}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
-                    OUT
-                    <select
-                      aria-label={`Saída de ${assignment.name}`}
-                      className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none"
-                      style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
-                      value={mix.output ?? 1}
-                      disabled={!editable || !loaded}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => onSetLayerOutput(layerId, Number(event.target.value))}
-                    >
-                      {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
-                        <option key={index + 1} value={index + 1}>Output {index + 1}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                {renderFader({
+                  label: assignment.name,
+                  peakDb: mix.peakDb,
+                  volumeDb: mix.volumeDb,
+                  pan: mix.pan,
+                  muted: mix.muted,
+                  solo: mix.solo,
+                  disabled: !loaded,
+                  onMix: (update) => onSetLayerMix(layerId, update),
+                })}
+                {renderInserts({
+                  ownerId: layerId,
+                  inserts: assignment.inserts ?? [],
+                  onToggleBypass: (id, targetSlot, bypass) => void onToggleInsertBypass(id, targetSlot, bypass),
+                  onRemove: (id, targetSlot) => void onRemoveInsert(id, targetSlot),
+                  onOpenEditor: onOpenInsertEditor,
+                  onRequestInsert: (slot) => openInsertPicker(
+                    `Carregar efeito em ${assignment.name}`,
+                    slot,
+                    (plugin) => onAddInsert(layerId, slot, plugin)
+                  ),
+                })}
+                {renderSends({
+                  label: assignment.name,
+                  sends: mix.sends ?? [],
+                  output: mix.output ?? 1,
+                  disabled: !editable || !loaded,
+                  onSend: (aux, levelDb) => onSetSend(layerId, aux, levelDb),
+                  onOutput: (output) => onSetLayerOutput(layerId, output),
+                })}
                 <div className="min-h-0 flex-1 space-y-2 overflow-auto py-1">
                   {loaded?.parameters.slice(0, 4).map((parameter) => (
                     <label key={parameter.id} className="block text-[9px]" style={{ color: '#9A9AA0' }}>
@@ -670,7 +1090,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             <button
               className="hw-squarebtn mt-auto w-full px-2 py-2 text-[10px] disabled:opacity-40"
               disabled={!canAdd || busy}
-              onClick={openPicker}
+              onClick={() => openPicker({ kind: 'layer' })}
               title={!editable ? 'Edite ou crie um patch para carregar instrumentos' : 'Carregar instrumento VST'}
             >
               {busy ? 'Carregando…' : '＋ Carregar VST'}
@@ -681,7 +1101,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       {insertPicker && (
         <div className="absolute bottom-2 left-2 right-2 z-40 max-h-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
           <div className="mb-1 flex items-center justify-between px-1">
-            <span className="hw-label">Carregar efeito — slot {insertPicker.slot + 1}</span>
+            <span className="hw-label">{insertPicker.title} — slot {insertPicker.slot + 1}</span>
             <button className="px-1 text-xs text-slate-400" onClick={() => setInsertPicker(null)}>✕</button>
           </div>
           {effects.length === 0 ? (
@@ -696,15 +1116,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
               title={plugin.path}
               onClick={() => {
-                const target = insertPicker;
+                const current = insertPicker;
                 setInsertPicker(null);
                 void (async () => {
                   setBusy(true);
                   try {
-                    const added = isBusId(target.layerId)
-                      ? await onAddBusInsert(target.layerId, target.slot, plugin)
-                      : await onAddInsert(target.layerId, target.slot, plugin);
-                    if (!added) setInsertPicker(target);
+                    const added = await current.pick(plugin);
+                    if (!added) setInsertPicker(current);
                   } finally {
                     setBusy(false);
                   }
@@ -717,7 +1135,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         </div>
       )}
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
-        Selecione um strip e use a aba Channel Strip do Inspector para definir as teclas (Low/High Key).
+        Nos strips do patch, use a aba Channel Strip do Inspector para as teclas (Low/High Key); nos strips do concert/set, edite KEY aqui mesmo.
       </div>
     </aside>
   );

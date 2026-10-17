@@ -35,7 +35,7 @@ export interface ElectronAPI {
 
   // VST
   vstScan: () => Promise<VstPluginInfo[]>;
-  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => Promise<VstPluginInfo>;
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo>;
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
   vstGetState: (pluginId: string) => Promise<any>;
@@ -86,6 +86,8 @@ export interface ElectronAPI {
   concertOpenRecent: (filePath: string) => Promise<ConcertState>;
   concertSave: (asNew?: boolean) => Promise<ConcertState | null>;
   concertSync: (payload: ConcertSyncPayload) => Promise<{ dirty: boolean }>;
+  /** Realinha no motor os channel strips do concert/set (após desfazer/refazer). */
+  concertStripsRealign: () => Promise<boolean>;
   concertRecent: () => Promise<RecentConcert[]>;
 
   // Layout

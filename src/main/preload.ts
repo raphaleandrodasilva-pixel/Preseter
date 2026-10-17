@@ -27,8 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // === VST ===
   vstScan: () => ipcRenderer.invoke('vst-scan'),
-  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) =>
-    ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote),
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) =>
+    ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number) =>
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value),
@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   concertOpenRecent: (filePath: string) => ipcRenderer.invoke('concert-open-recent', filePath),
   concertSave: (asNew?: boolean) => ipcRenderer.invoke('concert-save', asNew),
   concertSync: (payload: unknown) => ipcRenderer.invoke('concert-sync', payload),
+  concertStripsRealign: () => ipcRenderer.invoke('concert-strips-realign'),
   concertRecent: () => ipcRenderer.invoke('concert-recent'),
 
   // === Layout ===

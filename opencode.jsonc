@@ -2,13 +2,16 @@
   "$schema": "https://opencode.ai/config.json",
   "permissions": [
     { "action": "read", "resource": "docs/*", "effect": "deny" },
-    { "action": "read", "resource": "*.pdf", "effect": "deny" },
+    { "action": "read", "resource": "pdf/*", "effect": "allow" },
+    { "action": "read", "resource": "*.pdf", "effect": "allow" },
     { "action": "edit", "resource": "docs/*", "effect": "deny" },
+    { "action": "edit", "resource": "pdf/*", "effect": "deny" },
     { "action": "edit", "resource": "*.pdf", "effect": "deny" },
     { "action": "glob", "resource": "*docs*", "effect": "deny" },
+    { "action": "glob", "resource": "*pdf*", "effect": "deny" },
     { "action": "glob", "resource": "*.pdf", "effect": "deny" }
   ],
   "watcher": {
-    "ignore": ["docs/**"]
+    "ignore": ["docs/**", "pdf/**"]
   }
 }

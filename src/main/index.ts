@@ -194,8 +194,8 @@ class MainWindow {
       return this.vstManager.scanDefaultDirectories();
     });
 
-    ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => {
-      return this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote);
+    ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
+      return this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
@@ -361,6 +361,17 @@ class MainWindow {
     ipcMain.handle('concert-sync', (_event, payload: ConcertSyncPayload) => {
       this.concertManager.applyEditors(payload);
       return { dirty: this.concertManager.isDirty() };
+    });
+
+    /**
+     * Realinha os channel strips do concert/set no motor com o concert atual.
+     * Usado depois de desfazer/refazer, que só mexem no estado do renderer.
+     */
+    ipcMain.handle('concert-strips-realign', async () => {
+      if (!this.lastLoadedPresetId) return false;
+      const preset = this.concertManager.getPreset(this.lastLoadedPresetId) ?? null;
+      await this.syncInheritedStrips(preset);
+      return true;
     });
 
     ipcMain.handle('concert-recent', () => this.concertManager.getRecent());

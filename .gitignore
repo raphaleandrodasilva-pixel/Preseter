@@ -6,6 +6,7 @@ release/
 !.env.example
 *.log
 docs/*.pdf
+pdf/
 presets/*.json
 
 # Motor nativo (JUCE)
