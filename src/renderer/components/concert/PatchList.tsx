@@ -14,6 +14,7 @@ interface PatchListProps {
   onNewSet: () => void;
   onRenameSet: (setId: string, name: string) => void;
   onDeleteSet: (setId: string) => void;
+  onSetTranspose: (setId: string, semitones: number) => void;
   onToggleSetExpanded: (setId: string) => void;
   onToggleSetSkipped: (setId: string) => void;
   onTogglePresetSkipped: (presetId: string) => void;
@@ -66,6 +67,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   onNewSet,
   onRenameSet,
   onDeleteSet,
+  onSetTranspose,
   onToggleSetExpanded,
   onToggleSetSkipped,
   onTogglePresetSkipped,
@@ -538,6 +540,19 @@ export const PatchList: React.FC<PatchListProps> = ({
                   </button>
                 )}
                 <span className="text-[10px] text-slate-600">{list.length}</span>
+                <label className="flex items-center gap-0.5 text-[9px] text-slate-600" title="Transpose do set (semitons)">
+                  <span>↕</span>
+                  <input
+                    type="number"
+                    min={-24}
+                    max={24}
+                    value={set.transpose ?? 0}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => onSetTranspose(set.id, Math.max(-24, Math.min(24, Number(event.target.value) || 0)))}
+                    className="w-7 rounded px-0.5 py-0 text-[9px] outline-none"
+                    style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+                  />
+                </label>
                 <button className="rounded px-1 text-[11px] text-slate-500 hover:text-amber-200" title="Novo patch neste set" onClick={() => onNewPatch(set.id)}>
                   +
                 </button>

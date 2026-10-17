@@ -130,6 +130,7 @@ export interface AppContextType {
   openVstEditor: (pluginId: string) => Promise<boolean>;
   closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
+  setVstLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<boolean>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
   /** Altera um barramento Aux/Output do concert (Fase 3.2). */
@@ -899,6 +900,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setVstLayerVelocity = useCallback(async (layerId: string, minVelocity: number, maxVelocity: number) => {
+    try {
+      const updated = await window.electronAPI.vstSetLayerVelocity(layerId, minVelocity, maxVelocity);
+      setLoadedPlugins((previous) =>
+        previous.map((plugin) => (plugin.layerId === layerId ? { ...plugin, ...updated } : plugin))
+      );
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar a faixa de velocity do layer.');
+      return false;
+    }
+  }, []);
+
   const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
@@ -1148,6 +1163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openVstEditor,
     closeVstEditor,
     setVstLayerRange,
+    setVstLayerVelocity,
     setVstLayerMix,
     setVstMasterMix,
     setVstBusMix,

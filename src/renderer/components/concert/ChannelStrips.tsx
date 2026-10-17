@@ -87,6 +87,9 @@ const meterHeight = (peakDb: number) => Math.max(0, Math.min(100, ((peakDb + 60)
 /** Nota MIDI válida (0 a 127). */
 const clampNote = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(127, Math.round(value))) : 0);
 
+/** Velocity MIDI válida (1 a 127). */
+const clampVelocity = (value: number) => (Number.isFinite(value) ? Math.max(1, Math.min(127, Math.round(value))) : 1);
+
 /** Nome do atributo na UI (Fase 3.3). */
 const STRIP_ATTRIBUTE_LABELS: Record<StripAttribute, string> = {
   volumeDb: 'Volume',
@@ -95,6 +98,8 @@ const STRIP_ATTRIBUTE_LABELS: Record<StripAttribute, string> = {
   solo: 'Solo',
   minNote: 'Low Key',
   maxNote: 'High Key',
+  velocityMin: 'Velocity mín.',
+  velocityMax: 'Velocity máx.',
   output: 'Saída',
   sends: 'Sends',
   inserts: 'Inserts',
@@ -127,6 +132,10 @@ const formatStripValue = (strip: EffectiveStrip | undefined, attr: StripAttribut
       return `nota ${strip.minNote}`;
     case 'maxNote':
       return `nota ${strip.maxNote}`;
+    case 'velocityMin':
+      return `velocity ${strip.velocityMin}`;
+    case 'velocityMax':
+      return `velocity ${strip.velocityMax}`;
     case 'output':
       return `Output ${strip.output}`;
     case 'sends':
@@ -740,6 +749,58 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             className="w-9 rounded px-1 py-0.5 text-[8px] outline-none"
             style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
           />
+        </div>
+        <div className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+          <span className="shrink-0">VEL</span>
+          <input
+            aria-label={`Velocity mínima de ${strip.name}`}
+            type="number"
+            min={1}
+            max={127}
+            value={view.velocityMin}
+            disabled={!editable}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSetStripValue(target, strip.id, 'velocityMin', clampVelocity(Number(event.target.value)))}
+            className="w-9 rounded px-1 py-0.5 text-[8px] outline-none"
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          />
+          <span className="shrink-0">–</span>
+          <input
+            aria-label={`Velocity máxima de ${strip.name}`}
+            type="number"
+            min={1}
+            max={127}
+            value={view.velocityMax}
+            disabled={!editable}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSetStripValue(target, strip.id, 'velocityMax', clampVelocity(Number(event.target.value)))}
+            className="w-9 rounded px-1 py-0.5 text-[8px] outline-none"
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          />
+          <svg
+            viewBox="0 0 64 18"
+            className="h-4 min-w-0 flex-1"
+            role="img"
+            aria-label={`Faixa de velocity ${view.velocityMin} a ${view.velocityMax}`}
+          >
+            <rect x="0" y="0" width="64" height="18" fill="#1F1F21" stroke="#3A3A3C" strokeWidth="1" />
+            <rect
+              x={(view.velocityMin / 127) * 64}
+              y="0"
+              width={Math.max(1, ((view.velocityMax - view.velocityMin) / 127) * 64)}
+              height="18"
+              fill="#0A84FF"
+              opacity="0.22"
+            />
+            <line
+              x1={(view.velocityMin / 127) * 64}
+              y1={18 - (view.velocityMin / 127) * 18}
+              x2={(view.velocityMax / 127) * 64}
+              y2={18 - (view.velocityMax / 127) * 18}
+              stroke="#0A84FF"
+              strokeWidth="1.5"
+            />
+          </svg>
         </div>
         {renderFader({
           label: strip.name,

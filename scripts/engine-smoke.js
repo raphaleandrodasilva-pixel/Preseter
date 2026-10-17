@@ -188,6 +188,45 @@ async function main() {
   });
   await request('setMasterMix', { volumeDb: 0, muted: false });
 
+  // Fase 3.4: transpose e faixa de velocity.
+  const transposeArg = first('transpose');
+  if (transposeArg !== undefined) {
+    const semitones = Number(transposeArg);
+    if (!Number.isFinite(semitones)) throw new Error('--transpose precisa ser um número.');
+    await request('setTranspose', { semitones });
+    let rejected = false;
+    try {
+      await request('setTranspose', { semitones: 99 });
+    } catch (error) {
+      if (!/transpose/i.test(error.message)) throw error;
+      rejected = true;
+    }
+    if (!rejected) throw new Error('O engine aceitou um transpose fora de -48..48.');
+    await request('setTranspose', { semitones });
+    console.log(`Transpose: ${semitones} semitons: ok`);
+  }
+
+  const velocityArg = first('velocity');
+  if (velocityArg !== undefined) {
+    const [minRaw, maxRaw] = velocityArg.split(':');
+    const minVelocity = Number(minRaw);
+    const maxVelocity = Number(maxRaw);
+    if (!Number.isFinite(minVelocity) || !Number.isFinite(maxVelocity)) {
+      throw new Error('--velocity precisa estar no formato MIN:MAX.');
+    }
+    await request('setLayerVelocityRange', { layerId: plugin.layerId, minVelocity, maxVelocity });
+    let rejected = false;
+    try {
+      await request('setLayerVelocityRange', { layerId: plugin.layerId, minVelocity: 0, maxVelocity: 127 });
+    } catch (error) {
+      if (!/velocity/i.test(error.message)) throw error;
+      rejected = true;
+    }
+    if (!rejected) throw new Error('O engine aceitou velocity fora de 1..127.');
+    await request('setLayerVelocityRange', { layerId: plugin.layerId, minVelocity: 1, maxVelocity: 127 });
+    console.log(`Velocity do layer: ${minVelocity}..${maxVelocity}: ok`);
+  }
+
   const params = await request('params');
   for (const p of params.slice(0, 10)) {
     console.log(`  [${p.index}] ${p.name}: ${p.text} ${p.label}`.trimEnd());

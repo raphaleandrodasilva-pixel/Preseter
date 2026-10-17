@@ -240,6 +240,25 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setLayerVelocityRange")
+    {
+        const auto error = engine.setLayerVelocityRange (
+            message["layerId"].toString(),
+            intArg (message, "minVelocity", -1),
+            intArg (message, "maxVelocity", -1));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, engine.describeLoadedPlugin (message["layerId"].toString()));
+        return;
+    }
+
+    if (cmd == "setTranspose")
+    {
+        const auto error = engine.setTranspose (intArg (message, "semitones", 0));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, juce::var());
+        return;
+    }
+
     if (cmd == "layers")
     {
         ok (id, engine.describeLoadedPlugins());

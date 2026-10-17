@@ -118,7 +118,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
     reorderSets, togglePresetSkipped, savePreset,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic,
-    loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
+    loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
@@ -394,6 +394,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
       if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
       await setVstLayerOutput(layerId, assignment.output ?? 1);
+      await window.electronAPI.vstSetLayerVelocity(
+        layerId,
+        assignment.velocityMin ?? 1,
+        assignment.velocityMax ?? 127
+      );
       for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
         await setVstSend(layerId, aux, assignment.sends?.[aux - 1] ?? SEND_OFF_DB);
       }
@@ -429,6 +434,25 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       ...draft,
       plugins: (draft.plugins ?? []).map((plugin) =>
         plugin.layerId === layerId ? { ...plugin, minNote, maxNote } : plugin
+      ),
+      updatedAt: Date.now(),
+    });
+  };
+  const changeLayerVelocity = async (
+    assignment: PresetPluginAssignment,
+    layerId: string,
+    velocityMin: number,
+    velocityMax: number
+  ) => {
+    if (!draft) return;
+    if (!await setVstLayerVelocity(layerId, velocityMin, velocityMax)) {
+      onError(`Não foi possível atualizar a faixa de velocity de "${assignment.name}".`);
+      return;
+    }
+    onDraftChange({
+      ...draft,
+      plugins: (draft.plugins ?? []).map((plugin) =>
+        plugin.layerId === layerId ? { ...plugin, velocityMin, velocityMax } : plugin
       ),
       updatedAt: Date.now(),
     });
@@ -718,6 +742,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           break;
         case 'maxNote':
           await setVstLayerRange(strip.id, strip.minNote, value as number);
+          break;
+        case 'velocityMin':
+          await setVstLayerVelocity(strip.id, value as number, strip.velocityMax);
+          break;
+        case 'velocityMax':
+          await setVstLayerVelocity(strip.id, strip.velocityMin, value as number);
           break;
         case 'output':
           await setVstLayerOutput(strip.id, value as number);
@@ -1127,6 +1157,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onNewSet={() => createSet()}
           onRenameSet={renameSet}
           onDeleteSet={deleteSet}
+          onSetTranspose={(setId, semitones) => updateSet(setId, { transpose: semitones })}
           onToggleSetExpanded={toggleSetExpanded}
           onToggleSetSkipped={toggleSetSkipped}
           onTogglePresetSkipped={(id) => void togglePresetSkipped(id)}
@@ -1212,6 +1243,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               selectedElement={selected}
               selectedLayerId={selectedLayerId}
               onLayerRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
+              onLayerVelocityChange={(assignment, layerId, velocityMin, velocityMax) => void changeLayerVelocity(assignment, layerId, velocityMin, velocityMax)}
+              transposeTotal={(activePreset?.transpose ?? 0) + (currentSet?.transpose ?? 0) + (concertSettings?.midi.transpose ?? 0)}
               onPatchChange={updateDraft}
               onUpdateElement={updateElement}
               onRemoveElement={removeElement}

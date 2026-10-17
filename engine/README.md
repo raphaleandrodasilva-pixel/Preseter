@@ -174,6 +174,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `unload` | `layerId?` | Descarrega um layer (sem ID, todos) |
 | `layers` | — | Lista os instrumentos carregados, suas regiões e se são `pinned` |
 | `setLayerRange` | `layerId`, `minNote`, `maxNote` | Altera a região MIDI de um layer |
+| `setLayerVelocityRange` | `layerId`, `minVelocity`, `maxVelocity` | Altera a faixa de velocity (1..127) aceita pelo layer |
+| `setTranspose` | `semitones` (-72..72) | Transpose global (patch + set + concert) aplicado a todas as notas |
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |

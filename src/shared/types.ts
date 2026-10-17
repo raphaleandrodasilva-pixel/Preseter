@@ -16,6 +16,8 @@ export interface VstPluginInfo {
   parameters: VstParameter[];
   minNote?: number;
   maxNote?: number;
+  velocityMin?: number;
+  velocityMax?: number;
 }
 
 export interface VstParameter {
@@ -47,6 +49,8 @@ export interface Preset {
   icon?: string;
   /** Anotações de texto sobre o patch */
   notes?: string;
+  /** Transpose deste patch, em semitons (soma com set e concert na Fase 3.4). */
+  transpose?: number;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
   /** Valores que este patch sobrepõe nos strips herdados do set/concert (Fase 3.3). */
@@ -72,6 +76,8 @@ export interface PresetSet {
   expanded?: boolean;
   /** Quando true, é pulado na navegação por Program Change / setas */
   skipped?: boolean;
+  /** Transpose deste set, em semitons (soma com patch e concert na Fase 3.4). */
+  transpose?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -233,6 +239,9 @@ export interface PresetPluginAssignment {
   role: 'instrument' | 'effect';
   minNote?: number;
   maxNote?: number;
+  /** Faixa de velocity aceita por este strip (1..127). Ausente = 1..127. */
+  velocityMin?: number;
+  velocityMax?: number;
   mix?: LayerMixSettings;
   /** Slots de insert (efeitos) do channel strip (Fase 3.1). */
   inserts?: Insert[];
@@ -356,6 +365,8 @@ export type StripAttribute =
   | 'solo'
   | 'minNote'
   | 'maxNote'
+  | 'velocityMin'
+  | 'velocityMax'
   | 'output'
   | 'sends'
   | 'inserts';
@@ -367,6 +378,8 @@ export const STRIP_ATTRIBUTES: readonly StripAttribute[] = [
   'solo',
   'minNote',
   'maxNote',
+  'velocityMin',
+  'velocityMax',
   'output',
   'sends',
   'inserts',
@@ -380,6 +393,8 @@ export interface StripOverride {
   solo?: boolean;
   minNote?: number;
   maxNote?: number;
+  velocityMin?: number;
+  velocityMax?: number;
   output?: number;
   sends?: number[];
   /** Substitui a cadeia de inserts definida no nível de cima. */
@@ -409,6 +424,8 @@ export interface EffectiveStrip {
   solo: boolean;
   minNote: number;
   maxNote: number;
+  velocityMin: number;
+  velocityMax: number;
   output: number;
   sends: number[];
   inserts: Insert[];

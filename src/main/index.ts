@@ -242,6 +242,10 @@ class MainWindow {
       return this.vstManager.setLayerRange(layerId, minNote, maxNote);
     });
 
+    ipcMain.handle('vst-set-layer-velocity', (_event, layerId: string, minVelocity: number, maxVelocity: number) => {
+      return this.vstManager.setLayerVelocityRange(layerId, minVelocity, maxVelocity);
+    });
+
     ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());
     ipcMain.handle('vst-set-layer-mix', (_event, layerId: string, update: LayerMixUpdate) => {
       return this.vstManager.setLayerMix(layerId, update);
@@ -323,6 +327,7 @@ class MainWindow {
 
     ipcMain.handle('preset-save', (_event, preset: Preset) => {
       this.concertManager.upsertPatch(preset);
+      if (preset.id === this.lastLoadedPresetId) void this.applyCurrentTranspose(preset);
       return true;
     });
 
@@ -360,6 +365,7 @@ class MainWindow {
 
     ipcMain.handle('concert-sync', (_event, payload: ConcertSyncPayload) => {
       this.concertManager.applyEditors(payload);
+      void this.applyCurrentTranspose();
       return { dirty: this.concertManager.isDirty() };
     });
 
@@ -436,6 +442,26 @@ class MainWindow {
     });
   }
 
+  /** Soma dos transposes do patch, do set e do concert (Fase 3.4). */
+  private patchTranspose(preset: Preset): number {
+    const concert = this.concertManager.getState().settings.midi.transpose ?? 0;
+    const set = preset.setId ? this.concertManager.getSet(preset.setId) : undefined;
+    return concert + (set?.transpose ?? 0) + (preset.transpose ?? 0);
+  }
+
+  /** Envia ao motor o transpose do patch atual (ou do patch indicado). */
+  private async applyCurrentTranspose(preset?: Preset | null): Promise<void> {
+    const current = preset ?? (this.lastLoadedPresetId
+      ? this.concertManager.getPreset(this.lastLoadedPresetId) ?? null
+      : null);
+    if (!current) return;
+    try {
+      await this.vstManager.setTranspose(this.patchTranspose(current));
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível aplicar o transpose:', error);
+    }
+  }
+
   private async loadPreset(presetId: string): Promise<boolean> {
     const preset = this.concertManager.getPreset(presetId);
     if (!preset) return false;
@@ -475,6 +501,20 @@ class MainWindow {
     }
 
     await this.vstManager.commitPatchSwap(silencePrevious);
+    await this.applyCurrentTranspose(preset);
+    // Faixa de velocity por layer (Fase 3.4).
+    for (const [index, assignment] of assignments.entries()) {
+      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      try {
+        await this.vstManager.setLayerVelocityRange(
+          layerId,
+          assignment.velocityMin ?? 1,
+          assignment.velocityMax ?? 127
+        );
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
+      }
+    }
     await this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false });
 
     // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
@@ -710,6 +750,7 @@ class MainWindow {
         if (current.minNote !== strip.minNote || current.maxNote !== strip.maxNote) {
           await this.vstManager.setLayerRange(strip.id, strip.minNote, strip.maxNote);
         }
+        await this.vstManager.setLayerVelocityRange(strip.id, strip.velocityMin, strip.velocityMax);
         await this.vstManager.setLayerOutput(strip.id, this.clampOutput(strip.output));
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(strip.id, aux, strip.sends[aux - 1]);

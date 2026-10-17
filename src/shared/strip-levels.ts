@@ -170,6 +170,10 @@ export function withStripValue(
       return { ...strip, minNote: value as number };
     case 'maxNote':
       return { ...strip, maxNote: value as number };
+    case 'velocityMin':
+      return { ...strip, velocityMin: value as number };
+    case 'velocityMax':
+      return { ...strip, velocityMax: value as number };
     case 'output':
       return { ...strip, output: value as number };
     case 'sends':

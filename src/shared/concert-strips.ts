@@ -25,6 +25,9 @@ import {
 /** Região de notas padrão de um strip (todas as notas). */
 export const DEFAULT_STRIP_MIN_NOTE = 0;
 export const DEFAULT_STRIP_MAX_NOTE = 127;
+/** Faixa de velocity padrão de um strip (todas as intensidades). */
+export const DEFAULT_STRIP_MIN_VELOCITY = 1;
+export const DEFAULT_STRIP_MAX_VELOCITY = 127;
 /** Saída padrão de um strip (Output 1). */
 export const DEFAULT_STRIP_OUTPUT = 1;
 
@@ -102,6 +105,16 @@ function normalizeRange(minNote: unknown, maxNote: unknown): [number, number] {
   return min <= max ? [min, max] : [max, min];
 }
 
+function clampVelocity(value: unknown, fallback: number): number {
+  return isNumber(value) ? clamp(Math.round(value), 1, 127) : fallback;
+}
+
+function normalizeVelocityRange(minVelocity: unknown, maxVelocity: unknown): [number, number] {
+  const min = clampVelocity(minVelocity, DEFAULT_STRIP_MIN_VELOCITY);
+  const max = clampVelocity(maxVelocity, DEFAULT_STRIP_MAX_VELOCITY);
+  return min <= max ? [min, max] : [max, min];
+}
+
 function allSources(level: StripLevel): Partial<Record<StripAttribute, StripLevel>> {
   const sources: Partial<Record<StripAttribute, StripLevel>> = {};
   for (const attribute of STRIP_ATTRIBUTES) sources[attribute] = level;
@@ -164,6 +177,7 @@ function effectiveFromPatch(
   index: number
 ): EffectiveStrip {
   const [minNote, maxNote] = normalizeRange(assignment.minNote, assignment.maxNote);
+  const [velocityMin, velocityMax] = normalizeVelocityRange(assignment.velocityMin, assignment.velocityMax);
   return {
     id: patchStripId(presetId, assignment, index),
     name: assignment.name,
@@ -177,6 +191,8 @@ function effectiveFromPatch(
     solo: assignment.mix?.solo === true,
     minNote,
     maxNote,
+    velocityMin,
+    velocityMax,
     output: outputNumber(assignment.output),
     sends: normalizeSends(assignment.sends),
     inserts: normalizeInserts(assignment.inserts),
@@ -190,6 +206,7 @@ function effectiveFromInherited(
   chain: Array<[Record<string, StripOverride> | undefined, StripLevel]>
 ): EffectiveStrip {
   const [minNote, maxNote] = normalizeRange(strip.minNote, strip.maxNote);
+  const [velocityMin, velocityMax] = normalizeVelocityRange(strip.velocityMin, strip.velocityMax);
   const result: EffectiveStrip = {
     id: strip.id,
     name: typeof strip.name === 'string' && strip.name !== '' ? strip.name : 'Channel Strip',
@@ -203,6 +220,8 @@ function effectiveFromInherited(
     solo: strip.mix?.solo === true,
     minNote,
     maxNote,
+    velocityMin,
+    velocityMax,
     output: outputNumber(strip.output),
     sends: normalizeSends(strip.sends),
     inserts: normalizeInserts(strip.inserts),
@@ -237,6 +256,14 @@ function effectiveFromInherited(
       result.maxNote = clampNote(override.maxNote, result.maxNote);
       result.sources.maxNote = overrideLevel;
     }
+    if (isNumber(override.velocityMin)) {
+      result.velocityMin = clampVelocity(override.velocityMin, result.velocityMin);
+      result.sources.velocityMin = overrideLevel;
+    }
+    if (isNumber(override.velocityMax)) {
+      result.velocityMax = clampVelocity(override.velocityMax, result.velocityMax);
+      result.sources.velocityMax = overrideLevel;
+    }
     if (isNumber(override.output)) {
       result.output = outputNumber(override.output);
       result.sources.output = overrideLevel;
@@ -253,5 +280,6 @@ function effectiveFromInherited(
 
   // Depois das sobreposições, garante uma região válida.
   if (result.minNote > result.maxNote) result.maxNote = result.minNote;
+  if (result.velocityMin > result.velocityMax) result.velocityMax = result.velocityMin;
   return result;
 }

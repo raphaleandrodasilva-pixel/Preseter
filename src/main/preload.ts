@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>
     ipcRenderer.invoke('vst-set-layer-range', layerId, minNote, maxNote),
+  vstSetLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) =>
+    ipcRenderer.invoke('vst-set-layer-velocity', layerId, minVelocity, maxVelocity),
   vstMixGet: () => ipcRenderer.invoke('vst-mix-get'),
   vstSetLayerMix: (layerId: string, update: unknown) =>
     ipcRenderer.invoke('vst-set-layer-mix', layerId, update),

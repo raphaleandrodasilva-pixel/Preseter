@@ -16,6 +16,7 @@ public:
     NoteRangeFilter()
         : juce::AudioProcessor (BusesProperties())
     {
+        for (auto& channel : noteMap) channel.fill (-1);
     }
 
     const juce::String getName() const override { return "Preseter Note Range"; }
@@ -26,26 +27,58 @@ public:
     {
         juce::ignoreUnused (audio);
         juce::MidiBuffer accepted;
+        const int transpose = transposeSemitones.load();
+        const int velocityLow = velocityMinimum.load();
+        const int velocityHigh = velocityMaximum.load();
         for (const auto metadata : midi)
         {
             const auto message = metadata.getMessage();
             bool pass = true;
             if (message.isNoteOn())
             {
-                pass = message.getNoteNumber() >= minimum.load()
-                    && message.getNoteNumber() <= maximum.load();
+                const int inputNote = message.getNoteNumber();
+                const int note = inputNote + transpose;
+                const int velocity = message.getVelocity();
+                pass = note >= minimum.load()
+                    && note <= maximum.load()
+                    && note >= 0
+                    && note <= 127
+                    && velocity >= velocityLow
+                    && velocity <= velocityHigh;
                 if (pass)
-                    ++activeNotes[(size_t) message.getChannel() - 1][(size_t) message.getNoteNumber()];
+                {
+                    noteMap[(size_t) message.getChannel() - 1][(size_t) inputNote] = note;
+                    ++activeNotes[(size_t) message.getChannel() - 1][(size_t) note];
+                    accepted.addEvent (juce::MidiMessage::noteOn (message.getChannel(), note, (juce::uint8) velocity),
+                                       metadata.samplePosition);
+                }
+                continue;
             }
-            else if (message.isNoteOff())
+            if (message.isNoteOff())
             {
-                auto& count = activeNotes[(size_t) message.getChannel() - 1][(size_t) message.getNoteNumber()];
-                pass = count > 0;
-                if (pass) --count;
+                const int inputNote = message.getNoteNumber();
+                const auto channelIndex = (size_t) message.getChannel() - 1;
+                int note = noteMap[channelIndex][(size_t) inputNote];
+                if (note < 0)
+                    note = inputNote + transpose;
+                pass = note >= 0 && note <= 127;
+                if (pass)
+                {
+                    auto& count = activeNotes[channelIndex][(size_t) note];
+                    pass = count > 0;
+                    if (pass) --count;
+                    noteMap[channelIndex][(size_t) inputNote] = -1;
+                }
+                if (pass)
+                    accepted.addEvent (juce::MidiMessage::noteOff (message.getChannel(), note,
+                                                                   (juce::uint8) message.getVelocity()),
+                                       metadata.samplePosition);
+                continue;
             }
-            else if (message.isAllNotesOff() || message.isAllSoundOff())
+            if (message.isAllNotesOff() || message.isAllSoundOff())
             {
                 activeNotes = {};
+                for (auto& channel : noteMap) channel.fill (-1);
             }
 
             if (pass)
@@ -72,10 +105,26 @@ public:
         maximum.store (maxNote);
     }
 
+    void setVelocityRange (int minVelocity, int maxVelocity)
+    {
+        velocityMinimum.store (juce::jlimit (1, 127, minVelocity));
+        velocityMaximum.store (juce::jlimit (1, 127, maxVelocity));
+    }
+
+    void setTranspose (int semitones)
+    {
+        transposeSemitones.store (semitones);
+    }
+
 private:
     std::atomic<int> minimum { 0 };
     std::atomic<int> maximum { 127 };
+    std::atomic<int> velocityMinimum { 1 };
+    std::atomic<int> velocityMaximum { 127 };
+    std::atomic<int> transposeSemitones { 0 };
     std::array<std::array<unsigned int, 128>, 16> activeNotes {};
+    /** Nota de entrada → nota transposta do note-on ainda ativo (-1 = nenhuma). */
+    std::array<std::array<int, 128>, 16> noteMap {};
 };
 
 class ChannelStripProcessor final : public juce::AudioProcessor
@@ -912,7 +961,10 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 return;
             }
             if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+            {
                 filter->setRange (minNote, maxNote);
+                filter->setTranspose (transposeSemitones.load());
+            }
 
             // Some com o layer antigo, mas preserva o nó do plugin (agora é do novo layer).
             // Os inserts do patch anterior não seguem junto: o patch novo recarrega os seus.
@@ -985,7 +1037,10 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 return;
             }
             if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+            {
                 filter->setRange (minNote, maxNote);
+                filter->setTranspose (transposeSemitones.load());
+            }
 
             layers.push_back (std::move (layer));
             updateSoloState();
@@ -1087,6 +1142,32 @@ juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, in
     layer.maxNote = maxNote;
     if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
         filter->setRange (minNote, maxNote);
+    return {};
+}
+
+juce::String Engine::setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+    if (minVelocity < 1 || maxVelocity > 127 || minVelocity > maxVelocity)
+        return utf8 ("A faixa de velocity deve estar entre 1 e 127, com início menor ou igual ao fim.");
+
+    auto& layer = layers[(size_t) index];
+    if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+        filter->setVelocityRange (minVelocity, maxVelocity);
+    return {};
+}
+
+juce::String Engine::setTranspose (int semitones)
+{
+    if (semitones < -72 || semitones > 72)
+        return utf8 ("O transpose deve estar entre -72 e +72 semitons.");
+
+    transposeSemitones.store (semitones);
+    for (auto& layer : layers)
+        if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+            filter->setTranspose (semitones);
     return {};
 }
 

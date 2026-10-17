@@ -189,6 +189,13 @@ export interface EngineCommands {
     args: { layerId: string; minNote: number; maxNote: number };
     result: EngineLoadedPlugin;
   };
+  /** Faixa de velocity (1..127) aceita por um layer (Fase 3.4). */
+  setLayerVelocityRange: {
+    args: { layerId: string; minVelocity: number; maxVelocity: number };
+    result: EngineLoadedPlugin;
+  };
+  /** Transpose global em semitons (patch + set + concert), aplicado a todas as notas. */
+  setTranspose: { args: { semitones: number }; result: null };
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */

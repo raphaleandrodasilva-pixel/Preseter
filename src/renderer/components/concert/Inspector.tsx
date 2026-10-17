@@ -10,6 +10,9 @@ interface InspectorProps {
   selectedElement: UiElement | null;
   selectedLayerId: string | null;
   onLayerRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
+  onLayerVelocityChange: (assignment: PresetPluginAssignment, layerId: string, velocityMin: number, velocityMax: number) => void;
+  /** Soma do transpose do patch + set + concert (Fase 3.4). */
+  transposeTotal: number;
   onPatchChange: (patch: Partial<Preset>) => void;
   onUpdateElement: (id: string, patch: Partial<UiElement>) => void;
   onRemoveElement: (id: string) => void;
@@ -36,6 +39,8 @@ export const Inspector: React.FC<InspectorProps> = ({
   selectedElement,
   selectedLayerId,
   onLayerRangeChange,
+  onLayerVelocityChange,
+  transposeTotal,
   onPatchChange,
   onUpdateElement,
   onRemoveElement,
@@ -134,6 +139,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             <label className="text-[11px] text-slate-400">Categoria<input className={`${classInput} mt-1`} value={draft.category ?? ''} onChange={(e) => onPatchChange({ category: e.target.value })} /></label>
             <label className="text-[11px] text-slate-400">Programa (1-128)<input className={`${classInput} mt-1`} type="number" min={1} max={128} value={draft.programNumber + 1} onChange={(e) => onPatchChange({ programNumber: Math.max(0, Math.min(127, (Number(e.target.value) || 1) - 1)) })} /></label>
             <label className="text-[11px] text-slate-400">Banco<input className={`${classInput} mt-1`} type="number" min={0} max={127} value={draft.bankNumber ?? 0} onChange={(e) => onPatchChange({ bankNumber: Math.max(0, Math.min(127, Number(e.target.value) || 0)) })} /></label>
+            <label className="text-[11px] text-slate-400">Transpose (semitons)<input className={`${classInput} mt-1`} type="number" min={-24} max={24} value={draft.transpose ?? 0} onChange={(e) => onPatchChange({ transpose: Math.max(-24, Math.min(24, Number(e.target.value) || 0)) })} /></label>
             <label className="text-[11px] text-slate-400">Canal (1-16)<input className={`${classInput} mt-1`} type="number" min={1} max={16} value={draft.midiChannel + 1} onChange={(e) => onPatchChange({ midiChannel: Math.max(0, Math.min(15, (Number(e.target.value) || 1) - 1)) })} /></label>
             <label className="text-[11px] text-slate-400">Ícone<input className={`${classInput} mt-1`} value={draft.icon ?? '🎹'} onChange={(e) => onPatchChange({ icon: e.target.value })} /></label>
             <label className="flex items-end gap-2 pb-1 text-[11px] text-slate-400">
@@ -141,6 +147,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               Skip (pular em Program Change)
             </label>
             <div className="text-[11px] text-slate-500">Tempo do patch: {draft.layout.tempo} BPM · {draft.layout.elements.length} controle(s)</div>
+            <div className="text-[11px] text-slate-500">Transpose total: {transposeTotal >= 0 ? '+' : ''}{transposeTotal} semitons (patch + set + concert)</div>
           </div>
         )}
         {tab === 'strip' && (() => {
@@ -170,7 +177,54 @@ export const Inspector: React.FC<InspectorProps> = ({
                   <input className={`${classInput} mt-1`} type="number" min={0} max={127} value={high} onChange={(e) => apply(low, Number(e.target.value) || 0)} />
                 </label>
               </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="text-[11px] text-slate-400">Velocity mínima
+                  <input
+                    className={`${classInput} mt-1`}
+                    type="number"
+                    min={1}
+                    max={127}
+                    value={current.assignment.velocityMin ?? 1}
+                    onChange={(e) => onLayerVelocityChange(current.assignment, current.layerId, Math.max(1, Math.min(127, Number(e.target.value) || 1)), current.assignment.velocityMax ?? 127)}
+                  />
+                </label>
+                <label className="text-[11px] text-slate-400">Velocity máxima
+                  <input
+                    className={`${classInput} mt-1`}
+                    type="number"
+                    min={1}
+                    max={127}
+                    value={current.assignment.velocityMax ?? 127}
+                    onChange={(e) => onLayerVelocityChange(current.assignment, current.layerId, current.assignment.velocityMin ?? 1, Math.max(1, Math.min(127, Number(e.target.value) || 1)))}
+                  />
+                </label>
+              </div>
               <p className="mt-2 text-[10px] text-slate-500">Notas fora desta faixa não tocam este instrumento. Use faixas diferentes para criar splits ou a mesma faixa para criar layers.</p>
+              <svg
+                viewBox="0 0 128 24"
+                className="mt-2 h-6 w-full max-w-xs"
+                role="img"
+                aria-label={`Faixa de velocity ${current.assignment.velocityMin ?? 1} a ${current.assignment.velocityMax ?? 127}`}
+              >
+                <rect x="0" y="0" width="128" height="24" fill="#1F1F21" stroke="#3A3A3C" strokeWidth="1" />
+                <rect
+                  x={((current.assignment.velocityMin ?? 1) / 127) * 128}
+                  y="0"
+                  width={Math.max(1, (((current.assignment.velocityMax ?? 127) - (current.assignment.velocityMin ?? 1)) / 127) * 128)}
+                  height="24"
+                  fill="#0A84FF"
+                  opacity="0.22"
+                />
+                <line
+                  x1={((current.assignment.velocityMin ?? 1) / 127) * 128}
+                  y1={24 - ((current.assignment.velocityMin ?? 1) / 127) * 24}
+                  x2={((current.assignment.velocityMax ?? 127) / 127) * 128}
+                  y2={24 - ((current.assignment.velocityMax ?? 127) / 127) * 24}
+                  stroke="#0A84FF"
+                  strokeWidth="2"
+                />
+              </svg>
+              <p className="mt-1 text-[10px] text-slate-500">Velocity fora da faixa {current.assignment.velocityMin ?? 1}–{current.assignment.velocityMax ?? 127} é filtrada antes do plugin.</p>
             </div>
           );
         })()}

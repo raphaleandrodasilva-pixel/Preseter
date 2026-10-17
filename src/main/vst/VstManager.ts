@@ -168,6 +168,25 @@ export class VstManager extends EventEmitter {
     return updated;
   }
 
+  async setLayerVelocityRange(
+    layerId: string,
+    minVelocity: number,
+    maxVelocity: number
+  ): Promise<VstPluginInfo> {
+    const plugin = this.loadedPlugins.get(layerId);
+    if (!plugin) throw new Error('O layer selecionado não está carregado.');
+    await this.engine.request('setLayerVelocityRange', { layerId, minVelocity, maxVelocity });
+    const updated = { ...plugin, velocityMin: minVelocity, velocityMax: maxVelocity };
+    this.loadedPlugins.set(layerId, updated);
+    return updated;
+  }
+
+  /** Transpose global em semitons, aplicado pelo filtro MIDI de todos os layers. */
+  async setTranspose(semitones: number): Promise<boolean> {
+    await this.engine.request('setTranspose', { semitones });
+    return true;
+  }
+
   async sendMidi(bytes: number[]): Promise<boolean> {
     if (this.loadedPlugins.size === 0) return false;
     await this.engine.request('midi', { bytes });

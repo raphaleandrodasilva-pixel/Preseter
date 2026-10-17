@@ -62,6 +62,10 @@ public:
     juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});
     juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
+    /** Faixa de velocity aceita pelo layer (1..127), aplicada no filtro MIDI (Fase 3.4). */
+    juce::String setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity);
+    /** Transpose global em semitons aplicado a todas as notas (patch + set + concert). */
+    juce::String setTranspose (int semitones);
 
     juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
     juce::var describeLoadedPlugins() const;
@@ -166,6 +170,8 @@ private:
 
     Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, masterNode;
     std::atomic<int> soloLayerCount { 0 };
+    /** Transpose aplicado no filtro MIDI de cada layer (Fase 3.4). */
+    std::atomic<int> transposeSemitones { 0 };
     struct Layer
     {
         /** active = patch atual; staged/adopted = patch que está chegando; lingering = patch anterior (caudas). */
