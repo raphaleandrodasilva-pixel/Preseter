@@ -373,7 +373,7 @@ juce::String Engine::audioConfigurationError()
     for (auto* type : deviceManager.getAvailableDeviceTypes())
         if (type->getTypeName().containsIgnoreCase ("ASIO"))
             return {};
-    return "ASIO indisponível neste engine. Recompile com PRESETER_ENABLE_ASIO=ON e informe o caminho do ASIO SDK da Steinberg.";
+    return utf8 ("ASIO indisponível neste engine. Recompile com PRESETER_ENABLE_ASIO=ON e informe o caminho do ASIO SDK da Steinberg.");
 }
 
 juce::var Engine::describeMixState() const
@@ -414,11 +414,11 @@ juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& 
 {
     const int index = findLayer (layerId);
     if (index < 0)
-        return "Layer de instrumento não encontrado.";
+        return utf8 ("Layer de instrumento não encontrado.");
     auto* strip = dynamic_cast<ChannelStripProcessor*> (
         layers[(size_t) index].stripNode->getProcessor());
     if (strip == nullptr)
-        return "O channel strip deste layer não está disponível.";
+        return utf8 ("O channel strip deste layer não está disponível.");
 
     auto volumeDb = strip->getVolumeDb();
     auto pan = strip->getPan();
@@ -430,7 +430,7 @@ juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& 
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
             || (double) value < -60.0 || (double) value > 6.0)
-            return "O volume deve ser um número entre -60 e +6 dB.";
+            return utf8 ("O volume deve ser um número entre -60 e +6 dB.");
         volumeDb = (float) (double) value;
     }
     if (options.hasProperty ("pan"))
@@ -439,7 +439,7 @@ juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& 
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
             || (double) value < -1.0 || (double) value > 1.0)
-            return "O pan deve ser um número entre -1 (esquerda) e +1 (direita).";
+            return utf8 ("O pan deve ser um número entre -1 (esquerda) e +1 (direita).");
         pan = (float) (double) value;
     }
     if (options.hasProperty ("muted"))
@@ -472,7 +472,7 @@ juce::String Engine::setMasterMix (const juce::var& options, juce::var& result)
         ? dynamic_cast<ChannelStripProcessor*> (masterNode->getProcessor())
         : nullptr;
     if (strip == nullptr)
-        return "O channel strip Master não está disponível.";
+        return utf8 ("O channel strip Master não está disponível.");
 
     auto volumeDb = strip->getVolumeDb();
     auto muted = strip->isMuted();
@@ -482,7 +482,7 @@ juce::String Engine::setMasterMix (const juce::var& options, juce::var& result)
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
             || (double) value < -60.0 || (double) value > 6.0)
-            return "O volume Master deve ser um número entre -60 e +6 dB.";
+            return utf8 ("O volume Master deve ser um número entre -60 e +6 dB.");
         volumeDb = (float) (double) value;
     }
     if (options.hasProperty ("muted"))
@@ -700,24 +700,24 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
     }
     if (! description.isInstrument)
     {
-        done ({}, "Nesta etapa Layers aceita instrumentos; efeitos serão adicionados depois.");
+        done ({}, utf8 ("Nesta etapa Layers aceita instrumentos; efeitos serão adicionados depois."));
         return;
     }
     if (minNote < 0 || maxNote > 127 || minNote > maxNote)
     {
-        done ({}, "A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim.");
+        done ({}, utf8 ("A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim."));
         return;
     }
 
     const auto layerId = requestedLayerId.isNotEmpty() ? requestedLayerId : juce::Uuid().toString();
     if (findLayer (layerId) >= 0 || loadingLayerIds.contains (layerId))
     {
-        done ({}, "Já existe um instrumento com este identificador de layer.");
+        done ({}, utf8 ("Já existe um instrumento com este identificador de layer."));
         return;
     }
     if (layers.size() + (size_t) loadingLayerIds.size() >= 4)
     {
-        done ({}, "Um patch pode ter no máximo quatro instrumentos.");
+        done ({}, utf8 ("Um patch pode ter no máximo quatro instrumentos."));
         return;
     }
     loadingLayerIds.add (layerId);
@@ -758,7 +758,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
                 if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
                 if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
-                done ({}, "Não foi possível adicionar o instrumento ao grafo de áudio.");
+                done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
                 return;
             }
             if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
@@ -798,9 +798,9 @@ juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, in
 {
     const int index = findLayer (layerId);
     if (index < 0)
-        return "Layer de instrumento não encontrado.";
+        return utf8 ("Layer de instrumento não encontrado.");
     if (minNote < 0 || maxNote > 127 || minNote > maxNote)
-        return "A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim.";
+        return utf8 ("A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim.");
 
     auto& layer = layers[(size_t) index];
     layer.minNote = minNote;
