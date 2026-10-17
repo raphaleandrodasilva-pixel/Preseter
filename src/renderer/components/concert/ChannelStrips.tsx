@@ -18,150 +18,14 @@ interface ChannelStripsProps {
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
   onCopy: (assignment: PresetPluginAssignment, layerId: string) => Promise<boolean>;
-  onRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
+  onSelectedLayerChange?: (layerId: string | null) => void;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
   onSetLayerMix: (layerId: string, update: LayerMixUpdate) => void;
   onSetMasterMix: (update: MasterMixUpdate) => void;
 }
 
-const midiNoteName = (note: number) => {
-  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  return `${names[note % 12]}${Math.floor(note / 12) - 1}`;
-};
-
 const layerIdFor = (preset: Preset, assignment: PresetPluginAssignment, index: number) =>
   assignment.layerId ?? `${preset.id}:layer:${index}`;
-
-const RangeEditor: React.FC<{
-  minNote: number;
-  maxNote: number;
-  disabled: boolean;
-  onChange: (minimum: number, maximum: number) => void;
-}> = ({ minNote, maxNote, disabled, onChange }) => {
-  const [range, setRange] = useState({ min: minNote, max: maxNote });
-  const rangeRef = useRef(range);
-  const dragEdge = useRef<'min' | 'max' | null>(null);
-  const keyboardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const next = { min: minNote, max: maxNote };
-    rangeRef.current = next;
-    setRange(next);
-  }, [minNote, maxNote]);
-
-  const updateRange = (update: (current: typeof range) => typeof range) => {
-    const next = update(rangeRef.current);
-    rangeRef.current = next;
-    setRange(next);
-  };
-
-  const noteAt = (clientX: number) => {
-    const bounds = keyboardRef.current?.getBoundingClientRect();
-    if (!bounds || bounds.width <= 0) return 0;
-    return Math.max(0, Math.min(127, Math.round(((clientX - bounds.left) / bounds.width) * 127)));
-  };
-  const updateFromPointer = (clientX: number) => {
-    const note = noteAt(clientX);
-    updateRange((previous) => {
-      if (dragEdge.current === 'min') return { min: Math.min(note, previous.max), max: previous.max };
-      return { min: previous.min, max: Math.max(note, previous.min) };
-    });
-  };
-  const finishDrag = () => {
-    if (!dragEdge.current) return;
-    dragEdge.current = null;
-    onChange(rangeRef.current.min, rangeRef.current.max);
-  };
-  const setMinimum = (value: number) => {
-    const min = Math.max(0, Math.min(127, Math.min(value, rangeRef.current.max)));
-    const next = { min, max: rangeRef.current.max };
-    rangeRef.current = next;
-    setRange(next);
-    onChange(next.min, next.max);
-  };
-  const setMaximum = (value: number) => {
-    const max = Math.max(0, Math.min(127, Math.max(value, rangeRef.current.min)));
-    const next = { min: rangeRef.current.min, max };
-    rangeRef.current = next;
-    setRange(next);
-    onChange(next.min, next.max);
-  };
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex justify-between text-[9px] uppercase tracking-wide" style={{ color: '#9A9AA0' }}>
-        <span>Região MIDI</span>
-        <span>{midiNoteName(range.min)}–{midiNoteName(range.max)}</span>
-      </div>
-      <div
-        ref={keyboardRef}
-        className="relative flex h-7 touch-none select-none overflow-hidden rounded border"
-        style={{ borderColor: '#424249' }}
-        title="Arraste para ajustar os limites da região"
-        onPointerDown={(event) => {
-          if (disabled) return;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          const note = noteAt(event.clientX);
-          dragEdge.current = Math.abs(note - range.min) <= Math.abs(note - range.max) ? 'min' : 'max';
-          updateFromPointer(event.clientX);
-        }}
-        onPointerMove={(event) => {
-          if (!disabled && dragEdge.current) updateFromPointer(event.clientX);
-        }}
-        onPointerUp={finishDrag}
-        onPointerCancel={finishDrag}
-      >
-        {Array.from({ length: 128 }, (_, note) => {
-          const black = [1, 3, 6, 8, 10].includes(note % 12);
-          const inRange = note >= range.min && note <= range.max;
-          return (
-            <div
-              key={note}
-              className="h-full flex-1"
-              style={{
-                minWidth: 0,
-                background: inRange
-                  ? (black ? '#13933F' : '#0A84FF')
-                  : (black ? '#29292E' : '#D7D7D8'),
-                borderRight: note % 12 === 0 ? '1px solid rgba(0,0,0,0.35)' : undefined,
-              }}
-            />
-          );
-        })}
-        <div className="pointer-events-none absolute inset-y-0 w-[2px] bg-white" style={{ left: `${(range.min / 127) * 100}%` }} />
-        <div className="pointer-events-none absolute inset-y-0 w-[2px] bg-white" style={{ left: `${(range.max / 127) * 100}%` }} />
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        <label className="text-[9px]" style={{ color: '#9A9AA0' }}>
-          De
-          <input
-            aria-label="Nota inicial do layer"
-            type="number"
-            min={0}
-            max={127}
-            disabled={disabled}
-            value={range.min}
-            onChange={(event) => setMinimum(Number(event.target.value))}
-            className="hw-inset mt-0.5 w-full px-1.5 py-1 text-[10px] text-white"
-          />
-        </label>
-        <label className="text-[9px]" style={{ color: '#9A9AA0' }}>
-          Até
-          <input
-            aria-label="Nota final do layer"
-            type="number"
-            min={0}
-            max={127}
-            disabled={disabled}
-            value={range.max}
-            onChange={(event) => setMaximum(Number(event.target.value))}
-            className="hw-inset mt-0.5 w-full px-1.5 py-1 text-[10px] text-white"
-          />
-        </label>
-      </div>
-    </div>
-  );
-};
 
 export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   preset,
@@ -173,7 +37,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onAdd,
   onRemove,
   onCopy,
-  onRangeChange,
+  onSelectedLayerChange,
   onSetParameter,
   onSetLayerMix,
   onSetMasterMix,
@@ -201,6 +65,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     : [];
   const selectedLayer = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0] ?? null;
   const canAdd = editable && layers.length < 4;
+  const selectedKey = selectedLayer?.layerId ?? null;
+  useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedLayerId && !layers.some((layer) => layer.layerId === selectedLayerId)) {
@@ -316,13 +182,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>INST</span>
                   <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={assignment.name}>{assignment.name}</span>
                 </div>
-                <span className="hw-label mt-1" style={{ fontSize: 8 }}>SOFTWARE INSTRUMENT {index + 1}</span>
-                <RangeEditor
-                  minNote={assignment.minNote ?? 0}
-                  maxNote={assignment.maxNote ?? 127}
-                  disabled={!editable}
-                  onChange={(minimum, maximum) => onRangeChange(assignment, layerId, minimum, maximum)}
-                />
                 <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
                   Insert: {loaded ? 'VST3' : 'Carregando…'}
                 </div>
@@ -491,7 +350,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         </div>
       </div>
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
-        Regiões MIDI aplicadas ao teclado e às entradas MIDI externas.
+        Selecione um strip e use a aba Channel Strip do Inspector para definir as teclas (Low/High Key).
       </div>
     </aside>
   );

@@ -105,6 +105,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   draftRef.current = draft;
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const activePreset = draft ?? currentPreset;
@@ -511,6 +512,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               scannedPlugins={scannedPlugins}
               scannedParams={scannedParams}
               selectedElement={selected}
+              selectedLayerId={selectedLayerId}
+              onLayerRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
               onPatchChange={updateDraft}
               onUpdateElement={updateElement}
               onRemoveElement={removeElement}
@@ -537,7 +540,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onAdd={addLayer}
             onRemove={removeLayer}
             onCopy={copyLayer}
-            onRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
+            onSelectedLayerChange={setSelectedLayerId}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}
             onSetLayerMix={(layerId, update) => void changeLayerMix(layerId, update)}
             onSetMasterMix={(update) => void changeMasterMix(update)}

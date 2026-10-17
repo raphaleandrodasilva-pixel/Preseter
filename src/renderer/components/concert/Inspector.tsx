@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import type { Preset, UiElement, VstPluginInfo } from '@shared/types';
+import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 
@@ -8,6 +8,8 @@ interface InspectorProps {
   scannedPlugins: VstPluginInfo[];
   scannedParams: { path: string; params: { id: string; name: string }[] }[];
   selectedElement: UiElement | null;
+  selectedLayerId: string | null;
+  onLayerRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
   onPatchChange: (patch: Partial<Preset>) => void;
   onUpdateElement: (id: string, patch: Partial<UiElement>) => void;
   onRemoveElement: (id: string) => void;
@@ -19,7 +21,10 @@ interface InspectorProps {
   saving: boolean;
 }
 
-type Tab = 'library' | 'attributes' | 'mapping' | 'notes' | 'control';
+type Tab = 'library' | 'attributes' | 'strip' | 'mapping' | 'notes' | 'control';
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const noteLabel = (note: number) => `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
 
 const classInput =
   'w-full rounded-lg border border-[#3A3A3C] bg-[#242426] px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-[#0A84FF]';
@@ -29,6 +34,8 @@ export const Inspector: React.FC<InspectorProps> = ({
   scannedPlugins,
   scannedParams,
   selectedElement,
+  selectedLayerId,
+  onLayerRangeChange,
   onPatchChange,
   onUpdateElement,
   onRemoveElement,
@@ -55,6 +62,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   const tabs: { id: Tab; label: string }[] = [
     { id: 'library', label: 'Patch Library' },
     { id: 'attributes', label: 'Attributes' },
+    { id: 'strip', label: 'Channel Strip' },
     { id: 'mapping', label: 'Mapping' },
     { id: 'notes', label: 'Notes' },
     ...(selectedElement ? [{ id: 'control' as Tab, label: `Control: ${selectedElement.label}` }] : []),
@@ -135,6 +143,37 @@ export const Inspector: React.FC<InspectorProps> = ({
             <div className="text-[11px] text-slate-500">Tempo do patch: {draft.layout.tempo} BPM · {draft.layout.elements.length} controle(s)</div>
           </div>
         )}
+        {tab === 'strip' && (() => {
+          const layers = (draft.plugins ?? []).map((assignment, index) => ({
+            assignment,
+            layerId: assignment.layerId ?? `${draft.id}:layer:${index}`,
+          }));
+          const current = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0];
+          if (!current) {
+            return <div className="text-[11px] text-slate-400">Este patch ainda não tem channel strips. Use “Carregar VST” à direita.</div>;
+          }
+          const low = current.assignment.minNote ?? 0;
+          const high = current.assignment.maxNote ?? 127;
+          const apply = (min: number, max: number) => {
+            const clampedMin = Math.max(0, Math.min(127, min));
+            const clampedMax = Math.max(clampedMin, Math.min(127, max));
+            onLayerRangeChange(current.assignment, current.layerId, clampedMin, clampedMax);
+          };
+          return (
+            <div className="max-w-xl">
+              <div className="mb-2 text-[11px] text-slate-400">Channel strip: <span className="font-semibold text-white">{current.assignment.name}</span> — Layers e Splits</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[11px] text-slate-400">Low Key ({noteLabel(low)})
+                  <input className={`${classInput} mt-1`} type="number" min={0} max={127} value={low} onChange={(e) => apply(Number(e.target.value) || 0, high)} />
+                </label>
+                <label className="text-[11px] text-slate-400">High Key ({noteLabel(high)})
+                  <input className={`${classInput} mt-1`} type="number" min={0} max={127} value={high} onChange={(e) => apply(low, Number(e.target.value) || 0)} />
+                </label>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">Notas fora desta faixa não tocam este instrumento. Use faixas diferentes para criar splits ou a mesma faixa para criar layers.</p>
+            </div>
+          );
+        })()}
         {tab === 'mapping' && (
           <MappingTable draft={draft} scannedParams={scannedParams} scannedPlugins={scannedPlugins} selectedId={selectedElement?.id ?? null} onSelect={onSelectElement} />
         )}
