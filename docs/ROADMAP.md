@@ -48,48 +48,48 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 ## Fase 2 — Concert como arquivo
 
-- [ ] **2.1 Formato `.preseter`** (JSON) com: concert (nome, tempo, compasso, configurações), sets, patches, layout, mappings. Versão do formato no arquivo.
-- [ ] **2.2 Arquivo > Novo / Abrir / Salvar / Salvar como / Abrir recente.** Atalhos `Cmd/Ctrl+N`, `O`, `S`. Perguntar se quer salvar ao fechar com alterações. Ao reabrir, selecionar o último patch usado.
-- [ ] **2.3 Escolher template ao criar** (Teclado, Worship, Vazio). Mínimo: 3 templates.
-- [ ] **2.4 Concert Settings** (inspector ao selecionar o concert na Patch List), abas **MIDI, Timing, Tuning, Channel Strips, Metronome, Notes**:
+- [x] **2.1 Formato `.preseter`** (JSON) com: concert (nome, tempo, compasso, configurações), sets, patches, layout, mappings. Versão do formato no arquivo.
+- [x] **2.2 Arquivo > Novo / Abrir / Salvar / Salvar como / Abrir recente.** Atalhos `Cmd/Ctrl+N`, `O`, `S`. Perguntar se quer salvar ao fechar com alterações. Ao reabrir, selecionar o último patch usado.
+- [x] **2.3 Escolher template ao criar** (Teclado, Worship, Vazio). Mínimo: 3 templates.
+- [x] **2.4 Concert Settings** (inspector ao selecionar o concert na Patch List), abas **MIDI, Timing, Tuning, Channel Strips, Metronome, Notes**:
   - MIDI: CC7 controla volume e CC10 controla pan; "enviar MIDI não atribuído a todos os channel strips"; Transpose do concert; origem do Program Change (dispositivo e canal); "enviar Program Change não usado aos channel strips".
   - Timing: tempo, compasso. Channel Strips: pan law (0, −3, −3 comp., −4,5, −4,5 comp., −6, −6 comp. dB).
-- [ ] **2.5 Desfazer/Refazer** (`Ctrl+Z`, `Ctrl+Shift+Z`) para edições do concert.
+- [x] **2.5 Desfazer/Refazer** (`Ctrl+Z`, `Ctrl+Shift+Z`) para edições do concert.
 
 ## Fase 3 — Channel strips completas
 
-- [ ] **3.1 Inserts (efeitos).** Slots de insert por channel strip carregando VST3 de efeito; remover a rejeição de `role: 'effect'` em `loadPreset` e `Engine.cpp`.
-- [ ] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
-- [ ] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
-- [ ] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
-- [ ] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).
+- [x] **3.1 Inserts (efeitos).** Slots de insert por channel strip carregando VST3 de efeito; remover a rejeição de `role: 'effect'` em `loadPreset` e `Engine.cpp`.
+- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
+- [x] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
+- [x] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
+- [x] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).
 
 ## Fase 4 — Assignments e Mappings
 
-- [ ] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
-- [ ] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle.
-- [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`).
-- [ ] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative.
-- [ ] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa).
-- [ ] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`).
-- [ ] **4.7 Ações** mapeáveis: Panic, Master Mute, Tap Tempo, próximo/anterior patch, próximo set, Play/Stop, Metrônomo, Notas atuais.
+- [x] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
+- [x] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle.
+- [x] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`).
+- [x] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative.
+- [x] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa).
+- [x] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`).
+- [x] **4.7 Ações** mapeáveis: Panic, Master Mute, Tap Tempo, próximo/anterior patch, próximo set, Play/Stop, Metrônomo, Notas atuais.
 
 ## Fase 5 — Patch List e biblioteca
 
-- [ ] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
-- [ ] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
-- [ ] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
-- [ ] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
-- [ ] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
-- [ ] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
+- [x] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
+- [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
+- [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
+- [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
+- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
+- [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
 
 ## Fase 6 — Perform e extras
 
-- [ ] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip.
-- [ ] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
-- [ ] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual).
-- [ ] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
-- [ ] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
+- [x] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip.
+- [x] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
+- [x] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual).
+- [x] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
+- [x] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
 
 ## Como saber se terminou uma tarefa
 
