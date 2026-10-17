@@ -55,6 +55,12 @@ public:
     juce::String setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result);
     juce::String getParameter (const juce::String& layerId, int index, juce::var& result) const;
 
+    /** Estado completo do plugin (`getStateInformation`) codificado em base64. */
+    juce::String getPluginState (const juce::String& layerId, juce::var& result) const;
+    /** Aplica um estado completo (base64) via `setStateInformation`. */
+    juce::String setPluginState (const juce::String& layerId, const juce::String& base64,
+                                 juce::var& result);
+
     juce::var describeAudioConfiguration();
     juce::String audioConfigurationError();
     juce::var describeMixState() const;

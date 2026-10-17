@@ -244,6 +244,25 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "getState")
+    {
+        juce::var result;
+        const auto error = engine.getPluginState (message["layerId"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "setState")
+    {
+        juce::var result;
+        const auto error = engine.setPluginState (message["layerId"].toString(),
+                                                  message["data"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     // ---- MIDI manual -------------------------------------------------------
     if (cmd == "noteOn" || cmd == "noteOff")
     {

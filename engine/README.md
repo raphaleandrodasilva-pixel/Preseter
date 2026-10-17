@@ -150,6 +150,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |
+| `getState` | `layerId?` | Estado completo do plugin (`getStateInformation`) codificado em base64 |
+| `setState` | `layerId?`, `data` | Aplica um estado completo (base64) via `setStateInformation` |
 | `noteOn` / `noteOff` | `note`, `velocity?`, `channel?` | Envia nota MIDI |
 | `midi` | `bytes` (1 a 3) | Envia MIDI cru |
 | `panic` | — | All notes off + all sound off nos 16 canais |

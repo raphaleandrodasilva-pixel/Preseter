@@ -79,6 +79,20 @@ export interface EngineParameter {
 
 export interface EngineDevices extends AudioDeviceSnapshot {}
 
+/** Estado completo de um plugin, serializado por `getStateInformation`. */
+export interface EnginePluginStateChunk {
+  layerId: string;
+  /** Bytes do estado do plugin codificados em base64. */
+  data: string;
+}
+
+/** Retorno ao aplicar um estado completo via `setStateInformation`. */
+export interface EnginePluginStateApplied {
+  layerId: string;
+  /** Tamanho em bytes do estado aplicado. */
+  bytes: number;
+}
+
 export interface EngineScanResult {
   count: number;
   plugins: EnginePluginInfo[];
@@ -129,6 +143,10 @@ export interface EngineCommands {
   params: { args: { all?: boolean; layerId?: string }; result: EngineParameter[] };
   getParam: { args: { index: number; layerId?: string }; result: EngineParameter };
   setParam: { args: { index: number; value: number; layerId?: string }; result: EngineParameter };
+  /** Estado completo do plugin (chunk) em base64. */
+  getState: { args: { layerId?: string }; result: EnginePluginStateChunk };
+  /** Aplica um estado completo (chunk) em base64. */
+  setState: { args: { layerId?: string; data: string }; result: EnginePluginStateApplied };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };
   noteOff: { args: { note: number; velocity?: number; channel?: number }; result: null };
   midi: { args: { bytes: number[] }; result: null };

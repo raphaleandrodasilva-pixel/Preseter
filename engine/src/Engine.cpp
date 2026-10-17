@@ -885,6 +885,37 @@ juce::String Engine::getParameter (const juce::String& layerId, int index, juce:
     return {};
 }
 
+juce::String Engine::getPluginState (const juce::String& layerId, juce::var& result) const
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    juce::MemoryBlock state;
+    plugin->getStateInformation (state);
+    result = Obj()
+        .set ("layerId", resolveLayerId (layerId))
+        .set ("data", juce::Base64::toBase64 (state.getData(), state.getSize()));
+    return {};
+}
+
+juce::String Engine::setPluginState (const juce::String& layerId, const juce::String& base64, juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    juce::MemoryOutputStream decoded;
+    if (! juce::Base64::convertFromBase64 (decoded, base64))
+        return utf8 ("Estado do plugin inválido (base64).");
+
+    plugin->setStateInformation (decoded.getData(), (int) decoded.getDataSize());
+    result = Obj()
+        .set ("layerId", resolveLayerId (layerId))
+        .set ("bytes", (int) decoded.getDataSize());
+    return {};
+}
+
 // ---- Grafo ---------------------------------------------------------------------
 void Engine::changeListenerCallback (juce::ChangeBroadcaster*)
 {

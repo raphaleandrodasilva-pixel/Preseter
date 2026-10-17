@@ -113,11 +113,15 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
-  async getPluginState(layerOrPluginId: string): Promise<{ parameters: Record<string, number>; bypass: false } | null> {
+  async getPluginState(
+    layerOrPluginId: string
+  ): Promise<{ data: string; parameters: Record<string, number>; bypass: false } | null> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return null;
+    const chunk = await this.engine.request('getState', { layerId: plugin.layerId });
     const parameters = await this.engine.request('params', { layerId: plugin.layerId });
     return {
+      data: chunk.data,
       parameters: Object.fromEntries(parameters.map((parameter) => [String(parameter.index), parameter.value])),
       bypass: false,
     };
@@ -128,10 +132,18 @@ export class VstManager extends EventEmitter {
     if (!plugin?.layerId) return false;
     if (!state || typeof state !== 'object') throw new TypeError('O estado do plugin precisa ser um objeto.');
 
-    const stateRecord = state as { parameters?: unknown; bypass?: unknown };
+    const stateRecord = state as { data?: unknown; parameters?: unknown; bypass?: unknown };
     if (stateRecord.bypass === true) {
       throw new Error('O engine JUCE ainda não oferece controle de bypass do plugin.');
     }
+
+    // Estado completo (chunk) tem prioridade: restaura também o que não é parâmetro.
+    if (typeof stateRecord.data === 'string' && stateRecord.data.length > 0) {
+      await this.engine.request('setState', { layerId: plugin.layerId, data: stateRecord.data });
+      return true;
+    }
+
+    // Compatibilidade: patches antigos guardavam só os valores dos parâmetros.
     if (stateRecord.parameters === undefined) return true;
     if (!stateRecord.parameters || typeof stateRecord.parameters !== 'object') {
       throw new TypeError('O campo parameters do estado precisa ser um objeto.');
