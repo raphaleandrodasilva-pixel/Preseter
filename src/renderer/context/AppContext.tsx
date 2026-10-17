@@ -21,6 +21,7 @@ import {
   ConcertSyncPayload,
   ConcertSettings,
   ConcertStrip,
+  ConcertMapping,
   ConcertTemplateSummary,
   MenuAction,
 } from '@shared/types';
@@ -38,6 +39,7 @@ interface ConcertSnapshot {
   strips: ConcertStrip[];
   patches: Preset[];
   layout: LayoutConfig;
+  mappings: ConcertMapping[];
 }
 
 export interface AppContextType {
@@ -93,6 +95,9 @@ export interface AppContextType {
   layout: LayoutConfig | null;
   /** Atualiza o layout do concert (Fase 4.1); a persistência vai pelo concert-sync. */
   updateConcertLayout: (layout: LayoutConfig) => void;
+  /** Mappings do concert/set/patch (Fase 4.6). */
+  mappings: ConcertMapping[];
+  updateMappings: (mappings: ConcertMapping[]) => void;
   appStatus: AppStatus;
   isPanelOpen: {
     midi: boolean;
@@ -201,6 +206,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertError, setConcertError] = useState<string | null>(null);
   const [concertSettings, setConcertSettings] = useState<ConcertSettings | null>(null);
   const [concertStrips, setConcertStrips] = useState<ConcertStrip[]>([]);
+  const [concertMappings, setConcertMappings] = useState<ConcertMapping[]>([]);
   const [concertRevision, setConcertRevision] = useState(0);
   const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -234,11 +240,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     presets: false,
   });
 
+  /** Materializa o layout de um patch com o layout/mappings/set atuais. */
+  const materializePatchLayout = useCallback((
+    patch: Preset,
+    layoutOverride?: LayoutConfig | null,
+    mappingsOverride?: ConcertMapping[],
+    setsOverride?: PresetSet[]
+  ) => {
+    const setList = setsOverride ?? sets;
+    const set = patch.setId ? setList.find((item) => item.id === patch.setId) : undefined;
+    return materializeLayout(
+      layoutOverride ?? layout,
+      patch,
+      mappingsOverride ?? concertMappings,
+      set
+    );
+  }, [layout, concertMappings, sets]);
+
   /** Aplica no renderer o estado do concert vindo do main. */
   const applyConcertState = useCallback((state: ConcertState) => {
     setPresets(state.patches.map((preset) => ({
       ...preset,
-      layout: materializeLayout(state.layout, preset),
+      layout: materializePatchLayout(preset, state.layout, state.mappings, state.sets),
     })));
     setSets(state.sets);
     setConcertNameState(state.name);
@@ -247,9 +270,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLayoutState(state.layout);
     setConcertSettings(state.settings);
     setConcertStrips(state.strips ?? []);
+    setConcertMappings(state.mappings ?? []);
     setAppStatus((prev) => ({ ...prev, tempo: state.tempo, currentPresetId: null, currentProgramNumber: 0 }));
     setConcertRevision((revision) => revision + 1);
-  }, []);
+  }, [materializePatchLayout]);
 
   /** Lê os dados do modelo antigo (localStorage) para a migração da Fase 2. */
   const readLegacyConcert = (): { sets?: PresetSet[]; name?: string } => {
@@ -378,24 +402,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  // Layout do concert mudou (edição, undo ou abertura): reaplica nos patches.
+  // Layout/mappings do concert mudaram (edição, undo ou abertura): reaplica nos patches.
   useEffect(() => {
     if (!layout) return;
     setPresets((previous) => previous.map((preset) => ({
       ...preset,
-      layout: materializeLayout(layout, preset),
+      layout: materializePatchLayout(preset),
     })));
     setCurrentPreset((previous) => (previous
-      ? { ...previous, layout: materializeLayout(layout, previous) }
+      ? { ...previous, layout: materializePatchLayout(previous) }
       : previous));
-  }, [layout]);
+  }, [layout, concertMappings, sets, materializePatchLayout]);
 
   // === Preset Actions ===
   const savePreset = useCallback(async (preset: Preset): Promise<boolean> => {
     const stored = withoutLayoutGeometry(preset);
     const result = await window.electronAPI.presetSave(stored);
     if (result) {
-      const savedPatch: Preset = { ...stored, layout: materializeLayout(layout, stored) };
+      const savedPatch: Preset = { ...stored, layout: materializePatchLayout(stored) };
       setPresets((prev) => {
         const existing = prev.findIndex((p) => p.id === savedPatch.id);
         if (existing !== -1) {
@@ -408,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentPreset((current) => (current?.id === savedPatch.id ? savedPatch : current));
     }
     return result;
-  }, [layout]);
+  }, [materializePatchLayout]);
 
   const loadPreset = useCallback(async (presetId: string): Promise<boolean> => {
     let result: boolean;
@@ -434,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const preset = presets.find((p) => p.id === presetId);
       if (preset) {
-        const materialized = { ...preset, layout: materializeLayout(layout, preset) };
+        const materialized = { ...preset, layout: materializePatchLayout(preset) };
         setCurrentPreset(materialized);
         setLayoutState((previous) => previous ?? materialized.layout);
         setAppStatus((prev) => ({
@@ -445,7 +469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     return result;
-  }, [presets, layout]);
+  }, [presets, materializePatchLayout]);
 
   // Reabre o último patch usado, após a lista de patches ter chegado do main.
   useEffect(() => {
@@ -494,6 +518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sets,
         settings: concertSettings,
         strips: concertStrips,
+        mappings: concertMappings,
         ...(layout ? { layout } : {}),
       };
       window.electronAPI
@@ -504,7 +529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout, concertMappings]);
 
   const updateConcertSettings = useCallback((patch: Partial<ConcertSettings>) => {
     setConcertSettings((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -526,11 +551,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSets(snapshot.sets);
     setConcertSettings(snapshot.settings);
     setConcertStrips(snapshot.strips);
+    setConcertMappings(snapshot.mappings);
     setLayoutState(snapshot.layout);
-    setPresets(snapshot.patches.map((preset) => ({
-      ...preset,
-      layout: materializeLayout(snapshot.layout, preset),
-    })));
+    setPresets(snapshot.patches.map((preset) => {
+      const set = preset.setId ? snapshot.sets.find((item) => item.id === preset.setId) : undefined;
+      return {
+        ...preset,
+        layout: materializeLayout(snapshot.layout, preset, snapshot.mappings, set),
+      };
+    }));
   }, []);
 
   // Concert novo/aberto: recomeça o histórico.
@@ -551,11 +580,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         strips: concertStrips,
         patches: presets,
         layout: layout ?? { elements: [], background: null, tempo: appStatus.tempo },
+        mappings: concertMappings,
       };
       if (history.commit(snapshot)) setHistoryVersion((version) => version + 1);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout, history]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout, concertMappings, history]);
 
   const undo = useCallback(() => {
     const previous = history.undo();
@@ -677,7 +707,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stored = withoutLayoutGeometry({ ...preset, updatedAt: Date.now() });
     const ok = await window.electronAPI.presetSave(stored);
     if (ok) {
-      const savedPatch: Preset = { ...stored, layout: materializeLayout(layout, stored) };
+      const savedPatch: Preset = { ...stored, layout: materializePatchLayout(stored) };
       setPresets((prev) => {
         const i = prev.findIndex((p) => p.id === savedPatch.id);
         if (i === -1) return [...prev, savedPatch];
@@ -688,7 +718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentPreset((cur) => (cur?.id === savedPatch.id ? savedPatch : cur));
     }
     return ok;
-  }, [layout]);
+  }, [materializePatchLayout]);
 
   const movePresetToSet = useCallback(async (presetId: string, setId: string | undefined, order?: number): Promise<boolean> => {
     const target = presetsRef.current.find((p) => p.id === presetId);
@@ -707,11 +737,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPresets((prev) => {
       const map = new Map(
-        updates.map((u) => [u.id, { ...u, layout: materializeLayout(layout, u) }])
+        updates.map((u) => [u.id, { ...u, layout: materializePatchLayout(u) }])
       );
       return prev.map((p) => map.get(p.id) ?? p);
     });
-  }, [layout]);
+  }, [materializePatchLayout]);
 
   const togglePresetSkipped = useCallback(async (presetId: string): Promise<boolean> => {
     const target = presetsRef.current.find((p) => p.id === presetId);
@@ -751,11 +781,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPresets((prev) => {
       const map = new Map(
-        updates.map((u) => [u.id, { ...u, layout: materializeLayout(layout, u) }])
+        updates.map((u) => [u.id, { ...u, layout: materializePatchLayout(u) }])
       );
       return prev.map((p) => map.get(p.id) ?? p);
     });
-  }, [sets, layout]);
+  }, [sets, materializePatchLayout]);
 
   // === MIDI Actions ===
   const listMidiDevices = useCallback(async () => {
@@ -1163,7 +1193,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   /** Edita o layout do concert (Fase 4.1). A persistência vai pelo concert-sync. */
   const updateConcertLayout = useCallback((newLayout: LayoutConfig) => {
     setLayoutState(newLayout);
-    setCurrentPreset((prev) => (prev ? { ...prev, layout: materializeLayout(newLayout, prev) } : prev));
+    setCurrentPreset((prev) => (prev ? { ...prev, layout: materializePatchLayout(prev, newLayout) } : prev));
+  }, [materializePatchLayout]);
+
+  const updateMappings = useCallback((next: ConcertMapping[]) => {
+    setConcertMappings(next);
   }, []);
 
   // === App Actions ===
@@ -1223,6 +1257,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     activeNotes,
     layout,
     updateConcertLayout,
+    mappings: concertMappings,
+    updateMappings,
     appStatus,
     isPanelOpen: openPanels,
     savePreset,

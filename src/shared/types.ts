@@ -196,14 +196,38 @@ export interface ConcertMapping {
   id: string;
   /** Mensagem MIDI que dispara o mapeamento. */
   source: MidiBinding;
-  /** Patch alvo; ausente = todos os patches do concert. */
+  /** Set alvo (ausente = concert). */
+  setId?: string;
+  /** Patch alvo (ausente = concert/set). */
   patchId?: string;
   /** Elemento de tela alvo. */
   elementId?: string;
-  /** Parâmetro de plugin alvo. */
+  /** Parâmetro de plugin alvo (sem depender de elemento). */
+  pluginPath?: string;
   pluginId?: string;
   parameterId?: string;
+  /** Faixa do parâmetro de destino (0..1). */
+  mappingMin?: number;
+  mappingMax?: number;
+  /** Don't pass thru: bloqueia o MIDI bruto no motor (Fase 4.5). */
+  midiThru?: boolean;
+  /** Jump/Pickup/Relative (Fase 4.4). */
+  respondToHardwareMove?: 'jump' | 'pickup' | 'relative';
+  /** Ação executada em vez de mover um controle/parâmetro (Fase 4.7). */
+  action?: MappableAction;
 }
+
+/** Ações que podem ser disparadas por um mapping (Fase 4.7). */
+export type MappableAction =
+  | 'panic'
+  | 'master-mute'
+  | 'tap-tempo'
+  | 'next-patch'
+  | 'previous-patch'
+  | 'next-set'
+  | 'play-stop'
+  | 'metronome'
+  | 'current-notes';
 
 /**
  * Documento do concert persistido em `.preseter` (Fase 2.1).
@@ -237,6 +261,8 @@ export interface ConcertState {
   settings: ConcertSettings;
   /** Channel strips do concert, herdados por todos os patches (Fase 3.3). */
   strips: ConcertStrip[];
+  /** Mapeamentos do concert/set/patch (Fase 4.6). */
+  mappings: ConcertMapping[];
   /** Último patch usado, para reabrir já selecionado. */
   lastPatchId: string | null;
 }
@@ -251,6 +277,8 @@ export interface ConcertSyncPayload {
   strips: ConcertStrip[];
   /** Layout do concert (Fase 4.1). */
   layout?: LayoutConfig;
+  /** Mappings do concert/set/patch (Fase 4.6). */
+  mappings?: ConcertMapping[];
 }
 
 /** Dados lembrados entre execuções (userData/session.json). */

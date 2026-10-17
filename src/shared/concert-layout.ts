@@ -6,7 +6,7 @@
  * estas funções também migram esse formato.
  */
 
-import type { LayoutConfig, PatchMapping, Preset, UiElement } from './types';
+import type { ConcertMapping, LayoutConfig, PatchMapping, Preset, PresetSet, UiElement } from './types';
 
 /** Campos de um elemento de tela que são mapping (por patch), não layout. */
 const MAPPING_KEYS = [
@@ -39,18 +39,60 @@ export function extractMappings(layout: LayoutConfig | null | undefined): Record
   return mappings;
 }
 
+/** Converte um mapping de concert/set para o formato por elemento do patch. */
+function mappingToPatchMapping(mapping: ConcertMapping, patch: Preset | null | undefined): PatchMapping {
+  const plugin = mapping.pluginPath
+    ? { path: mapping.pluginPath }
+    : patch?.plugins?.find((assignment) => assignment.pluginId === mapping.pluginId);
+  return {
+    midiCommand: mapping.source,
+    ...(mapping.pluginId ? { pluginId: mapping.pluginId } : {}),
+    ...(plugin?.path ? { pluginPath: plugin.path } : {}),
+    ...(mapping.parameterId ? { parameterId: mapping.parameterId } : {}),
+    ...(mapping.mappingMin !== undefined ? { mappingMin: mapping.mappingMin } : {}),
+    ...(mapping.mappingMax !== undefined ? { mappingMax: mapping.mappingMax } : {}),
+    ...(mapping.midiThru !== undefined ? { midiThru: mapping.midiThru } : {}),
+    ...(mapping.respondToHardwareMove
+      ? { respondToHardwareMove: mapping.respondToHardwareMove }
+      : {}),
+  };
+}
+
+/** Mappings que valem neste patch, do nível mais amplo para o mais específico. */
+export function resolveMappingsForPatch(
+  mappings: ConcertMapping[] | null | undefined,
+  set: PresetSet | null | undefined,
+  patch: Preset | null | undefined
+): Record<string, PatchMapping> {
+  const resolved: Record<string, PatchMapping> = {};
+  for (const mapping of mappings ?? []) {
+    if (!mapping.elementId || mapping.action) continue;
+    const isConcert = !mapping.setId && !mapping.patchId;
+    const isSet = !!set && mapping.setId === set.id && !mapping.patchId;
+    const isPatch = !!patch && mapping.patchId === patch.id;
+    if (!isConcert && !isSet && !isPatch) continue;
+    resolved[mapping.elementId] = mappingToPatchMapping(mapping, patch);
+  }
+  for (const [elementId, mapping] of Object.entries(patch?.mappings ?? {})) {
+    resolved[elementId] = mapping;
+  }
+  return resolved;
+}
+
 /** Aplica os mappings do patch sobre a geometria do layout do concert. */
 export function materializeLayout(
   concertLayout: LayoutConfig | null | undefined,
-  patch: Preset | null | undefined
+  patch: Preset | null | undefined,
+  mappings?: ConcertMapping[] | null,
+  set?: PresetSet | null
 ): LayoutConfig {
   const base = concertLayout ?? { elements: [], background: null, tempo: patch?.layout.tempo ?? 120 };
-  const mappings = patch?.mappings ?? {};
+  const effective = resolveMappingsForPatch(mappings, set, patch);
   return {
     ...base,
     tempo: patch?.layout.tempo ?? base.tempo,
     elements: base.elements.map((element) => {
-      const mapping = mappings[element.id];
+      const mapping = effective[element.id];
       return mapping ? { ...element, ...mapping } : element;
     }),
   };

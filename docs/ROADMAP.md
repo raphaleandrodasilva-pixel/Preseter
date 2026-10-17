@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **23 completos**
+- **25 completos**
 - **8 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **7 não implementados**
+- **5 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -77,8 +77,8 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`) — **Parcial:** faixa mín./máx. e navegador de parâmetros implementados; falta aprender o parâmetro clicando nele.
 - [x] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative.
 - [x] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa).
-- [ ] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`) — **Não implementado:** `ConcertMapping` existe apenas no tipo e no arquivo `.preseter`, sem UI nem runtime.
-- [ ] **4.7 Ações** mapeáveis: Panic, Master Mute, Tap Tempo, próximo/anterior patch, próximo set, Play/Stop, Metrônomo, Notas atuais — **Não implementado.**
+- [x] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`).
+- [x] **4.7 Ações** mapeáveis: Panic, Master Mute, Tap Tempo, próximo/anterior patch, próximo set, Play/Stop, Metrônomo, Notas atuais.
 
 ## Fase 5 — Patch List e biblioteca
 

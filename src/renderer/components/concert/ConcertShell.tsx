@@ -14,6 +14,9 @@ import type {
   VstPluginInfo,
   AudioInputSettings,
   AudioInputState,
+  ConcertMapping,
+  MappableAction,
+  MidiBinding,
 } from '@shared/types';
 import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
 import { defaultAudioInput } from '@shared/audio-input';
@@ -36,12 +39,14 @@ import { ChannelStrips } from './ChannelStrips';
 import { Inspector } from './Inspector';
 import { ConcertSettingsPanel } from './ConcertSettingsPanel';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
+import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { ComposerCanvas } from '../composer/ComposerCanvas';
 import { ControlPalette } from '../composer/ControlPalette';
 import { buildScannedParams } from '../composer/MappingTable';
 import { findPaletteItem, makeElement, snap8, type PaletteItem } from '../composer/elementFactory';
 import { PatchLcd } from '../hardware/PatchLcd';
 import { StageControl } from '../stage/StageControl';
+import type { RawMidiEvent } from '../../services/WebMidiService';
 
 /** Campos de um controle que pertencem ao patch, não ao layout do concert (Fase 4.1). */
 const MAPPING_FIELDS = new Set<keyof UiElement>([
@@ -57,6 +62,38 @@ const MAPPING_FIELDS = new Set<keyof UiElement>([
   'mappingMax',
   'respondToHardwareMove',
 ]);
+
+/** Chave única da origem MIDI, para resolver overrides por nível. */
+function mappingSourceKey(source: MidiBinding): string {
+  const number = source.type === 'cc'
+    ? source.controllerNumber ?? -1
+    : source.type === 'note'
+      ? source.controllerNumber ?? -1
+      : source.type === 'pc'
+        ? source.programNumber ?? -1
+        : 0;
+  return `${source.type}:${source.channel}:${number}`;
+}
+
+/** true quando a mensagem de hardware casa com a origem do mapping. */
+function matchesMappingSource(source: MidiBinding, event: RawMidiEvent): boolean {
+  if ((source.channel ?? 0) !== event.channel) return false;
+  switch (source.type) {
+    case 'cc':
+      return event.kind === 'cc' && event.number === source.controllerNumber;
+    case 'note':
+      return event.kind === 'note' && event.number === source.controllerNumber;
+    case 'pc':
+      return event.kind === 'pc' && event.number === source.programNumber;
+    case 'pitch':
+      return event.kind === 'pitch';
+    case 'aftertouch':
+      return event.kind === 'aftertouch'
+        && (!source.controllerNumber || source.controllerNumber === event.number);
+    default:
+      return false;
+  }
+}
 
 interface ConcertShellProps {  mode: ConcertMode;
   onModeChange: (mode: ConcertMode) => void;
@@ -139,7 +176,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
-    concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout,
+    concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout, mappings, updateMappings,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -149,8 +186,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const liveValuesRef = useRef(liveValues);
   liveValuesRef.current = liveValues;
   const hardwareStateRef = useRef<Map<string, { lastRaw?: number; picked?: boolean }>>(new Map());
+  const executeActionRef = useRef<(action: MappableAction) => void>(() => undefined);
+  const tapTimesRef = useRef<number[]>([]);
+  const [actionNotice, setActionNotice] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const [mappingsOpen, setMappingsOpen] = useState(false);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
@@ -503,14 +544,63 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           }
         }
       }
+
+      const set = preset?.setId ? sets.find((item) => item.id === preset.setId) : undefined;
+      const inScope = (mapping: ConcertMapping) =>
+        mapping.patchId
+          ? mapping.patchId === preset?.id
+          : mapping.setId
+            ? mapping.setId === set?.id
+            : true;
+
+      // Ações mapeáveis (Fase 4.7): o nível mais específico vence a mesma origem.
+      const actions = new Map<string, { mapping: ConcertMapping; specificity: number }>();
+      for (const mapping of mappings) {
+        if (!mapping.action || !inScope(mapping)) continue;
+        const key = mappingSourceKey(mapping.source);
+        const specificity = mapping.patchId ? 0 : mapping.setId ? 1 : 2;
+        const current = actions.get(key);
+        if (!current || specificity < current.specificity) actions.set(key, { mapping, specificity });
+      }
+      for (const { mapping } of actions.values()) {
+        if (matchesMappingSource(mapping.source, event)) {
+          executeActionRef.current(mapping.action as MappableAction);
+        }
+      }
+
+      // Mappings direto para parâmetro, sem controle de tela (Fase 4.6).
+      const eventNormalized =
+        event.kind === 'cc' || event.kind === 'aftertouch'
+          ? event.value / 127
+          : event.kind === 'pitch'
+            ? event.value / 16383
+            : event.value > 0
+              ? 1
+              : 0;
+      for (const mapping of mappings) {
+        if (mapping.action || mapping.elementId || !inScope(mapping)) continue;
+        if (!matchesMappingSource(mapping.source, event)) continue;
+        const pluginPath = mapping.pluginPath
+          ?? preset?.plugins?.find((assignment) => assignment.pluginId === mapping.pluginId)?.path;
+        if (!pluginPath || !mapping.parameterId) continue;
+        const mappingMin = mapping.mappingMin ?? 0;
+        const mappingMax = mapping.mappingMax ?? 1;
+        onSetVstParameter(
+          pluginPath,
+          mapping.parameterId,
+          mappingMin + eventNormalized * (mappingMax - mappingMin)
+        );
+      }
     });
     return unsubscribe;
-  }, [subscribeMidiLearn, onSetVstParameter]);
+  }, [subscribeMidiLearn, onSetVstParameter, mappings, sets]);
 
   // Don't pass thru: bloqueia no motor as mensagens usadas só como assignment (Fase 4.5).
   useEffect(() => {
     const blocked = [];
-    for (const element of (draft ?? currentPreset)?.layout.elements ?? []) {
+    const preset = draft ?? currentPreset;
+    const set = preset?.setId ? sets.find((item) => item.id === preset.setId) : undefined;
+    for (const element of preset?.layout.elements ?? []) {
       const binding = element.midiCommand;
       if (!binding || element.midiThru !== false) continue;
       const number = binding.type === 'cc'
@@ -522,13 +612,37 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             : 0;
       blocked.push({ type: binding.type, channel: binding.channel ?? 0, number });
     }
+    for (const mapping of mappings) {
+      if (mapping.midiThru !== false) continue;
+      const inScope = mapping.patchId
+        ? mapping.patchId === preset?.id
+        : mapping.setId
+          ? mapping.setId === set?.id
+          : true;
+      if (!inScope) continue;
+      const binding = mapping.source;
+      const number = binding.type === 'cc'
+        ? binding.controllerNumber ?? 0
+        : binding.type === 'note'
+          ? binding.controllerNumber ?? 60
+          : binding.type === 'pc'
+            ? binding.programNumber ?? 0
+            : 0;
+      blocked.push({ type: binding.type, channel: binding.channel ?? 0, number });
+    }
     void setMidiThruBlocked(blocked);
-  }, [draft, currentPreset, setMidiThruBlocked]);
+  }, [draft, currentPreset, sets, mappings, setMidiThruBlocked]);
 
   useEffect(() => {
     setLiveValues({});
     hardwareStateRef.current.clear();
   }, [currentPreset?.id, draft?.id]);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = window.setTimeout(() => setActionNotice(''), 2500);
+    return () => window.clearTimeout(timer);
+  }, [actionNotice]);
 
   const baseElements = useMemo(() => (draft ?? currentPreset)?.layout.elements ?? [], [draft, currentPreset]);
   const displayElements = useMemo(
@@ -1236,6 +1350,80 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const panic = () => { void enginePanic(); };
   const toggleMasterMute = () => { void setVstMasterMix({ muted: !masterMuted }); };
 
+  /** Executa as ações mapeáveis do 4.7 (chamado pelo listener de hardware). */
+  executeActionRef.current = (action: MappableAction) => {
+    switch (action) {
+      case 'panic':
+        panic();
+        setActionNotice('Panic');
+        break;
+      case 'master-mute':
+        toggleMasterMute();
+        setActionNotice(masterMuted ? 'Master desmutado' : 'Master mudo');
+        break;
+      case 'tap-tempo': {
+        const now = Date.now();
+        tapTimesRef.current = [...tapTimesRef.current.filter((time) => now - time < 3000), now];
+        if (tapTimesRef.current.length >= 2) {
+          const taps = tapTimesRef.current;
+          const intervals = taps.slice(1).map((time, index) => time - taps[index]);
+          const average = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+          const tempo = Math.max(20, Math.min(300, Math.round(60000 / average)));
+          void setAppStatus({ tempo });
+          setActionNotice(`Tap Tempo: ${tempo} BPM`);
+        } else {
+          setActionNotice('Tap Tempo…');
+        }
+        break;
+      }
+      case 'next-patch':
+      case 'previous-patch': {
+        const ordered = [...presets]
+          .sort((a, b) => a.programNumber - b.programNumber)
+          .filter((patch) => !patch.skipped);
+        const index = ordered.findIndex((patch) => patch.id === currentPreset?.id);
+        const next = action === 'next-patch' ? ordered[index + 1] : ordered[index - 1];
+        if (next) onSelectPreset(next);
+        break;
+      }
+      case 'next-set': {
+        const orderedSets = [...sets].sort((a, b) => a.order - b.order).filter((set) => !set.skipped);
+        const index = orderedSets.findIndex((set) => set.id === currentSet?.id);
+        const nextSet = orderedSets[index + 1];
+        const next = nextSet
+          ? presets
+              .filter((patch) => patch.setId === nextSet.id && !patch.skipped)
+              .sort((a, b) => (a.setOrder ?? 0) - (b.setOrder ?? 0))[0]
+          : undefined;
+        if (next) onSelectPreset(next);
+        break;
+      }
+      case 'play-stop':
+        void setAppStatus({ isPlaying: !appStatus.isPlaying });
+        setActionNotice(appStatus.isPlaying ? 'Stop' : 'Play');
+        break;
+      case 'metronome': {
+        const enabled = !(concertSettings?.metronome.enabled ?? appStatus.isMetronomeOn);
+        if (concertSettings) {
+          updateConcertSettings({ metronome: { ...concertSettings.metronome, enabled } });
+        } else {
+          void setAppStatus({ isMetronomeOn: enabled });
+        }
+        setActionNotice(enabled ? 'Metrônomo ligado' : 'Metrônomo desligado');
+        break;
+      }
+      case 'current-notes':
+        setActionNotice(
+          activeNotes.size > 0
+            ? `Notas atuais: ${[...activeNotes].sort((a, b) => a - b).join(', ')}`
+            : 'Nenhuma nota ativa'
+        );
+        break;
+      default:
+        break;
+    }
+  };
+
   // Modos: 1/2 = Layout/Edit (em janela), 3 = Perform (em janela), 4 = Perform em tela cheia.
   const changeMode = (next: ConcertMode) => {
     void window.electronAPI.windowSetFullscreen(false);
@@ -1254,6 +1442,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); changeMode('edit'); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); changeMode('perform'); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); enterPerformFullscreen(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setMappingsOpen((open) => !open);
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
       if (target?.closest('input,select,textarea')) return;
@@ -1565,12 +1758,26 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         <span>Patches: {presets.length} · Sets: {sets.length}</span>
         {midiLastMessage && <span className="truncate" style={{ color: '#30D158' }}>{midiLastMessage}</span>}
         {toast && <span className="truncate" style={{ color: '#EDEDEF' }}>{toast}</span>}
+        {actionNotice && <span className="truncate" style={{ color: '#FFD60A' }}>{actionNotice}</span>}
         <span className="ml-auto" style={{ color: ctx.audioDevices?.running ? '#30D158' : '#9A9AA0' }}>
           {ctx.audioDevices?.running ? 'Áudio ativo' : 'Áudio parado — configure em Configurações'}
         </span>
       </div>
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
+      )}
+      {mappingsOpen && (
+        <AssignmentsMappingsTable
+          mappings={mappings}
+          presets={presets}
+          sets={sets}
+          currentPatch={currentPreset}
+          currentSet={currentSet ?? null}
+          layout={layout}
+          scannedPlugins={scannedPlugins}
+          onChange={updateMappings}
+          onClose={() => setMappingsOpen(false)}
+        />
       )}
     </div>
   );
