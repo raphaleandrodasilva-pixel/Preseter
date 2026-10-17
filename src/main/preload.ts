@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstGetState: (pluginId: string) => ipcRenderer.invoke('vst-get-state', pluginId),
   vstSetState: (pluginId: string, state: any) =>
     ipcRenderer.invoke('vst-set-state', pluginId, state),
+  vstOpenEditor: (pluginId: string) => ipcRenderer.invoke('vst-open-editor', pluginId),
+  vstCloseEditor: (pluginId: string) => ipcRenderer.invoke('vst-close-editor', pluginId),
   vstList: () => ipcRenderer.invoke('vst-list'),
   vstLoaded: () => ipcRenderer.invoke('vst-loaded'),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),

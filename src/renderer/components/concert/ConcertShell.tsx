@@ -100,13 +100,34 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     resetProgramNumbers, deletePreset, activeNotes, sendMidiMessage,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix,
+    openVstEditor, closeVstEditor,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  /** Abre/fecha a janela nativa do plugin do layer (tecla V ou botão do channel strip). */
+  const togglePluginEditor = (layerId: string) => {
+    if (openEditors.has(layerId)) {
+      void closeVstEditor(layerId).then((closed) => {
+        if (!closed) return;
+        setOpenEditors((previous) => {
+          const next = new Set(previous);
+          next.delete(layerId);
+          return next;
+        });
+      });
+      return;
+    }
+    void openVstEditor(layerId).then((opened) => {
+      if (!opened) return;
+      setOpenEditors((previous) => new Set(previous).add(layerId));
+    });
+  };
 
   const activePreset = draft ?? currentPreset;
   const scannedParams = useMemo(() => buildScannedParams(scannedPlugins), [scannedPlugins]);
@@ -330,11 +351,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) { e.preventDefault(); removeElement(selectedId); }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedId) { e.preventDefault(); duplicateElement(selectedId); }
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'v' && selectedLayerId) {
+        e.preventDefault();
+        togglePluginEditor(selectedLayerId);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedId, draft, presets, currentPreset]);
+  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors]);
 
   const panic = () => {
     // All Notes Off em todos os canais
@@ -541,6 +566,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onRemove={removeLayer}
             onCopy={copyLayer}
             onSelectedLayerChange={setSelectedLayerId}
+            onOpenEditor={togglePluginEditor}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}
             onSetLayerMix={(layerId, update) => void changeLayerMix(layerId, update)}
             onSetMasterMix={(update) => void changeMasterMix(update)}

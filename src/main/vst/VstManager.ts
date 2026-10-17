@@ -127,6 +127,22 @@ export class VstManager extends EventEmitter {
     };
   }
 
+  /** Abre (ou traz para a frente) a janela nativa de edição do plugin. */
+  async openPluginEditor(layerOrPluginId: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('openEditor', { layerId: plugin.layerId });
+    return result.open === true;
+  }
+
+  /** Fecha a janela nativa de edição do plugin, se estiver aberta. */
+  async closePluginEditor(layerOrPluginId: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('closeEditor', { layerId: plugin.layerId });
+    return result.open === false;
+  }
+
   async setPluginState(layerOrPluginId: string, state: unknown): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;

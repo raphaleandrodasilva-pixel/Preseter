@@ -19,6 +19,7 @@ interface ChannelStripsProps {
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
   onCopy: (assignment: PresetPluginAssignment, layerId: string) => Promise<boolean>;
   onSelectedLayerChange?: (layerId: string | null) => void;
+  onOpenEditor?: (layerId: string) => void;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
   onSetLayerMix: (layerId: string, update: LayerMixUpdate) => void;
   onSetMasterMix: (update: MasterMixUpdate) => void;
@@ -38,6 +39,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onRemove,
   onCopy,
   onSelectedLayerChange,
+  onOpenEditor,
   onSetParameter,
   onSetLayerMix,
   onSetMasterMix,
@@ -185,6 +187,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
                   Insert: {loaded ? 'VST3' : 'Carregando…'}
                 </div>
+                <button
+                  className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
+                  style={{ background: '#3A3A3C', color: '#E5E5EA' }}
+                  disabled={!loaded}
+                  title="Abrir/fechar a janela do plugin (V)"
+                  onClick={(event) => { event.stopPropagation(); onOpenEditor?.(layerId); }}
+                >
+                  Editor (V)
+                </button>
                 <div className="mt-2 flex items-center justify-center gap-2">
                   <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label={`${assignment.name} peak`} aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, mix.peakDb)}>
                     <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#30D158' }} />

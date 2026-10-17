@@ -152,6 +152,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |
 | `getState` | `layerId?` | Estado completo do plugin (`getStateInformation`) codificado em base64 |
 | `setState` | `layerId?`, `data` | Aplica um estado completo (base64) via `setStateInformation` |
+| `openEditor` | `layerId?` | Abre (ou traz para a frente) a janela de edição nativa do plugin |
+| `closeEditor` | `layerId?` | Fecha a janela de edição do plugin |
 | `noteOn` / `noteOff` | `note`, `velocity?`, `channel?` | Envia nota MIDI |
 | `midi` | `bytes` (1 a 3) | Envia MIDI cru |
 | `panic` | — | All notes off + all sound off nos 16 canais |

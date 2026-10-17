@@ -216,6 +216,8 @@ Engine::Engine()
 Engine::~Engine()
 {
     *aliveFlag = false;
+    // Fecha as janelas de edição antes de destruir os plugins (o editor as referencia).
+    editorWindows.clear();
     stopTimer();
     deviceManager.removeChangeListener (this);
     stopAudio();
@@ -785,6 +787,7 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
     if (index < 0)
         return false;
     const auto layer = layers[(size_t) index];
+    destroyEditorWindow (layer.id);
     graph.removeNode (layer.pluginNode->nodeID);
     graph.removeNode (layer.midiFilterNode->nodeID);
     graph.removeNode (layer.stripNode->nodeID);
@@ -914,6 +917,56 @@ juce::String Engine::setPluginState (const juce::String& layerId, const juce::St
         .set ("layerId", resolveLayerId (layerId))
         .set ("bytes", (int) decoded.getDataSize());
     return {};
+}
+
+juce::String Engine::openPluginEditor (const juce::String& layerId, juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    const auto resolved = resolveLayerId (layerId);
+
+    if (auto existing = editorWindows.find (resolved); existing != editorWindows.end())
+    {
+        existing->second->toFront (true);
+        result = Obj().set ("layerId", resolved).set ("open", true);
+        return {};
+    }
+
+    auto* editor = plugin->createEditorIfNeeded();
+    if (editor == nullptr)
+        return utf8 ("Este plugin não tem janela de edição.");
+
+    std::weak_ptr<bool> alive = aliveFlag;
+    editorWindows[resolved] = std::make_unique<PluginEditorWindow> (
+        plugin->getName(), editor,
+        [this, alive, resolved]
+        {
+            if (auto stillAlive = alive.lock(); stillAlive != nullptr && *stillAlive)
+                destroyEditorWindow (resolved);
+        });
+
+    result = Obj().set ("layerId", resolved).set ("open", true);
+    return {};
+}
+
+juce::String Engine::closePluginEditor (const juce::String& layerId, juce::var& result)
+{
+    const auto resolved = resolveLayerId (layerId);
+    destroyEditorWindow (resolved);
+    result = Obj().set ("layerId", resolved).set ("open", false);
+    return {};
+}
+
+bool Engine::destroyEditorWindow (const juce::String& layerId)
+{
+    const auto it = editorWindows.find (layerId);
+    if (it == editorWindows.end())
+        return false;
+
+    editorWindows.erase (it);
+    return true;
 }
 
 // ---- Grafo ---------------------------------------------------------------------

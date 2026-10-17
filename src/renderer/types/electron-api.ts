@@ -30,6 +30,8 @@ export interface ElectronAPI {
   vstSetParam: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
   vstGetState: (pluginId: string) => Promise<any>;
   vstSetState: (pluginId: string, state: any) => Promise<boolean>;
+  vstOpenEditor: (pluginId: string) => Promise<boolean>;
+  vstCloseEditor: (pluginId: string) => Promise<boolean>;
   vstList: () => Promise<any[]>;
   vstLoaded: () => Promise<any[]>;
   engineMidi: (bytes: number[]) => Promise<boolean>;

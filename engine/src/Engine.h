@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <functional>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -61,6 +62,11 @@ public:
     juce::String setPluginState (const juce::String& layerId, const juce::String& base64,
                                  juce::var& result);
 
+    /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer. */
+    juce::String openPluginEditor (const juce::String& layerId, juce::var& result);
+    /** Fecha a janela de edição do plugin do layer, se estiver aberta. */
+    juce::String closePluginEditor (const juce::String& layerId, juce::var& result);
+
     juce::var describeAudioConfiguration();
     juce::String audioConfigurationError();
     juce::var describeMixState() const;
@@ -83,6 +89,7 @@ private:
     juce::String resolveLayerId (const juce::String& layerId) const;
     int findLayer (const juce::String& layerId) const;
     juce::var pluginToVar (const juce::PluginDescription& description) const;
+    bool destroyEditorWindow (const juce::String& layerId);
 
     bool beginNextScanFormat();
     void finishScan();
@@ -108,6 +115,33 @@ private:
     };
     std::vector<Layer> layers;
     juce::StringArray loadingLayerIds;
+
+    /** Janela nativa de edição de um plugin. Fecha via botão e avisa o Engine. */
+    struct PluginEditorWindow final : juce::DocumentWindow
+    {
+        PluginEditorWindow (const juce::String& title, juce::AudioProcessorEditor* editor,
+                            std::function<void()> onCloseCallback)
+            : juce::DocumentWindow (title, juce::Colours::black, juce::DocumentWindow::closeButton),
+              onClose (std::move (onCloseCallback))
+        {
+            setUsingNativeTitleBar (true);
+            setContentOwned (editor, true);
+            setResizable (true, false);
+            centreWithSize (getWidth(), getHeight());
+            setVisible (true);
+        }
+
+        void closeButtonPressed() override
+        {
+            if (onClose != nullptr)
+                juce::MessageManager::callAsync (onClose);
+        }
+
+        std::function<void()> onClose;
+    };
+
+    /** Declarado depois de `layers` para ser destruído antes dos plugins. */
+    std::map<juce::String, std::unique_ptr<PluginEditorWindow>> editorWindows;
 
     juce::File dataDirectory, knownPluginsFile, deadMansFile;
 

@@ -72,6 +72,8 @@ export interface AppContextType {
   loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
   setVstParameter: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
+  openVstEditor: (pluginId: string) => Promise<boolean>;
+  closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
@@ -594,6 +596,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     []
   );
 
+  const openVstEditor = useCallback(async (pluginId: string): Promise<boolean> => {
+    try {
+      const opened = await window.electronAPI.vstOpenEditor(pluginId);
+      setMidiError(opened ? null : 'Este plugin não tem janela de edição.');
+      return opened;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao abrir a janela do plugin.');
+      return false;
+    }
+  }, []);
+
+  const closeVstEditor = useCallback(async (pluginId: string): Promise<boolean> => {
+    try {
+      return await window.electronAPI.vstCloseEditor(pluginId);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao fechar a janela do plugin.');
+      return false;
+    }
+  }, []);
+
   const setVstLayerRange = useCallback(async (layerId: string, minNote: number, maxNote: number) => {
     try {
       const updated = await window.electronAPI.vstSetLayerRange(layerId, minNote, maxNote);
@@ -789,6 +811,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadVstPlugin,
     unloadVstPlugin,
     setVstParameter,
+    openVstEditor,
+    closeVstEditor,
     setVstLayerRange,
     setVstLayerMix,
     setVstMasterMix,

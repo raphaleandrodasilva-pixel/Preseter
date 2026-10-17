@@ -155,6 +155,14 @@ class MainWindow {
       return this.vstManager.setPluginState(pluginId, state);
     });
 
+    ipcMain.handle('vst-open-editor', (_event, pluginId: string) => {
+      return this.vstManager.openPluginEditor(pluginId);
+    });
+
+    ipcMain.handle('vst-close-editor', (_event, pluginId: string) => {
+      return this.vstManager.closePluginEditor(pluginId);
+    });
+
     ipcMain.handle('vst-list', () => {
       return this.vstManager.getScannedPlugins();
     });

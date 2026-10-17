@@ -93,6 +93,12 @@ export interface EnginePluginStateApplied {
   bytes: number;
 }
 
+/** Estado da janela nativa de edição de um plugin. */
+export interface EngineEditorState {
+  layerId: string;
+  open: boolean;
+}
+
 export interface EngineScanResult {
   count: number;
   plugins: EnginePluginInfo[];
@@ -147,6 +153,10 @@ export interface EngineCommands {
   getState: { args: { layerId?: string }; result: EnginePluginStateChunk };
   /** Aplica um estado completo (chunk) em base64. */
   setState: { args: { layerId?: string; data: string }; result: EnginePluginStateApplied };
+  /** Abre (ou traz para a frente) a janela de edição do plugin. */
+  openEditor: { args: { layerId?: string }; result: EngineEditorState };
+  /** Fecha a janela de edição do plugin. */
+  closeEditor: { args: { layerId?: string }; result: EngineEditorState };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };
   noteOff: { args: { note: number; velocity?: number; channel?: number }; result: null };
   midi: { args: { bytes: number[] }; result: null };
