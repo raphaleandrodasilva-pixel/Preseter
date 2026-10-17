@@ -116,7 +116,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     presets, sets, concertName, setConcertName,
     currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
-    movePresetToSet, reorderPatchesInSet, reorderSets, togglePresetSkipped,
+    reorderSets, togglePresetSkipped, savePreset,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
@@ -153,6 +153,166 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
 
   const activePreset = draft ?? currentPreset;
+  /** Patches copiados na Patch List (Fase 5.1). */
+  const patchClipboard = useRef<Preset[]>([]);
+
+  const deepClonePreset = (preset: Preset): Preset =>
+    typeof structuredClone === 'function'
+      ? structuredClone(preset)
+      : JSON.parse(JSON.stringify(preset));
+
+  /** Cria a cópia de um patch com id novo, preservando plugins, layout e mappings. */
+  const clonePatch = (
+    source: Preset,
+    setId: string | undefined,
+    programNumber: number,
+    name?: string
+  ): Preset => ({
+    ...deepClonePreset(source),
+    id: `preset_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: name ?? source.name,
+    setId,
+    setOrder: 0,
+    programNumber,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  const patchesOfSet = (setId: string | undefined): Preset[] =>
+    presets
+      .filter((preset) => (preset.setId ?? undefined) === setId)
+      .sort((a, b) => (a.setOrder ?? a.programNumber) - (b.setOrder ?? b.programNumber));
+
+  const freeProgramNumbers = (): number[] => {
+    const used = new Set(presets.map((preset) => preset.programNumber));
+    const free: number[] = [];
+    for (let program = 0; program < 128; program += 1) {
+      if (!used.has(program)) free.push(program);
+    }
+    return free;
+  };
+
+  /** Grava a nova ordem de uma ou mais listas (sets), ajustando setOrder/setId. */
+  const persistPatchLists = async (lists: Map<string | undefined, Preset[]>) => {
+    for (const [setId, list] of lists) {
+      for (let index = 0; index < list.length; index += 1) {
+        const preset = list[index];
+        const belongs = (preset.setId ?? undefined) === setId;
+        if (belongs && preset.setOrder === index) continue;
+        await savePreset({ ...preset, setId, setOrder: index, updatedAt: Date.now() });
+      }
+    }
+  };
+
+  /** Copia a seleção da Patch List para a área de transferência interna. */
+  const copyPatches = (ids: string[]) => {
+    const byId = new Map(presets.map((preset) => [preset.id, preset]));
+    patchClipboard.current = ids
+      .map((id) => byId.get(id))
+      .filter((preset): preset is Preset => !!preset)
+      .map(deepClonePreset);
+  };
+
+  /** Cola os patches copiados no set indicado, logo depois de `afterId`. */
+  const pastePatches = async (
+    setId: string | undefined,
+    afterId: string | null
+  ): Promise<string[]> => {
+    const originals = patchClipboard.current;
+    if (originals.length === 0) return [];
+    const free = freeProgramNumbers();
+    const list = patchesOfSet(setId);
+    const afterIndex = afterId ? list.findIndex((preset) => preset.id === afterId) : -1;
+    const insertAt = afterIndex === -1 ? list.length : afterIndex + 1;
+    const copies = originals.map((source) =>
+      clonePatch(source, setId, free.shift() ?? source.programNumber)
+    );
+    const next = [...list.slice(0, insertAt), ...copies, ...list.slice(insertAt)];
+    await persistPatchLists(new Map([[setId, next]]));
+    return copies.map((copy) => copy.id);
+  };
+
+  /** Duplica os patches selecionados, inserindo cada cópia logo abaixo do original. */
+  const duplicatePatches = async (ids: string[]): Promise<string[]> => {
+    const idSet = new Set(ids);
+    const affected = new Set<string | undefined>();
+    for (const preset of presets) {
+      if (idSet.has(preset.id)) affected.add(preset.setId ?? undefined);
+    }
+    const free = freeProgramNumbers();
+    const lists = new Map<string | undefined, Preset[]>();
+    const created: string[] = [];
+    for (const setId of affected) {
+      const next: Preset[] = [];
+      for (const preset of patchesOfSet(setId)) {
+        next.push(preset);
+        if (!idSet.has(preset.id)) continue;
+        const copy = clonePatch(
+          preset,
+          setId,
+          free.shift() ?? preset.programNumber,
+          `${preset.name} (cópia)`
+        );
+        next.push(copy);
+        created.push(copy.id);
+      }
+      lists.set(setId, next);
+    }
+    await persistPatchLists(lists);
+    return created;
+  };
+
+  const deletePatches = async (ids: string[]): Promise<void> => {
+    for (const id of ids) await deletePreset(id);
+  };
+
+  /**
+   * Move (ou copia, com Option) os patches para antes de `beforeId` no set de
+   * destino. `beforeId` nulo significa fim do set.
+   */
+  const movePatches = async (
+    ids: string[],
+    setId: string | undefined,
+    beforeId: string | null,
+    copy: boolean
+  ): Promise<string[]> => {
+    const idSet = new Set(ids);
+    const affected = new Set<string | undefined>();
+    for (const preset of presets) {
+      if (idSet.has(preset.id)) affected.add(preset.setId ?? undefined);
+    }
+    affected.add(setId);
+
+    const lists = new Map<string | undefined, Preset[]>();
+    for (const key of affected) lists.set(key, patchesOfSet(key));
+    if (!copy) {
+      for (const list of lists.values()) {
+        for (let index = list.length - 1; index >= 0; index -= 1) {
+          if (idSet.has(list[index].id)) list.splice(index, 1);
+        }
+      }
+    }
+
+    const targetList = lists.get(setId) ?? [];
+    if (!lists.has(setId)) lists.set(setId, targetList);
+    const targetIndex = beforeId
+      ? targetList.findIndex((preset) => preset.id === beforeId)
+      : -1;
+    const insertAt = targetIndex === -1 ? targetList.length : targetIndex;
+    const free = freeProgramNumbers();
+    const moved: Preset[] = [];
+    for (const id of ids) {
+      const source = presets.find((preset) => preset.id === id);
+      if (!source) continue;
+      moved.push(
+        copy ? clonePatch(source, setId, free.shift() ?? source.programNumber) : source
+      );
+    }
+    targetList.splice(insertAt, 0, ...moved);
+    await persistPatchLists(lists);
+    return moved.map((preset) => preset.id);
+  };
+
   const scannedParams = useMemo(() => buildScannedParams(scannedPlugins), [scannedPlugins]);
   const midiInputNames = useMemo(
     () => midiDevices.filter((device) => device.type === 'input').map((device) => device.name),
@@ -817,6 +977,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
       if (target?.closest('input,select,textarea')) return;
+      // Atalhos da Patch List (copiar, colar, duplicar, deletar patches) são
+      // tratados pelo próprio componente quando ele tem o foco.
+      if (target?.closest('[data-patch-list]')) return;
       if (e.key.toLowerCase() === 'f') {
         const input = document.querySelector('aside input[placeholder*="Buscar"]') as HTMLInputElement | null;
         if (input) { e.preventDefault(); input.focus(); }
@@ -967,11 +1130,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onToggleSetExpanded={toggleSetExpanded}
           onToggleSetSkipped={toggleSetSkipped}
           onTogglePresetSkipped={(id) => void togglePresetSkipped(id)}
-          onMovePresetToSet={(pid, sid) => void movePresetToSet(pid, sid)}
-          onReorderPatches={(sid, ids) => void reorderPatchesInSet(sid, ids)}
           onReorderSets={reorderSets}
           onResetProgramNumbers={() => void resetProgramNumbers()}
-          onDeletePreset={(id) => void deletePreset(id)}
+          onCopyPatches={copyPatches}
+          onPastePatches={pastePatches}
+          onDuplicatePatches={duplicatePatches}
+          onDeletePatches={deletePatches}
+          onMovePatches={movePatches}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b px-4 py-1.5 text-xs" style={{ borderColor: '#303032' }}>

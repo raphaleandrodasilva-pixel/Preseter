@@ -76,7 +76,7 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 ## Fase 5 — Patch List e biblioteca
 
-- [ ] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
+- [x] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
 - [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
 - [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
 - [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
