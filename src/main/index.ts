@@ -11,6 +11,7 @@ import {
   PresetSet,
   VstPluginInfo,
   MidiBinding,
+  MidiThruBlock,
   AppStatus,
   AudioInputSettings,
   ElectronChannels,
@@ -254,6 +255,10 @@ class MainWindow {
 
     ipcMain.handle('audio-input-state', () => {
       return this.vstManager.getAudioInputState();
+    });
+
+    ipcMain.handle('midi-thru-set', (_event, blocked: MidiThruBlock[]) => {
+      return this.vstManager.setMidiThru(Array.isArray(blocked) ? blocked : []);
     });
 
     ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());

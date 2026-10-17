@@ -55,6 +55,7 @@ const MAPPING_FIELDS = new Set<keyof UiElement>([
   'velocity',
   'mappingMin',
   'mappingMax',
+  'respondToHardwareMove',
 ]);
 
 interface ConcertShellProps {  mode: ConcertMode;
@@ -136,7 +137,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
-    openVstEditor, closeVstEditor, setAudioInput, getAudioInputState,
+    openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout,
   } = ctx;
@@ -145,6 +146,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const currentPresetRef = useRef(currentPreset);
   currentPresetRef.current = currentPreset;
   const [liveValues, setLiveValues] = useState<Record<string, number>>({});
+  const liveValuesRef = useRef(liveValues);
+  liveValuesRef.current = liveValues;
+  const hardwareStateRef = useRef<Map<string, { lastRaw?: number; picked?: boolean }>>(new Map());
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
@@ -455,19 +459,75 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         };
 
         if (binding.type === 'cc' && event.kind === 'cc' && binding.controllerNumber === event.number) {
-          applyValue(event.value / 127);
+          const hardwareNorm = event.value / 127;
+          const mode = element.respondToHardwareMove ?? 'jump';
+          const live = liveValuesRef.current[element.id];
+          const currentNorm = live !== undefined
+            ? (live - min) / Math.max(max - min, Number.EPSILON)
+            : (element.value ?? 0.5);
+          const state = hardwareStateRef.current.get(element.id) ?? {};
+
+          if (mode === 'relative') {
+            const last = state.lastRaw ?? event.value;
+            applyValue(currentNorm + (event.value - last) / 127);
+          } else if (mode === 'pickup') {
+            let picked = state.picked === true;
+            if (!picked) {
+              const target = currentNorm * 127;
+              const crossed = state.lastRaw !== undefined
+                && ((state.lastRaw < target && event.value >= target)
+                  || (state.lastRaw > target && event.value <= target));
+              if (Math.abs(event.value - target) < 4 || crossed) {
+                picked = true;
+                applyValue(hardwareNorm);
+              }
+            } else {
+              applyValue(hardwareNorm);
+            }
+            state.picked = picked;
+          } else {
+            applyValue(hardwareNorm);
+          }
+
+          state.lastRaw = event.value;
+          hardwareStateRef.current.set(element.id, state);
         } else if (binding.type === 'note' && event.kind === 'note' && binding.controllerNumber === event.number) {
           applyValue(event.value > 0 ? 1 : 0);
         } else if (binding.type === 'pc' && event.kind === 'pc' && binding.programNumber === event.number) {
           applyValue(1);
+        } else if (binding.type === 'pitch' && event.kind === 'pitch') {
+          applyValue(event.value / 16383);
+        } else if (binding.type === 'aftertouch' && event.kind === 'aftertouch') {
+          if (!binding.controllerNumber || binding.controllerNumber === event.number) {
+            applyValue(event.value / 127);
+          }
         }
       }
     });
     return unsubscribe;
   }, [subscribeMidiLearn, onSetVstParameter]);
 
+  // Don't pass thru: bloqueia no motor as mensagens usadas só como assignment (Fase 4.5).
+  useEffect(() => {
+    const blocked = [];
+    for (const element of (draft ?? currentPreset)?.layout.elements ?? []) {
+      const binding = element.midiCommand;
+      if (!binding || element.midiThru !== false) continue;
+      const number = binding.type === 'cc'
+        ? binding.controllerNumber ?? 0
+        : binding.type === 'note'
+          ? binding.controllerNumber ?? element.noteNumber ?? 60
+          : binding.type === 'pc'
+            ? binding.programNumber ?? 0
+            : 0;
+      blocked.push({ type: binding.type, channel: binding.channel ?? 0, number });
+    }
+    void setMidiThruBlocked(blocked);
+  }, [draft, currentPreset, setMidiThruBlocked]);
+
   useEffect(() => {
     setLiveValues({});
+    hardwareStateRef.current.clear();
   }, [currentPreset?.id, draft?.id]);
 
   const baseElements = useMemo(() => (draft ?? currentPreset)?.layout.elements ?? [], [draft, currentPreset]);

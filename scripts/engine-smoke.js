@@ -250,6 +250,18 @@ async function main() {
     console.log(`Entrada de áudio: ${mode}, canal ${configured.inputChannel + 1}: ok`);
   }
 
+  if (flag('midi-thru')) {
+    await request('setMidiThru', {
+      blocked: [
+        { type: 'cc', channel: 0, number: 1 },
+        { type: 'pitch', channel: 0, number: 0 },
+        { type: 'aftertouch', channel: 0, number: 0 },
+      ],
+    });
+    await request('setMidiThru', { blocked: [] });
+    console.log('MIDI Thru: bloqueio de CC, pitch e aftertouch: ok');
+  }
+
   const params = await request('params');
   for (const p of params.slice(0, 10)) {
     console.log(`  [${p.index}] ${p.name}: ${p.text} ${p.label}`.trimEnd());

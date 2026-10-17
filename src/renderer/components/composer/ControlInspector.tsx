@@ -20,11 +20,13 @@ const classInput =
 const classLabel = 'block text-[11px] text-slate-400';
 const classTitle = 'text-[11px] font-semibold uppercase tracking-wider text-slate-400';
 
-type BindingType = 'none' | 'cc' | 'note' | 'pc';
+type BindingType = 'none' | 'cc' | 'note' | 'pc' | 'pitch' | 'aftertouch';
 
 function currentBindingType(element: UiElement): BindingType {
   const type = element.midiCommand?.type;
-  return type === 'cc' || type === 'note' || type === 'pc' ? type : 'none';
+  return type === 'cc' || type === 'note' || type === 'pc' || type === 'pitch' || type === 'aftertouch'
+    ? type
+    : 'none';
 }
 
 export const ControlInspector: React.FC<ControlInspectorProps> = ({
@@ -59,9 +61,17 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
         onUpdate(element.id, {
           midiCommand: { type: 'cc', channel: evt.channel, controllerNumber: evt.number, min: 0, max: 127 },
         });
-      } else {
+      } else if (evt.kind === 'pc') {
         onUpdate(element.id, {
           midiCommand: { type: 'pc', channel: evt.channel, programNumber: evt.number },
+        });
+      } else if (evt.kind === 'pitch') {
+        onUpdate(element.id, {
+          midiCommand: { type: 'pitch', channel: evt.channel },
+        });
+      } else {
+        onUpdate(element.id, {
+          midiCommand: { type: 'aftertouch', channel: evt.channel, controllerNumber: evt.number },
         });
       }
       setLearning(false);
@@ -121,9 +131,17 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
         midiCommand: { type: 'note', channel: draft.midiChannel, controllerNumber: note },
         noteNumber: note,
       });
-    } else {
+    } else if (next === 'pc') {
       onUpdate(element.id, {
         midiCommand: { type: 'pc', channel: draft.midiChannel, programNumber: draft.programNumber },
+      });
+    } else if (next === 'pitch') {
+      onUpdate(element.id, {
+        midiCommand: { type: 'pitch', channel: draft.midiChannel },
+      });
+    } else if (next === 'aftertouch') {
+      onUpdate(element.id, {
+        midiCommand: { type: 'aftertouch', channel: draft.midiChannel, controllerNumber: 0 },
       });
     }
   };
@@ -148,6 +166,10 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     } else if (bindingType === 'pc') {
       onUpdate(element.id, {
         midiCommand: { ...(element.midiCommand as object), type: 'pc', channel: draft.midiChannel, programNumber: number } as UiElement['midiCommand'],
+      });
+    } else if (bindingType === 'aftertouch') {
+      onUpdate(element.id, {
+        midiCommand: { ...(element.midiCommand as object), type: 'aftertouch', channel: draft.midiChannel, controllerNumber: number } as UiElement['midiCommand'],
       });
     }
   };
@@ -209,6 +231,8 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
               <option value="cc">Control Change</option>
               <option value="note">Note On/Off</option>
               <option value="pc">Program Change</option>
+              <option value="pitch">Pitch Bend</option>
+              <option value="aftertouch">Aftertouch</option>
             </select>
           </label>
         </div>
@@ -219,7 +243,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
             min={0}
             max={127}
             value={bindingNumber}
-            disabled={bindingType === 'none'}
+            disabled={bindingType === 'none' || bindingType === 'pitch'}
             onChange={(event) => setBindingNumber(event.target.value)}
           />
         </label>
@@ -230,10 +254,23 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           <input
             type="checkbox"
             className="accent-amber-300"
-            checked={element.midiThru ?? false}
+            checked={element.midiThru !== false}
             onChange={(event) => onUpdate(element.id, { midiThru: event.target.checked })}
           />
-          MIDI Thru (repassa adiante — motor Fase E)
+          Pass thru (MIDI Thru) — desmarque para Don’t pass thru
+        </label>
+        <label className={classLabel}>Respond to Hardware Move
+          <select
+            className={`${classInput} mt-1`}
+            value={element.respondToHardwareMove ?? 'jump'}
+            onChange={(event) => onUpdate(element.id, {
+              respondToHardwareMove: event.target.value as UiElement['respondToHardwareMove'],
+            })}
+          >
+            <option value="jump">Jump</option>
+            <option value="pickup">Pickup</option>
+            <option value="relative">Relative</option>
+          </select>
         </label>
       </section>
 

@@ -126,6 +126,10 @@ export function midiBindingDescription(element: UiElement, fallbackChannel: numb
     }
     case 'pc':
       return `PC ${binding.programNumber ?? '?'} · canal ${ch}`;
+    case 'pitch':
+      return `Pitch Bend · canal ${ch}`;
+    case 'aftertouch':
+      return `Aftertouch${binding.controllerNumber ? ` ${noteName(binding.controllerNumber)}` : ''} · canal ${ch}`;
     default:
       return `${binding.type} · canal ${ch}`;
   }

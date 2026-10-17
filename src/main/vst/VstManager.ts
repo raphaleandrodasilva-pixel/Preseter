@@ -15,6 +15,7 @@ import type {
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
+  MidiThruBlock,
   VstParameter,
   VstPluginInfo,
 } from '../../shared/types';
@@ -197,6 +198,12 @@ export class VstManager extends EventEmitter {
   /** Estado do strip de entrada (configuração + peak/feedback). */
   async getAudioInputState(): Promise<AudioInputState> {
     return this.engine.request('audioInput', {});
+  }
+
+  /** Bloqueia no motor as mensagens marcadas como "Don't pass thru" (Fase 4.5). */
+  async setMidiThru(blocked: MidiThruBlock[]): Promise<boolean> {
+    await this.engine.request('setMidiThru', { blocked });
+    return true;
   }
 
   async sendMidi(bytes: number[]): Promise<boolean> {

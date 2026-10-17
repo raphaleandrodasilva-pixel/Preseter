@@ -13,6 +13,7 @@ import type {
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
+  MidiThruBlock,
   VstParameter,
 } from './types';
 
@@ -202,6 +203,8 @@ export interface EngineCommands {
   setAudioInput: { args: Partial<AudioInputSettings> & { resetFeedback?: boolean }; result: AudioInputState };
   /** Estado do strip de entrada de áudio (configuração + peak/feedback). */
   audioInput: { args: {}; result: AudioInputState };
+  /** Bloqueia no motor as mensagens marcadas como "Don't pass thru" (Fase 4.5). */
+  setMidiThru: { args: { blocked: MidiThruBlock[] }; result: null };
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */

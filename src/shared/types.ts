@@ -79,6 +79,8 @@ export interface PatchMapping {
   /** Faixa do parâmetro de destino para este mapping (0..1). */
   mappingMin?: number;
   mappingMax?: number;
+  /** Como o controle de tela reage ao movimento do hardware (Fase 4.4). */
+  respondToHardwareMove?: 'jump' | 'pickup' | 'relative';
 }
 
 /** Set (pasta) — MainStage style */
@@ -562,6 +564,8 @@ export interface UiElement {
   /** Faixa mínima/máxima do parâmetro de destino (0..1) — Fase 4.3. */
   mappingMin?: number;
   mappingMax?: number;
+  /** Jump, Pickup ou Relative ao mover o controle físico (Fase 4.4). */
+  respondToHardwareMove?: 'jump' | 'pickup' | 'relative';
   // Exibição do rótulo (Text Labels do inspector)
   labelDisplay?: 'name' | 'value' | 'both';
   // Porta MIDI de entrada vinculada (usada pelo motor na Fase E)
@@ -587,6 +591,14 @@ export interface MidiBinding {
   programNumber?: number;
   min?: number;
   max?: number;
+}
+
+/** Mensagem de hardware bloqueada no motor (Don't Pass Thru, Fase 4.5). */
+export interface MidiThruBlock {
+  type: 'cc' | 'note' | 'pc' | 'pitch' | 'aftertouch';
+  channel: number;
+  /** CC = controller, note = nota, pc = programa; pitch/aftertouch ignoram. */
+  number: number;
 }
 
 // Status da aplicação

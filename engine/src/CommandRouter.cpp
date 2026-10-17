@@ -259,6 +259,14 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setMidiThru")
+    {
+        const auto error = engine.setMidiThru (message);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, juce::var());
+        return;
+    }
+
     if (cmd == "setAudioInput")
     {
         juce::var result;

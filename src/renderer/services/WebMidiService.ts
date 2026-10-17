@@ -5,7 +5,7 @@ export interface MidiDeviceInfo {
   connected: boolean;
 }
 
-export type RawMidiKind = 'note' | 'cc' | 'pc';
+export type RawMidiKind = 'note' | 'cc' | 'pc' | 'pitch' | 'aftertouch';
 
 export interface RawMidiEvent {
   kind: RawMidiKind;
@@ -140,6 +140,14 @@ export class WebMidiService {
     } else if (status === 0xb0) {
       if (data.length < 3) return;
       this.emitRaw({ kind: 'cc', channel, number: data[1], value: data[2], deviceId });
+    } else if (status === 0xe0) {
+      if (data.length < 3) return;
+      this.emitRaw({ kind: 'pitch', channel, number: 0, value: (data[2] << 7) | data[1], deviceId });
+    } else if (status === 0xd0) {
+      this.emitRaw({ kind: 'aftertouch', channel, number: 0, value: data[1], deviceId });
+    } else if (status === 0xa0) {
+      if (data.length < 3) return;
+      this.emitRaw({ kind: 'aftertouch', channel, number: data[1], value: data[2], deviceId });
     }
   }
 

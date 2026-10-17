@@ -178,6 +178,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setTranspose` | `semitones` (-72..72) | Transpose global (patch + set + concert) aplicado a todas as notas |
 | `setAudioInput` | `enabled`, `inputChannel`, `mode` (`mono`/`stereo`), `volumeDb`, `pan`, `muted`, `feedbackProtection`, `output`, `resetFeedback?` | Configura o strip de entrada de áudio (Fase 3.5) |
 | `audioInput` | — | Estado do strip de entrada (configuração + `peakDb`/`feedback`) |
+| `setMidiThru` | `blocked` (lista de `{ type, channel, number }`) | Bloqueia no motor as mensagens de hardware marcadas "Don't pass thru" |
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |

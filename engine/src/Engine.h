@@ -66,6 +66,8 @@ public:
     juce::String setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity);
     /** Transpose global em semitons aplicado a todas as notas (patch + set + concert). */
     juce::String setTranspose (int semitones);
+    /** Bloqueia no motor as mensagens de hardware marcadas como "Don't pass thru" (Fase 4.5). */
+    juce::String setMidiThru (const juce::var& options);
 
     juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
     juce::var describeLoadedPlugins() const;
@@ -172,7 +174,7 @@ private:
     Graph graph;
     juce::AudioProcessorPlayer player;
 
-    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, audioInputNode, masterNode;
+    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, masterNode;
     std::atomic<int> soloLayerCount { 0 };
     /** Transpose aplicado no filtro MIDI de cada layer (Fase 3.4). */
     std::atomic<int> transposeSemitones { 0 };

@@ -10,6 +10,7 @@ import {
   AudioInputSettings,
   AudioInputState,
   AudioStartOptions,
+  MidiThruBlock,
   EngineMixState,
   BusMixUpdate,
   LayerMixUpdate,
@@ -139,6 +140,7 @@ export interface AppContextType {
   setVstLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<boolean>;
   setAudioInput: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState | null>;
   getAudioInputState: () => Promise<AudioInputState | null>;
+  setMidiThruBlocked: (blocked: MidiThruBlock[]) => Promise<boolean>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
   /** Altera um barramento Aux/Output do concert (Fase 3.2). */
@@ -984,6 +986,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setMidiThruBlocked = useCallback(async (blocked: MidiThruBlock[]): Promise<boolean> => {
+    try {
+      const ok = await window.electronAPI.midiThruSet(blocked);
+      if (ok) setMidiError(null);
+      return ok;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao aplicar o MIDI Thru.');
+      return false;
+    }
+  }, []);
+
   const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
@@ -1243,6 +1256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVstLayerVelocity,
     setAudioInput,
     getAudioInputState,
+    setMidiThruBlocked,
     setVstLayerMix,
     setVstMasterMix,
     setVstBusMix,

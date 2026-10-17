@@ -257,6 +257,86 @@ private:
     int loudBlocks = 0;
 };
 
+/** Filtro global de MIDI Thru: bloqueia mensagens marcadas como "Don't pass thru" (Fase 4.5). */
+class MidiThruFilter final : public juce::AudioProcessor
+{
+public:
+    MidiThruFilter()
+        : juce::AudioProcessor (BusesProperties())
+    {
+        for (auto& type : blocked)
+            for (auto& channel : type)
+                for (auto& value : channel) value.store (false);
+    }
+
+    const juce::String getName() const override { return "Preseter MIDI Thru"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout&) const override { return true; }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (audio);
+        juce::MidiBuffer accepted;
+        for (const auto metadata : midi)
+        {
+            const auto message = metadata.getMessage();
+            const int type = typeOf (message);
+            const int number = numberOf (message);
+            const int channel = juce::jlimit (0, 15, message.getChannel() - 1);
+            if (type < 0 || ! blocked[(size_t) type][(size_t) channel][(size_t) number].load())
+                accepted.addEvent (message, metadata.samplePosition);
+        }
+        midi.swapWith (accepted);
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return true; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void clear()
+    {
+        for (auto& type : blocked)
+            for (auto& channel : type)
+                for (auto& value : channel) value.store (false);
+    }
+
+    void setBlocked (int type, int channel, int number, bool value)
+    {
+        if (type < 0 || type > 4) return;
+        blocked[(size_t) type][(size_t) juce::jlimit (0, 15, channel)]
+               [(size_t) juce::jlimit (0, 127, number)].store (value);
+    }
+
+private:
+    static int typeOf (const juce::MidiMessage& message)
+    {
+        if (message.isController()) return 0;
+        if (message.isNoteOnOrOff()) return 1;
+        if (message.isPitchWheel()) return 2;
+        if (message.isAftertouch() || message.isChannelPressure()) return 3;
+        if (message.isProgramChange()) return 4;
+        return -1;
+    }
+
+    static int numberOf (const juce::MidiMessage& message)
+    {
+        if (message.isController()) return message.getControllerNumber();
+        if (message.isNoteOnOrOff() || message.isAftertouch()) return message.getNoteNumber();
+        if (message.isProgramChange()) return message.getProgramChangeNumber();
+        return 0;
+    }
+
+    std::array<std::array<std::array<std::atomic<bool>, 128>, 16>, 5> blocked {};
+};
+
 class ChannelStripProcessor final : public juce::AudioProcessor
 {
 public:
@@ -430,6 +510,7 @@ Engine::Engine()
     audioInNode  = graph.addNode (std::make_unique<IO> (IO::audioInputNode));
     audioOutNode = graph.addNode (std::make_unique<IO> (IO::audioOutputNode));
     midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
+    midiThruNode = graph.addNode (std::make_unique<MidiThruFilter>());
     audioInputNode = graph.addNode (std::make_unique<AudioInputProcessor>());
     masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
 
@@ -1358,6 +1439,42 @@ juce::String Engine::setTranspose (int semitones)
     return {};
 }
 
+juce::String Engine::setMidiThru (const juce::var& options)
+{
+    auto* filter = midiThruNode != nullptr
+        ? dynamic_cast<MidiThruFilter*> (midiThruNode->getProcessor())
+        : nullptr;
+    if (filter == nullptr)
+        return utf8 ("O filtro de MIDI Thru não está disponível.");
+
+    filter->clear();
+    const auto& blocked = options["blocked"];
+    if (! blocked.isArray())
+        return {};
+
+    auto typeIndex = [] (const juce::String& type) -> int
+    {
+        if (type == "cc") return 0;
+        if (type == "note") return 1;
+        if (type == "pitch") return 2;
+        if (type == "aftertouch") return 3;
+        if (type == "pc") return 4;
+        return -1;
+    };
+
+    for (int index = 0; index < blocked.size(); ++index)
+    {
+        const auto& item = blocked[index];
+        const int type = typeIndex (item["type"].toString());
+        if (type < 0) continue;
+        filter->setBlocked (type,
+                            (int) item["channel"],
+                            (int) item["number"],
+                            true);
+    }
+    return {};
+}
+
 // ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------
 
 juce::var Engine::describeInsert (const juce::String& ownerId, int slot) const
@@ -1873,6 +1990,10 @@ void Engine::rebuildConnections()
         for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
             graph.addConnection ({ { masterNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
 
+    if (midiInNode != nullptr && midiThruNode != nullptr)
+        graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
+                               { midiThruNode->nodeID, Graph::midiChannelIndex } });
+
     // Liga `from` → `to` respeitando mono/estéreo: fonte mono duplica no canal
     // direito; destino mono soma os dois canais (canais de insert podem ser mono).
     auto connectAudio = [this] (Graph::Node::Ptr from, Graph::Node::Ptr to)
@@ -1994,7 +2115,7 @@ void Engine::rebuildConnections()
         // (lingering) fica só com o áudio das caudas.
         if (current)
         {
-            graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
+            graph.addConnection ({ { midiThruNode->nodeID, Graph::midiChannelIndex },
                                    { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
             graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
                                    { layer.pluginNode->nodeID, Graph::midiChannelIndex } });

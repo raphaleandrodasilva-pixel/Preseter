@@ -20,6 +20,7 @@ const MAPPING_KEYS = [
   'velocity',
   'mappingMin',
   'mappingMax',
+  'respondToHardwareMove',
 ] as const satisfies readonly (keyof UiElement)[];
 
 /** Extrai os mappings de um layout (usado ao salvar um patch e na migração). */

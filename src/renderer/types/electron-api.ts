@@ -14,6 +14,7 @@ import type {
   LayerMixUpdate,
   MasterMixUpdate,
   MenuAction,
+  MidiThruBlock,
   PresetSet,
   RecentConcert,
   SavedAudioSettings,
@@ -52,6 +53,7 @@ export interface ElectronAPI {
   vstSetLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<VstPluginInfo>;
   audioInputSet: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState>;
   audioInputState: () => Promise<AudioInputState>;
+  midiThruSet: (blocked: MidiThruBlock[]) => Promise<boolean>;
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;
