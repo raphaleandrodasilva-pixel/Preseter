@@ -14,30 +14,30 @@ function PaletteIcon({ type, orientation }: { type: ElementType; orientation?: '
   switch (type) {
     case 'knob':
       return (
-        <span className={`${base} h-9 w-9 rounded-full`} style={{ border: '4px solid #3A3A41', background: '#131316' }}>
+        <span className={`${base} h-9 w-9 rounded-full`} style={{ border: '4px solid #3A3A41', background: '#1F1F21' }}>
           <span className="h-3 w-0.5 rounded" style={{ background: '#F2F2F2' }} />
         </span>
       );
     case 'fader':
       return (
-        <span className={`${base} h-9 w-4 rounded`} style={{ background: '#101013' }}>
-          <span className="h-2 w-6 rounded" style={{ background: '#2DFF6A' }} />
+        <span className={`${base} h-9 w-4 rounded`} style={{ background: '#242426' }}>
+          <span className="h-2 w-6 rounded" style={{ background: '#0A84FF' }} />
         </span>
       );
     case 'slider':
       return (
-        <span className={`${base} h-4 w-9 rounded`} style={{ background: '#101013' }}>
-          <span className="h-6 w-2 rounded" style={{ background: '#2DFF6A' }} />
+        <span className={`${base} h-4 w-9 rounded`} style={{ background: '#242426' }}>
+          <span className="h-6 w-2 rounded" style={{ background: '#0A84FF' }} />
         </span>
       );
     case 'button':
-      return <span className="h-6 w-12 rounded-lg" style={{ border: '1px solid #2E2E34', background: '#131316' }} />;
+      return <span className="h-6 w-12 rounded-lg" style={{ border: '1px solid #3A3A3C', background: '#1F1F21' }} />;
     case 'toggle':
-      return <span className="h-5 w-11 rounded-lg" style={{ border: '1px solid #2DFF6A', background: 'rgba(45,255,106,0.18)' }} />;
+      return <span className="h-5 w-11 rounded-lg" style={{ border: '1px solid #0A84FF', background: 'rgba(10,132,255,0.18)' }} />;
     case 'pad':
-      return <span className="h-8 w-8 rounded-lg" style={{ border: '1px solid #2DFF6A', background: 'rgba(45,255,106,0.12)' }} />;
+      return <span className="h-8 w-8 rounded-lg" style={{ border: '1px solid #0A84FF', background: 'rgba(10,132,255,0.12)' }} />;
     case 'pedal':
-      return <span className="h-6 w-9 rounded-b-xl" style={{ border: '2px solid #3A3A41', background: '#26262B' }} />;
+      return <span className="h-6 w-9 rounded-b-xl" style={{ border: '2px solid #3A3A41', background: '#303032' }} />;
     case 'label':
       return <span className="text-xs font-semibold" style={{ color: '#EDEDEF' }}>Aa</span>;
     case 'keyboard':
@@ -50,18 +50,18 @@ function PaletteIcon({ type, orientation }: { type: ElementType; orientation?: '
       );
     case 'meter-vertical':
       return orientation === 'horizontal' ? (
-        <span className="flex h-3 w-9 items-center overflow-hidden rounded" style={{ background: '#101013' }}>
-          <span className="h-full w-2/3" style={{ background: 'linear-gradient(to right, #2DFF6A, #F2F2F2)' }} />
+        <span className="flex h-3 w-9 items-center overflow-hidden rounded" style={{ background: '#242426' }}>
+          <span className="h-full w-2/3" style={{ background: 'linear-gradient(to right, #0A84FF, #F2F2F2)' }} />
         </span>
       ) : (
-        <span className="flex h-9 w-3 items-end overflow-hidden rounded" style={{ background: '#101013' }}>
-          <span className="h-2/3 w-full" style={{ background: 'linear-gradient(to top, #2DFF6A, #F2F2F2)' }} />
+        <span className="flex h-9 w-3 items-end overflow-hidden rounded" style={{ background: '#242426' }}>
+          <span className="h-2/3 w-full" style={{ background: 'linear-gradient(to top, #0A84FF, #F2F2F2)' }} />
         </span>
       );
     case 'midi-activity':
-      return <span className="h-4 w-4 rounded-full" style={{ border: '2px solid #2DFF6A', background: '#131316' }} />;
+      return <span className="h-4 w-4 rounded-full" style={{ border: '2px solid #0A84FF', background: '#1F1F21' }} />;
     default:
-      return <span className="h-6 w-6 rounded" style={{ background: '#26262B' }} />;
+      return <span className="h-6 w-6 rounded" style={{ background: '#303032' }} />;
   }
 }
 
@@ -70,8 +70,8 @@ export const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKey, onArm 
   const items = PALETTE_ITEMS.filter((item) => category === 'all' || item.category === category);
 
   return (
-    <div className="shrink-0 border-t" style={{ borderColor: '#26262B', background: '#101013' }}>
-      <div className="flex items-center gap-1 border-b px-4" style={{ borderColor: '#26262B' }}>
+    <div className="shrink-0 border-t" style={{ borderColor: '#303032', background: '#242426' }}>
+      <div className="flex items-center gap-1 border-b px-4" style={{ borderColor: '#303032' }}>
         <span className="mr-2 py-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#9A9AA0' }}>
           Screen Controls Palette
         </span>
@@ -82,14 +82,14 @@ export const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKey, onArm 
             className="border-b-2 px-3 py-2 text-xs"
             style={
               category === id
-                ? { borderColor: '#2DFF6A', color: '#fff' }
+                ? { borderColor: '#0A84FF', color: '#fff' }
                 : { borderColor: 'transparent', color: '#9A9AA0' }
             }
           >
             {label}
           </button>
         ))}
-        <span className="ml-auto hidden py-2 text-[11px] md:block" style={{ color: '#55555E' }}>
+        <span className="ml-auto hidden py-2 text-[11px] md:block" style={{ color: '#636366' }}>
           Arraste para o canvas ou clique e depois clique no canvas
         </span>
       </div>
@@ -107,8 +107,8 @@ export const ControlPalette: React.FC<ControlPaletteProps> = ({ armedKey, onArm 
             className="flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center transition-colors"
             style={
               armedKey === item.key
-                ? { borderColor: '#2DFF6A', background: 'rgba(45,255,106,0.12)' }
-                : { borderColor: '#2E2E34', background: '#131316' }
+                ? { borderColor: '#0A84FF', background: 'rgba(10,132,255,0.12)' }
+                : { borderColor: '#3A3A3C', background: '#1F1F21' }
             }
           >
             <PaletteIcon type={item.type} orientation={item.orientation} />

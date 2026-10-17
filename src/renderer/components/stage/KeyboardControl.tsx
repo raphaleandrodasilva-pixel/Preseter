@@ -60,8 +60,8 @@ const Wheel: React.FC<{
         className={`relative ${compact ? 'w-4 rounded' : 'w-8 rounded-lg'} overflow-hidden`}
         style={{
           height: trackHeight,
-          background: '#101013',
-          border: '1px solid #2E2E34',
+          background: '#242426',
+          border: '1px solid #3A3A3C',
           boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.7)',
           cursor: disabled ? 'default' : 'ns-resize',
           touchAction: 'none',
@@ -99,7 +99,7 @@ const Wheel: React.FC<{
             top: thumbTop,
             height: thumbHeight,
             borderRadius: compact ? 3 : 5,
-            background: 'repeating-linear-gradient(to bottom, #2A2A2F 0 2px, #101013 2px 5px)',
+            background: 'repeating-linear-gradient(to bottom, #2A2A2F 0 2px, #242426 2px 5px)',
             border: '1px solid #3A3A41',
             boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
           }}

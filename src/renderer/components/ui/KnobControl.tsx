@@ -133,7 +133,7 @@ export const KnobControl: React.FC<UiKnobProps> = ({ element, onUpdate, onContro
               width: 56,
               height: 56,
               transform: 'translate(-50%, -50%)',
-              background: 'radial-gradient(circle at 35% 30%, #2A2A2F, #101013 70%)',
+              background: 'radial-gradient(circle at 35% 30%, #2A2A2F, #242426 70%)',
               border: '2px solid #3A3A41',
               boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.5)',
             }}
@@ -152,12 +152,12 @@ export const KnobControl: React.FC<UiKnobProps> = ({ element, onUpdate, onContro
                   width: 3,
                   height: 14,
                   transform: 'translateX(-50%)',
-                  backgroundColor: '#2DFF6A',
-                  boxShadow: '0 0 8px rgba(45,255,106,0.8)',
+                  backgroundColor: '#0A84FF',
+                  boxShadow: '0 0 8px rgba(10,132,255,0.8)',
                 }}
               />
             </div>
-            <div className="absolute w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#101013' }} />
+            <div className="absolute w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#242426' }} />
           </div>
         </div>
         <span className="hw-badge" title={value.toFixed(2)}>{percent}</span>

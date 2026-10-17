@@ -93,8 +93,8 @@ export const SliderControl: React.FC<UiSliderProps> = ({ element, onUpdate, onCo
         <div
           className={`relative flex-1 rounded-lg cursor-${element.orientation === 'vertical' ? 'ns-resize' : 'ew-resize'}`}
           style={{
-            backgroundColor: '#131316',
-            border: '1px solid #2E2E34',
+            backgroundColor: '#1F1F21',
+            border: '1px solid #3A3A3C',
             boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.6)',
           }}
           onMouseDown={handleMouseDown}
@@ -103,7 +103,7 @@ export const SliderControl: React.FC<UiSliderProps> = ({ element, onUpdate, onCo
           <div
             className="absolute rounded transition-all"
             style={{
-              backgroundColor: '#2DFF6A',
+              backgroundColor: '#0A84FF',
               ...(element.orientation === 'vertical'
                 ? {
                     bottom: 0,
@@ -125,8 +125,8 @@ export const SliderControl: React.FC<UiSliderProps> = ({ element, onUpdate, onCo
               width: element.orientation === 'vertical' ? '100%' : '8px',
               height: element.orientation === 'vertical' ? '20px' : '100%',
               backgroundColor: '#F2F2F2',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.5), 0 0 8px rgba(45,255,106,0.35)',
-              border: '1px solid #2E2E34',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5), 0 0 8px rgba(10,132,255,0.35)',
+              border: '1px solid #3A3A3C',
               ...(element.orientation === 'vertical'
                 ? { bottom: `${percentValue}%`, left: 0, transform: 'translateY(-50%)' }
                 : { left: `${percentValue}%`, top: 0, transform: 'translateX(-50%)' }),

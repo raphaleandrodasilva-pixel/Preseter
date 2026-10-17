@@ -15,7 +15,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: -apple-system, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -27,7 +27,7 @@ html, body {
 
 /* Estilos globais */
 body {
-  background: #0f172a;
+  background: #1C1C1E;
   color: #e2e8f0;
   user-select: none;
   -webkit-user-drag: none;
@@ -98,7 +98,7 @@ body {
 .bg-warning { background: #F59E0B; }
 .bg-danger { background: #EF4444; }
 .bg-dark { background: #111827; }
-.bg-darker { background: #0f172a; }
+.bg-darker { background: #1C1C1E; }
 
 .border {
   border: 1px solid #334155;
@@ -121,7 +121,7 @@ body {
 }
 
 .rounded {
-  border-radius: 8px;
+  border-radius: 4px;
 }
 
 .rounded-full {
@@ -129,7 +129,11 @@ body {
 }
 
 .rounded-lg {
-  border-radius: 12px;
+  border-radius: 6px;
+}
+
+.rounded-xl {
+  border-radius: 8px;
 }
 
 .shadow {

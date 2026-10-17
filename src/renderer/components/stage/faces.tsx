@@ -31,9 +31,9 @@ export const KnobFace: React.FC<{
               top: 'calc(50% - 1px)',
               width: i % 5 === 0 ? 3 : 2,
               height: i % 5 === 0 ? 6 : 4,
-              background: lit ? '#2DFF6A' : '#F2F2F2',
+              background: lit ? '#0A84FF' : '#F2F2F2',
               opacity: lit ? 1 : 0.35,
-              boxShadow: lit ? '0 0 4px #2DFF6A' : 'none',
+              boxShadow: lit ? '0 0 4px #0A84FF' : 'none',
               transform: `rotate(${tickAngle}deg) translateY(-24px)`,
               transformOrigin: '50% 50%',
             }}
@@ -46,7 +46,7 @@ export const KnobFace: React.FC<{
           width: 34,
           height: 34,
           transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle at 35% 28%, #414149, #19191D 72%)',
+          background: 'radial-gradient(circle at 35% 28%, #414149, #2C2C2E 72%)',
           border: '1px solid #55555D',
           boxShadow: '0 2px 5px rgba(0,0,0,0.55), inset 0 1px 4px rgba(255,255,255,0.09)',
           cursor: bodyProps?.onPointerDown ? 'ns-resize' : undefined,
@@ -83,10 +83,10 @@ export const FaderFace: React.FC<{
     <>
       <div
         className="hw-fadertrack relative mb-2 h-24 w-4 rounded"
-        style={{ background: '#101013', cursor: trackProps?.onPointerDown ? 'ns-resize' : undefined, touchAction: 'none' }}
+        style={{ background: '#242426', cursor: trackProps?.onPointerDown ? 'ns-resize' : undefined, touchAction: 'none' }}
         {...trackProps}
       >
-        <div className="absolute bottom-0 left-0 w-full rounded-b" style={{ height: `${n * 100}%`, background: 'linear-gradient(to top, #2DFF6A, #72F2A0)', opacity: 0.68 }} />
+        <div className="absolute bottom-0 left-0 w-full rounded-b" style={{ height: `${n * 100}%`, background: 'linear-gradient(to top, #0A84FF, #5AA9FF)', opacity: 0.68 }} />
         <div
           className="absolute left-1/2 rounded-[2px]"
           style={{
@@ -116,10 +116,10 @@ export const SliderFace: React.FC<{
     <>
       <div
         className="hw-slidertrack relative mb-2 h-4 w-28 rounded-full"
-        style={{ background: '#101013', cursor: trackProps?.onPointerDown ? 'ew-resize' : undefined, touchAction: 'none' }}
+        style={{ background: '#242426', cursor: trackProps?.onPointerDown ? 'ew-resize' : undefined, touchAction: 'none' }}
         {...trackProps}
       >
-        <div className="absolute left-0 top-0 h-full rounded-l-full" style={{ width: `${n * 100}%`, background: 'linear-gradient(to right, #2DFF6A, #72F2A0)', opacity: 0.68 }} />
+        <div className="absolute left-0 top-0 h-full rounded-l-full" style={{ width: `${n * 100}%`, background: 'linear-gradient(to right, #0A84FF, #5AA9FF)', opacity: 0.68 }} />
         <div
           className="absolute top-1/2 rounded-[3px]"
           style={{
@@ -182,7 +182,7 @@ export const PedalFace: React.FC<{ label: string; active: boolean }> = ({ label,
       className={`hw-pedal-face mb-1 h-10 w-14 rounded-b-xl${active ? ' is-on' : ''}`}
       style={
         active
-          ? { background: 'linear-gradient(to bottom, #303037, #151519)', border: '2px solid #2DFF6A', boxShadow: '0 0 8px rgba(45,255,106,0.35), inset 0 2px 6px rgba(0,0,0,0.5)' }
+          ? { background: 'linear-gradient(to bottom, #303037, #151519)', border: '2px solid #0A84FF', boxShadow: '0 0 8px rgba(10,132,255,0.35), inset 0 2px 6px rgba(0,0,0,0.5)' }
           : { background: 'linear-gradient(to bottom, #303037, #151519)', border: '2px solid #55555D', boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)' }
       }
     >
@@ -200,15 +200,15 @@ export const MeterFace: React.FC<{ label: string; norm: number; horizontal?: boo
   const n = Math.max(0, Math.min(1, norm));
   return horizontal ? (
     <>
-      <div className="mb-1 flex h-3 w-24 items-center overflow-hidden rounded" style={{ background: '#101013' }}>
-        <div className="h-full" style={{ width: `${n * 100}%`, background: 'linear-gradient(to right, #2DFF6A 0%, #2DFF6A 65%, #F5C542 82%, #FF5D5D 100%)' }} />
+      <div className="mb-1 flex h-3 w-24 items-center overflow-hidden rounded" style={{ background: '#242426' }}>
+        <div className="h-full" style={{ width: `${n * 100}%`, background: 'linear-gradient(to right, #30D158 0%, #30D158 65%, #F5C542 82%, #FF5D5D 100%)' }} />
       </div>
       <span className="hw-label">{label}</span>
     </>
   ) : (
     <>
-      <div className="mb-1 flex h-20 w-3 items-end overflow-hidden rounded" style={{ background: '#101013' }}>
-        <div className="w-full" style={{ height: `${n * 100}%`, background: 'linear-gradient(to top, #2DFF6A 0%, #2DFF6A 65%, #F5C542 82%, #FF5D5D 100%)' }} />
+      <div className="mb-1 flex h-20 w-3 items-end overflow-hidden rounded" style={{ background: '#242426' }}>
+        <div className="w-full" style={{ height: `${n * 100}%`, background: 'linear-gradient(to top, #30D158 0%, #30D158 65%, #F5C542 82%, #FF5D5D 100%)' }} />
       </div>
       <span className="hw-label">{label}</span>
     </>

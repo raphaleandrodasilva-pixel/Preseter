@@ -121,7 +121,7 @@ const RangeEditor: React.FC<{
               style={{
                 minWidth: 0,
                 background: inRange
-                  ? (black ? '#13933F' : '#2DFF6A')
+                  ? (black ? '#13933F' : '#0A84FF')
                   : (black ? '#29292E' : '#D7D7D8'),
                 borderRight: note % 12 === 0 ? '1px solid rgba(0,0,0,0.35)' : undefined,
               }}
@@ -191,7 +191,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       const parsed = raw ? Number(raw) : NaN;
       if (Number.isFinite(parsed)) return Math.max(280, Math.min(640, parsed));
     } catch { /* ignora */ }
-    return 420;
+    return 480;
   });
   const resizing = useRef<{ startX: number; originW: number } | null>(null);
   const widthRef = useRef(width);
@@ -232,7 +232,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   };
 
   return (
-    <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#26262B', background: '#101013', width }}>
+    <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}>
       <div
         className="absolute bottom-0 left-[-4px] top-0 w-[7px] cursor-ew-resize"
         title="Arrastar para redimensionar"
@@ -250,11 +250,11 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         }}
         onPointerCancel={() => { resizing.current = null; }}
       />
-      <div className="relative flex flex-wrap items-center gap-1.5 px-3 py-2.5" style={{ borderBottom: '1px solid #2E2E34' }}>
+      <div className="relative flex flex-wrap items-center gap-1.5 px-3 py-2.5" style={{ borderBottom: '1px solid #3A3A3C' }}>
         <span className="hw-label mr-auto">Layers {preset ? `— ${preset.name}` : ''}</span>
-        <span className="text-[9px]" style={{ color: '#77777E' }}>{layers.length} / 4 instrumentos</span>
+        <span className="text-[9px]" style={{ color: '#8E8E93' }}>{layers.length} / 4 instrumentos</span>
         {pickerOpen && (
-          <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#19191D', borderColor: '#36363D' }}>
+          <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
             <div className="mb-1 flex items-center justify-between px-1">
               <span className="hw-label">Carregar instrumento</span>
               <button className="px-1 text-xs text-slate-400" onClick={() => setPickerOpen(false)}>✕</button>
@@ -284,8 +284,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2">
         {loadingMessage && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: '#476B4F', background: '#172019', color: '#B7FFC5' }}>
-            <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: '#2DFF6A' }} />
+          <div className="mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
+            <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: '#0A84FF' }} />
             {loadingMessage}
           </div>
         )}
@@ -307,13 +307,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 key={layerId}
                 className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
                 style={{
-                  border: `1px solid ${isSelected ? '#2DFF6A' : '#2E2E34'}`,
-                  background: 'linear-gradient(to bottom, #232326, #17171A)',
+                  border: `1px solid ${isSelected ? '#0A84FF' : '#3A3A3C'}`,
+                  background: 'linear-gradient(to bottom, #232326, #2C2C2E)',
                 }}
                 onClick={() => setSelectedLayerId(layerId)}
               >
-                <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#2E2E34' }}>
-                  <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#2DFF6A', color: '#0B120C' }}>INST</span>
+                <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+                  <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>INST</span>
                   <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={assignment.name}>{assignment.name}</span>
                 </div>
                 <span className="hw-label mt-1" style={{ fontSize: 8 }}>SOFTWARE INSTRUMENT {index + 1}</span>
@@ -328,7 +328,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 </div>
                 <div className="mt-2 flex items-center justify-center gap-2">
                   <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label={`${assignment.name} peak`} aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, mix.peakDb)}>
-                    <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#2DFF6A' }} />
+                    <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#30D158' }} />
                   </div>
                   <div className="flex h-28 flex-col items-center justify-between">
                     <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{mix.volumeDb.toFixed(1)} dB</span>
@@ -343,9 +343,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                       onClick={(event) => event.stopPropagation()}
                       onChange={(event) => onSetLayerMix(layerId, { volumeDb: Number(event.target.value) })}
                       className="h-20 w-4"
-                      style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#2DFF6A' }}
+                      style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
                     />
-                    <span className="text-[8px]" style={{ color: '#77777E' }}>−60</span>
+                    <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
                   </div>
                 </div>
                 <label className="mt-2 block text-[8px]" style={{ color: '#9A9AA0' }}>
@@ -361,7 +361,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     onClick={(event) => event.stopPropagation()}
                     onChange={(event) => onSetLayerMix(layerId, { pan: Number(event.target.value) })}
                     className="w-full"
-                    style={{ accentColor: '#2DFF6A' }}
+                    style={{ accentColor: '#0A84FF' }}
                   />
                 </label>
                 <div className="mt-1 flex gap-1">
@@ -377,10 +377,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     aria-pressed={mix.solo}
                     disabled={!loaded}
                     onClick={(event) => { event.stopPropagation(); onSetLayerMix(layerId, { solo: !mix.solo }); }}
-                    style={mix.solo ? { color: '#0B120C', background: '#2DFF6A' } : undefined}
+                    style={mix.solo ? { color: '#FFFFFF', background: '#0A84FF' } : undefined}
                   >SOLO</button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-1 text-center text-[8px]" style={{ color: '#77777E' }}>
+                <div className="mt-2 grid grid-cols-2 gap-1 text-center text-[8px]" style={{ color: '#8E8E93' }}>
                   <div className="hw-inset py-1">FX · indisponível</div>
                   <div className="hw-inset py-1">SEND · indisponível</div>
                 </div>
@@ -397,12 +397,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                         onClick={(event) => event.stopPropagation()}
                         onChange={(event) => onSetParameter(layerId, parameter.id, Number(event.target.value))}
                         className="w-full"
-                        style={{ accentColor: '#2DFF6A' }}
+                        style={{ accentColor: '#0A84FF' }}
                       />
                     </label>
                   ))}
                 </div>
-                <div className="mt-1 flex gap-1 border-t pt-1.5" style={{ borderColor: '#2E2E34' }}>
+                <div className="mt-1 flex gap-1 border-t pt-1.5" style={{ borderColor: '#3A3A3C' }}>
                   <button
                     className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
                     disabled={!editable || busy || layers.length >= 4}
@@ -429,9 +429,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </section>
             );
           })}
-          <div className="hw-inset flex w-[132px] shrink-0 flex-col rounded-xl p-2">
-            <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#2E2E34' }}>
-              <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#2DFF6A', color: '#0B120C' }}>OUT</span>
+          <div className="hw-inset sticky right-0 z-10 flex w-[132px] shrink-0 flex-col rounded-xl p-2" style={{ background: '#1F1F21' }}>
+            <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+              <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>OUT</span>
               <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">Master</span>
             </div>
             <span className="hw-label mt-2" style={{ fontSize: 8 }}>OUTPUT 1-2</span>
@@ -446,7 +446,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 <>
                   <div className="mt-2 flex items-center justify-center gap-2">
                     <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label="Master peak" aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, master.peakDb)}>
-                      <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#2DFF6A' }} />
+                      <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#30D158' }} />
                     </div>
                     <div className="flex h-28 flex-col items-center justify-between">
                       <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{master.volumeDb.toFixed(1)} dB</span>
@@ -461,9 +461,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                         onClick={(event) => event.stopPropagation()}
                         onChange={(event) => onSetMasterMix({ volumeDb: Number(event.target.value) })}
                         className="h-20 w-4"
-                        style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#2DFF6A' }}
+                        style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
                       />
-                      <span className="text-[8px]" style={{ color: '#77777E' }}>−60</span>
+                      <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
                     </div>
                   </div>
                   <button
@@ -490,7 +490,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         </div>
       </div>
-      <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #2E2E34', color: '#9A9AA0' }}>
+      <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
         Regiões MIDI aplicadas ao teclado e às entradas MIDI externas.
       </div>
     </aside>

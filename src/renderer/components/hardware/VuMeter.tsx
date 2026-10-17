@@ -35,7 +35,7 @@ export const VuMeter: React.FC<VuMeterProps> = ({ value, label = 'Reverb' }) => 
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: 'radial-gradient(circle at 35% 30%, #55555E, #101013 70%)',
+              background: 'radial-gradient(circle at 35% 30%, #636366, #242426 70%)',
               ...pos,
             }}
           />

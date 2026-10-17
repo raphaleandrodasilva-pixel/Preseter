@@ -72,45 +72,46 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center gap-3 border-b px-4"
+      className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-3"
       style={{
-        background: 'linear-gradient(to bottom, #17171A, #0B0B0D)',
-        borderColor: '#26262B',
+        background: 'linear-gradient(to bottom, #4A4A4D, #333335)',
+        borderColor: '#0E0E10',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
       }}
     >
-      <div className="flex items-center gap-2.5">
-        <PatchLcd programNumber={programNumber} patchName={currentPresetName} tempo={tempo} />
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="flex items-center gap-px overflow-hidden rounded-md"
+          style={{ border: '1px solid #151517', boxShadow: '0 1px 0 rgba(255,255,255,0.08)' }}
+        >
+          {MODES.map(({ id, label, hint }) => (
+            <button
+              key={id}
+              title={hint}
+              onClick={() => onModeChange(id)}
+              className="px-4 py-1.5 text-xs font-medium transition-colors"
+              style={
+                mode === id
+                  ? { background: 'linear-gradient(to bottom, #2F93FF, #0A6FE0)', color: '#fff', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)' }
+                  : { background: 'linear-gradient(to bottom, #4F4F52, #3E3E40)', color: '#E5E5EA' }
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <input
           value={concertName}
           onChange={(e) => onConcertNameChange(e.target.value)}
-          className="w-40 bg-transparent text-sm font-semibold tracking-wide outline-none"
-          style={{ color: '#EDEDEF' }}
+          className="w-44 min-w-0 truncate bg-transparent text-sm font-semibold outline-none"
+          style={{ color: '#F2F2F7' }}
           title="Nome do concert"
         />
       </div>
 
-      <div
-        className="ml-2 flex items-center gap-0.5 rounded-lg p-1"
-        style={{ background: '#131316', border: '1px solid #2E2E34' }}
-      >
-        {MODES.map(({ id, label, hint }) => (
-          <button
-            key={id}
-            title={hint}
-            onClick={() => onModeChange(id)}
-            className="rounded-md px-4 py-1.5 text-xs font-medium transition-all"
-            style={
-              mode === id
-                ? { background: '#131316', color: '#fff', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6)', border: '1px solid #2E2E34' }
-                : { color: '#9A9AA0' }
-            }
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <PatchLcd programNumber={programNumber} patchName={currentPresetName} tempo={tempo} />
 
-      <div className="ml-auto flex items-center gap-2 text-[11px]">
+      <div className="flex items-center justify-end gap-2 text-[11px]">
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((v) => !v)}
@@ -120,8 +121,8 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
             <span
               className="h-1.5 w-1.5 rounded-full"
               style={{
-                background: midiActive ? '#2DFF6A' : '#55555E',
-                boxShadow: midiActive ? '0 0 6px #2DFF6A' : 'none',
+                background: midiActive ? '#30D158' : '#636366',
+                boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
               }}
             />
             Configurações
@@ -130,7 +131,7 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
           {menuOpen && (
             <div
               className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl"
-              style={{ background: '#1C1C1F', border: '1px solid #2E2E34', boxShadow: '0 18px 45px rgba(0,0,0,0.6)' }}
+              style={{ background: '#2C2C2E', border: '1px solid #3A3A3C', boxShadow: '0 18px 45px rgba(0,0,0,0.6)' }}
             >
               <button
                 onClick={() => openTab('midi')}
@@ -140,14 +141,14 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
                 <span
                   className="h-1.5 w-1.5 rounded-full"
                   style={{
-                    background: midiActive ? '#2DFF6A' : '#55555E',
-                    boxShadow: midiActive ? '0 0 6px #2DFF6A' : 'none',
+                    background: midiActive ? '#30D158' : '#636366',
+                    boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
                   }}
                 />
                 <span className="flex-1">Dispositivos MIDI</span>
                 <span style={{ color: '#9A9AA0' }}>→</span>
               </button>
-              <div style={{ height: 1, background: '#2E2E34' }} />
+              <div style={{ height: 1, background: '#3A3A3C' }} />
               <button
                 onClick={() => openTab('vst')}
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs"

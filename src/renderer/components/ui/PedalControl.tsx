@@ -57,9 +57,9 @@ export const PedalControl: React.FC<UiPedalProps> = ({ element, onUpdate, onCont
           style={{
             height: '80%',
             borderRadius: '6px 6px 10px 10px',
-            borderColor: pressing ? '#2DFF6A' : '#2E2E34',
-            background: pressing ? 'rgba(45,255,106,0.25)' : 'linear-gradient(to bottom, #26262B, #131316)',
-            boxShadow: pressing ? '0 0 10px rgba(45,255,106,0.45)' : undefined,
+            borderColor: pressing ? '#0A84FF' : '#3A3A3C',
+            background: pressing ? 'rgba(10,132,255,0.25)' : 'linear-gradient(to bottom, #303032, #1F1F21)',
+            boxShadow: pressing ? '0 0 10px rgba(10,132,255,0.45)' : undefined,
           }}
           onMouseDown={handlePress}
           onMouseUp={handleRelease}
@@ -71,7 +71,7 @@ export const PedalControl: React.FC<UiPedalProps> = ({ element, onUpdate, onCont
             className="absolute bottom-0 left-0 right-0 transition-all"
             style={{
               height: pressing ? '100%' : '0%',
-              backgroundColor: '#2DFF6A',
+              backgroundColor: '#0A84FF',
               opacity: pressing ? 0.35 : 0,
               borderRadius: '0 0 8px 8px',
             }}
@@ -80,8 +80,8 @@ export const PedalControl: React.FC<UiPedalProps> = ({ element, onUpdate, onCont
           <div
             className="absolute top-1 right-1 w-2 h-2 rounded-full transition-all"
             style={{
-              backgroundColor: pressing ? '#2DFF6A' : '#2E2E34',
-              boxShadow: pressing ? '0 0 8px #2DFF6A' : 'none',
+              backgroundColor: pressing ? '#0A84FF' : '#3A3A3C',
+              boxShadow: pressing ? '0 0 8px #0A84FF' : 'none',
             }}
           />
         </div>

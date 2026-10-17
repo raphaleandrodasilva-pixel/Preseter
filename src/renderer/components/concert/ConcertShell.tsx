@@ -41,6 +41,36 @@ interface ConcertShellProps {
   onError: (message: string) => void;
 }
 
+
+/** Escala o workspace do Perform para preencher a tela, como no MainStage. */
+const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: React.ReactNode }> = ({ elements, topInset = 0, children }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const width = Math.max(320, ...elements.map((e) => e.x + e.width)) + 32;
+  const height = Math.max(200, ...elements.map((e) => e.y + e.height)) + 32;
+  const [fit, setFit] = useState({ scale: 1, left: 0, top: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const calc = () => {
+      const availW = el.clientWidth;
+      const availH = el.clientHeight - topInset;
+      const scale = Math.max(0.4, Math.min(2.5, availW / width, availH / height));
+      setFit({ scale, left: Math.max(0, (availW - width * scale) / 2), top: topInset + Math.max(0, (availH - height * scale) / 2) });
+    };
+    calc();
+    const observer = new ResizeObserver(calc);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [width, height, topInset]);
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden">
+      <div style={{ position: 'absolute', width, height, left: fit.left, top: fit.top, transform: `scale(${fit.scale})`, transformOrigin: 'top left' }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export const ConcertShell: React.FC<ConcertShellProps> = ({
   mode,
   onModeChange,
@@ -313,10 +343,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   if (mode === 'perform') {
     const elements = currentPreset?.layout.elements ?? [];
     return (
-      <div className="flex h-full flex-col text-slate-200" style={{ background: '#0B0B0D' }}>
+      <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
         <div
           className="flex h-14 shrink-0 items-center gap-3 border-b px-4 text-xs"
-          style={{ background: 'linear-gradient(to bottom, #17171A, #0B0B0D)', borderColor: '#26262B' }}
+          style={{ background: 'linear-gradient(to bottom, #4A4A4D, #333335)', borderColor: '#0E0E10' }}
         >
           <PatchLcd
             programNumber={currentPreset?.programNumber ?? appStatus.currentProgramNumber}
@@ -327,7 +357,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           <span style={{ color: '#9A9AA0' }}>Perform — tela cheia · Esc sai · ↑/↓ troca patch</span>
           <select
             className="ml-2 rounded-lg px-2 py-1 text-xs outline-none"
-            style={{ border: '1px solid #2E2E34', background: '#131316', color: '#EDEDEF' }}
+            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#EDEDEF' }}
             value={currentPreset?.id ?? ''}
             onChange={(e) => {
               const p = presets.find((x) => x.id === e.target.value);
@@ -353,26 +383,26 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             Sair do Perform
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto p-6">
+        <div className="relative min-h-0 flex-1" style={{ background: 'radial-gradient(circle at 50% 0%, #2A2A2D, #1C1C1E 70%)' }}>
           {currentPreset ? (
-            <div className="mx-auto max-w-6xl">
-              <div className="mb-3 text-center">
-                <div className="text-3xl font-semibold text-white">{currentPreset.name}</div>
-                <div className="text-xs" style={{ color: '#9A9AA0' }}>Programa {currentPreset.programNumber + 1} · Canal {currentPreset.midiChannel + 1}</div>
+            <>
+              <div className="pointer-events-none absolute left-0 right-0 top-3 z-10 text-center">
+                <div className="text-2xl font-semibold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>{currentPreset.name}</div>
+                <div className="text-[11px]" style={{ color: '#8E8E93' }}>Programa {currentPreset.programNumber + 1} · Canal {currentPreset.midiChannel + 1}</div>
               </div>
-              <div className="relative min-h-[480px] rounded-xl border border-[#26262B] bg-[#101013] p-4">
+              <FitToView elements={elements} topInset={64}>
                 {elements.map((el) => (
                   <StageControl key={el.id} element={el} channel={currentPreset.midiChannel} layoutMode="absolute" activeNotes={activeNotes} onMidiMessage={onMidiMessage} onSetVstParameter={onSetVstParameter} />
                 ))}
-                {elements.length === 0 && (
-                  <div className="flex h-[400px] items-center justify-center text-sm text-slate-600">
-                    Patch sem controles — volte ao Layout para adicionar.
-                  </div>
-                )}
-              </div>
-            </div>
+              </FitToView>
+              {elements.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: '#636366' }}>
+                  Patch sem controles — volte ao Layout para adicionar.
+                </div>
+              )}
+            </>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-slate-500">
+            <div className="flex h-full items-center justify-center text-sm" style={{ color: '#8E8E93' }}>
               Nenhum patch selecionado — escolha na lista ou com ↑/↓.
             </div>
           )}
@@ -385,7 +415,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   }
 
   return (
-    <div className="flex h-full flex-col text-slate-200" style={{ background: '#0B0B0D' }}>
+    <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
       <ModeToolbar
         mode={mode}
         onModeChange={onModeChange}
@@ -423,7 +453,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onDeletePreset={(id) => void deletePreset(id)}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b px-4 py-1.5 text-xs" style={{ borderColor: '#26262B' }}>
+          <div className="flex items-center justify-between border-b px-4 py-1.5 text-xs" style={{ borderColor: '#303032' }}>
             <span className="font-medium text-white">
               {mode === 'layout' ? 'Workspace — Layout do concert' : 'Workspace — Edit + Mapping'}
             </span>
@@ -457,7 +487,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   onSetVstParameter={onSetVstParameter}
                 />
                 {!draft && (
-                  <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid rgba(45,255,106,0.4)', background: 'rgba(45,255,106,0.08)', color: '#EDEDEF' }}>
+                  <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid rgba(10,132,255,0.4)', background: 'rgba(10,132,255,0.08)', color: '#EDEDEF' }}>
                     Visualizando patch salvo. Clique em um patch → Editar (✎) ou crie um novo para desenhar o layout.
                   </div>
                 )}
@@ -465,10 +495,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
-                  <div className="mb-2 text-4xl" style={{ color: '#2DFF6A' }}>♫</div>
+                  <div className="mb-2 text-4xl" style={{ color: '#0A84FF' }}>♫</div>
                   <div className="font-semibold text-white">Concert vazio</div>
                   <p className="my-2 text-xs" style={{ color: '#9A9AA0' }}>Crie um Set e o primeiro Patch na Patch List.</p>
-                  <button className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: '#2DFF6A', color: '#0B120C' }} onClick={() => onNewPatch(undefined)}>
+                  <button className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: '#0A84FF', color: '#FFFFFF' }} onClick={() => onNewPatch(undefined)}>
                     Criar primeiro patch
                   </button>
                 </div>
@@ -514,12 +544,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           />
         )}
       </div>
-      <div className="flex h-6 shrink-0 items-center gap-4 border-t px-4 text-[10px]" style={{ borderColor: '#2E2E34', background: '#131316', color: '#9A9AA0' }}>
+      <div className="flex h-6 shrink-0 items-center gap-4 border-t px-4 text-[10px]" style={{ borderColor: '#3A3A3C', background: '#1F1F21', color: '#9A9AA0' }}>
         <span>Programa {appStatus.currentProgramNumber + 1}</span>
         <span>Patches: {presets.length} · Sets: {sets.length}</span>
-        {midiLastMessage && <span className="truncate" style={{ color: '#2DFF6A' }}>{midiLastMessage}</span>}
+        {midiLastMessage && <span className="truncate" style={{ color: '#30D158' }}>{midiLastMessage}</span>}
         {toast && <span className="truncate" style={{ color: '#EDEDEF' }}>{toast}</span>}
-        <span className="ml-auto" style={{ color: ctx.audioDevices?.running ? '#2DFF6A' : '#9A9AA0' }}>
+        <span className="ml-auto" style={{ color: ctx.audioDevices?.running ? '#30D158' : '#9A9AA0' }}>
           {ctx.audioDevices?.running ? 'Áudio ativo' : 'Áudio parado — configure em Configurações'}
         </span>
       </div>

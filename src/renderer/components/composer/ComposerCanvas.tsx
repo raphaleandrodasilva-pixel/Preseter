@@ -58,7 +58,7 @@ function PreviewShape({ element }: { element: UiElement }) {
           splitNote={element.keyboardSplit ?? null}
           lowerLabel={element.keyboardLowerLabel ?? 'Lower'}
           upperLabel={element.keyboardUpperLabel ?? 'Upper'}
-          lowerColor={element.keyboardLowerColor ?? '#2DFF6A'}
+          lowerColor={element.keyboardLowerColor ?? '#0A84FF'}
           upperColor={element.keyboardUpperColor ?? '#F2F2F2'}
           compact
           interactive={false}
@@ -118,9 +118,9 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
         width: element.width,
         height: element.height,
         color: element.color,
-        background: element.type === 'label' ? 'transparent' : '#1C1C1F',
-        borderColor: element.type === 'label' ? 'transparent' : '#2E2E34',
-        ...(selected ? { boxShadow: '0 0 0 2px #2DFF6A' } : {}),
+        background: element.type === 'label' ? 'transparent' : '#2C2C2E',
+        borderColor: element.type === 'label' ? 'transparent' : '#3A3A3C',
+        ...(selected ? { boxShadow: '0 0 0 2px #0A84FF' } : {}),
       }}
     >
       <PreviewShape element={element} />
@@ -147,7 +147,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
           onPointerUp={() => {
             resizing.current = null;
           }}
-          className="absolute -bottom-1.5 -right-1.5 h-4 w-4 cursor-nwse-resize rounded-sm border border-[#2E2E34] bg-[#2DFF6A]"
+          className="absolute -bottom-1.5 -right-1.5 h-4 w-4 cursor-nwse-resize rounded-sm border border-[#3A3A3C] bg-[#0A84FF]"
         />
       )}
     </div>
@@ -192,7 +192,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
         const { x, y } = coordsOf(event.clientX, event.clientY, event.currentTarget);
         onDropKey(key, x, y);
       }}
-      className={`relative min-h-[520px] min-w-[680px] overflow-hidden rounded-lg border border-[#26262B] bg-[#101013] ${
+      className={`relative min-h-[520px] min-w-[680px] overflow-hidden rounded-lg border border-[#303032] bg-[#242426] ${
         armed && !locked ? 'cursor-crosshair' : ''
       }`}
       style={{

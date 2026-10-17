@@ -81,7 +81,7 @@ export const ButtonControl: React.FC<UiButtonProps> = ({ element, onUpdate, onCo
         }`}
         style={{
           color: pressed ? '#fff' : '#EDEDEF',
-          borderColor: pressed ? '#2DFF6A' : '#2E2E34',
+          borderColor: pressed ? '#0A84FF' : '#3A3A3C',
         }}
       >
         {element.label}
@@ -185,8 +185,8 @@ export const FaderControl: React.FC<UiFaderProps> = ({ element, onUpdate, onCont
           className="relative w-full rounded-lg cursor-row-resize touch-none"
           style={{
             height: 'calc(100% - 32px)',
-            backgroundColor: '#131316',
-            border: '1px solid #2E2E34',
+            backgroundColor: '#1F1F21',
+            border: '1px solid #3A3A3C',
             boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.6)',
           }}
           onMouseDown={handleMouseDown}
@@ -197,7 +197,7 @@ export const FaderControl: React.FC<UiFaderProps> = ({ element, onUpdate, onCont
             style={{
               bottom: 0,
               height: `${percentValue}%`,
-              backgroundColor: '#2DFF6A',
+              backgroundColor: '#0A84FF',
             }}
           />
           <div
@@ -209,7 +209,7 @@ export const FaderControl: React.FC<UiFaderProps> = ({ element, onUpdate, onCont
               width: '80%',
               height: '20px',
               backgroundColor: '#F2F2F2',
-              border: '1px solid #2E2E34',
+              border: '1px solid #3A3A3C',
               boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
             }}
           />

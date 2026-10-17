@@ -209,7 +209,7 @@ export const StageControl: React.FC<StageControlProps> = ({
           splitNote={element.keyboardSplit ?? null}
           lowerLabel={element.keyboardLowerLabel ?? 'Lower'}
           upperLabel={element.keyboardUpperLabel ?? 'Upper'}
-          lowerColor={element.keyboardLowerColor ?? '#2DFF6A'}
+          lowerColor={element.keyboardLowerColor ?? '#0A84FF'}
           upperColor={element.keyboardUpperColor ?? '#F2F2F2'}
           defaultVelocity={element.velocity ?? 100}
           compact

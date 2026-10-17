@@ -121,7 +121,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-col overflow-hidden text-slate-200" style={{ background: '#0B0B0D' }}>
+    <div className="relative flex h-screen w-full flex-col overflow-hidden text-slate-200" style={{ background: '#1C1C1E' }}>
       <div className="min-h-0 flex-1">
         <ConcertShell
           mode={mode}

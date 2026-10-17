@@ -51,9 +51,9 @@ export const ToggleControl: React.FC<UiToggleProps> = ({ element, onUpdate, onCo
         <div
           className="relative inline-block h-8 w-14 rounded-full transition-all duration-300"
           style={{
-            backgroundColor: active ? 'rgba(45,255,106,0.35)' : '#131316',
-            border: active ? '1px solid #2DFF6A' : '1px solid #2E2E34',
-            boxShadow: active ? '0 0 10px rgba(45,255,106,0.45)' : 'inset 0 2px 6px rgba(0,0,0,0.6)',
+            backgroundColor: active ? 'rgba(10,132,255,0.35)' : '#1F1F21',
+            border: active ? '1px solid #0A84FF' : '1px solid #3A3A3C',
+            boxShadow: active ? '0 0 10px rgba(10,132,255,0.45)' : 'inset 0 2px 6px rgba(0,0,0,0.6)',
           }}
         >
           <div

@@ -59,9 +59,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
 
   const accentBtn: React.CSSProperties = {
-    background: '#2DFF6A',
-    color: '#0B120C',
-    border: '1px solid #2DFF6A',
+    background: '#0A84FF',
+    color: '#FFFFFF',
+    border: '1px solid #0A84FF',
   };
 
   return (
@@ -96,7 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             onClick={() => setTab('midi')}
             className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
             style={tab === 'midi'
-              ? { background: '#131316', color: '#fff', borderColor: '#2DFF6A' }
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
           >
             Dispositivos MIDI
@@ -105,7 +105,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             onClick={() => setTab('vst')}
             className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
             style={tab === 'vst'
-              ? { background: '#131316', color: '#fff', borderColor: '#2DFF6A' }
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
           >
             Plugins VST
@@ -114,7 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             onClick={() => setTab('audio')}
             className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
             style={tab === 'audio'
-              ? { background: '#131316', color: '#fff', borderColor: '#2DFF6A' }
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
           >
             Áudio
@@ -244,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     Parar
                   </button>
                 </div>
-                <p className="text-[10px]" style={{ color: '#77777E' }}>
+                <p className="text-[10px]" style={{ color: '#8E8E93' }}>
                   As preferências são salvas e reaplicadas quando o Preseter abre.
                 </p>
               </section>
@@ -296,7 +296,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               </section>
               <section>
                 <h4 className="hw-label mb-2">Monitor</h4>
-                <div className="hw-lcd p-3 font-mono text-xs" style={{ color: '#1C241A' }}>
+                <div className="hw-lcd p-3 font-mono text-xs" style={{ color: '#E5E5EA' }}>
                   {midiLastMessage || 'Aguardando mensagens MIDI…'}
                 </div>
               </section>
@@ -338,7 +338,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                           <div className="text-[10px]" style={{ color: '#9A9AA0' }}>{p.isInstrument ? 'Instrumento' : 'Efeito'}</div>
                         </div>
                         {loadedCount > 0
-                          ? <span className="rounded-lg px-2 py-1 text-[10px] font-semibold" style={{ background: 'rgba(45,255,106,0.18)', color: '#2DFF6A', border: '1px solid #2DFF6A' }}>{loadedCount} carregado(s)</span>
+                          ? <span className="rounded-lg px-2 py-1 text-[10px] font-semibold" style={{ background: 'rgba(10,132,255,0.18)', color: '#0A84FF', border: '1px solid #0A84FF' }}>{loadedCount} carregado(s)</span>
                           : <button onClick={() => void loadVstPlugin(p.path)} className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110" style={accentBtn}>Carregar</button>}
                       </div>
                     );
@@ -366,7 +366,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                           </button>
                         </div>
                         {open && (
-                          <div className="space-y-2 border-t px-3 py-2" style={{ borderColor: '#2E2E34' }}>
+                          <div className="space-y-2 border-t px-3 py-2" style={{ borderColor: '#3A3A3C' }}>
                             {p.parameters.length === 0 && <p className="text-[11px]" style={{ color: '#9A9AA0' }}>Sem parâmetros expostos.</p>}
                             {p.parameters.map((param) => (
                               <div key={param.id}>
@@ -382,7 +382,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                                   value={param.value}
                                   onChange={(e) => void setVstParameter(layerId, param.id, parseFloat(e.target.value))}
                                   className="w-full"
-                                  style={{ accentColor: '#2DFF6A' }}
+                                  style={{ accentColor: '#0A84FF' }}
                                 />
                               </div>
                             ))}

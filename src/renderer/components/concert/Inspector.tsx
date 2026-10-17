@@ -22,7 +22,7 @@ interface InspectorProps {
 type Tab = 'library' | 'attributes' | 'mapping' | 'notes' | 'control';
 
 const classInput =
-  'w-full rounded-lg border border-[#2E2E34] bg-[#101013] px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-[#2DFF6A]';
+  'w-full rounded-lg border border-[#3A3A3C] bg-[#242426] px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-[#0A84FF]';
 
 export const Inspector: React.FC<InspectorProps> = ({
   draft,
@@ -89,7 +89,7 @@ export const Inspector: React.FC<InspectorProps> = ({
         }}
         onPointerCancel={() => { resizing.current = null; }}
       >
-        <div className="mx-auto h-1 w-16 rounded-full" style={{ background: '#26262B' }} />
+        <div className="mx-auto h-1 w-16 rounded-full" style={{ background: '#303032' }} />
       </div>
       <div className="flex items-center gap-1 border-b px-3" style={{ borderColor: '#1E1E24' }}>
         {tabs.map(({ id, label }) => (
@@ -99,7 +99,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             className={`border-b-2 px-3 py-2 text-[11px] ${
               tab === id ? 'text-white' : 'border-transparent hover:text-slate-200'
             }`}
-            style={tab === id ? { borderColor: '#2DFF6A' } : { color: '#9A9AA0' }}
+            style={tab === id ? { borderColor: '#0A84FF' } : { color: '#9A9AA0' }}
           >
             {label}
           </button>
@@ -108,7 +108,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           onClick={onSave}
           disabled={saving}
           className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
-          style={{ background: '#2DFF6A', color: '#0B120C' }}
+          style={{ background: '#0A84FF', color: '#FFFFFF' }}
         >
           {saving ? 'Salvando…' : 'Salvar patch'}
         </button>
@@ -129,7 +129,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             <label className="text-[11px] text-slate-400">Canal (1-16)<input className={`${classInput} mt-1`} type="number" min={1} max={16} value={draft.midiChannel + 1} onChange={(e) => onPatchChange({ midiChannel: Math.max(0, Math.min(15, (Number(e.target.value) || 1) - 1)) })} /></label>
             <label className="text-[11px] text-slate-400">Ícone<input className={`${classInput} mt-1`} value={draft.icon ?? '🎹'} onChange={(e) => onPatchChange({ icon: e.target.value })} /></label>
             <label className="flex items-end gap-2 pb-1 text-[11px] text-slate-400">
-              <input type="checkbox" style={{ accentColor: '#2DFF6A' }} checked={!!draft.skipped} onChange={(e) => onPatchChange({ skipped: e.target.checked })} />
+              <input type="checkbox" style={{ accentColor: '#0A84FF' }} checked={!!draft.skipped} onChange={(e) => onPatchChange({ skipped: e.target.checked })} />
               Skip (pular em Program Change)
             </label>
             <div className="text-[11px] text-slate-500">Tempo do patch: {draft.layout.tempo} BPM · {draft.layout.elements.length} controle(s)</div>
@@ -143,7 +143,7 @@ export const Inspector: React.FC<InspectorProps> = ({
             value={draft.notes ?? ''}
             onChange={(e) => onPatchChange({ notes: e.target.value })}
             placeholder="Anotações do patch — ex. letra, viradas, avisos de palco…"
-            className="h-full min-h-[140px] w-full rounded-lg border border-[#2E2E34] bg-[#101013] p-2 text-xs text-slate-200 outline-none focus:border-[#2DFF6A]"
+            className="h-full min-h-[140px] w-full rounded-lg border border-[#3A3A3C] bg-[#242426] p-2 text-xs text-slate-200 outline-none focus:border-[#0A84FF]"
           />
         )}
         {tab === 'control' && selectedElement && (

@@ -102,10 +102,10 @@ export const PatchList: React.FC<PatchListProps> = ({
           }
           onReorderPatches(setId, without);
         }}
-        className="group flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs"
-        style={active ? { background: 'rgba(45,255,106,0.14)', color: '#fff' } : { color: '#EDEDEF' }}
+        className="group flex items-center gap-1 rounded px-1.5 py-[3px] text-xs"
+        style={active ? { background: 'linear-gradient(to bottom, #2F93FF, #0A6FE0)', color: '#fff' } : { color: '#EDEDEF' }}
       >
-        <span className="w-7 shrink-0 text-right tabular-nums" style={{ color: '#9A9AA0' }}>
+        <span className="w-7 shrink-0 text-right tabular-nums" style={{ color: active ? 'rgba(255,255,255,0.8)' : '#8E8E93' }}>
           {String(preset.programNumber + 1).padStart(3, '0')}
         </span>
         <span className="w-4 shrink-0 text-center">{preset.icon ?? '🎹'}</span>
@@ -142,10 +142,10 @@ export const PatchList: React.FC<PatchListProps> = ({
   };
 
   return (
-    <aside className="flex w-[264px] shrink-0 flex-col border-r" style={{ borderColor: '#26262B', background: '#101013' }}>
-      <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: '#26262B' }}>
+    <aside className="flex w-[264px] shrink-0 flex-col border-r" style={{ borderColor: '#0E0E10', background: '#262628' }}>
+      <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: '#303032' }}>
         <div className="hw-label">Patch List</div>
-        <span className="ml-auto text-[10px]" style={{ color: '#55555E' }}>{presets.length}</span>
+        <span className="ml-auto text-[10px]" style={{ color: '#636366' }}>{presets.length}</span>
         <button
           className="hw-squarebtn px-1.5 py-0.5 text-sm"
           title="Adicionar patch no fim"
@@ -162,21 +162,21 @@ export const PatchList: React.FC<PatchListProps> = ({
             ⚙
           </button>
           {actionOpen && (
-            <div className="absolute right-0 top-7 z-30 w-56 rounded-lg p-1 shadow-xl" style={{ border: '1px solid #2E2E34', background: '#131316' }}>
-              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#1C1C1F]" style={{ color: '#EDEDEF' }} onClick={() => { onNewSet(); setActionOpen(false); }}>
+            <div className="absolute right-0 top-7 z-30 w-56 rounded-lg p-1 shadow-xl" style={{ border: '1px solid #3A3A3C', background: '#1F1F21' }}>
+              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewSet(); setActionOpen(false); }}>
                 + Novo Set
               </button>
-              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#1C1C1F]" style={{ color: '#EDEDEF' }} onClick={() => { onNewPatch(undefined); setActionOpen(false); }}>
+              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewPatch(undefined); setActionOpen(false); }}>
                 + Novo Patch
               </button>
-              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#1C1C1F]" style={{ color: '#EDEDEF' }} onClick={() => { onResetProgramNumbers(); setActionOpen(false); }}>
+              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onResetProgramNumbers(); setActionOpen(false); }}>
                 Reset Program Change Numbers
               </button>
             </div>
           )}
         </div>
       </div>
-      <div className="border-b px-2 py-1.5" style={{ borderColor: '#26262B' }}>
+      <div className="border-b px-2 py-1.5" style={{ borderColor: '#303032' }}>
         <input
           ref={searchRef}
           value={query}
@@ -184,12 +184,12 @@ export const PatchList: React.FC<PatchListProps> = ({
           onKeyDown={handleSearchKey}
           placeholder="Buscar: nº ou nome + Enter (F foca)"
           className="w-full rounded-lg px-2 py-1 text-[11px] outline-none"
-          style={{ border: '1px solid #2E2E34', background: '#131316', color: '#EDEDEF' }}
+          style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#EDEDEF' }}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {presets.length === 0 && (
-          <div className="rounded-lg p-3 text-center text-[11px]" style={{ border: '1px solid #2E2E34', color: '#9A9AA0' }}>
+          <div className="rounded-lg p-3 text-center text-[11px]" style={{ border: '1px solid #3A3A3C', color: '#9A9AA0' }}>
             Concert vazio. Crie um Set e seu primeiro Patch.
           </div>
         )}
@@ -218,10 +218,10 @@ export const PatchList: React.FC<PatchListProps> = ({
                 ids.splice(orderedSets.findIndex((s) => s.id === set.id), 0, draggedSet);
                 onReorderSets(ids);
               }}
-              className="mb-1 rounded-lg border"
-              style={set.skipped ? { borderColor: '#2E2E34', opacity: 0.5 } : { borderColor: '#2E2E34', background: '#131316' }}
+              className="mb-0.5"
+              style={set.skipped ? { opacity: 0.5 } : undefined}
             >
-              <div className="flex items-center gap-1 px-1.5 py-1">
+              <div className="flex items-center gap-1 rounded px-1.5 py-[3px]" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 <button
                   className="text-[10px] text-slate-500 hover:text-slate-200"
                   onClick={() => onToggleSetExpanded(set.id)}
@@ -246,7 +246,7 @@ export const PatchList: React.FC<PatchListProps> = ({
                       if (e.key === 'Escape') setRenamingSetId(null);
                     }}
                     className="min-w-0 flex-1 rounded-lg px-1 py-0.5 text-xs outline-none"
-                    style={{ border: '1px solid #2DFF6A', background: '#101013', color: '#fff' }}
+                    style={{ border: '1px solid #0A84FF', background: '#242426', color: '#fff' }}
                   />
                 ) : (
                   <button
@@ -305,7 +305,7 @@ export const PatchList: React.FC<PatchListProps> = ({
           {patchesOf(presets, undefined).map(renderPatchRow)}
         </div>
       </div>
-      <div className="flex items-center gap-2 border-t px-2 py-1.5 text-[10px]" style={{ borderColor: '#26262B', color: '#55555E' }}>
+      <div className="flex items-center gap-2 border-t px-2 py-1.5 text-[10px]" style={{ borderColor: '#303032', color: '#636366' }}>
         <span>Set</span>
         <span>Patch</span>
         <span className="ml-auto">F busca · ←/→ navega · duplo clique renomeia set</span>

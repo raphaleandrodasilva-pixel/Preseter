@@ -79,9 +79,9 @@ export const PadControl: React.FC<UiPadProps> = ({ element, onUpdate, onControlC
         `}
         style={{
           color: pressed ? '#fff' : '#EDEDEF',
-          borderColor: pressed ? '#2DFF6A' : '#2E2E34',
-          background: pressed ? 'rgba(45,255,106,0.30)' : undefined,
-          boxShadow: pressed ? '0 0 12px rgba(45,255,106,0.45)' : undefined,
+          borderColor: pressed ? '#0A84FF' : '#3A3A3C',
+          background: pressed ? 'rgba(10,132,255,0.30)' : undefined,
+          boxShadow: pressed ? '0 0 12px rgba(10,132,255,0.45)' : undefined,
         }}
       >
         {element.label || (element.noteNumber ?? '').toString()}

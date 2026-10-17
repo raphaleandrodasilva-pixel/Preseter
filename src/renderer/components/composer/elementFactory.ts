@@ -103,7 +103,7 @@ export function makeElement(
     y: Math.max(0, y),
     width: size.width,
     height: size.height,
-    color: type === 'pedal' ? '#2DFF6A' : '#9A9AA0',
+    color: type === 'pedal' ? '#0A84FF' : '#9A9AA0',
     minValue: 0,
     maxValue: 1,
     orientation: orientation ?? (type === 'slider' ? 'horizontal' : 'vertical'),
