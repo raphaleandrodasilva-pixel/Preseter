@@ -279,7 +279,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(250px,310px)_1fr]">
+          <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(250px,310px)_1fr]">
             <aside className="min-h-0 space-y-5 overflow-y-auto border-r border-slate-800 p-4">
               <section className="space-y-3">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Identificação</h2>
