@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstList: () => ipcRenderer.invoke('vst-list'),
   vstLoaded: () => ipcRenderer.invoke('vst-loaded'),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
+  enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>
     ipcRenderer.invoke('vst-set-layer-range', layerId, minNote, maxNote),
   vstMixGet: () => ipcRenderer.invoke('vst-mix-get'),

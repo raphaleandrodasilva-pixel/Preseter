@@ -187,7 +187,7 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
         </button>
         <button
           onClick={onPanic}
-          title="Panic — silencia notas MIDI"
+          title="Panic — corta o som de todos os plugins (Ctrl+P)"
           className="hw-squarebtn px-2.5 py-1.5"
         >
           Panic

@@ -113,6 +113,12 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Panic do motor: all notes off + all sound off em todos os canais. */
+  async panic(): Promise<boolean> {
+    await this.engine.request('panic', {});
+    return true;
+  }
+
   async getPluginState(
     layerOrPluginId: string
   ): Promise<{ data: string; parameters: Record<string, number>; bypass: false } | null> {

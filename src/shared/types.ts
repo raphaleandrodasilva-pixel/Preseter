@@ -245,6 +245,7 @@ export type ElectronChannels =
   | 'vst-list'
   | 'vst-loaded'
   | 'engine-midi'
+  | 'engine-panic'
   | 'preset-save'
   | 'preset-load'
   | 'preset-list'
@@ -276,6 +277,7 @@ export interface ElectronEventMap {
   'vst-open-editor': (pluginId: string) => void;
   'vst-close-editor': (pluginId: string) => void;
   'engine-midi': (message: number[]) => void;
+  'engine-panic': () => void;
   'preset-save': (preset: Preset) => void;
   'preset-load': (presetId: string) => void;
   'preset-list': () => void;

@@ -64,6 +64,8 @@ export interface AppContextType {
   openMidiPort: (deviceId: string, type: 'input' | 'output') => Promise<boolean>;
   sendProgramChange: (program: number, channel?: number) => Promise<any>;
   sendMidiMessage: (message: number[]) => Promise<boolean>;
+  /** Panic do motor: all notes off + all sound off em todos os canais. */
+  enginePanic: () => Promise<boolean>;
   /** Assina mensagens MIDI brutas (MIDI Learn). Retorna unsubscribe. */
   subscribeMidiLearn: (listener: (event: RawMidiEvent) => void) => () => void;
 
@@ -516,6 +518,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return webMidi.current.onRawMessage(listener);
   }, []);
 
+  const enginePanic = useCallback(async (): Promise<boolean> => {
+    try {
+      return await window.electronAPI.enginePanic();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar o panic ao motor.');
+      return false;
+    }
+  }, []);
+
   // === VST Actions ===
   const scanVstPlugins = useCallback(async () => {
     try {
@@ -806,6 +817,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openMidiPort,
     sendProgramChange,
     sendMidiMessage,
+    enginePanic,
     subscribeMidiLearn,
     scanVstPlugins,
     loadVstPlugin,

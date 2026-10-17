@@ -35,6 +35,7 @@ export interface ElectronAPI {
   vstList: () => Promise<any[]>;
   vstLoaded: () => Promise<any[]>;
   engineMidi: (bytes: number[]) => Promise<boolean>;
+  enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;

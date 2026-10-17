@@ -175,6 +175,10 @@ class MainWindow {
       return this.vstManager.sendMidi(bytes);
     });
 
+    ipcMain.handle('engine-panic', () => {
+      return this.vstManager.panic();
+    });
+
     ipcMain.handle('vst-set-layer-range', (_event, layerId: string, minNote: number, maxNote: number) => {
       return this.vstManager.setLayerRange(layerId, minNote, maxNote);
     });

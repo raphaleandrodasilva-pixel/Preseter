@@ -97,7 +97,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
     movePresetToSet, reorderPatchesInSet, reorderSets, togglePresetSkipped,
-    resetProgramNumbers, deletePreset, activeNotes, sendMidiMessage,
+    resetProgramNumbers, deletePreset, activeNotes, enginePanic,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix,
     openVstEditor, closeVstEditor,
@@ -325,13 +325,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onArmedKey(armedKey === item.key ? null : item.key);
   };
 
-  // Atalhos globais: Cmd+1/2/3 modos, Del remove, Ctrl+D duplica, F foca busca
+  const masterMuted = mixState?.master?.muted ?? false;
+  const panic = () => { void enginePanic(); };
+  const toggleMasterMute = () => { void setVstMasterMix({ muted: !masterMuted }); };
+
+  // Atalhos globais: Cmd+1/2/3 modos, Ctrl+P panic, Ctrl+M mute, Del remove, Ctrl+D duplica, F foca busca
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); onModeChange('layout'); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); onModeChange('edit'); return; }
       if ((e.metaKey || e.ctrlKey) && (e.key === '3' || e.key === '4')) { e.preventDefault(); onModeChange('perform'); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
       if (target?.closest('input,select,textarea')) return;
       if (e.key.toLowerCase() === 'f') {
         const input = document.querySelector('aside input[placeholder*="Buscar"]') as HTMLInputElement | null;
@@ -340,6 +346,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       }
       if (mode === 'perform') {
         if (e.key === 'Escape') onModeChange('edit');
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           // Navega patches pulando skipped (MainStage: Cmd+setas pula skip; simples aqui)
           const ordered = [...presets].sort((a, b) => a.programNumber - b.programNumber).filter((p) => !p.skipped);
@@ -359,12 +367,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors]);
-
-  const panic = () => {
-    // All Notes Off em todos os canais
-    for (let ch = 0; ch < 16; ch++) void sendMidiMessage([0xb0 | ch, 123, 0]);
-  };
+  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors, masterMuted]);
 
   if (mode === 'perform') {
     const elements = currentPreset?.layout.elements ?? [];
@@ -381,6 +384,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           />
           <span className="font-semibold" style={{ color: '#EDEDEF' }}>{concertName}</span>
           <span style={{ color: '#9A9AA0' }}>Perform — tela cheia · Esc sai · ↑/↓ troca patch</span>
+          {masterMuted && (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
+              MASTER MUDO
+            </span>
+          )}
           <select
             className="ml-2 rounded-lg px-2 py-1 text-xs outline-none"
             style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#EDEDEF' }}
@@ -486,6 +494,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             <span style={{ color: '#9A9AA0' }}>
               {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
             </span>
+            {masterMuted && (
+              <span className="ml-2 rounded px-2 py-0.5 text-[10px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
+                MASTER MUDO
+              </span>
+            )}
           </div>
           {error && <div className="border-b border-red-900 bg-red-950/40 px-4 py-1 text-[11px] text-red-300">{error}</div>}
           <div className="min-h-0 flex-1 overflow-auto p-4">
