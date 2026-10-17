@@ -692,7 +692,7 @@ juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayer
 }
 
 void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& requestedLayerId,
-                         int minNote, int maxNote, Done done)
+                         int minNote, int maxNote, Done done, bool staged)
 {
     juce::PluginDescription description;
     if (! findDescription (idOrPath, description))
@@ -717,21 +717,78 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
         done ({}, utf8 ("Já existe um instrumento com este identificador de layer."));
         return;
     }
-    if (layers.size() + (size_t) loadingLayerIds.size() >= 4)
+
+    // Numa troca de patch o limite vale para os layers que estão chegando; o patch
+    // anterior (lingering) fica fora da conta enquanto as caudas tocam.
+    int counted = 0;
+    for (const auto& layer : layers)
+    {
+        const bool incoming = layer.role == Layer::Role::staged || layer.role == Layer::Role::adopted;
+        if (staged ? incoming : layer.role != Layer::Role::lingering)
+            ++counted;
+    }
+    if ((size_t) counted + (size_t) loadingLayerIds.size() >= 4)
     {
         done ({}, utf8 ("Um patch pode ter no máximo quatro instrumentos."));
         return;
     }
+
+    const auto pluginId = description.createIdentifierString();
+
+    // Reaproveita a instância do mesmo plugin do patch atual (ou de um que ainda toca).
+    if (staged)
+    {
+        for (int i = 0; i < (int) layers.size(); ++i)
+        {
+            auto& candidate = layers[(size_t) i];
+            if (candidate.pluginId != pluginId)
+                continue;
+            if (candidate.role != Layer::Role::active && candidate.role != Layer::Role::lingering)
+                continue;
+
+            Layer layer;
+            layer.id = layerId;
+            layer.pluginId = pluginId;
+            layer.minNote = minNote;
+            layer.maxNote = maxNote;
+            layer.role = Layer::Role::adopted;
+            layer.pluginNode = candidate.pluginNode;   // a instância continua viva e soando
+            layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+            layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+
+            if (layer.midiFilterNode == nullptr || layer.stripNode == nullptr)
+            {
+                if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+                if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+                done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
+                return;
+            }
+            if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+                filter->setRange (minNote, maxNote);
+
+            // Some com o layer antigo, mas preserva o nó do plugin (agora é do novo layer).
+            candidate.pluginNode = nullptr;
+            if (candidate.midiFilterNode != nullptr) graph.removeNode (candidate.midiFilterNode->nodeID);
+            if (candidate.stripNode != nullptr) graph.removeNode (candidate.stripNode->nodeID);
+            layers.erase (layers.begin() + i);
+
+            layers.push_back (std::move (layer));
+            updateSoloState();
+            rebuildConnections();
+            done (describeLoadedPlugin (layerId), {});
+            return;
+        }
+    }
+
     loadingLayerIds.add (layerId);
 
     const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
     const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
-    const auto pluginId = description.createIdentifierString();
     std::weak_ptr<bool> alive = aliveFlag;
 
     formatManager.createPluginInstanceAsync (
         description, sampleRate, blockSize,
-        [this, alive, done, layerId, pluginId, minNote, maxNote] (
+        [this, alive, done, layerId, pluginId, minNote, maxNote, staged] (
             std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             const auto stillAlive = alive.lock();
@@ -750,6 +807,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.pluginId = pluginId;
             layer.minNote = minNote;
             layer.maxNote = maxNote;
+            layer.role = staged ? Layer::Role::staged : Layer::Role::active;
             layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
             layer.pluginNode = graph.addNode (std::move (instance));
             layer.stripNode = graph.addNode (
@@ -771,6 +829,51 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             rebuildConnections();
             done (describeLoadedPlugin (layerId), {});
         });
+}
+
+void Engine::stagePlugin (const juce::String& idOrPath, const juce::String& layerId,
+                          int minNote, int maxNote, Done done)
+{
+    loadPlugin (idOrPath, layerId, minNote, maxNote, std::move (done), true);
+}
+
+juce::var Engine::commitPatchSwap (bool silencePrevious)
+{
+    for (auto& layer : layers)
+    {
+        if (layer.role == Layer::Role::staged || layer.role == Layer::Role::adopted)
+            layer.role = Layer::Role::active;
+        else if (layer.role == Layer::Role::active)
+            layer.role = Layer::Role::lingering;
+    }
+
+    // "Silence Previous Patch": corta o patch anterior na hora, sem esperar as caudas.
+    if (silencePrevious)
+    {
+        juce::StringArray toUnload;
+        for (const auto& layer : layers)
+            if (layer.role == Layer::Role::lingering)
+                toUnload.add (layer.id);
+        for (const auto& id : toUnload)
+            unloadPlugin (id);
+    }
+
+    rebuildConnections();
+    updateSoloState();
+    updateTailTimer();
+
+    juce::Array<juce::var> active, lingering;
+    for (const auto& layer : layers)
+    {
+        if (layer.role == Layer::Role::active)
+            active.add (layer.id);
+        else if (layer.role == Layer::Role::lingering)
+            lingering.add (layer.id);
+    }
+
+    return Obj()
+        .set ("active", juce::var (active))
+        .set ("lingering", juce::var (lingering));
 }
 
 bool Engine::unloadPlugin (const juce::String& requestedLayerId)
@@ -993,23 +1096,71 @@ void Engine::rebuildConnections()
         if (plugin == nullptr || layer.stripNode == nullptr)
             continue;
 
+        const bool audible = layer.role != Layer::Role::staged;
+
         const int plugOut = plugin->getMainBusNumOutputChannels();
         for (int ch = 0; ch < juce::jmin (plugOut, 2); ++ch)
             graph.addConnection ({ { layer.pluginNode->nodeID, ch }, { layer.stripNode->nodeID, ch } });
         if (plugOut == 1)
             graph.addConnection ({ { layer.pluginNode->nodeID, 0 }, { layer.stripNode->nodeID, 1 } });
-        for (int ch = 0; ch < 2; ++ch)
-            graph.addConnection ({ { layer.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
+        if (audible)
+            for (int ch = 0; ch < 2; ++ch)
+                graph.addConnection ({ { layer.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
 
         if (! plugin->getPluginDescription().isInstrument)
             for (int ch = 0; ch < juce::jmin (plugin->getMainBusNumInputChannels(), graphIn); ++ch)
                 graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } });
 
-        graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
-                               { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
-        graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
-                               { layer.pluginNode->nodeID, Graph::midiChannelIndex } });
+        // Só o patch atual recebe MIDI; o anterior (lingering) fica só com o áudio das caudas.
+        if (layer.role == Layer::Role::active)
+        {
+            graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
+                                   { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
+            graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
+                                   { layer.pluginNode->nodeID, Graph::midiChannelIndex } });
+        }
     }
+}
+
+void Engine::updateTailTimer()
+{
+    bool hasLingering = false;
+    for (const auto& layer : layers)
+        if (layer.role == Layer::Role::lingering)
+            hasLingering = true;
+
+    if (hasLingering && ! tailTimer.isTimerRunning())
+        tailTimer.startTimerHz (8);
+    else if (! hasLingering)
+        tailTimer.stopTimer();
+}
+
+void Engine::drainLingeringLayers()
+{
+    juce::StringArray toUnload;
+    for (auto& layer : layers)
+    {
+        if (layer.role != Layer::Role::lingering)
+            continue;
+
+        auto* strip = layer.stripNode != nullptr
+            ? dynamic_cast<ChannelStripProcessor*> (layer.stripNode->getProcessor())
+            : nullptr;
+        const float peakDb = strip != nullptr ? strip->getPeakDb() : -100.0f;
+
+        if (peakDb <= -60.0f)
+            ++layer.silentChecks;
+        else
+            layer.silentChecks = 0;
+
+        if (layer.silentChecks >= 4)   // ~0,5 s de silêncio
+            toUnload.add (layer.id);
+    }
+
+    for (const auto& id : toUnload)
+        unloadPlugin (id);
+
+    updateTailTimer();
 }
 
 void Engine::updateSoloState()

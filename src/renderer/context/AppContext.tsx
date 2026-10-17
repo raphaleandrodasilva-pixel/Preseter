@@ -12,6 +12,7 @@ import {
   LayerMixUpdate,
   MasterMixUpdate,
   SavedAudioSettings,
+  AppPreferences,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
@@ -27,6 +28,7 @@ export interface AppContextType {
   scannedPlugins: VstPluginInfo[];
   audioDevices: AudioDeviceSnapshot | null;
   audioSettings: SavedAudioSettings | null;
+  preferences: AppPreferences | null;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -82,6 +84,7 @@ export interface AppContextType {
   refreshAudioSettings: () => Promise<void>;
   startAudio: (options: AudioStartOptions) => Promise<boolean>;
   stopAudio: () => Promise<boolean>;
+  updatePreferences: (update: Partial<AppPreferences>) => Promise<AppPreferences | null>;
 
   // Ações de Layout/UI
   addUIElement: (element: UiElement) => void;
@@ -142,6 +145,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [scannedPlugins, setScannedPlugins] = useState<VstPluginInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<AudioDeviceSnapshot | null>(null);
   const [audioSettings, setAudioSettings] = useState<SavedAudioSettings | null>(null);
+  const [preferences, setPreferences] = useState<AppPreferences | null>(null);
   const [midiDevices, setMidiDevices] = useState<MidiDeviceInfo[]>([]);
   const [layout, setLayoutState] = useState<LayoutConfig | null>(null);
   const [appStatus, setAppStatus] = useState<AppStatus>({
@@ -161,15 +165,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [presetList, loaded, audio] = await Promise.all([
+        const [presetList, loaded, audio, prefs] = await Promise.all([
           window.electronAPI.presetList(),
           window.electronAPI.vstLoaded(),
           window.electronAPI.audioSettingsGet(),
+          window.electronAPI.preferencesGet(),
         ]);
         setPresets(presetList);
         setLoadedPlugins(loaded);
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
+        setPreferences(prefs);
       } catch (error) {
         setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
       }
@@ -728,6 +734,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const updatePreferences = useCallback(async (update: Partial<AppPreferences>) => {
+    try {
+      const next = await window.electronAPI.preferencesSet(update);
+      setPreferences(next);
+      setMidiError(null);
+      return next;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao salvar as preferências.');
+      return null;
+    }
+  }, []);
+
   // === Layout Actions ===
   const addUIElement = useCallback((element: UiElement) => {
     window.electronAPI.uiElementAdd(element);
@@ -791,6 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     scannedPlugins,
     audioDevices,
     audioSettings,
+    preferences,
     midiDevices,
     midiError,
     midiLastMessage,
@@ -831,6 +850,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshAudioSettings,
     startAudio,
     stopAudio,
+    updatePreferences,
     addUIElement,
     updateUIElement,
     removeUIElement,

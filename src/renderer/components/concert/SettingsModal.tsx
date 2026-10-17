@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 
-export type SettingsTab = 'midi' | 'vst' | 'audio';
+export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general';
 
 interface SettingsModalProps {
   initialTab: SettingsTab;
@@ -14,6 +14,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     midiDevices, midiError, midiLastMessage, listMidiDevices, openMidiPort,
     scannedPlugins, loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
+    preferences, updatePreferences,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
@@ -53,7 +54,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     ? `MIDI · ${inputs.length + outputs.length} disp`
     : tab === 'vst'
       ? `VST · ${loadedPlugins.length} layers`
-      : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
+      : tab === 'general'
+        ? 'Geral'
+        : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
   const selectedAudioType = audioDevices?.audioTypes.find((item) => item.type === audioType);
   const asioAvailable = audioDevices?.asioSupported === true;
   const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
@@ -93,6 +96,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
 
         <div className="mx-5 mt-3 flex items-center gap-2">
           <button
+            onClick={() => setTab('general')}
+            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            style={tab === 'general'
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
+              : { color: '#9A9AA0' }}
+          >
+            Geral
+          </button>
+          <button
             onClick={() => setTab('midi')}
             className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
             style={tab === 'midi'
@@ -122,6 +134,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {tab === 'general' && (
+            <div className="space-y-4">
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Troca de patch</h4>
+                <label className="flex cursor-pointer items-start gap-3 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={preferences?.silencePreviousPatch ?? false}
+                    onChange={(event) => void updatePreferences({ silencePreviousPatch: event.target.checked })}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">Silence Previous Patch</span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Corta o patch anterior assim que você troca. Desligado (padrão), as caudas do patch anterior continuam soando até o fim.
+                    </span>
+                  </span>
+                </label>
+              </section>
+            </div>
+          )}
           {tab === 'audio' && (
             <div className="space-y-4">
               {midiError && (

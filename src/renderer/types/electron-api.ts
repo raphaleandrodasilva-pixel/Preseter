@@ -2,6 +2,7 @@ import type {
   AudioDeviceSnapshot,
   AudioSettingsSnapshot,
   AudioStartOptions,
+  AppPreferences,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -41,6 +42,8 @@ export interface ElectronAPI {
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;
   audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
+  preferencesGet: () => Promise<AppPreferences>;
+  preferencesSet: (update: Partial<AppPreferences>) => Promise<AppPreferences>;
   audioStart: (options: AudioStartOptions) => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
   audioStop: () => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
   openPluginDialog: () => Promise<any>;

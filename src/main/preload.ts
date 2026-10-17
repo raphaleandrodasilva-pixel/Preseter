@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-layer-mix', layerId, update),
   vstSetMasterMix: (update: unknown) => ipcRenderer.invoke('vst-set-master-mix', update),
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
+  preferencesGet: () => ipcRenderer.invoke('preferences-get'),
+  preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),
   audioStart: (options: unknown) => ipcRenderer.invoke('audio-start', options),
   audioStop: () => ipcRenderer.invoke('audio-stop'),
   openPluginDialog: () => ipcRenderer.invoke('open-plugin-dialog'),

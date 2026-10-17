@@ -40,13 +40,49 @@ export class VstManager extends EventEmitter {
     minNote = 0,
     maxNote = 127
   ): Promise<VstPluginInfo> {
+    return this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote);
+  }
+
+  /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
+  async stageLoad(
+    pluginPathOrId: string,
+    layerId = `layer_${randomUUID()}`,
+    minNote = 0,
+    maxNote = 127
+  ): Promise<VstPluginInfo> {
+    return this.loadWithCommand('stageLoad', pluginPathOrId, layerId, minNote, maxNote);
+  }
+
+  /**
+   * Efetiva a troca de patch: os layers encadeados viram o patch atual e o anterior
+   * é silenciado na hora ou mantido até as caudas acabarem. Limpa do cache os layers
+   * que não pertencem mais ao patch.
+   */
+  async commitPatchSwap(silencePrevious: boolean): Promise<{ active: string[]; lingering: string[] }> {
+    const result = await this.engine.request('commitPatchSwap', { silence: silencePrevious });
+    const active = new Set(result.active);
+    for (const layerId of [...this.loadedPlugins.keys()]) {
+      if (active.has(layerId)) continue;
+      this.loadedPlugins.delete(layerId);
+      this.emit('plugin-unloaded', layerId);
+    }
+    return result;
+  }
+
+  private async loadWithCommand(
+    command: 'load' | 'stageLoad',
+    pluginPathOrId: string,
+    layerId: string,
+    minNote: number,
+    maxNote: number
+  ): Promise<VstPluginInfo> {
     const scanned = this.scannedPlugins.find(
       (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
     );
     const request = scanned
       ? { plugin: scanned.id, layerId, minNote, maxNote }
       : { path: pluginPathOrId, layerId, minNote, maxNote };
-    const enginePlugin = await this.engine.request('load', request, 60_000);
+    const enginePlugin = await this.engine.request(command, request, 60_000);
     try {
       const devices = await this.getAudioDevices();
       if (!devices.running) {

@@ -45,7 +45,12 @@ public:
 
     /** idOrPath é um id retornado por scan/plugins ou o caminho do .vst3. */
     void loadPlugin (const juce::String& idOrPath, const juce::String& layerId,
-                     int minNote, int maxNote, Done done);
+                     int minNote, int maxNote, Done done, bool staged = false);
+    /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
+    void stagePlugin (const juce::String& idOrPath, const juce::String& layerId,
+                      int minNote, int maxNote, Done done);
+    /** Efetiva a troca de patch: ativa os layers encadeados e silencia (ou drena) o patch anterior. */
+    juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});
     juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
 
@@ -90,6 +95,9 @@ private:
     int findLayer (const juce::String& layerId) const;
     juce::var pluginToVar (const juce::PluginDescription& description) const;
     bool destroyEditorWindow (const juce::String& layerId);
+    /** Descarrega os layers do patch anterior quando as caudas acabam. */
+    void drainLingeringLayers();
+    void updateTailTimer();
 
     bool beginNextScanFormat();
     void finishScan();
@@ -105,6 +113,9 @@ private:
     std::atomic<int> soloLayerCount { 0 };
     struct Layer
     {
+        /** active = patch atual; staged/adopted = patch que está chegando; lingering = patch anterior (caudas). */
+        enum class Role { active, staged, adopted, lingering };
+
         juce::String id;
         juce::String pluginId;
         Graph::Node::Ptr midiFilterNode;
@@ -112,6 +123,9 @@ private:
         Graph::Node::Ptr stripNode;
         int minNote = 0;
         int maxNote = 127;
+        Role role = Role::active;
+        /** Leituras seguidas de silêncio usadas para descarregar as caudas do patch anterior. */
+        int silentChecks = 0;
     };
     std::vector<Layer> layers;
     juce::StringArray loadingLayerIds;
@@ -142,6 +156,15 @@ private:
 
     /** Declarado depois de `layers` para ser destruído antes dos plugins. */
     std::map<juce::String, std::unique_ptr<PluginEditorWindow>> editorWindows;
+
+    /** Timer separado do scan, só para descarregar as caudas do patch anterior. */
+    struct TailTimer final : juce::Timer
+    {
+        explicit TailTimer (Engine& engineToUse) : owner (engineToUse) {}
+        void timerCallback() override { owner.drainLingeringLayers(); }
+        Engine& owner;
+    };
+    TailTimer tailTimer { *this };
 
     juce::File dataDirectory, knownPluginsFile, deadMansFile;
 

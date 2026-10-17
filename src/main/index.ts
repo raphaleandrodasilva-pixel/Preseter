@@ -14,6 +14,7 @@ import {
   LayerMixUpdate,
   MasterMixUpdate,
   SavedAudioSettings,
+  AppPreferences,
 } from '../shared/types';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL } from '../shared/constants';
 
@@ -23,6 +24,7 @@ class MainWindow {
   private presetManager: PresetManager;
   private layoutManager: LayoutManager;
   private audioSettingsPath: string;
+  private preferencesPath: string;
   private appStatus: AppStatus = {
     isPlaying: false,
     currentPresetId: null,
@@ -36,6 +38,7 @@ class MainWindow {
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
     this.audioSettingsPath = path.join(app.getPath('userData'), 'audio-settings.json');
+    this.preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
@@ -209,6 +212,15 @@ class MainWindow {
       return { devices: await this.vstManager.getAudioDevices(), settings: this.readAudioSettings() };
     });
 
+    // === Preferências gerais ===
+    ipcMain.handle('preferences-get', () => this.readPreferences());
+
+    ipcMain.handle('preferences-set', (_event, update: Partial<AppPreferences>) => {
+      const preferences = { ...this.readPreferences(), ...update };
+      this.writePreferences(preferences);
+      return preferences;
+    });
+
     // === Preset Handlers ===
 
     ipcMain.handle('preset-save', (_event, preset: Preset) => {
@@ -300,17 +312,17 @@ class MainWindow {
       throw new Error(`O patch "${preset.name}" excede o limite de quatro instrumentos.`);
     }
 
-    for (const loaded of this.vstManager.getLoadedPlugins()) {
-      await this.vstManager.unloadPlugin(loaded.layerId ?? loaded.id);
-    }
+    const silencePrevious = this.readPreferences().silencePreviousPatch;
 
+    // Carrega o patch novo em modo encadeado, reaproveitando instâncias iguais, e só
+    // depois troca o grafo de uma vez. O patch anterior segue soando até as caudas acabarem.
     const restoredStateKeys = new Set<string>();
     for (const [index, assignment] of assignments.entries()) {
       if (assignment.role !== 'instrument') {
         throw new Error(`O layer "${assignment.name}" é um efeito; efeitos ainda não fazem parte desta etapa.`);
       }
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-      const plugin = await this.vstManager.loadPlugin(
+      const plugin = await this.vstManager.stageLoad(
         assignment.path,
         layerId,
         assignment.minNote ?? 0,
@@ -331,6 +343,8 @@ class MainWindow {
         restoredStateKeys.add(savedStateKey);
       }
     }
+
+    await this.vstManager.commitPatchSwap(silencePrevious);
     await this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false });
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
@@ -397,6 +411,29 @@ class MainWindow {
   private writeAudioSettings(settings: SavedAudioSettings): void {
     fs.mkdirSync(path.dirname(this.audioSettingsPath), { recursive: true });
     fs.writeFileSync(this.audioSettingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  }
+
+  private readPreferences(): AppPreferences {
+    const defaults: AppPreferences = { silencePreviousPatch: false };
+    try {
+      if (!fs.existsSync(this.preferencesPath)) return defaults;
+      const data: unknown = JSON.parse(fs.readFileSync(this.preferencesPath, 'utf8'));
+      if (!data || typeof data !== 'object') throw new TypeError('O arquivo de preferências precisa conter um objeto.');
+      const saved = data as Partial<AppPreferences>;
+      return {
+        ...defaults,
+        ...saved,
+        silencePreviousPatch: saved.silencePreviousPatch === true,
+      };
+    } catch (error) {
+      console.warn('[Preseter] Preferências inválidas; usando padrões:', error);
+      return defaults;
+    }
+  }
+
+  private writePreferences(preferences: AppPreferences): void {
+    fs.mkdirSync(path.dirname(this.preferencesPath), { recursive: true });
+    fs.writeFileSync(this.preferencesPath, JSON.stringify(preferences, null, 2), 'utf8');
   }
 
   private updateAppStatus(): void {

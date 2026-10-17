@@ -154,6 +154,12 @@ export interface AudioSettingsSnapshot {
   settings: SavedAudioSettings;
 }
 
+/** Preferências gerais do app (arquivo preferences.json no userData). */
+export interface AppPreferences {
+  /** Corta o patch anterior assim que troca; padrão false (deixa as caudas acabarem). */
+  silencePreviousPatch: boolean;
+}
+
 // Configuração de layout da interface
 export interface LayoutConfig {
   elements: UiElement[];
@@ -246,6 +252,8 @@ export type ElectronChannels =
   | 'vst-loaded'
   | 'engine-midi'
   | 'engine-panic'
+  | 'preferences-get'
+  | 'preferences-set'
   | 'preset-save'
   | 'preset-load'
   | 'preset-list'

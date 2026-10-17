@@ -99,6 +99,14 @@ export interface EngineEditorState {
   open: boolean;
 }
 
+/** Resultado de efetivar uma troca de patch sem corte. */
+export interface EnginePatchSwapCommitted {
+  /** Layers do patch que passou a tocar. */
+  active: string[];
+  /** Layers do patch anterior que continuam soando as caudas. */
+  lingering: string[];
+}
+
 export interface EngineScanResult {
   count: number;
   plugins: EnginePluginInfo[];
@@ -138,6 +146,13 @@ export interface EngineCommands {
     args: { plugin?: string; path?: string; layerId?: string; minNote?: number; maxNote?: number };
     result: EngineLoadedPlugin;
   };
+  /** Carrega um instrumento em modo encadeado (troca de patch sem corte). */
+  stageLoad: {
+    args: { plugin?: string; path?: string; layerId?: string; minNote?: number; maxNote?: number };
+    result: EngineLoadedPlugin;
+  };
+  /** Efetiva a troca: ativa o patch encadeado e silencia ou drena o anterior. */
+  commitPatchSwap: { args: { silence?: boolean }; result: EnginePatchSwapCommitted };
   unload: { args: { layerId?: string }; result: { unloaded: boolean } };
   setLayerRange: {
     args: { layerId: string; minNote: number; maxNote: number };

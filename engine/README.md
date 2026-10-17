@@ -144,6 +144,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |
 | `plugins` | — | Lista os plugins já conhecidos |
 | `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Adiciona um instrumento (máximo quatro) |
+| `stageLoad` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Carrega um instrumento em modo encadeado para troca de patch; reaproveita a instância se o mesmo plugin já estiver carregado |
+| `commitPatchSwap` | `silence?` | Efetiva a troca: ativa os layers encadeados e silencia (`silence: true`) ou mantém o patch anterior até as caudas acabarem |
 | `unload` | `layerId?` | Descarrega um layer (sem ID, todos) |
 | `layers` | — | Lista os instrumentos carregados e suas regiões |
 | `setLayerRange` | `layerId`, `minNote`, `maxNote` | Altera a região MIDI de um layer |

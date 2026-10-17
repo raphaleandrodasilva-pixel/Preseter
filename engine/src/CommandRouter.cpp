@@ -200,6 +200,34 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "stageLoad")
+    {
+        auto key = message["plugin"].toString();
+        if (key.isEmpty()) key = message["path"].toString();
+
+        if (key.isEmpty())
+        {
+            fail (id, "Informe \"plugin\" (id) ou \"path\" do plugin.");
+            return;
+        }
+
+        auto layerId = message["layerId"].toString();
+        const int minNote = intArg (message, "minNote", 0);
+        const int maxNote = intArg (message, "maxNote", 127);
+        engine.stagePlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
+        {
+            if (error.isNotEmpty()) fail (id, error);
+            else                    ok (id, result);
+        });
+        return;
+    }
+
+    if (cmd == "commitPatchSwap")
+    {
+        ok (id, engine.commitPatchSwap (boolArg (message, "silence", false)));
+        return;
+    }
+
     if (cmd == "setLayerRange")
     {
         const auto error = engine.setLayerRange (
