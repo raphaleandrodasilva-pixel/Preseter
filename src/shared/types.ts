@@ -73,10 +73,90 @@ export interface Concert {
   id: string;
   name: string;
   tempo: number;
-  /** Sets ordenados; patches sem setId caem no set virtual "Sem set" */
-  sets: PresetSet[];
+  /** Compasso, MIDI, channel strips, metrônomo e anotações (Fase 2.4). */
+  settings: ConcertSettings;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Compasso (fórmula de compasso) do concert. */
+export interface TimeSignature {
+  numerator: number;
+  denominator: number;
+}
+
+/** Pan law dos channel strips, em dB (Fase 2.4). */
+export type PanLaw = 0 | -3 | -4.5 | -6;
+
+export interface ConcertMidiSettings {
+  /** CC7 controla o volume dos channel strips. */
+  cc7ControlsVolume: boolean;
+  /** CC10 controla o pan dos channel strips. */
+  cc10ControlsPan: boolean;
+  /** Envia MIDI não atribuído a todos os channel strips. */
+  sendUnassignedMidiToStrips: boolean;
+  /** Transpose do concert, em semitons. */
+  transpose: number;
+  /** Origem do Program Change. `channel` null = qualquer canal (omni). */
+  programChange: { device: string; channel: number | null };
+  /** Envia Program Change não usado aos channel strips. */
+  sendUnusedProgramChangeToStrips: boolean;
+}
+
+export interface ConcertChannelStripSettings {
+  panLaw: PanLaw;
+  /** Pan law com compensação de ganho (as opções "comp." do MainStage). */
+  panLawCompensated: boolean;
+}
+
+export interface ConcertMetronomeSettings {
+  enabled: boolean;
+  /** Volume do clique, em dB. */
+  volumeDb: number;
+  /** Acentua o primeiro tempo de cada compasso. */
+  accentFirstBeat: boolean;
+}
+
+/** Configurações do concert (inspector "Concert Settings", Fase 2.4). */
+export interface ConcertSettings {
+  timeSignature: TimeSignature;
+  midi: ConcertMidiSettings;
+  channelStrips: ConcertChannelStripSettings;
+  metronome: ConcertMetronomeSettings;
+  /** Anotações livres sobre o concert. */
+  notes: string;
+}
+
+/** Mapeamento MIDI no nível do concert (Fase 4). */
+export interface ConcertMapping {
+  id: string;
+  /** Mensagem MIDI que dispara o mapeamento. */
+  source: MidiBinding;
+  /** Patch alvo; ausente = todos os patches do concert. */
+  patchId?: string;
+  /** Elemento de tela alvo. */
+  elementId?: string;
+  /** Parâmetro de plugin alvo. */
+  pluginId?: string;
+  parameterId?: string;
+}
+
+/**
+ * Documento do concert persistido em `.preseter` (Fase 2.1).
+ * Cada patch traz o próprio layout; o layout do concert é o workspace padrão.
+ */
+export interface PreseterConcertFile {
+  /** Assinatura do formato, para reconhecer arquivos `.preseter`. */
+  format: 'preseter.concert';
+  /** Versão do formato gravada no arquivo. */
+  version: number;
+  concert: Concert;
+  sets: PresetSet[];
+  patches: Preset[];
+  /** Layout de tela do concert (workspace). */
+  layout: LayoutConfig;
+  /** Mapeamentos MIDI do concert (Fase 4). */
+  mappings: ConcertMapping[];
 }
 
 export interface PresetPluginAssignment {

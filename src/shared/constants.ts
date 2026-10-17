@@ -2,6 +2,8 @@
  * Constantes e utilitários compartilhados
  */
 
+import type { TimeSignature } from './types';
+
 export const APP_NAME = 'Preseter';
 export const VERSION = '1.0.0';
 
@@ -19,6 +21,13 @@ export const PLUGIN_DIRECTORIES = [
 
 export const PRESETS_DIR = 'presets';
 export const CONFIG_DIR = 'config';
+
+// Concert como arquivo (Fase 2)
+export const CONCERT_FILE_FORMAT = 'preseter.concert';
+/** Versão do formato gravada em todo arquivo `.preseter`. */
+export const CONCERT_FILE_VERSION = 1;
+export const CONCERT_FILE_EXTENSION = '.preseter';
+export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 
 // Cores padrão para elementos de UI
 export const UI_COLORS = {
