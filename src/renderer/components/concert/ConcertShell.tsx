@@ -43,8 +43,19 @@ import { findPaletteItem, makeElement, snap8, type PaletteItem } from '../compos
 import { PatchLcd } from '../hardware/PatchLcd';
 import { StageControl } from '../stage/StageControl';
 
-interface ConcertShellProps {
-  mode: ConcertMode;
+/** Campos de um controle que pertencem ao patch, não ao layout do concert (Fase 4.1). */
+const MAPPING_FIELDS = new Set<keyof UiElement>([
+  'midiCommand',
+  'midiPort',
+  'midiThru',
+  'pluginId',
+  'pluginPath',
+  'parameterId',
+  'noteNumber',
+  'velocity',
+]);
+
+interface ConcertShellProps {  mode: ConcertMode;
   onModeChange: (mode: ConcertMode) => void;
   draft: Preset | null;
   onDraftChange: (preset: Preset) => void;
@@ -125,7 +136,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
-    concertStrips, updateConcertStrips, updateSet,
+    concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -1012,6 +1023,16 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       },
       updatedAt: Date.now(),
     });
+    // Geometria/aparência vão para o layout do concert; mappings ficam no patch.
+    const layoutUpdate = Object.fromEntries(
+      Object.entries(update).filter(([key]) => !MAPPING_FIELDS.has(key as keyof UiElement))
+    ) as Partial<UiElement>;
+    if (layout && Object.keys(layoutUpdate).length > 0) {
+      updateConcertLayout({
+        ...layout,
+        elements: layout.elements.map((el) => (el.id === id ? { ...el, ...layoutUpdate } : el)),
+      });
+    }
   };
   const removeElement = (id: string) => {
     if (!draft) return;
@@ -1020,6 +1041,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       layout: { ...draft.layout, elements: draft.layout.elements.filter((el) => el.id !== id) },
       updatedAt: Date.now(),
     });
+    if (layout) {
+      updateConcertLayout({
+        ...layout,
+        elements: layout.elements.filter((el) => el.id !== id),
+      });
+    }
     if (selectedId === id) onSelectedId(null);
   };
   const duplicateElement = (id: string) => {
@@ -1028,6 +1055,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     if (!src) return;
     const copy: UiElement = { ...src, id: `element_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, x: src.x + 16, y: src.y + 16 };
     onDraftChange({ ...draft, layout: { ...draft.layout, elements: [...draft.layout.elements, copy] }, updatedAt: Date.now() });
+    if (layout) {
+      const layoutCopy = { ...copy };
+      for (const key of MAPPING_FIELDS) delete (layoutCopy as Record<string, unknown>)[key as string];
+      updateConcertLayout({ ...layout, elements: [...layout.elements, layoutCopy] });
+    }
     onSelectedId(copy.id);
   };
   const bringFront = (id: string) => {
@@ -1035,12 +1067,22 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const els = draft.layout.elements.filter((el) => el.id !== id);
     const t = draft.layout.elements.find((el) => el.id === id);
     if (t) onDraftChange({ ...draft, layout: { ...draft.layout, elements: [...els, t] }, updatedAt: Date.now() });
+    if (layout) {
+      const layoutEls = layout.elements.filter((el) => el.id !== id);
+      const layoutTarget = layout.elements.find((el) => el.id === id);
+      if (layoutTarget) updateConcertLayout({ ...layout, elements: [...layoutEls, layoutTarget] });
+    }
   };
   const sendBack = (id: string) => {
     if (!draft) return;
     const els = draft.layout.elements.filter((el) => el.id !== id);
     const t = draft.layout.elements.find((el) => el.id === id);
     if (t) onDraftChange({ ...draft, layout: { ...draft.layout, elements: [t, ...els] }, updatedAt: Date.now() });
+    if (layout) {
+      const layoutEls = layout.elements.filter((el) => el.id !== id);
+      const layoutTarget = layout.elements.find((el) => el.id === id);
+      if (layoutTarget) updateConcertLayout({ ...layout, elements: [layoutTarget, ...layoutEls] });
+    }
   };
   const placeItems = (item: PaletteItem, x: number, y: number) => {
     if (!draft) return;
@@ -1054,6 +1096,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       created.push(el);
     }
     onDraftChange({ ...draft, layout: { ...draft.layout, elements: [...draft.layout.elements, ...created] }, updatedAt: Date.now() });
+    if (layout) {
+      updateConcertLayout({ ...layout, elements: [...layout.elements, ...created] });
+    }
     onSelectedId(created[0].id);
     onArmedKey(null);
   };

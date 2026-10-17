@@ -26,6 +26,7 @@ import {
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
 import { ConcertHistory } from '@shared/concert-history';
+import { materializeLayout, withoutLayoutGeometry } from '@shared/concert-layout';
 
 /** Instantâneo do concert para o desfazer/refazer (Fase 2.5). */
 interface ConcertSnapshot {
@@ -35,6 +36,7 @@ interface ConcertSnapshot {
   settings: ConcertSettings;
   strips: ConcertStrip[];
   patches: Preset[];
+  layout: LayoutConfig;
 }
 
 export interface AppContextType {
@@ -88,6 +90,8 @@ export interface AppContextType {
   /** Notas com note-on aberto vindas da entrada MIDI (Fase C) */
   activeNotes: Set<number>;
   layout: LayoutConfig | null;
+  /** Atualiza o layout do concert (Fase 4.1); a persistência vai pelo concert-sync. */
+  updateConcertLayout: (layout: LayoutConfig) => void;
   appStatus: AppStatus;
   isPanelOpen: {
     midi: boolean;
@@ -230,7 +234,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   /** Aplica no renderer o estado do concert vindo do main. */
   const applyConcertState = useCallback((state: ConcertState) => {
-    setPresets(state.patches);
+    setPresets(state.patches.map((preset) => ({
+      ...preset,
+      layout: materializeLayout(state.layout, preset),
+    })));
     setSets(state.sets);
     setConcertNameState(state.name);
     setConcertPath(state.path);
@@ -369,22 +376,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  // Layout do concert mudou (edição, undo ou abertura): reaplica nos patches.
+  useEffect(() => {
+    if (!layout) return;
+    setPresets((previous) => previous.map((preset) => ({
+      ...preset,
+      layout: materializeLayout(layout, preset),
+    })));
+    setCurrentPreset((previous) => (previous
+      ? { ...previous, layout: materializeLayout(layout, previous) }
+      : previous));
+  }, [layout]);
+
   // === Preset Actions ===
   const savePreset = useCallback(async (preset: Preset): Promise<boolean> => {
-    const result = await window.electronAPI.presetSave(preset);
+    const stored = withoutLayoutGeometry(preset);
+    const result = await window.electronAPI.presetSave(stored);
     if (result) {
+      const savedPatch: Preset = { ...stored, layout: materializeLayout(layout, stored) };
       setPresets((prev) => {
-        const existing = prev.findIndex((p) => p.id === preset.id);
+        const existing = prev.findIndex((p) => p.id === savedPatch.id);
         if (existing !== -1) {
           const newPresets = [...prev];
-          newPresets[existing] = preset;
+          newPresets[existing] = savedPatch;
           return newPresets;
         }
-        return [...prev, preset];
+        return [...prev, savedPatch];
       });
+      setCurrentPreset((current) => (current?.id === savedPatch.id ? savedPatch : current));
     }
     return result;
-  }, []);
+  }, [layout]);
 
   const loadPreset = useCallback(async (presetId: string): Promise<boolean> => {
     let result: boolean;
@@ -410,8 +432,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const preset = presets.find((p) => p.id === presetId);
       if (preset) {
-        setCurrentPreset(preset);
-        setLayoutState(preset.layout);
+        const materialized = { ...preset, layout: materializeLayout(layout, preset) };
+        setCurrentPreset(materialized);
+        setLayoutState((previous) => previous ?? materialized.layout);
         setAppStatus((prev) => ({
           ...prev,
           currentPresetId: presetId,
@@ -420,7 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     return result;
-  }, [presets]);
+  }, [presets, layout]);
 
   // Reabre o último patch usado, após a lista de patches ter chegado do main.
   useEffect(() => {
@@ -469,6 +492,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sets,
         settings: concertSettings,
         strips: concertStrips,
+        ...(layout ? { layout } : {}),
       };
       window.electronAPI
         .concertSync(payload)
@@ -478,7 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout]);
 
   const updateConcertSettings = useCallback((patch: Partial<ConcertSettings>) => {
     setConcertSettings((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -500,7 +524,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSets(snapshot.sets);
     setConcertSettings(snapshot.settings);
     setConcertStrips(snapshot.strips);
-    setPresets(snapshot.patches);
+    setLayoutState(snapshot.layout);
+    setPresets(snapshot.patches.map((preset) => ({
+      ...preset,
+      layout: materializeLayout(snapshot.layout, preset),
+    })));
   }, []);
 
   // Concert novo/aberto: recomeça o histórico.
@@ -520,11 +548,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         settings: concertSettings,
         strips: concertStrips,
         patches: presets,
+        layout: layout ?? { elements: [], background: null, tempo: appStatus.tempo },
       };
       if (history.commit(snapshot)) setHistoryVersion((version) => version + 1);
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, history]);
+  }, [concertName, appStatus.tempo, sets, concertSettings, concertStrips, presets, layout, history]);
 
   const undo = useCallback(() => {
     const previous = history.undo();
@@ -643,19 +672,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const persistPreset = useCallback(async (preset: Preset): Promise<boolean> => {
-    const ok = await window.electronAPI.presetSave({ ...preset, updatedAt: Date.now() });
+    const stored = withoutLayoutGeometry({ ...preset, updatedAt: Date.now() });
+    const ok = await window.electronAPI.presetSave(stored);
     if (ok) {
+      const savedPatch: Preset = { ...stored, layout: materializeLayout(layout, stored) };
       setPresets((prev) => {
-        const i = prev.findIndex((p) => p.id === preset.id);
-        if (i === -1) return [...prev, preset];
+        const i = prev.findIndex((p) => p.id === savedPatch.id);
+        if (i === -1) return [...prev, savedPatch];
         const next = [...prev];
-        next[i] = preset;
+        next[i] = savedPatch;
         return next;
       });
-      setCurrentPreset((cur) => (cur?.id === preset.id ? preset : cur));
+      setCurrentPreset((cur) => (cur?.id === savedPatch.id ? savedPatch : cur));
     }
     return ok;
-  }, []);
+  }, [layout]);
 
   const movePresetToSet = useCallback(async (presetId: string, setId: string | undefined, order?: number): Promise<boolean> => {
     const target = presetsRef.current.find((p) => p.id === presetId);
@@ -670,13 +701,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (p) updates.push({ ...p, setId: setId ?? undefined, setOrder: i, updatedAt: Date.now() });
     });
     for (const u of updates) {
-      await window.electronAPI.presetSave(u);
+      await window.electronAPI.presetSave(withoutLayoutGeometry(u));
     }
     setPresets((prev) => {
-      const map = new Map(updates.map((u) => [u.id, u]));
+      const map = new Map(
+        updates.map((u) => [u.id, { ...u, layout: materializeLayout(layout, u) }])
+      );
       return prev.map((p) => map.get(p.id) ?? p);
     });
-  }, []);
+  }, [layout]);
 
   const togglePresetSkipped = useCallback(async (presetId: string): Promise<boolean> => {
     const target = presetsRef.current.find((p) => p.id === presetId);
@@ -712,13 +745,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pushSet(undefined);
     }
     for (const u of updates) {
-      await window.electronAPI.presetSave(u);
+      await window.electronAPI.presetSave(withoutLayoutGeometry(u));
     }
     setPresets((prev) => {
-      const map = new Map(updates.map((u) => [u.id, u]));
+      const map = new Map(
+        updates.map((u) => [u.id, { ...u, layout: materializeLayout(layout, u) }])
+      );
       return prev.map((p) => map.get(p.id) ?? p);
     });
-  }, [sets]);
+  }, [sets, layout]);
 
   // === MIDI Actions ===
   const listMidiDevices = useCallback(async () => {
@@ -1102,6 +1137,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLayoutState(newLayout);
   }, []);
 
+  /** Edita o layout do concert (Fase 4.1). A persistência vai pelo concert-sync. */
+  const updateConcertLayout = useCallback((newLayout: LayoutConfig) => {
+    setLayoutState(newLayout);
+    setCurrentPreset((prev) => (prev ? { ...prev, layout: materializeLayout(newLayout, prev) } : prev));
+  }, []);
+
   // === App Actions ===
   const togglePanel = useCallback((panel: keyof typeof openPanels) => {
     setOpenPanels((prev) => ({ ...prev, [panel]: !prev[panel] }));
@@ -1158,6 +1199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     midiLastMessage,
     activeNotes,
     layout,
+    updateConcertLayout,
     appStatus,
     isPanelOpen: openPanels,
     savePreset,

@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **19 completos**
+- **20 completos**
 - **8 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **11 não implementados**
+- **10 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -72,7 +72,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 
 ## Fase 4 — Assignments e Mappings
 
-- [ ] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos — **Não implementado:** `Preset.layout` continua sendo usado pela UI e pelo Perform.
+- [x] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
 - [ ] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle — **Parcial:** existe MIDI Learn com porta e canal no inspetor do controle, mas falta o atalho `Cmd/Ctrl+L` e o fluxo completo hardware → controle de tela.
 - [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`) — **Parcial:** dá para escolher plugin e parâmetro por dropdown; faltam faixa mínima/máxima e aprender clicando no parâmetro. A `MappingTable` é somente leitura.
 - [ ] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative — **Não implementado.**

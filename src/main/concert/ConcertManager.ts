@@ -207,24 +207,27 @@ export class ConcertManager extends EventEmitter {
 
   // === Edição ===
 
-  /** Aplica o estado editado no renderer (nome, tempo, sets, strips e configurações). */
+  /** Aplica o estado editado no renderer (nome, tempo, sets, strips, layout e configurações). */
   applyEditors(payload: ConcertSyncPayload): boolean {
     const nextSets = Array.isArray(payload.sets) ? payload.sets : [];
     const nextSettings =
       payload.settings && typeof payload.settings === 'object' ? payload.settings : this.file.concert.settings;
     const nextStrips = Array.isArray(payload.strips) ? payload.strips : this.file.concert.strips ?? [];
+    const nextLayout = payload.layout ?? this.file.layout;
     const changed =
       this.file.concert.name !== payload.name ||
       this.file.concert.tempo !== payload.tempo ||
       signature(this.file.sets) !== signature(nextSets) ||
       signature(this.file.concert.settings) !== signature(nextSettings) ||
-      signature(this.file.concert.strips ?? []) !== signature(nextStrips);
+      signature(this.file.concert.strips ?? []) !== signature(nextStrips) ||
+      signature(this.file.layout) !== signature(nextLayout);
     if (!changed) return false;
 
     this.file.concert.name = payload.name;
     this.file.concert.tempo = payload.tempo;
     this.file.concert.settings = nextSettings;
     this.file.concert.strips = nextStrips;
+    this.file.layout = nextLayout;
     this.file.concert.updatedAt = Date.now();
     this.file.sets = nextSets;
     this.emitChanged();

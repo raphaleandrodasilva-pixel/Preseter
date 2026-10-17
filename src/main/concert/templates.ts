@@ -6,6 +6,7 @@
 import { ConcertTemplateSummary, Preset, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
+import { migrateConcertLayout } from '../../shared/concert-layout';
 
 interface PatchSpec {
   name: string;
@@ -130,7 +131,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
   });
 
   const orderInSet = new Map<string, number>();
-  const patches: Preset[] = template.patches.map((spec, index) => {
+  const rawPatches: Preset[] = template.patches.map((spec, index) => {
     const setId = spec.setName ? setIds.get(spec.setName) : undefined;
     const orderKey = spec.setName ?? '';
     const setOrder = orderInSet.get(orderKey) ?? 0;
@@ -155,6 +156,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     };
   });
 
+  const migrated = migrateConcertLayout(createEmptyLayout(template.tempo), rawPatches);
   return {
     format: CONCERT_FILE_FORMAT,
     version: CONCERT_FILE_VERSION,
@@ -168,8 +170,8 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
       updatedAt: now,
     },
     sets,
-    patches,
-    layout: createEmptyLayout(template.tempo),
+    patches: migrated.patches,
+    layout: migrated.layout,
     mappings: [],
   };
 }

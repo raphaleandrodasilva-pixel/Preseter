@@ -620,9 +620,10 @@ class MainWindow {
       await this.vstManager.setPluginState(loaded.layerId ?? loaded.id, state);
     }
 
-    // Atualizar layout
-    this.layoutManager.setLayout(preset.layout);
-    this.sendToRenderer('layout-change', preset.layout);
+    // Atualizar layout do concert (Fase 4.1): o layout é compartilhado pelos patches.
+    const concertLayout = this.concertManager.getState().layout;
+    this.layoutManager.setLayout(concertLayout);
+    this.sendToRenderer('layout-change', concertLayout);
 
     // Enviar notificação de preset carregado
     this.sendToRenderer('preset-loaded', {

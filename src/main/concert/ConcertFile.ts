@@ -25,6 +25,7 @@ import {
   DEFAULT_TIME_SIGNATURE,
 } from '../../shared/constants';
 import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES } from '../../shared/types';
+import { migrateConcertLayout } from '../../shared/concert-layout';
 
 const PAN_LAWS: readonly PanLaw[] = [0, -3, -4.5, -6];
 
@@ -186,7 +187,7 @@ export function parseConcertFile(text: string): PreseterConcertFile {
     );
   }
 
-  return {
+  const parsed: PreseterConcertFile = {
     format: CONCERT_FILE_FORMAT,
     version,
     concert: normalizeConcert(raw.concert),
@@ -195,6 +196,8 @@ export function parseConcertFile(text: string): PreseterConcertFile {
     layout: normalizeLayout(raw.layout),
     mappings: normalizeObjectArray<ConcertMapping>(raw.mappings, 'mappings'),
   };
+  const migrated = migrateConcertLayout(parsed.layout, parsed.patches);
+  return { ...parsed, layout: migrated.layout, patches: migrated.patches };
 }
 
 function normalizeObjectArray<T>(value: unknown, field: string): T[] {
@@ -363,10 +366,11 @@ export interface LegacyConcertInput {
 export function migrateLegacyConcert(input: LegacyConcertInput): PreseterConcertFile {
   const now = Date.now();
   const tempo = toPositiveNumber(input.tempo, DEFAULT_TEMPO);
-  const patches = (input.presets ?? []).map((preset) => ({
+  const rawPatches = (input.presets ?? []).map((preset) => ({
     ...preset,
     layout: preset.layout ?? createEmptyLayout(tempo),
   }));
+  const migrated = migrateConcertLayout(input.layout ?? createEmptyLayout(tempo), rawPatches);
 
   return {
     format: CONCERT_FILE_FORMAT,
@@ -381,8 +385,8 @@ export function migrateLegacyConcert(input: LegacyConcertInput): PreseterConcert
       updatedAt: now,
     },
     sets: input.sets ?? [],
-    patches,
-    layout: input.layout ?? createEmptyLayout(tempo),
+    patches: migrated.patches,
+    layout: migrated.layout,
     mappings: [],
   };
 }

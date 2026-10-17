@@ -27,6 +27,7 @@ const AppContent: React.FC = () => {
     concertSettings,
     concertStrips,
     sets,
+    layout,
   } = context;
 
   const [mode, setMode] = useState<ConcertMode>('edit');
@@ -57,7 +58,13 @@ const AppContent: React.FC = () => {
     const base = createPreset('Novo patch', nextProgram);
     const siblings = presets.filter((p) => (p.setId ?? undefined) === setId);
     const nextOrder = siblings.reduce((max, p) => Math.max(max, p.setOrder ?? 0), -1) + 1;
-    setDraft({ ...base, setId, setOrder: nextOrder });
+    setDraft({
+      ...base,
+      layout: layout ?? base.layout,
+      mappings: {},
+      setId,
+      setOrder: nextOrder,
+    });
     setSelectedId(null);
     setArmedKey(null);
     setMode('layout');

@@ -34,8 +34,7 @@ export interface VstParameter {
 // Tipo de preset/programa
 export interface Preset {
   id: string;
-  name: string;
-  category?: string;
+  name: string;  category?: string;
   /** ID do Set ao qual pertence (para hierarquia Set → Patch) */
   setId?: string;
   /** Ordem dentro do Set (para drag-reorder) */
@@ -59,9 +58,24 @@ export interface Preset {
   stripOverrides?: Record<string, StripOverride>;
   masterMix?: MasterMixSettings;
   vstStates: Record<string, any>;
+  /** Layout materializado (geometria do concert + mappings deste patch). */
   layout: LayoutConfig;
+  /** Mappings por id de controle; o layout em si é do concert (Fase 4.1). */
+  mappings?: Record<string, PatchMapping>;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Campos de um controle que pertencem ao patch (não ao layout do concert). */
+export interface PatchMapping {
+  midiCommand?: MidiBinding;
+  midiPort?: string;
+  midiThru?: boolean;
+  pluginId?: string;
+  pluginPath?: string;
+  parameterId?: string;
+  noteNumber?: number;
+  velocity?: number;
 }
 
 /** Set (pasta) — MainStage style */
@@ -230,6 +244,8 @@ export interface ConcertSyncPayload {
   settings: ConcertSettings;
   /** Channel strips do concert (Fase 3.3). */
   strips: ConcertStrip[];
+  /** Layout do concert (Fase 4.1). */
+  layout?: LayoutConfig;
 }
 
 /** Dados lembrados entre execuções (userData/session.json). */
