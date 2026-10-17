@@ -32,11 +32,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   }, [tab, refreshAudioSettings]);
   useEffect(() => {
     if (!audioDevices) return;
-    const savedType = audioSettings?.type ?? audioDevices.current?.type ?? audioDevices.audioTypes[0]?.type ?? '';
+    // Ao trocar o driver, não pré-selecionamos o primeiro dispositivo:
+    // deixar o usuário escolher. Se há tipo salvo, usa ele; senão vazio.
+    const savedType = audioSettings?.type ?? audioDevices.current?.type ?? '';
     setAudioType(savedType);
-    const type = audioDevices.audioTypes.find((item) => item.type === savedType);
-    setAudioInput(audioSettings?.input ?? audioDevices.current?.name ?? type?.inputs[0] ?? '');
-    setAudioOutput(audioSettings?.output ?? audioDevices.current?.name ?? type?.outputs[0] ?? '');
+    // Não pré-selecionar entrada/saída: deixar vazio para o usuário escolher.
+    const type = savedType ? audioDevices.audioTypes.find((item) => item.type === savedType) : null;
+    setAudioInput('');
+    setAudioOutput('');
     setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
     setBufferSize(audioSettings?.bufferSize ?? audioDevices.current?.bufferSize ?? 512);
   }, [audioDevices, audioSettings]);
