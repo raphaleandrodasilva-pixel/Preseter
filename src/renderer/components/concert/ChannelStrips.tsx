@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type {
+  BusMixUpdate,
+  BusSettings,
+  ConcertBusSettings,
   EngineMixState,
+  Insert,
   LayerMixUpdate,
   MasterMixUpdate,
   Preset,
   PresetPluginAssignment,
   VstPluginInfo,
 } from '@shared/types';
-import { MAX_INSERTS } from '@shared/types';
+import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
 
 interface ChannelStripsProps {
   preset: Preset | null;
@@ -15,6 +19,8 @@ interface ChannelStripsProps {
   scannedPlugins: VstPluginInfo[];
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
+  /** Barramentos Aux/Output definidos no concert (Fase 3.2). */
+  busSettings: ConcertBusSettings | null;
   onRequestScan: () => Promise<unknown>;
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
@@ -23,6 +29,15 @@ interface ChannelStripsProps {
   onRemoveInsert: (layerId: string, slot: number) => Promise<void>;
   onToggleInsertBypass: (layerId: string, slot: number, bypass: boolean) => Promise<void>;
   onOpenInsertEditor: (layerId: string, slot: number) => void;
+  /** Sends e saída dos channel strips (Fase 3.2). */
+  onSetSend: (layerId: string, aux: number, levelDb: number) => void;
+  onSetLayerOutput: (layerId: string, output: number) => void;
+  /** Barramentos do concert (Fase 3.2). */
+  onSetBusMix: (bus: string, update: BusMixUpdate) => void;
+  onAddBusInsert: (bus: string, slot: number, plugin: VstPluginInfo) => Promise<boolean>;
+  onRemoveBusInsert: (bus: string, slot: number) => Promise<void>;
+  onToggleBusInsertBypass: (bus: string, slot: number, bypass: boolean) => Promise<void>;
+  onOpenBusInsertEditor: (bus: string, slot: number) => void;
   onSelectedLayerChange?: (layerId: string | null) => void;
   onOpenEditor?: (layerId: string) => void;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
@@ -33,12 +48,18 @@ interface ChannelStripsProps {
 const layerIdFor = (preset: Preset, assignment: PresetPluginAssignment, index: number) =>
   assignment.layerId ?? `${preset.id}:layer:${index}`;
 
+/** Id de barramento gerado pelo motor: aux1..aux4 / output1..output4. */
+const isBusId = (id: string) => /^(?:aux|output)[1-9]$/.test(id);
+
+const meterHeight = (peakDb: number) => Math.max(0, Math.min(100, ((peakDb + 60) / 60) * 100));
+
 export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   preset,
   editable,
   scannedPlugins,
   loadedPlugins,
   mixState,
+  busSettings,
   onRequestScan,
   onAdd,
   onRemove,
@@ -47,6 +68,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onRemoveInsert,
   onToggleInsertBypass,
   onOpenInsertEditor,
+  onSetSend,
+  onSetLayerOutput,
+  onSetBusMix,
+  onAddBusInsert,
+  onRemoveBusInsert,
+  onToggleBusInsertBypass,
+  onOpenBusInsertEditor,
   onSelectedLayerChange,
   onOpenEditor,
   onSetParameter,
@@ -118,8 +146,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     }
   };
 
-  const renderInsertSlot = (assignment: PresetPluginAssignment, layerId: string, slot: number) => {
-    const insert = (assignment.inserts ?? []).find((item) => item.slot === slot);
+  const renderInsertSlot = (options: {
+    ownerId: string;
+    slot: number;
+    insert?: Insert;
+    onToggleBypass: (ownerId: string, slot: number, bypass: boolean) => void;
+    onRemove: (ownerId: string, slot: number) => void;
+    onOpenEditor: (ownerId: string, slot: number) => void;
+  }) => {
+    const { ownerId, slot, insert } = options;
     return (
       <div
         key={slot}
@@ -142,7 +177,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               aria-label={`Bypass de ${insert.name}`}
               title="Bypass do efeito"
               disabled={!editable || busy}
-              onClick={(event) => { event.stopPropagation(); void onToggleInsertBypass(layerId, slot, !insert.bypass); }}
+              onClick={(event) => { event.stopPropagation(); options.onToggleBypass(ownerId, slot, !insert.bypass); }}
               style={insert.bypass ? { color: '#FFB74D', borderColor: '#FFB74D' } : undefined}
             >
               B
@@ -151,7 +186,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               className="hw-squarebtn shrink-0 px-1"
               aria-label={`Abrir a janela de ${insert.name}`}
               title="Abrir a janela do efeito"
-              onClick={(event) => { event.stopPropagation(); onOpenInsertEditor(layerId, slot); }}
+              onClick={(event) => { event.stopPropagation(); options.onOpenEditor(ownerId, slot); }}
             >
               E
             </button>
@@ -160,7 +195,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               aria-label={`Remover ${insert.name}`}
               title="Remover o efeito"
               disabled={!editable || busy}
-              onClick={(event) => { event.stopPropagation(); void onRemoveInsert(layerId, slot); }}
+              onClick={(event) => { event.stopPropagation(); options.onRemove(ownerId, slot); }}
             >
               ✕
             </button>
@@ -170,12 +205,129 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             className="min-w-0 flex-1 truncate rounded text-left disabled:opacity-40"
             disabled={!editable || busy}
             title={editable ? 'Carregar um efeito VST3 neste slot' : 'Edite o patch para alterar os inserts'}
-            onClick={(event) => { event.stopPropagation(); openInsertPicker(layerId, slot); }}
+            onClick={(event) => { event.stopPropagation(); openInsertPicker(ownerId, slot); }}
           >
             ＋ vazio
           </button>
         )}
       </div>
+    );
+  };
+
+  /** Strip de um barramento (Aux/Output) do concert (Fase 3.2). */
+  const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output', settings: BusSettings) => {
+    const live = mixState?.aux.find((bus) => bus.bus === ownerId)
+      ?? mixState?.outputs.find((bus) => bus.bus === ownerId);
+    const mix = {
+      volumeDb: live?.volumeDb ?? settings.volumeDb,
+      pan: live?.pan ?? settings.pan,
+      muted: live?.muted ?? settings.muted,
+      peakDb: live?.peakDb ?? -100,
+      output: live?.output ?? settings.output ?? 1,
+    };
+    const percent = meterHeight(mix.peakDb);
+    const inserts = [...(settings.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+    return (
+      <section
+        key={ownerId}
+        className="flex w-[124px] shrink-0 flex-col rounded-xl p-2"
+        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #1F1F21, #26262A)' }}
+      >
+        <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+          <span
+            className="rounded px-1 py-0.5 text-[9px] font-bold"
+            style={{ background: kind === 'aux' ? '#FF9F0A' : '#5E5CE6', color: '#FFFFFF' }}
+          >
+            {kind === 'aux' ? 'AUX' : 'OUT'}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={label}>{label}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <div
+            className="relative h-24 w-2 overflow-hidden rounded-sm bg-black/70"
+            role="meter"
+            aria-label={`${label} peak`}
+            aria-valuemin={-60}
+            aria-valuemax={0}
+            aria-valuenow={Math.max(-60, mix.peakDb)}
+          >
+            <div className="absolute bottom-0 w-full" style={{ height: `${percent}%`, background: percent > 90 ? '#FF554D' : '#30D158' }} />
+          </div>
+          <div className="flex h-24 flex-col items-center justify-between">
+            <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{mix.volumeDb.toFixed(1)} dB</span>
+            <input
+              aria-label={`Volume de ${label}`}
+              type="range"
+              min={-60}
+              max={6}
+              step={0.1}
+              value={mix.volumeDb}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => onSetBusMix(ownerId, { volumeDb: Number(event.target.value) })}
+              className="h-16 w-4"
+              style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
+            />
+            <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
+          </div>
+        </div>
+        <label className="mt-2 block text-[8px]" style={{ color: '#9A9AA0' }}>
+          PAN <span className="float-right">{mix.pan === 0 ? 'C' : mix.pan < 0 ? `L ${Math.round(-mix.pan * 100)}` : `R ${Math.round(mix.pan * 100)}`}</span>
+          <input
+            aria-label={`Pan de ${label}`}
+            type="range"
+            min={-1}
+            max={1}
+            step={0.01}
+            value={mix.pan}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSetBusMix(ownerId, { pan: Number(event.target.value) })}
+            className="w-full"
+            style={{ accentColor: '#0A84FF' }}
+          />
+        </label>
+        <button
+          className="hw-squarebtn mt-1 w-full px-1 py-1 text-[9px]"
+          aria-pressed={mix.muted}
+          onClick={(event) => { event.stopPropagation(); onSetBusMix(ownerId, { muted: !mix.muted }); }}
+          style={mix.muted ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
+        >
+          MUTE
+        </button>
+        {kind === 'aux' && (
+          <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+            OUT
+            <select
+              aria-label={`Saída de ${label}`}
+              className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none"
+              style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+              value={mix.output}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => onSetBusMix(ownerId, { output: Number(event.target.value) })}
+            >
+              {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
+                <option key={index + 1} value={index + 1}>Output {index + 1}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="mt-2">
+          <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
+          <div className="mt-1 space-y-0.5">
+            {Array.from({ length: MAX_INSERTS }, (_, slot) => (
+              <span key={slot}>
+                {renderInsertSlot({
+                  ownerId,
+                  slot,
+                  insert: inserts.find((item) => item.slot === slot),
+                  onToggleBypass: (id, targetSlot, bypass) => void onToggleBusInsertBypass(id, targetSlot, bypass),
+                  onRemove: (id, targetSlot) => void onRemoveBusInsert(id, targetSlot),
+                  onOpenEditor: onOpenBusInsertEditor,
+                })}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
     );
   };
 
@@ -258,6 +410,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               muted: assignment.mix?.muted ?? false,
               solo: assignment.mix?.solo ?? false,
               peakDb: -100,
+              output: assignment.output ?? 1,
+              sends: assignment.sends ?? Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
             };
             const meterPercent = Math.max(0, Math.min(100, ((mix.peakDb + 60) / 60) * 100));
             const isSelected = selectedLayer?.layerId === layerId;
@@ -344,9 +498,69 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 <div className="mt-2">
                   <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
                   <div className="mt-1 space-y-0.5">
-                    {Array.from({ length: MAX_INSERTS }, (_, slot) => renderInsertSlot(assignment, layerId, slot))}
+                    {Array.from({ length: MAX_INSERTS }, (_, slot) => (
+                      <span key={slot}>
+                        {renderInsertSlot({
+                          ownerId: layerId,
+                          slot,
+                          insert: (assignment.inserts ?? []).find((item) => item.slot === slot),
+                          onToggleBypass: (id, targetSlot, bypass) => void onToggleInsertBypass(id, targetSlot, bypass),
+                          onRemove: (id, targetSlot) => void onRemoveInsert(id, targetSlot),
+                          onOpenEditor: onOpenInsertEditor,
+                        })}
+                      </span>
+                    ))}
                   </div>
-                  <div className="hw-inset mt-1 py-1 text-center text-[8px]" style={{ color: '#8E8E93' }}>SEND · indisponível</div>
+                </div>
+                <div className="mt-2">
+                  <span className="hw-label" style={{ fontSize: 8 }}>SENDS (Aux)</span>
+                  <div className="mt-1 space-y-0.5">
+                    {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
+                      const aux = index + 1;
+                      const level = mix.sends?.[index] ?? SEND_OFF_DB;
+                      const active = level > SEND_OFF_DB;
+                      return (
+                        <label
+                          key={aux}
+                          className="flex items-center gap-1 text-[8px]"
+                          style={{ color: active ? '#9AD1FF' : '#8E8E93' }}
+                          title={`Send post-fader para Aux ${aux}`}
+                        >
+                          <span className="w-5 shrink-0">A{aux}</span>
+                          <input
+                            aria-label={`Send para Aux ${aux} de ${assignment.name}`}
+                            type="range"
+                            min={SEND_OFF_DB}
+                            max={6}
+                            step={0.5}
+                            value={Math.max(SEND_OFF_DB, level)}
+                            disabled={!editable || !loaded}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) => onSetSend(layerId, aux, Number(event.target.value))}
+                            className="h-1 min-w-0 flex-1"
+                            style={{ accentColor: '#FF9F0A' }}
+                          />
+                          <span className="w-6 shrink-0 text-right">{active ? level.toFixed(0) : '−∞'}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
+                    OUT
+                    <select
+                      aria-label={`Saída de ${assignment.name}`}
+                      className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none"
+                      style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+                      value={mix.output ?? 1}
+                      disabled={!editable || !loaded}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => onSetLayerOutput(layerId, Number(event.target.value))}
+                    >
+                      {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
+                        <option key={index + 1} value={index + 1}>Output {index + 1}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-auto py-1">
                   {loaded?.parameters.slice(0, 4).map((parameter) => (
@@ -393,6 +607,16 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </section>
             );
           })}
+          {busSettings && (
+            <>
+              {busSettings.aux.slice(0, MAX_AUX_BUSES).map((bus, index) =>
+                renderBusStrip(`aux${index + 1}`, `Aux ${index + 1}`, 'aux', bus)
+              )}
+              {busSettings.outputs.slice(0, MAX_OUTPUT_BUSES).map((bus, index) =>
+                renderBusStrip(`output${index + 1}`, `Output ${index + 1}`, 'output', bus)
+              )}
+            </>
+          )}
           <div className="hw-inset sticky right-0 z-10 flex w-[132px] shrink-0 flex-col rounded-xl p-2" style={{ background: '#1F1F21' }}>
             <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
               <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>OUT</span>
@@ -477,7 +701,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 void (async () => {
                   setBusy(true);
                   try {
-                    const added = await onAddInsert(target.layerId, target.slot, plugin);
+                    const added = isBusId(target.layerId)
+                      ? await onAddBusInsert(target.layerId, target.slot, plugin)
+                      : await onAddInsert(target.layerId, target.slot, plugin);
                     if (!added) setInsertPicker(target);
                   } finally {
                     setBusy(false);

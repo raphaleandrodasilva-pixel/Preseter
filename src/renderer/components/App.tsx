@@ -23,6 +23,7 @@ const AppContent: React.FC = () => {
     createPreset,
     sendMidiMessage,
     setVstParameter,
+    concertSettings,
   } = context;
 
   const [mode, setMode] = useState<ConcertMode>('edit');
@@ -124,6 +125,17 @@ const AppContent: React.FC = () => {
         for (const insert of assignment.inserts ?? []) {
           const state = await window.electronAPI.vstInsertStateGet(layerId, insert.slot);
           if (state) vstStates[`insert_${layerId}_${insert.slot}`] = state;
+        }
+      }
+      // Barramentos Aux/Output do concert: o estado dos efeitos fica no patch (Fase 3.2).
+      const concertBuses = [
+        ...(concertSettings?.buses.aux ?? []).map((bus, index) => ({ id: `aux${index + 1}`, bus })),
+        ...(concertSettings?.buses.outputs ?? []).map((bus, index) => ({ id: `output${index + 1}`, bus })),
+      ];
+      for (const { id, bus } of concertBuses) {
+        for (const insert of bus.inserts ?? []) {
+          const state = await window.electronAPI.vstInsertStateGet(id, insert.slot);
+          if (state) vstStates[`insert_${id}_${insert.slot}`] = state;
         }
       }
       const saved = await savePreset({ ...draft, vstStates, updatedAt: Date.now() });

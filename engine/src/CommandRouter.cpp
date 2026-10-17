@@ -363,6 +363,52 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    // ---- Sends e Aux/Output (Fase 3.2) -------------------------------------
+    if (cmd == "buses")
+    {
+        ok (id, engine.describeBuses());
+        return;
+    }
+
+    if (cmd == "setBusMix")
+    {
+        juce::var result;
+        if (auto error = engine.setBusMix (message["bus"].toString(), message, result);
+            error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, result);
+        return;
+    }
+
+    if (cmd == "setSend")
+    {
+        const auto layerId = message["layerId"].toString();
+        const int aux = intArg (message, "aux", -1);
+        if (! message.hasProperty ("levelDb"))
+        {
+            fail (id, "Informe \"levelDb\" (nível do send em dB).");
+            return;
+        }
+        const double level = (double) message["levelDb"];
+        if (auto error = engine.setSend (layerId, aux, level); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, engine.describeMixState());
+        return;
+    }
+
+    if (cmd == "setLayerOutput")
+    {
+        const auto layerId = message["layerId"].toString();
+        const int output = intArg (message, "output", -1);
+        if (auto error = engine.setLayerOutput (layerId, output); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, engine.describeMixState());
+        return;
+    }
+
     // ---- MIDI manual -------------------------------------------------------
     if (cmd == "noteOn" || cmd == "noteOff")
     {

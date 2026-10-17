@@ -8,6 +8,8 @@ import type {
 } from '../../shared/engine-protocol';
 import type {
   AudioStartOptions,
+  BusMixUpdate,
+  EngineBusState,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -331,6 +333,28 @@ export class VstManager extends EventEmitter {
 
   async setMasterMix(update: MasterMixUpdate): Promise<EngineMixState> {
     return this.engine.request('setMasterMix', update);
+  }
+
+  // ---- Sends e Aux/Output (Fase 3.2) ------------------------------------
+
+  /** Estado dos barramentos Aux/Output do concert. */
+  async getBuses(): Promise<EngineBusState[]> {
+    return this.engine.request('buses', {});
+  }
+
+  /** Altera um barramento (`aux1`..`aux4` / `output1`..`output4`). */
+  async setBusMix(bus: string, update: BusMixUpdate): Promise<EngineBusState[]> {
+    return this.engine.request('setBusMix', { bus, ...update });
+  }
+
+  /** Nível (dB) do send post-fader do layer para o Aux `aux` (1..4). */
+  async setSend(layerId: string, aux: number, levelDb: number): Promise<EngineMixState> {
+    return this.engine.request('setSend', { layerId, aux, levelDb });
+  }
+
+  /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
+  async setLayerOutput(layerId: string, output: number): Promise<EngineMixState> {
+    return this.engine.request('setLayerOutput', { layerId, output });
   }
 
   async shutdown(): Promise<void> {

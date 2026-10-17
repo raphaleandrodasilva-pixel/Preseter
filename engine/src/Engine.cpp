@@ -166,6 +166,49 @@ private:
     float peakDecay = 0.99f;
 };
 
+/** Ganho de um send post-fader: o nível do send é aplicado aqui (Fase 3.2). */
+class SendGainProcessor final : public juce::AudioProcessor
+{
+public:
+    SendGainProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Send"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        audio.applyGain (juce::Decibels::decibelsToGain (gainDb.load()));
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void setGainDb (float value) { gainDb.store (value); }
+
+private:
+    std::atomic<float> gainDb { 0.0f };
+};
+
 juce::var toVarArray (const juce::StringArray& strings)
 {
     juce::Array<juce::var> list;
@@ -209,6 +252,28 @@ Engine::Engine()
     audioOutNode = graph.addNode (std::make_unique<IO> (IO::audioOutputNode));
     midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
     masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
+
+    // Barramentos do concert: 4 Aux + 4 Output (Fase 3.2). O strip do barramento
+    // não participa do solo (soloCount = nullptr), só do seu próprio mute.
+    for (int i = 0; i < kAuxBuses; ++i)
+    {
+        Bus bus;
+        bus.id = "aux" + juce::String (i + 1);
+        bus.kind = Bus::Kind::aux;
+        bus.index = i;
+        bus.output = 1;
+        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        buses.push_back (std::move (bus));
+    }
+    for (int i = 0; i < kOutputBuses; ++i)
+    {
+        Bus bus;
+        bus.id = "output" + juce::String (i + 1);
+        bus.kind = Bus::Kind::output;
+        bus.index = i;
+        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        buses.push_back (std::move (bus));
+    }
 
     deviceManager.addChangeListener (this);
 }
@@ -389,13 +454,40 @@ juce::var Engine::describeMixState() const
         if (strip == nullptr)
             continue;
 
+        juce::Array<juce::var> sends;
+        for (int aux = 0; aux < kAuxBuses; ++aux)
+            sends.add ((double) layer.sendLevelDb[(size_t) aux]);
+
         layerStates.add (Obj()
             .set ("layerId", layer.id)
             .set ("volumeDb", strip->getVolumeDb())
             .set ("pan", strip->getPan())
             .set ("muted", strip->isMuted())
             .set ("solo", strip->isSolo())
-            .set ("peakDb", strip->getPeakDb()));
+            .set ("peakDb", strip->getPeakDb())
+            .set ("output", layer.output)
+            .set ("sends", juce::var (sends)));
+    }
+
+    juce::Array<juce::var> auxStates, outputStates;
+    for (const auto& bus : buses)
+    {
+        auto* strip = bus.stripNode != nullptr
+            ? dynamic_cast<ChannelStripProcessor*> (bus.stripNode->getProcessor())
+            : nullptr;
+        if (strip == nullptr)
+            continue;
+
+        auto state = Obj()
+            .set ("bus", bus.id)
+            .set ("volumeDb", strip->getVolumeDb())
+            .set ("pan", strip->getPan())
+            .set ("muted", strip->isMuted())
+            .set ("peakDb", strip->getPeakDb());
+        if (bus.kind == Bus::Kind::aux)
+            auxStates.add (state.set ("output", bus.output));
+        else
+            outputStates.add (state);
     }
 
     auto* master = masterNode != nullptr
@@ -408,6 +500,8 @@ juce::var Engine::describeMixState() const
 
     return Obj()
         .set ("layers", juce::var (layerStates))
+        .set ("aux", juce::var (auxStates))
+        .set ("outputs", juce::var (outputStates))
         .set ("master", masterState);
 }
 
@@ -685,6 +779,21 @@ juce::String Engine::resolveLayerId (const juce::String& layerId) const
 juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayerId,
                                               int insertSlot) const
 {
+    // Um `id` de barramento ("aux1".."output4") endereça os inserts do barramento.
+    if (insertSlot >= 0 && requestedLayerId.isNotEmpty())
+    {
+        const int busIndex = findBus (requestedLayerId);
+        if (busIndex >= 0)
+        {
+            if (insertSlot >= kMaxInserts)
+                return nullptr;
+            const auto& node = buses[(size_t) busIndex].insertNodes[(size_t) insertSlot];
+            return node != nullptr
+                ? dynamic_cast<juce::AudioPluginInstance*> (node->getProcessor())
+                : nullptr;
+        }
+    }
+
     const auto layerId = resolveLayerId (requestedLayerId);
     const int index = findLayer (layerId);
     if (index < 0)
@@ -704,6 +813,49 @@ juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayer
     if (node == nullptr)
         return nullptr;
     return dynamic_cast<juce::AudioPluginInstance*> (node->getProcessor());
+}
+
+int Engine::findBus (const juce::String& busId) const
+{
+    for (size_t i = 0; i < buses.size(); ++i)
+        if (buses[i].id == busId)
+            return (int) i;
+    return -1;
+}
+
+juce::String Engine::outputBusId (int output) const
+{
+    return "output" + juce::String (juce::jlimit (1, kOutputBuses, output));
+}
+
+Engine::Graph::Node::Ptr* Engine::insertSlotNode (const juce::String& ownerId, int slot)
+{
+    if (slot < 0 || slot >= kMaxInserts)
+        return nullptr;
+
+    if (ownerId.isNotEmpty())
+        if (const int busIndex = findBus (ownerId); busIndex >= 0)
+            return &buses[(size_t) busIndex].insertNodes[(size_t) slot];
+
+    const int layerIndex = findLayer (resolveLayerId (ownerId));
+    if (layerIndex < 0)
+        return nullptr;
+    return &layers[(size_t) layerIndex].insertNodes[(size_t) slot];
+}
+
+bool* Engine::insertSlotBypass (const juce::String& ownerId, int slot)
+{
+    if (slot < 0 || slot >= kMaxInserts)
+        return nullptr;
+
+    if (ownerId.isNotEmpty())
+        if (const int busIndex = findBus (ownerId); busIndex >= 0)
+            return &buses[(size_t) busIndex].insertBypass[(size_t) slot];
+
+    const int layerIndex = findLayer (resolveLayerId (ownerId));
+    if (layerIndex < 0)
+        return nullptr;
+    return &layers[(size_t) layerIndex].insertBypass[(size_t) slot];
 }
 
 void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& requestedLayerId,
@@ -769,6 +921,12 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 {
                     graph.removeNode (insertNode->nodeID);
                     insertNode = nullptr;
+                }
+            for (auto& sendNode : candidate.sendNodes)
+                if (sendNode != nullptr)
+                {
+                    graph.removeNode (sendNode->nodeID);
+                    sendNode = nullptr;
                 }
             candidate.pluginNode = nullptr;
             if (candidate.midiFilterNode != nullptr) graph.removeNode (candidate.midiFilterNode->nodeID);
@@ -897,6 +1055,9 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
     for (const auto& insertNode : layer.insertNodes)
         if (insertNode != nullptr)
             graph.removeNode (insertNode->nodeID);
+    for (const auto& sendNode : layer.sendNodes)
+        if (sendNode != nullptr)
+            graph.removeNode (sendNode->nodeID);
     if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
     if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
     if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
@@ -926,17 +1087,21 @@ juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, in
 
 // ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------
 
-juce::var Engine::describeInsert (const juce::String& layerId, int slot) const
+juce::var Engine::describeInsert (const juce::String& ownerId, int slot) const
 {
-    const int index = findLayer (layerId);
     const bool validSlot = slot >= 0 && slot < kMaxInserts;
-    auto* plugin = validSlot ? getPlugin (layerId, slot) : nullptr;
-    const bool loaded = index >= 0 && validSlot && plugin != nullptr;
-    const bool bypass = index >= 0 && validSlot
-        ? layers[(size_t) index].insertBypass[(size_t) slot] : false;
+    const int busIndex = ownerId.isNotEmpty() ? findBus (ownerId) : -1;
+    const int layerIndex = busIndex >= 0 ? -1 : findLayer (resolveLayerId (ownerId));
+    const bool ownerExists = busIndex >= 0 || layerIndex >= 0;
+    auto* plugin = validSlot ? getPlugin (ownerId, slot) : nullptr;
+    const bool loaded = ownerExists && validSlot && plugin != nullptr;
+    bool bypass = false;
+    if (ownerExists && validSlot)
+        bypass = busIndex >= 0 ? buses[(size_t) busIndex].insertBypass[(size_t) slot]
+                               : layers[(size_t) layerIndex].insertBypass[(size_t) slot];
 
     auto out = Obj()
-        .set ("layerId", resolveLayerId (layerId))
+        .set ("layerId", ownerId.isNotEmpty() ? ownerId : resolveLayerId (ownerId))
         .set ("slot", slot)
         .set ("loaded", loaded)
         .set ("bypass", bypass);
@@ -968,20 +1133,21 @@ juce::var Engine::describeInserts (const juce::String& layerId) const
     return juce::var (list);
 }
 
-void Engine::setInsert (const juce::String& requestedLayerId, int slot,
+void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
                         const juce::String& idOrPath, bool bypass, Done done)
 {
-    const auto layerId = resolveLayerId (requestedLayerId);
-    if (findLayer (layerId) < 0)
+    if (insertSlotNode (requestedOwnerId, slot) == nullptr)
     {
-        done ({}, utf8 ("Layer não encontrado para carregar o efeito."));
+        if (slot < 0 || slot >= kMaxInserts)
+            done ({}, utf8 ("Slot de insert inválido (use 0 a ") + juce::String (kMaxInserts - 1) + ").");
+        else
+            done ({}, utf8 ("Channel strip não encontrado para carregar o efeito."));
         return;
     }
-    if (slot < 0 || slot >= kMaxInserts)
-    {
-        done ({}, utf8 ("Slot de insert inválido (use 0 a ") + juce::String (kMaxInserts - 1) + ").");
-        return;
-    }
+
+    // O host pode ser um layer ou um barramento (aux/output).
+    const bool isBus = requestedOwnerId.isNotEmpty() && findBus (requestedOwnerId) >= 0;
+    const auto ownerId = isBus ? requestedOwnerId : resolveLayerId (requestedOwnerId);
 
     juce::PluginDescription description;
     if (! findDescription (idOrPath, description))
@@ -990,7 +1156,7 @@ void Engine::setInsert (const juce::String& requestedLayerId, int slot,
         return;
     }
 
-    const auto key = layerId + "#" + juce::String (slot);
+    const auto key = ownerId + "#" + juce::String (slot);
     if (loadingInsertKeys.contains (key))
     {
         done ({}, utf8 ("Este slot de insert já está carregando."));
@@ -1004,14 +1170,14 @@ void Engine::setInsert (const juce::String& requestedLayerId, int slot,
 
     formatManager.createPluginInstanceAsync (
         description, sampleRate, blockSize,
-        [this, alive, done, layerId, slot, bypass] (
+        [this, alive, done, ownerId, slot, bypass] (
             std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             const auto stillAlive = alive.lock();
             if (stillAlive == nullptr || ! *stillAlive)
                 return;
 
-            loadingInsertKeys.removeString (layerId + "#" + juce::String (slot));
+            loadingInsertKeys.removeString (ownerId + "#" + juce::String (slot));
             if (instance == nullptr)
             {
                 done ({}, error.isNotEmpty() ? error
@@ -1019,20 +1185,19 @@ void Engine::setInsert (const juce::String& requestedLayerId, int slot,
                 return;
             }
 
-            const int layerIndex = findLayer (layerId);
-            if (layerIndex < 0)
+            auto* slotNode = insertSlotNode (ownerId, slot);
+            if (slotNode == nullptr)
             {
                 // O channel strip foi removido enquanto o efeito carregava.
                 done ({}, utf8 ("O channel strip foi removido antes do efeito terminar de carregar."));
                 return;
             }
 
-            auto& layer = layers[(size_t) layerIndex];
-            if (layer.insertNodes[(size_t) slot] != nullptr)
+            if (*slotNode != nullptr)
             {
-                destroyEditorWindow (editorKey (layerId, slot));
-                graph.removeNode (layer.insertNodes[(size_t) slot]->nodeID);
-                layer.insertNodes[(size_t) slot] = nullptr;
+                destroyEditorWindow (editorKey (ownerId, slot));
+                graph.removeNode ((*slotNode)->nodeID);
+                *slotNode = nullptr;
             }
 
             auto node = graph.addNode (std::move (instance));
@@ -1042,48 +1207,184 @@ void Engine::setInsert (const juce::String& requestedLayerId, int slot,
                 return;
             }
 
-            layer.insertNodes[(size_t) slot] = node;
-            layer.insertBypass[(size_t) slot] = bypass;
+            *slotNode = node;
+            if (auto* bypassPtr = insertSlotBypass (ownerId, slot))
+                *bypassPtr = bypass;
             rebuildConnections();
-            done (describeInsert (layerId, slot), {});
+            done (describeInsert (ownerId, slot), {});
         });
 }
 
-juce::String Engine::removeInsert (const juce::String& requestedLayerId, int slot, juce::var& result)
+juce::String Engine::removeInsert (const juce::String& requestedOwnerId, int slot, juce::var& result)
 {
-    const auto layerId = resolveLayerId (requestedLayerId);
-    const int index = findLayer (layerId);
-    if (index < 0)
-        return utf8 ("Layer não encontrado para remover o efeito.");
-    if (slot < 0 || slot >= kMaxInserts)
-        return utf8 ("Slot de insert inválido.");
+    auto* slotNode = insertSlotNode (requestedOwnerId, slot);
+    if (slotNode == nullptr)
+        return slot < 0 || slot >= kMaxInserts
+            ? juce::String (utf8 ("Slot de insert inválido."))
+            : juce::String (utf8 ("Channel strip não encontrado para remover o efeito."));
 
-    auto& layer = layers[(size_t) index];
-    if (layer.insertNodes[(size_t) slot] != nullptr)
+    const bool isBus = requestedOwnerId.isNotEmpty() && findBus (requestedOwnerId) >= 0;
+    const auto ownerId = isBus ? requestedOwnerId : resolveLayerId (requestedOwnerId);
+    if (*slotNode != nullptr)
     {
-        destroyEditorWindow (editorKey (layerId, slot));
-        graph.removeNode (layer.insertNodes[(size_t) slot]->nodeID);
-        layer.insertNodes[(size_t) slot] = nullptr;
+        destroyEditorWindow (editorKey (ownerId, slot));
+        graph.removeNode ((*slotNode)->nodeID);
+        *slotNode = nullptr;
     }
-    layer.insertBypass[(size_t) slot] = false;
+    if (auto* bypassPtr = insertSlotBypass (ownerId, slot))
+        *bypassPtr = false;
     rebuildConnections();
-    result = describeInsert (layerId, slot);
+    result = describeInsert (ownerId, slot);
     return {};
 }
 
-juce::String Engine::setInsertBypass (const juce::String& requestedLayerId, int slot, bool bypass,
+juce::String Engine::setInsertBypass (const juce::String& requestedOwnerId, int slot, bool bypass,
                                       juce::var& result)
 {
-    const auto layerId = resolveLayerId (requestedLayerId);
+    auto* bypassPtr = insertSlotBypass (requestedOwnerId, slot);
+    if (bypassPtr == nullptr)
+        return slot < 0 || slot >= kMaxInserts
+            ? juce::String (utf8 ("Slot de insert inválido."))
+            : juce::String (utf8 ("Channel strip não encontrado para o efeito."));
+
+    const bool isBus = requestedOwnerId.isNotEmpty() && findBus (requestedOwnerId) >= 0;
+    const auto ownerId = isBus ? requestedOwnerId : resolveLayerId (requestedOwnerId);
+    *bypassPtr = bypass;
+    rebuildConnections();
+    result = describeInsert (ownerId, slot);
+    return {};
+}
+
+// ---- Sends e Aux/Output (Fase 3.2) ----------------------------------------------
+
+juce::var Engine::describeBuses() const
+{
+    juce::Array<juce::var> list;
+    for (const auto& bus : buses)
+    {
+        auto* strip = bus.stripNode != nullptr
+            ? dynamic_cast<ChannelStripProcessor*> (bus.stripNode->getProcessor())
+            : nullptr;
+        auto state = Obj()
+            .set ("bus", bus.id)
+            .set ("kind", bus.kind == Bus::Kind::aux ? "aux" : "output")
+            .set ("index", bus.index + 1)
+            .set ("volumeDb", strip != nullptr ? strip->getVolumeDb() : 0.0f)
+            .set ("pan", strip != nullptr ? strip->getPan() : 0.0f)
+            .set ("muted", strip != nullptr && strip->isMuted())
+            .set ("peakDb", strip != nullptr ? strip->getPeakDb() : -100.0f);
+        if (bus.kind == Bus::Kind::aux)
+            state = state.set ("output", bus.output);
+        list.add (state);
+    }
+    return juce::var (list);
+}
+
+juce::String Engine::setBusMix (const juce::String& busId, const juce::var& options, juce::var& result)
+{
+    const int index = findBus (busId);
+    if (index < 0)
+        return utf8 ("Barramento não encontrado (use aux1..aux4 ou output1..output4).");
+
+    auto& bus = buses[(size_t) index];
+    auto* strip = bus.stripNode != nullptr
+        ? dynamic_cast<ChannelStripProcessor*> (bus.stripNode->getProcessor())
+        : nullptr;
+    if (strip == nullptr)
+        return utf8 ("O channel strip deste barramento não está disponível.");
+
+    auto volumeDb = strip->getVolumeDb();
+    auto pan = strip->getPan();
+    auto muted = strip->isMuted();
+    auto output = bus.output;
+    if (options.hasProperty ("volumeDb"))
+    {
+        const auto& value = options["volumeDb"];
+        if (! (value.isInt() || value.isInt64() || value.isDouble())
+            || ! std::isfinite ((double) value)
+            || (double) value < -60.0 || (double) value > 6.0)
+            return utf8 ("O volume deve ser um número entre -60 e +6 dB.");
+        volumeDb = (float) (double) value;
+    }
+    if (options.hasProperty ("pan"))
+    {
+        const auto& value = options["pan"];
+        if (! (value.isInt() || value.isInt64() || value.isDouble())
+            || ! std::isfinite ((double) value)
+            || (double) value < -1.0 || (double) value > 1.0)
+            return utf8 ("O pan deve ser um número entre -1 (esquerda) e +1 (direita).");
+        pan = (float) (double) value;
+    }
+    if (options.hasProperty ("muted"))
+    {
+        const auto& value = options["muted"];
+        if (! value.isBool())
+            return "O estado muted deve ser booleano.";
+        muted = (bool) value;
+    }
+    if (options.hasProperty ("output"))
+    {
+        const auto& value = options["output"];
+        if (! (value.isInt() || value.isInt64())
+            || (int) value < 1 || (int) value > kOutputBuses)
+            return utf8 ("A saída deve ser um número entre 1 e ") + juce::String (kOutputBuses) + ".";
+        output = (int) value;
+    }
+
+    strip->setVolumeDb (volumeDb);
+    strip->setPan (pan);
+    strip->setMuted (muted);
+
+    // Só os Aux redirecionam: mudar a saída altera o roteamento do grafo.
+    const bool routingChanged = bus.output != output;
+    bus.output = output;
+    if (routingChanged)
+        rebuildConnections();
+
+    result = describeBuses();
+    return {};
+}
+
+juce::String Engine::setSend (const juce::String& layerId, int aux, double levelDb)
+{
     const int index = findLayer (layerId);
     if (index < 0)
-        return utf8 ("Layer não encontrado para o efeito.");
-    if (slot < 0 || slot >= kMaxInserts)
-        return utf8 ("Slot de insert inválido.");
+        return utf8 ("Layer de instrumento não encontrado.");
+    if (aux < 1 || aux > kAuxBuses)
+        return utf8 ("Envie para um Aux entre 1 e ") + juce::String (kAuxBuses) + ".";
+    if (! std::isfinite (levelDb) || levelDb < (double) kSendOffDb || levelDb > 6.0)
+        return utf8 ("O nível do send deve ser um número entre -60 (desligado) e +6 dB.");
 
-    layers[(size_t) index].insertBypass[(size_t) slot] = bypass;
+    auto& layer = layers[(size_t) index];
+    const int auxIndex = aux - 1;
+    layer.sendLevelDb[(size_t) auxIndex] = (float) levelDb;
+
+    if (levelDb > (double) kSendOffDb && layer.sendNodes[(size_t) auxIndex] == nullptr)
+    {
+        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        if (node == nullptr)
+            return utf8 ("Não foi possível criar o send para o Aux.");
+        layer.sendNodes[(size_t) auxIndex] = node;
+    }
+
+    if (auto& sendNode = layer.sendNodes[(size_t) auxIndex])
+        if (auto* send = dynamic_cast<SendGainProcessor*> (sendNode->getProcessor()))
+            send->setGainDb ((float) levelDb);
+
     rebuildConnections();
-    result = describeInsert (layerId, slot);
+    return {};
+}
+
+juce::String Engine::setLayerOutput (const juce::String& layerId, int output)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+    if (output < 1 || output > kOutputBuses)
+        return utf8 ("A saída deve ser um número entre 1 e ") + juce::String (kOutputBuses) + ".";
+
+    layers[(size_t) index].output = output;
+    rebuildConnections();
     return {};
 }
 
@@ -1325,6 +1626,38 @@ void Engine::rebuildConnections()
             graph.addConnection ({ { from->nodeID, 0 }, { to->nodeID, 1 } });
     };
 
+    // Liga uma fonte ao barramento passando pela cadeia de inserts (pulando os com bypass).
+    auto connectToBus = [&connectAudio] (Graph::Node::Ptr source, const Bus& bus)
+    {
+        if (source == nullptr || bus.stripNode == nullptr)
+            return;
+
+        Graph::Node::Ptr previous = source;
+        for (int slot = 0; slot < kMaxInserts; ++slot)
+        {
+            if (bus.insertNodes[(size_t) slot] == nullptr || bus.insertBypass[(size_t) slot])
+                continue;
+            connectAudio (previous, bus.insertNodes[(size_t) slot]);
+            previous = bus.insertNodes[(size_t) slot];
+        }
+        connectAudio (previous, bus.stripNode);
+    };
+
+    // Output → Master.
+    for (const auto& bus : buses)
+        if (bus.kind == Bus::Kind::output && bus.stripNode != nullptr)
+            for (int ch = 0; ch < 2; ++ch)
+                graph.addConnection ({ { bus.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
+
+    // Aux → Output escolhido.
+    for (const auto& bus : buses)
+    {
+        if (bus.kind != Bus::Kind::aux || bus.stripNode == nullptr)
+            continue;
+        if (const int outIndex = findBus (outputBusId (bus.output)); outIndex >= 0)
+            connectToBus (bus.stripNode, buses[(size_t) outIndex]);
+    }
+
     for (const auto& layer : layers)
     {
         auto* plugin = getPlugin (layer.id);
@@ -1344,9 +1677,21 @@ void Engine::rebuildConnections()
         }
         connectAudio (previous, layer.stripNode);
 
+        // O channel strip manda o áudio para a saída (Output 1..4) escolhida.
         if (audible)
-            for (int ch = 0; ch < 2; ++ch)
-                graph.addConnection ({ { layer.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
+            if (const int outIndex = findBus (outputBusId (layer.output)); outIndex >= 0)
+                connectToBus (layer.stripNode, buses[(size_t) outIndex]);
+
+        // Sends post-fader para os Aux (partem do strip, depois do volume).
+        for (int aux = 0; aux < kAuxBuses; ++aux)
+        {
+            const auto& sendNode = layer.sendNodes[(size_t) aux];
+            if (! audible || sendNode == nullptr || layer.sendLevelDb[(size_t) aux] <= kSendOffDb)
+                continue;
+            connectAudio (layer.stripNode, sendNode);
+            if (const int auxBusIndex = findBus ("aux" + juce::String (aux + 1)); auxBusIndex >= 0)
+                connectToBus (sendNode, buses[(size_t) auxBusIndex]);
+        }
 
         if (! plugin->getPluginDescription().isInstrument)
             for (int ch = 0; ch < juce::jmin (plugin->getMainBusNumInputChannels(), graphIn); ++ch)

@@ -6,6 +6,8 @@
  */
 import type {
   AudioDeviceSnapshot,
+  BusMixUpdate,
+  EngineBusState,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -103,6 +105,7 @@ export interface EngineEditorState {
 
 /** Estado de um slot de insert (efeito) de um channel strip (Fase 3.1). */
 export interface EngineInsertState {
+  /** Layer ou barramento (aux/output) dono do slot (Fase 3.2). */
   layerId: string;
   /** Slot do channel strip (0 a `MAX_INSERTS - 1`). */
   slot: number;
@@ -201,6 +204,14 @@ export interface EngineCommands {
   removeInsert: { args: { layerId?: string; slot: number }; result: EngineInsertState };
   /** Liga/desliga (bypass) o efeito de um slot, sem descarregá-lo. */
   setInsertBypass: { args: { layerId?: string; slot: number; bypass: boolean }; result: EngineInsertState };
+  /** Estado dos barramentos Aux/Output do concert (Fase 3.2). */
+  buses: { args: {}; result: EngineBusState[] };
+  /** Altera um barramento: `bus` = "aux1".."aux4" / "output1".."output4". */
+  setBusMix: { args: { bus: string } & BusMixUpdate; result: EngineBusState[] };
+  /** Nível (dB) do send post-fader de um layer para o Aux `aux` (1..4). */
+  setSend: { args: { layerId: string; aux: number; levelDb: number }; result: EngineMixState };
+  /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
+  setLayerOutput: { args: { layerId: string; output: number }; result: EngineMixState };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };
   noteOff: { args: { note: number; velocity?: number; channel?: number }; result: null };
   midi: { args: { bytes: number[] }; result: null };

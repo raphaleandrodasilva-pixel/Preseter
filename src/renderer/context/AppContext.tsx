@@ -9,6 +9,7 @@ import {
   AudioDeviceSnapshot,
   AudioStartOptions,
   EngineMixState,
+  BusMixUpdate,
   LayerMixUpdate,
   MasterMixUpdate,
   SavedAudioSettings,
@@ -123,6 +124,12 @@ export interface AppContextType {
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
+  /** Altera um barramento Aux/Output do concert (Fase 3.2). */
+  setVstBusMix: (bus: string, update: BusMixUpdate) => Promise<boolean>;
+  /** Nível (dB) do send de um layer para um Aux (Fase 3.2). */
+  setVstSend: (layerId: string, aux: number, levelDb: number) => Promise<boolean>;
+  /** Saída (Output 1..4) do channel strip de um layer (Fase 3.2). */
+  setVstLayerOutput: (layerId: string, output: number) => Promise<boolean>;
   refreshAudioSettings: () => Promise<void>;
   startAudio: (options: AudioStartOptions) => Promise<boolean>;
   stopAudio: () => Promise<boolean>;
@@ -890,6 +897,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setVstBusMix = useCallback(async (bus: string, update: BusMixUpdate) => {
+    try {
+      await window.electronAPI.vstSetBusMix(bus, update);
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o barramento.');
+      return false;
+    }
+  }, []);
+
+  const setVstSend = useCallback(async (layerId: string, aux: number, levelDb: number) => {
+    try {
+      setMixState(await window.electronAPI.vstSetSend(layerId, aux, levelDb));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o send.');
+      return false;
+    }
+  }, []);
+
+  const setVstLayerOutput = useCallback(async (layerId: string, output: number) => {
+    try {
+      setMixState(await window.electronAPI.vstSetLayerOutput(layerId, output));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar a saída do channel strip.');
+      return false;
+    }
+  }, []);
+
   const refreshAudioSettings = useCallback(async () => {
     try {
       const snapshot = await window.electronAPI.audioSettingsGet();
@@ -1083,6 +1123,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVstLayerRange,
     setVstLayerMix,
     setVstMasterMix,
+    setVstBusMix,
+    setVstSend,
+    setVstLayerOutput,
     refreshAudioSettings,
     startAudio,
     stopAudio,

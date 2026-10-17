@@ -27,6 +27,11 @@ public:
 
     /** Slots de insert (efeitos) por channel strip (Fase 3.1). */
     static constexpr int kMaxInserts = 4;
+    /** Barramentos de Aux e Output do concert (Fase 3.2). */
+    static constexpr int kAuxBuses = 4;
+    static constexpr int kOutputBuses = 4;
+    /** Nível de send a partir do qual ele é considerado desligado. */
+    static constexpr float kSendOffDb = -60.0f;
 
     Engine();
     ~Engine() override;
@@ -92,6 +97,16 @@ public:
     /** Descreve os slots de insert de um layer (sempre os `kMaxInserts` slots). */
     juce::var describeInserts (const juce::String& layerId) const;
 
+    // ---- Sends e Aux/Output (Fase 3.2) -----------------------------------
+    /** Estado dos barramentos Aux/Output do concert. */
+    juce::var describeBuses() const;
+    /** Altera um barramento: "aux1".."aux4" ou "output1".."output4" (volumeDb, pan, muted, output). */
+    juce::String setBusMix (const juce::String& bus, const juce::var& options, juce::var& result);
+    /** Nível (dB) do send post-fader do layer para o Aux `aux` (1..4); -60 ou menos desliga. */
+    juce::String setSend (const juce::String& layerId, int aux, double levelDb);
+    /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
+    juce::String setLayerOutput (const juce::String& layerId, int output);
+
     juce::var describeAudioConfiguration();
     juce::String audioConfigurationError();
     juce::var describeMixState() const;
@@ -112,6 +127,20 @@ private:
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
     juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {},
                                           int insertSlot = -1) const;
+    /** Ponteiro para o nó do slot de insert do host (layer ou barramento), ou nullptr. */
+    Graph::Node::Ptr* insertSlotNode (const juce::String& ownerId, int slot);
+    /** Ponteiro para o estado de bypass do slot de insert do host (layer ou barramento). */
+    bool* insertSlotBypass (const juce::String& ownerId, int slot);
+    /** Todos os sends desligados (`kSendOffDb`), para inicializar um layer. */
+    static std::array<float, kAuxBuses> sendLevelsOff()
+    {
+        std::array<float, kAuxBuses> levels {};
+        levels.fill (kSendOffDb);
+        return levels;
+    }
+    int findBus (const juce::String& busId) const;
+    /** id do barramento de saída a partir do número (1..4). */
+    juce::String outputBusId (int output) const;
     juce::var describeInsert (const juce::String& layerId, int slot) const;
     juce::String resolveLayerId (const juce::String& layerId) const;
     int findLayer (const juce::String& layerId) const;
@@ -156,8 +185,30 @@ private:
         Role role = Role::active;
         /** Leituras seguidas de silêncio usadas para descarregar as caudas do patch anterior. */
         int silentChecks = 0;
+        /** Nível dos sends post-fader para cada Aux, em dB (kSendOffDb ou menos = desligado). */
+        std::array<float, kAuxBuses> sendLevelDb = sendLevelsOff();
+        /** Nós de ganho dos sends, criados quando o send é ligado. */
+        std::array<Graph::Node::Ptr, kAuxBuses> sendNodes;
+        /** Saída (Output 1..4) para onde o channel strip manda o áudio. */
+        int output = 1;
     };
     std::vector<Layer> layers;
+
+    /** Barramentos Aux/Output do concert; criados no construtor (Fase 3.2). */
+    struct Bus
+    {
+        enum class Kind { aux, output };
+        juce::String id;
+        Kind kind = Kind::aux;
+        /** Índice 0..3 (aux1 = 0, output1 = 0). */
+        int index = 0;
+        /** Destino dos Aux: Output 1..4 (os Output ignoram). */
+        int output = 1;
+        Graph::Node::Ptr stripNode;
+        std::array<Graph::Node::Ptr, kMaxInserts> insertNodes;
+        std::array<bool, kMaxInserts> insertBypass {};
+    };
+    std::vector<Bus> buses;
     juce::StringArray loadingLayerIds;
     /** Slots de insert em carregamento, no formato layerId#slot. */
     juce::StringArray loadingInsertKeys;

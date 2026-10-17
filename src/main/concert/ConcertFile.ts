@@ -5,7 +5,9 @@
  */
 
 import {
+  BusSettings,
   Concert,
+  ConcertBusSettings,
   ConcertMapping,
   ConcertSettings,
   LayoutConfig,
@@ -20,6 +22,7 @@ import {
   DEFAULT_TEMPO,
   DEFAULT_TIME_SIGNATURE,
 } from '../../shared/constants';
+import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES } from '../../shared/types';
 
 const PAN_LAWS: readonly PanLaw[] = [0, -3, -4.5, -6];
 
@@ -65,6 +68,19 @@ function toTimestamp(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : Date.now();
 }
 
+/** Barramento padrão ("Aux 1".."Aux 4" / "Output 1".."Output 4"), sem inserts (Fase 3.2). */
+export function createDefaultBus(): BusSettings {
+  return { volumeDb: 0, pan: 0, muted: false, output: 1, inserts: [] };
+}
+
+/** Barramentos Aux/Output padrão de um concert (Fase 3.2). */
+export function createDefaultBuses(): ConcertBusSettings {
+  return {
+    aux: Array.from({ length: MAX_AUX_BUSES }, () => createDefaultBus()),
+    outputs: Array.from({ length: MAX_OUTPUT_BUSES }, () => createDefaultBus()),
+  };
+}
+
 /** Configurações padrão de um concert novo. */
 export function createDefaultConcertSettings(): ConcertSettings {
   return {
@@ -79,6 +95,7 @@ export function createDefaultConcertSettings(): ConcertSettings {
     },
     channelStrips: { panLaw: -3, panLawCompensated: false },
     metronome: { enabled: false, volumeDb: -12, accentFirstBeat: true },
+    buses: createDefaultBuses(),
     notes: '',
   };
 }
@@ -221,6 +238,28 @@ function normalizeConcert(value: unknown): Concert {
   };
 }
 
+function normalizeBuses(value: unknown, defaults: ConcertBusSettings): ConcertBusSettings {
+  const raw = isObject(value) ? value : {};
+  const normalizeList = (list: unknown, fallback: BusSettings[]): BusSettings[] =>
+    fallback.map((fallbackBus, index) => normalizeBus(Array.isArray(list) ? list[index] : undefined, fallbackBus));
+  return {
+    aux: normalizeList(raw.aux, defaults.aux),
+    outputs: normalizeList(raw.outputs, defaults.outputs),
+  };
+}
+
+function normalizeBus(value: unknown, fallback: BusSettings): BusSettings {
+  if (!isObject(value)) return { ...fallback, inserts: [] };
+  const volumeDb = toFiniteNumber(value.volumeDb, fallback.volumeDb);
+  return {
+    volumeDb: volumeDb >= -60 && volumeDb <= 6 ? volumeDb : fallback.volumeDb,
+    pan: Math.max(-1, Math.min(1, toFiniteNumber(value.pan, fallback.pan))),
+    muted: toBoolean(value.muted, fallback.muted),
+    output: Math.max(1, Math.min(MAX_OUTPUT_BUSES, toInteger(value.output, fallback.output))),
+    inserts: Array.isArray(value.inserts) ? (value.inserts.filter(isObject) as unknown as BusSettings['inserts']) : [],
+  };
+}
+
 function normalizeSettings(value: unknown): ConcertSettings {
   const defaults = createDefaultConcertSettings();
   if (!isObject(value)) return defaults;
@@ -262,6 +301,7 @@ function normalizeSettings(value: unknown): ConcertSettings {
       volumeDb: toFiniteNumber(metronome.volumeDb, defaults.metronome.volumeDb),
       accentFirstBeat: toBoolean(metronome.accentFirstBeat, defaults.metronome.accentFirstBeat),
     },
+    buses: normalizeBuses(value.buses, defaults.buses),
     notes: typeof value.notes === 'string' ? value.notes : defaults.notes,
   };
 }

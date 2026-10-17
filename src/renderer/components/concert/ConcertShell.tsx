@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  BusMixUpdate,
+  BusSettings,
   Insert,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -8,6 +10,7 @@ import type {
   UiElement,
   VstPluginInfo,
 } from '@shared/types';
+import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -101,7 +104,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     movePresetToSet, reorderPatchesInSet, reorderSets, togglePresetSkipped,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstParameter,
-    mixState, setVstLayerMix, setVstMasterMix,
+    mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
   } = ctx;
@@ -214,6 +217,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if (!stateApplied) throw new Error('O engine não confirmou a cópia dos parâmetros.');
       const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
       if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
+      await setVstLayerOutput(layerId, assignment.output ?? 1);
+      for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+        await setVstSend(layerId, aux, assignment.sends?.[aux - 1] ?? SEND_OFF_DB);
+      }
       const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
       for (const insert of inserts) {
         await window.electronAPI.vstInsertSet(layerId, insert.slot, insert.path, insert.bypass);
@@ -345,6 +352,117 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const openInsertEditor = (layerId: string, slot: number) => {
     void window.electronAPI.vstInsertOpenEditor(layerId, slot);
+  };
+
+  // === Sends e barramentos Aux/Output (Fase 3.2) ===
+
+  /** Nível do send post-fader de um layer para um Aux. */
+  const changeLayerSend = async (layerId: string, aux: number, levelDb: number) => {
+    if (!await setVstSend(layerId, aux, levelDb)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) => {
+        const id = assignment.layerId ?? `${current.id}:layer:${index}`;
+        if (id !== layerId) return assignment;
+        const sends = [...(assignment.sends ?? Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB))];
+        sends[aux - 1] = levelDb;
+        return { ...assignment, sends };
+      }),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
+  /** Saída (Output 1..4) do channel strip de um layer. */
+  const changeLayerOutput = async (layerId: string, output: number) => {
+    if (!await setVstLayerOutput(layerId, output)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) =>
+        (assignment.layerId ?? `${current.id}:layer:${index}`) === layerId
+          ? { ...assignment, output }
+          : assignment
+      ),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
+  const busIndexOf = (busId: string) => Number(busId.replace(/\D/g, '')) - 1;
+
+  /** Aplica uma alteração à lista de inserts de um barramento do concert. */
+  const mutateBusInserts = (busId: string, update: (inserts: Insert[]) => Insert[]) => {
+    if (!concertSettings) return;
+    const index = busIndexOf(busId);
+    if (!Number.isInteger(index) || index < 0) return;
+    const buses = concertSettings.buses;
+    const apply = (list: BusSettings[]) =>
+      list.map((bus, position) => {
+        if (position !== index) return bus;
+        const inserts = update([...(bus.inserts ?? [])].sort((a, b) => a.slot - b.slot));
+        return { ...bus, inserts: inserts.sort((a, b) => a.slot - b.slot) };
+      });
+    if (busId.startsWith('aux')) {
+      updateConcertSettings({ buses: { ...buses, aux: apply(buses.aux ?? []) } });
+    } else {
+      updateConcertSettings({ buses: { ...buses, outputs: apply(buses.outputs ?? []) } });
+    }
+  };
+
+  const changeBusMix = async (busId: string, update: BusMixUpdate) => {
+    if (!await setVstBusMix(busId, update)) return;
+    if (!concertSettings) return;
+    const index = busIndexOf(busId);
+    if (!Number.isInteger(index) || index < 0) return;
+    const buses = concertSettings.buses;
+    const apply = (list: BusSettings[]) =>
+      list.map((bus, position) => (position === index ? { ...bus, ...update } : bus));
+    if (busId.startsWith('aux')) {
+      updateConcertSettings({ buses: { ...buses, aux: apply(buses.aux ?? []) } });
+    } else {
+      updateConcertSettings({ buses: { ...buses, outputs: apply(buses.outputs ?? []) } });
+    }
+  };
+
+  const addBusInsert = async (busId: string, slot: number, plugin: VstPluginInfo) => {
+    try {
+      await window.electronAPI.vstInsertSet(busId, slot, plugin.path, false);
+    } catch (cause) {
+      onError(`Não foi possível carregar o efeito "${plugin.name}" no barramento: ${cause instanceof Error ? cause.message : String(cause)}`);
+      return false;
+    }
+    const insert: Insert = { slot, pluginId: plugin.id, name: plugin.name, path: plugin.path, bypass: false };
+    mutateBusInserts(busId, (inserts) => [...inserts.filter((item) => item.slot !== slot), insert]);
+    onError('');
+    return true;
+  };
+
+  const removeBusInsert = async (busId: string, slot: number) => {
+    try {
+      await window.electronAPI.vstInsertRemove(busId, slot);
+    } catch (cause) {
+      onError(`Não foi possível remover o efeito do barramento: ${cause instanceof Error ? cause.message : String(cause)}`);
+      return;
+    }
+    mutateBusInserts(busId, (inserts) => inserts.filter((item) => item.slot !== slot));
+    onError('');
+  };
+
+  const toggleBusInsertBypass = async (busId: string, slot: number, bypass: boolean) => {
+    if (!await window.electronAPI.vstInsertBypass(busId, slot, bypass)) return;
+    mutateBusInserts(busId, (inserts) =>
+      inserts.map((item) => (item.slot === slot ? { ...item, bypass } : item))
+    );
+  };
+
+  const openBusInsertEditor = (busId: string, slot: number) => {
+    void window.electronAPI.vstInsertOpenEditor(busId, slot);
   };
 
   const updateElement = (id: string, update: Partial<UiElement>) => {
@@ -684,6 +802,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             scannedPlugins={scannedPlugins}
             loadedPlugins={loadedPlugins}
             mixState={mixState}
+            busSettings={concertSettings?.buses ?? null}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onRemove={removeLayer}
@@ -692,6 +811,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onRemoveInsert={removeInsertFromStrip}
             onToggleInsertBypass={toggleInsertBypass}
             onOpenInsertEditor={openInsertEditor}
+            onSetSend={(layerId, aux, levelDb) => void changeLayerSend(layerId, aux, levelDb)}
+            onSetLayerOutput={(layerId, output) => void changeLayerOutput(layerId, output)}
+            onSetBusMix={(bus, update) => void changeBusMix(bus, update)}
+            onAddBusInsert={addBusInsert}
+            onRemoveBusInsert={removeBusInsert}
+            onToggleBusInsertBypass={toggleBusInsertBypass}
+            onOpenBusInsertEditor={openBusInsertEditor}
             onSelectedLayerChange={setSelectedLayerId}
             onOpenEditor={togglePluginEditor}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}

@@ -14,6 +14,8 @@ import {
   AppStatus,
   ElectronChannels,
   AudioStartOptions,
+  BusMixUpdate,
+  BusSettings,
   LayerMixUpdate,
   MasterMixUpdate,
   SavedAudioSettings,
@@ -21,7 +23,11 @@ import {
   ConcertState,
   ConcertSyncPayload,
   MenuAction,
+  SEND_OFF_DB,
+  MAX_AUX_BUSES,
+  MAX_OUTPUT_BUSES,
 } from '../shared/types';
+import type { EngineInsertState } from '../shared/engine-protocol';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL, CONCERT_FILE_EXTENSION } from '../shared/constants';
 
 class MainWindow {
@@ -247,6 +253,17 @@ class MainWindow {
       return this.vstManager.closeInsertEditor(layerId, slot);
     });
 
+    ipcMain.handle('vst-buses', () => this.vstManager.getBuses());
+    ipcMain.handle('vst-set-bus-mix', (_event, bus: string, update: BusMixUpdate) => {
+      return this.vstManager.setBusMix(bus, update);
+    });
+    ipcMain.handle('vst-set-send', (_event, layerId: string, aux: number, levelDb: number) => {
+      return this.vstManager.setSend(layerId, aux, levelDb);
+    });
+    ipcMain.handle('vst-set-layer-output', (_event, layerId: string, output: number) => {
+      return this.vstManager.setLayerOutput(layerId, output);
+    });
+
     ipcMain.handle('audio-settings-get', async () => ({
       devices: await this.vstManager.getAudioDevices(),
       settings: this.readAudioSettings(),
@@ -445,6 +462,37 @@ class MainWindow {
       }
     }
 
+    // Sends (Aux) e saída (Output) de cada channel strip (Fase 3.2).
+    for (const [index, assignment] of assignments.entries()) {
+      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      try {
+        await this.vstManager.setLayerOutput(layerId, this.clampOutput(assignment.output));
+        const sends = assignment.sends ?? [];
+        for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+          const level = sends[aux - 1];
+          const levelDb = typeof level === 'number' && Number.isFinite(level) ? level : SEND_OFF_DB;
+          await this.vstManager.setSend(layerId, aux, levelDb);
+        }
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível aplicar sends/saída do layer "${layerId}":`, error);
+      }
+    }
+
+    // Barramentos Aux/Output do concert: alinha o motor com o concert e restaura
+    // o estado dos efeitos guardado neste patch (Fase 3.2).
+    await this.applyConcertBuses();
+    for (const { id, bus } of this.concertBusList()) {
+      for (const insert of bus.inserts ?? []) {
+        const saved = preset.vstStates[`insert_${id}_${insert.slot}`];
+        if (typeof saved?.data !== 'string') continue;
+        try {
+          await this.vstManager.setInsertState(id, insert.slot, saved.data);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível restaurar o efeito do barramento ${id}:`, error);
+        }
+      }
+    }
+
     // Restaurar também estados de plugins carregados fora da lista de assignments.
     const pluginStates = preset.vstStates;
     for (const [pluginId, state] of Object.entries(pluginStates)) {
@@ -469,6 +517,79 @@ class MainWindow {
     });
 
     return true;
+  }
+
+  // === Sends e Aux/Output do concert (Fase 3.2) ===
+
+  /** Barramentos do concert com o id usado no motor (`aux1`..`output4`). */
+  private concertBusList(): Array<{ id: string; bus: BusSettings }> {
+    const { settings } = this.concertManager.getState();
+    const aux = (settings.buses?.aux ?? []).slice(0, MAX_AUX_BUSES);
+    const outputs = (settings.buses?.outputs ?? []).slice(0, MAX_OUTPUT_BUSES);
+    return [
+      ...aux.map((bus, index) => ({ id: `aux${index + 1}`, bus })),
+      ...outputs.map((bus, index) => ({ id: `output${index + 1}`, bus })),
+    ];
+  }
+
+  private clampOutput(output: unknown): number {
+    const value = typeof output === 'number' && Number.isFinite(output) ? Math.round(output) : 1;
+    return Math.max(1, Math.min(MAX_OUTPUT_BUSES, value));
+  }
+
+  /**
+   * Alinha os barramentos Aux/Output do concert com o motor. Idempotente: só
+   * recarrega um insert quando o efeito desejado (caminho) muda, para não cortar
+   * as caudas dos efeitos do concert a cada troca de patch.
+   */
+  private async applyConcertBuses(): Promise<void> {
+    for (const { id, bus } of this.concertBusList()) {
+      let current: EngineInsertState[] = [];
+      try {
+        current = await this.vstManager.getInserts(id);
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível ler os inserts do barramento ${id}:`, error);
+      }
+
+      const wanted = [...(bus.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+      for (const slotState of current) {
+        const want = wanted.find((item) => item.slot === slotState.slot);
+        if (slotState.loaded && (!want || want.path !== slotState.path)) {
+          try {
+            await this.vstManager.removeInsert(id, slotState.slot);
+          } catch (error) {
+            console.warn(`[Preseter] Não foi possível remover o efeito do barramento ${id}:`, error);
+          }
+        }
+      }
+
+      for (const insert of wanted) {
+        const loaded = current.find((item) => item.slot === insert.slot);
+        const bypass = insert.bypass ?? false;
+        if (loaded?.loaded === true && loaded.path === insert.path) {
+          if (loaded.bypass !== bypass) {
+            await this.vstManager.setInsertBypass(id, insert.slot, bypass);
+          }
+          continue;
+        }
+        try {
+          await this.vstManager.setInsert(id, insert.slot, insert.path, bypass);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível carregar o efeito "${insert.name}" no barramento ${id}:`, error);
+        }
+      }
+
+      try {
+        await this.vstManager.setBusMix(id, {
+          volumeDb: bus.volumeDb,
+          pan: bus.pan,
+          muted: bus.muted,
+          output: this.clampOutput(bus.output),
+        });
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível ajustar o barramento ${id}:`, error);
+      }
+    }
   }
 
   // === Concert (Arquivo) ===

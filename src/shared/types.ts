@@ -123,6 +123,8 @@ export interface ConcertSettings {
   midi: ConcertMidiSettings;
   channelStrips: ConcertChannelStripSettings;
   metronome: ConcertMetronomeSettings;
+  /** Barramentos Aux/Output do concert (Fase 3.2). */
+  buses: ConcertBusSettings;
   /** Anotações livres sobre o concert. */
   notes: string;
 }
@@ -220,10 +222,24 @@ export interface PresetPluginAssignment {
   mix?: LayerMixSettings;
   /** Slots de insert (efeitos) do channel strip (Fase 3.1). */
   inserts?: Insert[];
+  /** Saída (Output 1 a `MAX_OUTPUT_BUSES`) do channel strip (Fase 3.2). Padrão 1. */
+  output?: number;
+  /**
+   * Níveis dos sends post-fader para os Aux 1..`MAX_AUX_BUSES`, em dB (Fase 3.2).
+   * `SEND_OFF_DB` (-60) desliga o send. Ausente = todos desligados.
+   */
+  sends?: number[];
 }
 
 /** Quantidade de slots de insert por channel strip (Fase 3.1). */
 export const MAX_INSERTS = 4;
+
+/** Quantidade de barramentos Aux do concert (Fase 3.2). */
+export const MAX_AUX_BUSES = 4;
+/** Quantidade de barramentos Output do concert (Fase 3.2). */
+export const MAX_OUTPUT_BUSES = 4;
+/** Nível a partir do qual o send é considerado desligado (Fase 3.2). */
+export const SEND_OFF_DB = -60;
 
 /** Um slot de insert (efeito VST3) de um channel strip. */
 export interface Insert {
@@ -234,6 +250,27 @@ export interface Insert {
   path: string;
   /** Quando true, o efeito fica carregado mas fora da cadeia de áudio. */
   bypass: boolean;
+}
+
+/**
+ * Um barramento (Aux ou Output) do concert (Fase 3.2). Os barramentos são
+ * definidos no concert e ficam ativos entre patches; o estado dos plugins dos
+ * inserts é guardado por patch em `Preset.vstStates` (`insert_<bus>_<slot>`).
+ */
+export interface BusSettings {
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  /** Output de destino dos Aux (1 a `MAX_OUTPUT_BUSES`); ignorado pelos Output. */
+  output: number;
+  /** Slots de insert (efeitos) do barramento. */
+  inserts: Insert[];
+}
+
+/** Barramentos Aux/Output do concert (Fase 3.2). */
+export interface ConcertBusSettings {
+  aux: BusSettings[];
+  outputs: BusSettings[];
 }
 
 export interface LayerMixSettings {
@@ -251,15 +288,46 @@ export interface MasterMixSettings {
 export interface LayerMixState extends LayerMixSettings {
   layerId: string;
   peakDb: number;
+  /** Output (1 a `MAX_OUTPUT_BUSES`) do channel strip (Fase 3.2). */
+  output: number;
+  /** Níveis dos sends para os Aux 1..`MAX_AUX_BUSES`, em dB (Fase 3.2). */
+  sends: number[];
+}
+
+/** Estado ao vivo de um barramento Aux/Output (Fase 3.2). */
+export interface BusMixState {
+  bus: string;
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  peakDb: number;
+  /** Presente nos Aux: Output de destino (1 a `MAX_OUTPUT_BUSES`). */
+  output?: number;
 }
 
 export interface EngineMixState {
   layers: LayerMixState[];
+  aux: BusMixState[];
+  outputs: BusMixState[];
   master: MasterMixSettings & { peakDb: number };
+}
+
+/** Estado de um barramento (comando `buses`, Fase 3.2). */
+export interface EngineBusState {
+  bus: string;
+  kind: 'aux' | 'output';
+  /** 1 a `MAX_AUX_BUSES` / `MAX_OUTPUT_BUSES`. */
+  index: number;
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  peakDb: number;
+  output?: number;
 }
 
 export type LayerMixUpdate = Partial<LayerMixSettings>;
 export type MasterMixUpdate = Partial<MasterMixSettings>;
+export type BusMixUpdate = Partial<Pick<BusSettings, 'volumeDb' | 'pan' | 'muted' | 'output'>>;
 
 export interface AudioStartOptions {
   inputs?: number;

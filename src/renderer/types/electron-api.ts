@@ -3,9 +3,11 @@ import type {
   AudioSettingsSnapshot,
   AudioStartOptions,
   AppPreferences,
+  BusMixUpdate,
   ConcertState,
   ConcertSyncPayload,
   ConcertTemplateSummary,
+  EngineBusState,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -56,6 +58,10 @@ export interface ElectronAPI {
   vstInsertStateSet: (layerId: string, slot: number, data: string) => Promise<boolean>;
   vstInsertOpenEditor: (layerId: string, slot: number) => Promise<boolean>;
   vstInsertCloseEditor: (layerId: string, slot: number) => Promise<boolean>;
+  vstBuses: () => Promise<EngineBusState[]>;
+  vstSetBusMix: (bus: string, update: BusMixUpdate) => Promise<EngineBusState[]>;
+  vstSetSend: (layerId: string, aux: number, levelDb: number) => Promise<EngineMixState>;
+  vstSetLayerOutput: (layerId: string, output: number) => Promise<EngineMixState>;
   audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
   preferencesGet: () => Promise<AppPreferences>;
   preferencesSet: (update: Partial<AppPreferences>) => Promise<AppPreferences>;

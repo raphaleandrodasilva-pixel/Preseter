@@ -15,14 +15,27 @@ Electron (UI) ⇄ main (Node) ⇄ stdin/stdout JSON ⇄ preseter-engine (JUCE)
                                                    └─ MIDI de entrada
 ```
 
-**Status: Layers, inserts e configuração de áudio.** Um patch pode carregar vários
+**Status: Layers, inserts, sends e barramentos.** Um patch pode carregar vários
 instrumentos VST3 simultaneamente. Cada layer tem uma faixa MIDI independente
 (notas 0–127 por padrão), volume (-60 a +6 dB), pan, mute, solo e medidor de pico
 dBFS, além de **4 slots de insert** para efeitos VST3 (com bypass) na cadeia de
-áudio: instrumento → inserts → channel strip → Master. O strip Master controla
+áudio: instrumento → inserts → channel strip → Output. O strip Master controla
 volume, mute e pico após a soma. As configurações de mixagem e os inserts (com o
-estado de cada efeito) são salvos junto ao patch. Os sends ainda são apenas
-visuais e não processam áudio.
+estado de cada efeito) são salvos junto ao patch.
+
+O concert tem **4 barramentos Aux** e **4 barramentos Output**, cada um com
+volume, pan, mute, 4 inserts e um medidor; os Aux ainda escolhem o Output de
+destino. Cada channel strip de instrumento tem **4 sends post-fader** para os Aux
+(nível em dB; -60 dB desliga) e uma saída (Output 1 a 4). Roteamento do grafo:
+
+```
+instrumento → inserts → strip → Output (escolhido)
+                     ↘ send 1..4 → Aux 1..4 → Output (escolhido)
+Output 1..4 → Master → hardware
+```
+
+Os comandos de insert endereçam qualquer channel strip: `layerId` aceita o id de
+um layer **ou** o id de um barramento (`aux1`..`aux4` / `output1`..`output4`).
 
 ## Compilar
 
@@ -140,9 +153,13 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `devices` | — | Lista tipos de áudio, dispositivo atual e entradas MIDI |
 | `audioStart` | `inputs`, `outputs`, `type`, `input`, `output`, `sampleRate`, `bufferSize`, `midi` | Abre o áudio e liga as entradas MIDI |
 | `audioStop` | — | Fecha o áudio |
-| `mix` | — | Lê volume, pan, mute, solo e medidores dos strips |
+| `mix` | — | Lê volume, pan, mute, solo, sends, saída e medidores dos strips e dos barramentos |
 | `setLayerMix` | `layerId`, `volumeDb?`, `pan?`, `muted?`, `solo?` | Altera o strip de um instrumento |
 | `setMasterMix` | `volumeDb?`, `muted?` | Altera o strip Master |
+| `buses` | — | Estado dos 4 Aux e dos 4 Output (volume, pan, mute, pico, saída dos Aux) |
+| `setBusMix` | `bus` (`aux1`..`aux4`/`output1`..`output4`), `volumeDb?`, `pan?`, `muted?`, `output?` | Altera um barramento (só os Aux usam `output`) |
+| `setSend` | `layerId`, `aux` (1..4), `levelDb` | Nível do send post-fader para um Aux; -60 dB desliga |
+| `setLayerOutput` | `layerId`, `output` (1..4) | Saída do channel strip do layer |
 | `midiEnable` | `identifier?`, `enabled?` | Liga/desliga uma entrada MIDI (ou todas) |
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |
 | `plugins` | — | Lista os plugins já conhecidos |
@@ -159,7 +176,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setState` | `layerId?`, `data`, `slot?` | Aplica um estado completo (base64) via `setStateInformation` |
 | `openEditor` | `layerId?`, `slot?` | Abre (ou traz para a frente) a janela de edição nativa do plugin |
 | `closeEditor` | `layerId?`, `slot?` | Fecha a janela de edição do plugin |
-| `inserts` | `layerId?` | Lista os 4 slots de insert de um channel strip |
+| `inserts` | `layerId?` | Lista os 4 slots de insert de um channel strip (layer ou barramento) |
 | `setInsert` | `layerId?`, `slot`, `plugin` (id) ou `path`, `bypass?` | Carrega (substituindo) um efeito VST3 no slot de insert |
 | `removeInsert` | `layerId?`, `slot` | Remove o efeito de um slot |
 | `setInsertBypass` | `layerId?`, `slot`, `bypass` | Liga/desliga (bypass) o efeito do slot, sem descarregá-lo |
@@ -181,11 +198,14 @@ Windows, `~/.config` no Linux): `known-plugins.xml` (lista do scan) e
   derruba o motor. O arquivo `scan-deadman.txt` faz esse plugin ser ignorado na
   próxima execução. Scan em processo separado continua planejado.
 - A faixa MIDI é aplicada a notas; automação/edição de parâmetros do plugin é
-  por layer, mas janelas do editor VST ainda não estão disponíveis.
+  por layer, e cada plugin (instrumento ou insert) abre a própria janela de
+  edição nativa.
 - Os inserts são cadeias de efeitos fixas de 4 slots por channel strip; efeitos
   com múltiplas entradas/saídas (side-chain, surround) não são suportados.
+- Os sends são sempre **post-fader** (sem opção pré-fader), cada Aux tem um único
+  Output de destino e os barramentos não têm solo (só mute e medidor).
 - A configuração de áudio grava para disco ao alterar a mixagem; o estado dos
-  inserts é salvo no patch pelo app, não pelo motor.
+  inserts é salvo no concert/patch pelo app, não pelo motor.
 
 ## Licença do JUCE
 

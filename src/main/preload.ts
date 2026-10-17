@@ -62,6 +62,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-insert-open-editor', layerId, slot),
   vstInsertCloseEditor: (layerId: string, slot: number) =>
     ipcRenderer.invoke('vst-insert-close-editor', layerId, slot),
+  vstBuses: () => ipcRenderer.invoke('vst-buses'),
+  vstSetBusMix: (bus: string, update: unknown) => ipcRenderer.invoke('vst-set-bus-mix', bus, update),
+  vstSetSend: (layerId: string, aux: number, levelDb: number) =>
+    ipcRenderer.invoke('vst-set-send', layerId, aux, levelDb),
+  vstSetLayerOutput: (layerId: string, output: number) =>
+    ipcRenderer.invoke('vst-set-layer-output', layerId, output),
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
   preferencesGet: () => ipcRenderer.invoke('preferences-get'),
   preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),
