@@ -280,7 +280,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
       ) : (
         <>
           <div className="relative grid min-h-0 flex-1 grid-cols-[minmax(250px,310px)_1fr]">
-            <aside className="min-h-0 space-y-5 overflow-y-auto border-r border-slate-800 p-4">
+            <aside className="relative z-50 min-h-0 space-y-5 overflow-y-visible overflow-x-visible border-r border-slate-800 p-4">
               <section className="space-y-3">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Identificação</h2>
                 <label className="block text-xs text-slate-400">Nome do som<input className={`${classInput} mt-1`} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} placeholder="Ex.: Grand Piano & Strings" /></label>
