@@ -24,6 +24,12 @@ interface PatchListProps {
   onPastePatches: (setId: string | undefined, afterId: string | null) => Promise<string[]>;
   onDuplicatePatches: (ids: string[]) => Promise<string[]>;
   onDeletePatches: (ids: string[]) => Promise<void>;
+  onNewPatchFromSelection: (ids: string[]) => Promise<void>;
+  onNewSetFromSelection: (ids: string[]) => Promise<void>;
+  onExportPatch: (presetId: string) => void;
+  onImportPatch: () => void;
+  onExportSet: (setId: string) => void;
+  onImportSet: () => void;
   onMovePatches: (
     ids: string[],
     setId: string | undefined,
@@ -77,6 +83,12 @@ export const PatchList: React.FC<PatchListProps> = ({
   onPastePatches,
   onDuplicatePatches,
   onDeletePatches,
+  onNewPatchFromSelection,
+  onNewSetFromSelection,
+  onExportPatch,
+  onImportPatch,
+  onExportSet,
+  onImportSet,
   onMovePatches,
 }) => {
   const [query, setQuery] = useState('');
@@ -434,6 +446,46 @@ export const PatchList: React.FC<PatchListProps> = ({
                 Deletar patches <span style={{ color: '#8E8E93' }}>Delete</span>
               </button>
               <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
+                style={{ color: '#EDEDEF' }}
+                disabled={selectedIds.length === 0}
+                onClick={() => { void onNewPatchFromSelection(selectedIds); setActionOpen(false); }}
+              >
+                Novo patch a partir da seleção
+              </button>
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
+                style={{ color: '#EDEDEF' }}
+                disabled={selectedIds.length === 0}
+                onClick={() => { void onNewSetFromSelection(selectedIds); setActionOpen(false); }}
+              >
+                Novo set a partir da seleção
+              </button>
+              <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
+                style={{ color: '#EDEDEF' }}
+                disabled={selectedIds.length === 0}
+                onClick={() => { onExportPatch(selectedIds[0]); setActionOpen(false); }}
+              >
+                Exportar patch selecionado…
+              </button>
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]"
+                style={{ color: '#EDEDEF' }}
+                onClick={() => { onImportPatch(); setActionOpen(false); }}
+              >
+                Importar patch…
+              </button>
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]"
+                style={{ color: '#EDEDEF' }}
+                onClick={() => { onImportSet(); setActionOpen(false); }}
+              >
+                Importar set…
+              </button>
+              <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
               <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onResetProgramNumbers(); setActionOpen(false); }}>
                 Reset Program Change Numbers
               </button>
@@ -558,6 +610,9 @@ export const PatchList: React.FC<PatchListProps> = ({
                 </button>
                 <button className="rounded px-1 text-[10px] text-slate-500 hover:text-slate-200" title={set.skipped ? 'Ativar set' : 'Pular set'} onClick={() => onToggleSetSkipped(set.id)}>
                   {set.skipped ? '○' : '⊘'}
+                </button>
+                <button className="rounded px-1 text-[10px] text-slate-500 hover:text-sky-300" title="Exportar set…" onClick={() => onExportSet(set.id)}>
+                  ⇩
                 </button>
                 <button className="rounded px-1 text-[10px] text-slate-500 hover:text-red-300" title="Deletar set (patches voltam p/ sem set)" onClick={() => onDeleteSet(set.id)}>
                   ×

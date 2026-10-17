@@ -110,6 +110,10 @@ export interface AppContextType {
   loadPreset: (presetId: string) => Promise<boolean>;
   deletePreset: (presetId: string) => Promise<boolean>;
   createPreset: (name: string, programNumber?: number) => Preset;
+  exportPatch: (presetId: string) => Promise<boolean>;
+  importPatch: () => Promise<Preset | null>;
+  exportSet: (setId: string) => Promise<boolean>;
+  importSet: () => Promise<{ set: PresetSet; patches: Preset[] } | null>;
 
   // Ações de Concert / Sets (fase 1 visual — estado local + localStorage)
   setConcertName: (name: string) => void;
@@ -186,9 +190,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const webMidi = useRef<WebMidiService | null>(null);
   if (!webMidi.current) {
     webMidi.current = new WebMidiService(
-      (program, channel) => {
-        setMidiLastMessage(`Program Change ${program} · canal ${channel + 1}`);
-        void window.electronAPI.midiInputProgramChange(program, channel)
+      (program, channel, bank, deviceName) => {
+        setMidiLastMessage(`Program Change ${program}${bank ? ` · banco ${bank}` : ''} · canal ${channel + 1}`);
+        void window.electronAPI.midiInputProgramChange(program, channel, bank, deviceName)
           .then(() => setMidiError(null))
           .catch((error: unknown) => {
             setMidiError(error instanceof Error ? error.message : 'Falha ao ativar o preset MIDI.');
@@ -461,6 +465,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const materialized = { ...preset, layout: materializePatchLayout(preset) };
         setCurrentPreset(materialized);
         setLayoutState((previous) => previous ?? materialized.layout);
+        if (preset.changeTempoOnSelect) {
+          setAppStatus((prev) => ({ ...prev, tempo: preset.layout.tempo }));
+          void window.electronAPI.appStatusChange({ tempo: preset.layout.tempo });
+        }
         setAppStatus((prev) => ({
           ...prev,
           currentPresetId: presetId,
@@ -486,6 +494,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return result;
   }, []);
+
+  const exportPatch = useCallback(async (presetId: string): Promise<boolean> => {
+    return window.electronAPI.patchExport(presetId);
+  }, []);
+
+  const importPatch = useCallback(async (): Promise<Preset | null> => {
+    const imported = await window.electronAPI.patchImport();
+    if (!imported) return null;
+    const materialized: Preset = { ...imported, layout: materializePatchLayout(imported) };
+    setPresets((prev) => [...prev.filter((preset) => preset.id !== materialized.id), materialized]);
+    return materialized;
+  }, [materializePatchLayout]);
+
+  const exportSet = useCallback(async (setId: string): Promise<boolean> => {
+    return window.electronAPI.setExport(setId);
+  }, []);
+
+  const importSet = useCallback(async (): Promise<{ set: PresetSet; patches: Preset[] } | null> => {
+    const imported = await window.electronAPI.setImport();
+    if (!imported) return null;
+    setSets((prev) => [...prev.filter((set) => set.id !== imported.set.id), imported.set]);
+    setPresets((prev) => {
+      const importedIds = new Set(imported.patches.map((patch) => patch.id));
+      return [
+        ...prev.filter((preset) => !importedIds.has(preset.id)),
+        ...imported.patches.map((patch) => ({ ...patch, layout: materializePatchLayout(patch) })),
+      ];
+    });
+    return imported;
+  }, [materializePatchLayout]);
 
   const createPreset = useCallback(
     (name: string, programNumber: number = 0): Preset => {
@@ -1265,6 +1303,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadPreset,
     deletePreset,
     createPreset,
+    exportPatch,
+    importPatch,
+    exportSet,
+    importSet,
     setConcertName,
     createSet,
     renameSet,

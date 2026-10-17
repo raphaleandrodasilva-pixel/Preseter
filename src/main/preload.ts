@@ -12,8 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === MIDI ===
   midiProgramChange: (program: number, channel: number) =>
     ipcRenderer.invoke('midi-program-change', program, channel),
-  midiInputProgramChange: (program: number, channel: number) =>
-    ipcRenderer.invoke('midi-input-program-change', program, channel),
+  midiInputProgramChange: (program: number, channel: number, bank?: number, deviceName?: string) =>
+    ipcRenderer.invoke('midi-input-program-change', program, channel, bank, deviceName),
 
   // === MIDI Events (recebidos) ===
   onMidiProgramChange: (callback: (data: any) => void) =>
@@ -86,6 +86,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   presetLoad: (presetId: string) => ipcRenderer.invoke('preset-load', presetId),
   presetList: () => ipcRenderer.invoke('preset-list'),
   presetDelete: (presetId: string) => ipcRenderer.invoke('preset-delete', presetId),
+  patchExport: (presetId: string) => ipcRenderer.invoke('patch-export', presetId),
+  patchImport: () => ipcRenderer.invoke('patch-import'),
+  setExport: (setId: string) => ipcRenderer.invoke('set-export', setId),
+  setImport: () => ipcRenderer.invoke('set-import'),
   presetFindByProgram: (programNumber: number) =>
     ipcRenderer.invoke('preset-by-program', programNumber),
 

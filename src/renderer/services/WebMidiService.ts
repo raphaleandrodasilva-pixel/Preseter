@@ -24,9 +24,11 @@ export class WebMidiService {
   private readonly outputs = new Map<string, MIDIOutput>();
   private selectedOutputId: string | null = null;
   private readonly rawListeners = new Set<(event: RawMidiEvent) => void>();
+  private readonly bankMsb = new Array<number>(16).fill(0);
+  private readonly bankLsb = new Array<number>(16).fill(0);
 
   constructor(
-    private readonly onProgramChange: (program: number, channel: number) => void,
+    private readonly onProgramChange: (program: number, channel: number, bank: number, deviceName: string) => void,
     private readonly onError: (message: string) => void
   ) {}
 
@@ -131,14 +133,18 @@ export class WebMidiService {
     const channel = data[0] & 0x0f;
     const status = data[0] & 0xf0;
     if (status === 0xc0 && data[1] <= 127) {
-      this.onProgramChange(data[1], channel);
-      this.emitRaw({ kind: 'pc', channel, number: data[1], value: 0, deviceId });
+      const bank = this.bankMsb[channel] & 0x7f;
+      const deviceName = (deviceId ? this.inputs.get(deviceId)?.name : '') ?? '';
+      this.onProgramChange(data[1], channel, bank, deviceName);
+      this.emitRaw({ kind: 'pc', channel, number: data[1], value: bank, deviceId });
     } else if (status === 0x90 || status === 0x80) {
       if (data.length < 3) return;
       const value = status === 0x80 ? 0 : data[2];
       this.emitRaw({ kind: 'note', channel, number: data[1], value, deviceId });
     } else if (status === 0xb0) {
       if (data.length < 3) return;
+      if (data[1] === 0) this.bankMsb[channel] = data[2] & 0x7f;
+      if (data[1] === 32) this.bankLsb[channel] = data[2] & 0x7f;
       this.emitRaw({ kind: 'cc', channel, number: data[1], value: data[2], deviceId });
     } else if (status === 0xe0) {
       if (data.length < 3) return;

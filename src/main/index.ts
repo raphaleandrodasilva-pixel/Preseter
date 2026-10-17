@@ -182,13 +182,19 @@ class MainWindow {
 
     ipcMain.handle('midi-program-change', async (_event, program: number, channel: number) => {
       const validProgram = this.validateMidiProgramChange(program, channel);
-      const activated = await this.activateProgramNumber(validProgram.program, validProgram.channel);
+      const activated = await this.activateProgramNumber(validProgram.program, validProgram.channel, 0, undefined, false);
       return { ...validProgram, activated };
     });
 
-    ipcMain.handle('midi-input-program-change', async (_event, program: number, channel: number) => {
+    ipcMain.handle('midi-input-program-change', async (_event, program: number, channel: number, bank?: number, deviceName?: string) => {
       const validProgram = this.validateMidiProgramChange(program, channel);
-      return this.activateProgramNumber(validProgram.program, validProgram.channel);
+      return this.activateProgramNumber(
+        validProgram.program,
+        validProgram.channel,
+        Number.isInteger(bank) ? bank : 0,
+        typeof deviceName === 'string' ? deviceName : undefined,
+        true
+      );
     });
 
     // === VST Handlers ===
@@ -361,6 +367,11 @@ class MainWindow {
       return this.concertManager.deletePatch(presetId);
     });
 
+    ipcMain.handle('patch-export', (_event, presetId: string) => this.exportPatch(presetId));
+    ipcMain.handle('patch-import', () => this.importPatch());
+    ipcMain.handle('set-export', (_event, setId: string) => this.exportSet(setId));
+    ipcMain.handle('set-import', () => this.importSet());
+
     ipcMain.handle('preset-by-program', (_event, programNumber: number) => {
       return this.concertManager.findByProgramNumber(programNumber);
     });
@@ -491,6 +502,137 @@ class MainWindow {
     } catch (error) {
       console.warn('[Preseter] Não foi possível aplicar a entrada de áudio:', error);
     }
+  }
+
+  private safeFileName(name: string): string {
+    return name.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').trim() || 'patch';
+  }
+
+  private nextFreeProgramNumber(): number {
+    const used = new Set(this.concertManager.getPresets().map((preset) => preset.programNumber));
+    for (let program = 0; program < 128; program += 1) {
+      if (!used.has(program)) return program;
+    }
+    return 0;
+  }
+
+  private uniquePatchId(base: string): string {
+    const used = new Set(this.concertManager.getPresets().map((preset) => preset.id));
+    return used.has(base) ? `${base}_import_${Date.now()}` : base;
+  }
+
+  /** Exporta um patch para um arquivo `.patch` (Fase 5.3). */
+  private async exportPatch(presetId: string): Promise<boolean> {
+    const preset = this.concertManager.getPreset(presetId);
+    if (!preset) return false;
+    const result = await dialog.showSaveDialog(this.window!, {
+      title: 'Exportar patch',
+      defaultPath: `${this.safeFileName(preset.name)}.patch`,
+      filters: [{ name: 'Preseter Patch', extensions: ['patch'] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    fs.writeFileSync(result.filePath, `${JSON.stringify({
+      format: 'preseter.patch',
+      version: 1,
+      kind: 'patch',
+      patch: preset,
+    }, null, 2)}\n`, 'utf8');
+    return true;
+  }
+
+  /** Importa um patch `.patch` para o concert aberto (Fase 5.3). */
+  private async importPatch(): Promise<Preset | null> {
+    const result = await dialog.showOpenDialog(this.window!, {
+      title: 'Importar patch',
+      properties: ['openFile'],
+      filters: [{ name: 'Preseter Patch', extensions: ['patch', 'json'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const raw: unknown = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    const record = raw as { patch?: Preset; kind?: string };
+    if (record.kind && record.kind !== 'patch') {
+      throw new Error('Este arquivo não contém um patch.');
+    }
+    const source = record.patch ?? (raw as Preset);
+    if (!source || typeof source.name !== 'string' || !Array.isArray(source.layout?.elements)) {
+      throw new Error('O arquivo .patch está inválido.');
+    }
+    const imported: Preset = {
+      ...source,
+      id: this.uniquePatchId(source.id || `preset_import_${Date.now()}`),
+      programNumber: this.nextFreeProgramNumber(),
+      setId: undefined,
+      setOrder: undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      mappings: source.mappings ?? {},
+      layout: { elements: [], background: null, tempo: source.layout.tempo ?? 120 },
+    };
+    this.concertManager.upsertPatch(imported);
+    this.sendToRenderer('preset-list', this.concertManager.getPresets());
+    return imported;
+  }
+
+  /** Exporta um set e seus patches (Fase 5.3). */
+  private async exportSet(setId: string): Promise<boolean> {
+    const set = this.concertManager.getSet(setId);
+    if (!set) return false;
+    const patches = this.concertManager.getPresets().filter((preset) => preset.setId === setId);
+    const result = await dialog.showSaveDialog(this.window!, {
+      title: 'Exportar set',
+      defaultPath: `${this.safeFileName(set.name)}.patch`,
+      filters: [{ name: 'Preseter Set', extensions: ['patch'] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    fs.writeFileSync(result.filePath, `${JSON.stringify({
+      format: 'preseter.patch',
+      version: 1,
+      kind: 'set',
+      set,
+      patches,
+    }, null, 2)}\n`, 'utf8');
+    return true;
+  }
+
+  /** Importa um set e seus patches para o concert aberto (Fase 5.3). */
+  private async importSet(): Promise<{ set: PresetSet; patches: Preset[] } | null> {
+    const result = await dialog.showOpenDialog(this.window!, {
+      title: 'Importar set',
+      properties: ['openFile'],
+      filters: [{ name: 'Preseter Set', extensions: ['patch', 'json'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const raw: unknown = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+    const record = raw as { kind?: string; set?: PresetSet; patches?: Preset[] };
+    if (record.kind !== 'set' || !record.set || !Array.isArray(record.patches)) {
+      throw new Error('Este arquivo não contém um set.');
+    }
+    const set: PresetSet = {
+      ...record.set,
+      id: `set_import_${Date.now()}`,
+      order: Math.max(-1, ...this.concertManager.getState().sets.map((item) => item.order)) + 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    let program = this.nextFreeProgramNumber();
+    const patches = record.patches.map((patch, index) => {
+      const programNumber = Math.min(127, program);
+      program += 1;
+      return {
+        ...patch,
+        id: this.uniquePatchId(`${patch.id}_import_${Date.now()}_${index}`),
+        setId: set.id,
+        setOrder: index,
+        programNumber,
+        mappings: patch.mappings ?? {},
+        layout: { elements: [], background: null, tempo: patch.layout?.tempo ?? 120 },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    });
+    this.concertManager.addSet(set);
+    for (const patch of patches) this.concertManager.upsertPatch(patch);
+    return { set, patches };
   }
 
   private async loadPreset(presetId: string): Promise<boolean> {
@@ -1097,17 +1239,36 @@ class MainWindow {
     return { program: validateProgramNumber(program), channel };
   }
 
-  private async activateProgramNumber(program: number, channel: number): Promise<boolean> {
+  private async activateProgramNumber(
+    program: number,
+    channel: number,
+    bank = 0,
+    deviceName?: string,
+    respectSource = false
+  ): Promise<boolean> {
+    if (respectSource) {
+      const source = this.concertManager.getState().settings.midi.programChange;
+      if (source.channel !== null && source.channel !== channel) return false;
+      if (source.device && source.device !== (deviceName ?? '')) return false;
+    }
+
+    const preset = this.concertManager.getPresets().find((item) => {
+      if (item.programNumber !== program) return false;
+      if ((item.bankNumber ?? 0) !== bank) return false;
+      if (item.skipped) return false;
+      if (item.setId && this.concertManager.getSet(item.setId)?.skipped) return false;
+      return true;
+    });
+
     this.appStatus.currentProgramNumber = program;
-    const preset = this.concertManager.findByProgramNumber(program);
     this.appStatus.currentPresetId = preset?.id ?? null;
     if (preset) {
       await this.loadPreset(preset.id);
     }
 
     this.updateAppStatus();
-    this.sendToRenderer('midi-program-change', { program, channel, preset: preset ?? null });
-    return true;
+    this.sendToRenderer('midi-program-change', { program, bank, channel, preset: preset ?? null });
+    return Boolean(preset);
   }
 }
 

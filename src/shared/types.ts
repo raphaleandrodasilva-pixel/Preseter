@@ -50,6 +50,12 @@ export interface Preset {
   notes?: string;
   /** Transpose deste patch, em semitons (soma com set e concert na Fase 3.4). */
   transpose?: number;
+  /** Compasso deste patch (Fase 5.4). */
+  timeSignature?: TimeSignature;
+  /** Ao selecionar o patch, aplica o tempo dele (Fase 5.4). */
+  changeTempoOnSelect?: boolean;
+  /** Referência de afinação do patch (A4 em Hz, Fase 5.4). */
+  tuningReferenceHz?: number;
   /** Strip de entrada de áudio (guitarra/microfone) deste patch (Fase 3.5). */
   audioInput?: AudioInputSettings;
   midiChannel: number;

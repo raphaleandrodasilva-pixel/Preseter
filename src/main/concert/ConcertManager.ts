@@ -262,6 +262,13 @@ export class ConcertManager extends EventEmitter {
     return true;
   }
 
+  /** Adiciona um set importado (Fase 5.3). */
+  addSet(set: PresetSet): void {
+    this.file.sets = [...this.file.sets.filter((item) => item.id !== set.id), set];
+    this.file.concert.updatedAt = Date.now();
+    this.emitChanged();
+  }
+
   /** Monta o documento como será gravado (usado por testes/diagnóstico). */
   buildDocument(): PreseterConcertFile {
     return buildConcertFile({

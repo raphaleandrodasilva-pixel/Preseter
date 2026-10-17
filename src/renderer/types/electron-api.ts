@@ -15,6 +15,7 @@ import type {
   MasterMixUpdate,
   MenuAction,
   MidiThruBlock,
+  Preset,
   PresetSet,
   RecentConcert,
   SavedAudioSettings,
@@ -28,7 +29,7 @@ export interface ElectronAPI {
 
   // MIDI
   midiProgramChange: (program: number, channel: number) => Promise<any>;
-  midiInputProgramChange: (program: number, channel: number) => Promise<boolean>;
+  midiInputProgramChange: (program: number, channel: number, bank?: number, deviceName?: string) => Promise<boolean>;
 
   // MIDI Events
   onMidiProgramChange: (callback: (data: any) => void) => void;
@@ -82,6 +83,10 @@ export interface ElectronAPI {
   presetLoad: (presetId: string) => Promise<boolean>;
   presetList: () => Promise<any[]>;
   presetDelete: (presetId: string) => Promise<boolean>;
+  patchExport: (presetId: string) => Promise<boolean>;
+  patchImport: () => Promise<Preset | null>;
+  setExport: (setId: string) => Promise<boolean>;
+  setImport: () => Promise<{ set: PresetSet; patches: Preset[] } | null>;
   presetFindByProgram: (programNumber: number) => Promise<any>;
 
   // Concert (Arquivo)

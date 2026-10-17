@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **25 completos**
-- **8 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **5 não implementados**
+- **30 completos**
+- **5 parciais** (interface existe, mas não funciona de ponta a ponta)
+- **3 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -83,11 +83,11 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Fase 5 — Patch List e biblioteca
 
 - [x] **5.1** Copiar/colar/duplicar patches (`Ctrl+C/V/D`), seleção múltipla, Option-arrastar, "Move again".
-- [ ] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados" — **Não implementado.**
-- [ ] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts — **Não implementado.**
-- [ ] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes — **Parcial:** existem nome, categoria, programa, banco, ícone, skip e Notes; faltam compasso, mudar tempo ao selecionar, transpose e Tuning.
-- [ ] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree) — **Não implementado:** a aba é um placeholder que manda usar a Patch List.
-- [ ] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings — **Parcial:** o banco é salvo no patch, mas o Program Change ignora banco, skip e a origem configurada.
+- [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
+- [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
+- [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
+- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
+- [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
 
 ## Fase 6 — Perform e extras
 

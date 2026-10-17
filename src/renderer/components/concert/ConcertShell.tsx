@@ -40,6 +40,7 @@ import { Inspector } from './Inspector';
 import { ConcertSettingsPanel } from './ConcertSettingsPanel';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
+import { PatchLibraryModal } from './PatchLibraryModal';
 import { ComposerCanvas } from '../composer/ComposerCanvas';
 import { ControlPalette } from '../composer/ControlPalette';
 import { buildScannedParams } from '../composer/MappingTable';
@@ -170,13 +171,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     presets, sets, concertName, setConcertName,
     currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
-    reorderSets, togglePresetSkipped, savePreset,
+    reorderSets, togglePresetSkipped, savePreset, createPreset,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout, mappings, updateMappings,
+    exportPatch, importPatch, exportSet, importSet,
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -192,6 +194,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [mappingsOpen, setMappingsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
@@ -329,6 +332,49 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const deletePatches = async (ids: string[]): Promise<void> => {
     for (const id of ids) await deletePreset(id);
+  };
+
+  /** 5.2: combina os patches selecionados num patch novo. */
+  const newPatchFromSelection = async (ids: string[]): Promise<void> => {
+    const selected = presets.filter((preset) => ids.includes(preset.id));
+    if (selected.length === 0) return;
+    const first = selected[0];
+    const program = freeProgramNumbers()[0] ?? first.programNumber;
+    const base = createPreset(
+      selected.length === 1 ? `${first.name} (novo)` : `${first.name} + ${selected.length - 1}`,
+      program
+    );
+    const siblings = presets.filter((preset) => (preset.setId ?? undefined) === (first.setId ?? undefined));
+    const setOrder = siblings.reduce((max, preset) => Math.max(max, preset.setOrder ?? 0), -1) + 1;
+    const merged: Preset = {
+      ...base,
+      name: selected.length === 1 ? `${first.name} (novo)` : `${first.name} + ${selected.length - 1}`,
+      setId: first.setId,
+      setOrder,
+      midiChannel: first.midiChannel,
+      transpose: first.transpose,
+      audioInput: first.audioInput,
+      masterMix: first.masterMix,
+      plugins: selected.flatMap((preset) => preset.plugins ?? []),
+      vstStates: Object.assign({}, ...selected.map((preset) => preset.vstStates)),
+      mappings: Object.assign({}, ...selected.map((preset) => preset.mappings ?? {})),
+      stripOverrides: Object.assign({}, ...selected.map((preset) => preset.stripOverrides ?? {})),
+      layout: layout ?? base.layout,
+    };
+    const saved = await savePreset(merged);
+    if (saved) onSelectPreset(merged);
+  };
+
+  /** 5.2: move os patches selecionados para um set novo. */
+  const newSetFromSelection = async (ids: string[]): Promise<void> => {
+    const selected = presets
+      .filter((preset) => ids.includes(preset.id))
+      .sort((a, b) => (a.setOrder ?? a.programNumber) - (b.setOrder ?? b.programNumber));
+    if (selected.length === 0) return;
+    const set = createSet();
+    for (let index = 0; index < selected.length; index += 1) {
+      await savePreset({ ...selected[index], setId: set.id, setOrder: index, updatedAt: Date.now() });
+    }
   };
 
   /**
@@ -1449,6 +1495,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setLibraryOpen((open) => !open);
+        return;
+      }
       if (target?.closest('input,select,textarea')) return;
       // Atalhos da Patch List (copiar, colar, duplicar, deletar patches) são
       // tratados pelo próprio componente quando ele tem o foco.
@@ -1610,6 +1661,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onPastePatches={pastePatches}
           onDuplicatePatches={duplicatePatches}
           onDeletePatches={deletePatches}
+          onNewPatchFromSelection={newPatchFromSelection}
+          onNewSetFromSelection={newSetFromSelection}
+          onExportPatch={(id) => void exportPatch(id)}
+          onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
+          onExportSet={(id) => void exportSet(id)}
+          onImportSet={() => void importSet()}
           onMovePatches={movePatches}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1765,6 +1822,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       </div>
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
+      )}
+      {libraryOpen && (
+        <PatchLibraryModal
+          presets={presets}
+          sets={sets}
+          currentPresetId={currentPreset?.id ?? null}
+          onSelect={(preset) => { setConcertSelected(false); onSelectPreset(preset); }}
+          onClose={() => setLibraryOpen(false)}
+        />
       )}
       {mappingsOpen && (
         <AssignmentsMappingsTable
