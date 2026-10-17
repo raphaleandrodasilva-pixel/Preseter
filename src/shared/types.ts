@@ -254,6 +254,7 @@ export type ElectronChannels =
   | 'engine-panic'
   | 'preferences-get'
   | 'preferences-set'
+  | 'window-set-fullscreen'
   | 'preset-save'
   | 'preset-load'
   | 'preset-list'

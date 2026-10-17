@@ -329,13 +329,24 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const panic = () => { void enginePanic(); };
   const toggleMasterMute = () => { void setVstMasterMix({ muted: !masterMuted }); };
 
-  // Atalhos globais: Cmd+1/2/3 modos, Ctrl+P panic, Ctrl+M mute, Del remove, Ctrl+D duplica, F foca busca
+  // Modos: 1/2 = Layout/Edit (em janela), 3 = Perform (em janela), 4 = Perform em tela cheia.
+  const changeMode = (next: ConcertMode) => {
+    void window.electronAPI.windowSetFullscreen(false);
+    onModeChange(next);
+  };
+  const enterPerformFullscreen = () => {
+    void window.electronAPI.windowSetFullscreen(true);
+    onModeChange('perform');
+  };
+
+  // Atalhos globais: Cmd+1/2/3/4 modos, Ctrl+P panic, Ctrl+M mute, Del remove, Ctrl+D duplica, F foca busca
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); onModeChange('layout'); return; }
-      if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); onModeChange('edit'); return; }
-      if ((e.metaKey || e.ctrlKey) && (e.key === '3' || e.key === '4')) { e.preventDefault(); onModeChange('perform'); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); changeMode('layout'); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); changeMode('edit'); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); changeMode('perform'); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === '4') { e.preventDefault(); enterPerformFullscreen(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
       if (target?.closest('input,select,textarea')) return;
@@ -345,7 +356,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         return;
       }
       if (mode === 'perform') {
-        if (e.key === 'Escape') onModeChange('edit');
+        if (e.key === 'Escape') { e.preventDefault(); void window.electronAPI.windowSetFullscreen(false); return; }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -383,7 +394,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             tempo={appStatus.tempo}
           />
           <span className="font-semibold" style={{ color: '#EDEDEF' }}>{concertName}</span>
-          <span style={{ color: '#9A9AA0' }}>Perform — tela cheia · Esc sai · ↑/↓ troca patch</span>
+          <span style={{ color: '#9A9AA0' }}>Perform — Esc sai da tela cheia · ↑/↓ troca patch</span>
           {masterMuted && (
             <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
               MASTER MUDO
@@ -412,7 +423,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           </button>
           <button
             className="hw-squarebtn ml-auto px-3 py-1.5"
-            onClick={() => onModeChange('edit')}
+            onClick={() => changeMode('edit')}
           >
             Sair do Perform
           </button>
@@ -452,7 +463,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
       <ModeToolbar
         mode={mode}
-        onModeChange={onModeChange}
+        onModeChange={changeMode}
         concertName={concertName}
         onConcertNameChange={setConcertName}
         tempo={appStatus.tempo}

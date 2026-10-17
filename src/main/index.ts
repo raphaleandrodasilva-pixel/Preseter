@@ -221,6 +221,12 @@ class MainWindow {
       return preferences;
     });
 
+    ipcMain.handle('window-set-fullscreen', (_event, value: unknown) => {
+      const fullscreen = value === true;
+      this.window?.setFullScreen(fullscreen);
+      return this.window?.isFullScreen() ?? false;
+    });
+
     // === Preset Handlers ===
 
     ipcMain.handle('preset-save', (_event, preset: Preset) => {

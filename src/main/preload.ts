@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
   preferencesGet: () => ipcRenderer.invoke('preferences-get'),
   preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),
+  windowSetFullscreen: (value: boolean) => ipcRenderer.invoke('window-set-fullscreen', value),
   audioStart: (options: unknown) => ipcRenderer.invoke('audio-start', options),
   audioStop: () => ipcRenderer.invoke('audio-stop'),
   openPluginDialog: () => ipcRenderer.invoke('open-plugin-dialog'),
