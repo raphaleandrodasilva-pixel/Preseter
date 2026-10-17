@@ -44,7 +44,7 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 - [x] **1.4 Troca de patch sem corte.** Motor: carregar os layers do próximo patch enquanto o anterior ainda soa; trocar as conexões do grafo de uma vez; manter o patch anterior até as caudas acabarem (opção **Silence Previous Patch**, padrão desligada, igual ao MainStage). Se o plugin do próximo patch for o mesmo do atual, reaproveitar a instância. Teste: segurar uma nota, trocar de patch, a nota continua.
 - [x] **1.5 Tela cheia real no Perform.** `Cmd/Ctrl+4` = Perform em tela cheia (`BrowserWindow.setFullScreen`), `Cmd/Ctrl+3` = Perform em janela, `Esc` sai da tela cheia, `Cmd/Ctrl+1/2` voltam ao Layout/Edit.
 - [x] **1.6 Motor que cai.** Se o processo do motor terminar, mostrar aviso na tela, reiniciar o motor e recarregar o patch atual. Serializar chamadas concorrentes de `loadPlugin`.
-- [ ] **1.7 Remover limite de 4 layers** (MainStage não tem limite). Avisar se passar de 3 channel strips que pode pesar (texto do manual).
+- [x] **1.7 Remover limite de 4 layers** (MainStage não tem limite). Avisar se passar de 3 channel strips que pode pesar (texto do manual).
 
 ## Fase 2 — Concert como arquivo
 
