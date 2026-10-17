@@ -63,6 +63,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   presetFindByProgram: (programNumber: number) =>
     ipcRenderer.invoke('preset-by-program', programNumber),
 
+  // === Concert (Arquivo) ===
+  concertInit: (legacy: unknown) => ipcRenderer.invoke('concert-init', legacy),
+  concertGet: () => ipcRenderer.invoke('concert-get'),
+  concertNew: () => ipcRenderer.invoke('concert-new'),
+  concertOpen: () => ipcRenderer.invoke('concert-open'),
+  concertOpenRecent: (filePath: string) => ipcRenderer.invoke('concert-open-recent', filePath),
+  concertSave: (asNew?: boolean) => ipcRenderer.invoke('concert-save', asNew),
+  concertSync: (payload: unknown) => ipcRenderer.invoke('concert-sync', payload),
+  concertRecent: () => ipcRenderer.invoke('concert-recent'),
+
   // === Layout ===
   layoutChange: (layout: any) => ipcRenderer.invoke('layout-change', layout),
   uiElementAdd: (element: any) => ipcRenderer.invoke('ui-element-add', element),
@@ -94,4 +104,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('engine-crashed', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { message: string })),
   onEngineRecovered: (callback: (data: { presetId: string | null }) => void) =>
     ipcRenderer.on('engine-recovered', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { presetId: string | null })),
+
+  // === Menu nativo (Arquivo) ===
+  onMenuAction: (callback: (action: unknown) => void) =>
+    ipcRenderer.on('menu-action', (_event: Electron.IpcRendererEvent, action: unknown) => callback(action)),
 });

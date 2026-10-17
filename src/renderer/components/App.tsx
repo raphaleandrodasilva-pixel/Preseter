@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Preset } from '@shared/types';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { ConcertShell } from './concert/ConcertShell';
@@ -11,6 +11,8 @@ const AppContent: React.FC = () => {
     loadedPlugins,
     midiError,
     engineError,
+    concertError,
+    concertRevision,
     savePreset,
     loadPreset,
     createPreset,
@@ -25,6 +27,14 @@ const AppContent: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Concert novo/aberto: descarta o rascunho em edição e a seleção.
+  useEffect(() => {
+    setDraft(null);
+    setSelectedId(null);
+    setArmedKey(null);
+    setMode('edit');
+  }, [concertRevision]);
 
   const showToast = (text: string) => {
     setToast(text);
@@ -151,7 +161,7 @@ const AppContent: React.FC = () => {
           onArmedKey={setArmedKey}
           saving={saving}
           toast={toast}
-          error={error ?? midiError}
+          error={error ?? concertError ?? midiError}
           onSelectPreset={(preset) => void selectPreset(preset)}
           onNewPatch={startNewPatch}
           onEditPreset={editPreset}

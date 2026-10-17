@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, session, Menu, MenuItemConstructorOptions } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
 import { PresetManager } from './preset/PresetManager';
 import { LayoutManager } from './layout/LayoutManager';
+import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
 import {
   Preset,
+  PresetSet,
   VstPluginInfo,
   MidiBinding,
   AppStatus,
@@ -15,19 +17,25 @@ import {
   MasterMixUpdate,
   SavedAudioSettings,
   AppPreferences,
+  ConcertState,
+  ConcertSyncPayload,
+  MenuAction,
 } from '../shared/types';
-import { validateProgramNumber, DEFAULT_MIDI_CHANNEL } from '../shared/constants';
+import { validateProgramNumber, DEFAULT_MIDI_CHANNEL, CONCERT_FILE_EXTENSION } from '../shared/constants';
 
 class MainWindow {
   private window: BrowserWindow | null = null;
   private vstManager: VstManager;
   private presetManager: PresetManager;
   private layoutManager: LayoutManager;
+  private concertManager: ConcertManager;
   private audioSettingsPath: string;
   private preferencesPath: string;
   /** Último patch carregado, para recarregar após uma queda do motor. */
   private lastLoadedPresetId: string | null = null;
   private recovering: Promise<void> | null = null;
+  /** true quando o usuário já confirmou o fechamento com alterações pendentes. */
+  private closing = false;
   private appStatus: AppStatus = {
     isPlaying: false,
     currentPresetId: null,
@@ -40,8 +48,11 @@ class MainWindow {
     this.vstManager = new VstManager();
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
+    this.concertManager = new ConcertManager();
     this.audioSettingsPath = path.join(app.getPath('userData'), 'audio-settings.json');
     this.preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
+    this.concertManager.on('changed', () => this.updateTitle());
+    this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
@@ -64,6 +75,7 @@ class MainWindow {
     app.whenReady().then(() => {
       this.configureMidiPermissions();
       this.createWindow();
+      this.buildMenu();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
         void this.initializeEngine();
@@ -117,7 +129,13 @@ class MainWindow {
     // Enviar status inicial
     this.window.webContents.on('did-finish-load', () => {
       this.sendToRenderer('app-status-change', this.appStatus);
-      this.sendToRenderer('preset-list', this.presetManager.getAllPresets());
+    });
+
+    // Perguntar se quer salvar antes de fechar com alterações pendentes.
+    this.window.on('close', (event) => {
+      if (this.closing || !this.concertManager.isDirty()) return;
+      event.preventDefault();
+      void this.confirmClose();
     });
   }
 
@@ -236,10 +254,11 @@ class MainWindow {
       return this.window?.isFullScreen() ?? false;
     });
 
-    // === Preset Handlers ===
+    // === Preset Handlers (patches do concert aberto) ===
 
     ipcMain.handle('preset-save', (_event, preset: Preset) => {
-      return this.presetManager.savePreset(preset);
+      this.concertManager.upsertPatch(preset);
+      return true;
     });
 
     ipcMain.handle('preset-load', (_event, presetId: string) => {
@@ -247,16 +266,37 @@ class MainWindow {
     });
 
     ipcMain.handle('preset-list', () => {
-      return this.presetManager.getAllPresets();
+      return this.concertManager.getPresets();
     });
 
     ipcMain.handle('preset-delete', (_event, presetId: string) => {
-      return this.presetManager.deletePreset(presetId);
+      return this.concertManager.deletePatch(presetId);
     });
 
     ipcMain.handle('preset-by-program', (_event, programNumber: number) => {
-      return this.presetManager.findByProgramNumber(programNumber);
+      return this.concertManager.findByProgramNumber(programNumber);
     });
+
+    // === Concert Handlers (Arquivo > Novo/Abrir/Salvar...) ===
+
+    ipcMain.handle('concert-init', (_event, legacy: LegacyConcertPayload) => this.initConcert(legacy));
+
+    ipcMain.handle('concert-get', () => this.concertManager.getState());
+
+    ipcMain.handle('concert-new', () => this.concertManager.newConcert());
+
+    ipcMain.handle('concert-open', () => this.openConcertDialog());
+
+    ipcMain.handle('concert-open-recent', (_event, filePath: string) => this.openConcertPath(filePath));
+
+    ipcMain.handle('concert-save', (_event, asNew?: boolean) => this.saveConcert(asNew === true));
+
+    ipcMain.handle('concert-sync', (_event, payload: ConcertSyncPayload) => {
+      this.concertManager.applyEditors(payload);
+      return { dirty: this.concertManager.isDirty() };
+    });
+
+    ipcMain.handle('concert-recent', () => this.concertManager.getRecent());
 
     // === Layout Handlers ===
 
@@ -319,10 +359,11 @@ class MainWindow {
   }
 
   private async loadPreset(presetId: string): Promise<boolean> {
-    const preset = this.presetManager.getPreset(presetId);
+    const preset = this.concertManager.getPreset(presetId);
     if (!preset) return false;
 
     this.lastLoadedPresetId = preset.id;
+    this.concertManager.setLastPatchId(preset.id);
 
     const assignments = preset.plugins ?? [];
 
@@ -385,6 +426,173 @@ class MainWindow {
     });
 
     return true;
+  }
+
+  // === Concert (Arquivo) ===
+
+  /**
+   * Prepara o concert inicial: reabre o último usado, migra os dados do modelo
+   * antigo na primeira execução da Fase 2, ou começa vazio.
+   */
+  private initConcert(legacy: LegacyConcertPayload): ConcertState {
+    const sessionPath = this.concertManager.getSessionConcertPath();
+    if (sessionPath && fs.existsSync(sessionPath)) {
+      try {
+        return this.concertManager.openFromPath(sessionPath);
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível reabrir o último concert:', error);
+      }
+    }
+
+    const legacyPresets = this.presetManager.loadPresets();
+    const hasLegacyData = legacyPresets.length > 0 || (legacy?.sets?.length ?? 0) > 0;
+    if (hasLegacyData) {
+      const state = this.concertManager.migrateLegacy(legacyPresets, legacy);
+      // Grava a migração para não repeti-la na próxima abertura.
+      try {
+        return this.concertManager.saveTo(this.defaultConcertPath(state.name));
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível gravar o concert migrado:', error);
+        return state;
+      }
+    }
+
+    return this.concertManager.newConcert();
+  }
+
+  private defaultConcertPath(name: string): string {
+    const safeName = name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Meu Concert';
+    return path.join(app.getPath('userData'), `${safeName}${CONCERT_FILE_EXTENSION}`);
+  }
+
+  private async openConcertDialog(): Promise<ConcertState | null> {
+    if (!this.window) return null;
+    const result = await dialog.showOpenDialog(this.window, {
+      title: 'Abrir Concert',
+      filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return this.openConcertPath(result.filePaths[0]);
+  }
+
+  private openConcertPath(filePath: string): ConcertState {
+    return this.concertManager.openFromPath(filePath);
+  }
+
+  /** Salva o concert (pedindo o caminho quando necessário). null = cancelado. */
+  private async saveConcert(asNew: boolean): Promise<ConcertState | null> {
+    const current = this.concertManager.getState();
+    let target = asNew ? null : current.path;
+
+    if (!target) {
+      if (!this.window) return null;
+      const result = await dialog.showSaveDialog(this.window, {
+        title: 'Salvar Concert',
+        defaultPath: path.join(app.getPath('documents'), `${current.name}${CONCERT_FILE_EXTENSION}`),
+        filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      target = result.filePath;
+    }
+
+    const finalPath = target.toLowerCase().endsWith(CONCERT_FILE_EXTENSION)
+      ? target
+      : `${target}${CONCERT_FILE_EXTENSION}`;
+    return this.concertManager.saveTo(finalPath);
+  }
+
+  private async confirmClose(): Promise<void> {
+    if (!this.window) return;
+    const { name } = this.concertManager.getState();
+    const { response } = await dialog.showMessageBox(this.window, {
+      type: 'warning',
+      title: 'Sair do Preseter',
+      message: `Salvar as alterações de "${name}" antes de sair?`,
+      detail: 'As alterações não salvas serão perdidas.',
+      buttons: ['Salvar', 'Não salvar', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    });
+
+    if (response === 2) return;
+    if (response === 0) {
+      try {
+        const saved = await this.saveConcert(false);
+        if (!saved) return;
+      } catch (error) {
+        console.warn('[Preseter] Falha ao salvar antes de sair:', error);
+        return;
+      }
+    }
+
+    this.closing = true;
+    this.window.close();
+  }
+
+  private buildMenu(): void {
+    const recent = this.concertManager.getRecent();
+    const recentSubmenu: MenuItemConstructorOptions[] = recent.length
+      ? recent.map((entry) => ({
+          label: entry.name,
+          toolTip: entry.path,
+          click: () => this.sendMenuAction({ action: 'open-recent', path: entry.path }),
+        }))
+      : [{ label: 'Nenhum concert recente', enabled: false }];
+
+    const template: MenuItemConstructorOptions[] = [
+      {
+        label: 'Arquivo',
+        submenu: [
+          { label: 'Novo Concert', accelerator: 'CmdOrCtrl+N', click: () => this.sendMenuAction({ action: 'new' }) },
+          { label: 'Abrir…', accelerator: 'CmdOrCtrl+O', click: () => this.sendMenuAction({ action: 'open' }) },
+          { label: 'Abrir Recente', submenu: recentSubmenu },
+          { type: 'separator' },
+          { label: 'Salvar', accelerator: 'CmdOrCtrl+S', click: () => this.sendMenuAction({ action: 'save' }) },
+          { label: 'Salvar Como…', accelerator: 'CmdOrCtrl+Shift+S', click: () => this.sendMenuAction({ action: 'save-as' }) },
+          { type: 'separator' },
+          { role: 'quit', label: 'Sair' },
+        ],
+      },
+      {
+        label: 'Editar',
+        submenu: [
+          { role: 'undo', label: 'Desfazer' },
+          { role: 'redo', label: 'Refazer' },
+          { type: 'separator' },
+          { role: 'cut', label: 'Recortar' },
+          { role: 'copy', label: 'Copiar' },
+          { role: 'paste', label: 'Colar' },
+          { role: 'selectAll', label: 'Selecionar tudo' },
+        ],
+      },
+      {
+        label: 'Ver',
+        submenu: [
+          { role: 'reload', label: 'Recarregar' },
+          { role: 'toggleDevTools', label: 'Ferramentas de desenvolvedor' },
+          { type: 'separator' },
+          { role: 'resetZoom', label: 'Tamanho normal' },
+          { role: 'zoomIn', label: 'Aumentar' },
+          { role: 'zoomOut', label: 'Diminuir' },
+          { type: 'separator' },
+          { role: 'togglefullscreen', label: 'Tela cheia' },
+        ],
+      },
+    ];
+
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  }
+
+  private sendMenuAction(action: MenuAction): void {
+    this.sendToRenderer('menu-action', action);
+  }
+
+  private updateTitle(): void {
+    const state = this.concertManager.getState();
+    const marker = state.dirty ? ' •' : '';
+    this.window?.setTitle(`${state.name}${marker} — Preseter`);
   }
 
   private async initializeEngine(): Promise<void> {
@@ -512,7 +720,7 @@ class MainWindow {
 
   private async activateProgramNumber(program: number, channel: number): Promise<boolean> {
     this.appStatus.currentProgramNumber = program;
-    const preset = this.presetManager.findByProgramNumber(program);
+    const preset = this.concertManager.findByProgramNumber(program);
     this.appStatus.currentPresetId = preset?.id ?? null;
     if (preset) {
       await this.loadPreset(preset.id);

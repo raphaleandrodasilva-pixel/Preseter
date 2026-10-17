@@ -3,9 +3,14 @@ import type {
   AudioSettingsSnapshot,
   AudioStartOptions,
   AppPreferences,
+  ConcertState,
+  ConcertSyncPayload,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
+  MenuAction,
+  PresetSet,
+  RecentConcert,
   SavedAudioSettings,
   VstPluginInfo,
 } from '@shared/types';
@@ -56,6 +61,16 @@ export interface ElectronAPI {
   presetDelete: (presetId: string) => Promise<boolean>;
   presetFindByProgram: (programNumber: number) => Promise<any>;
 
+  // Concert (Arquivo)
+  concertInit: (legacy: { sets?: PresetSet[]; name?: string; tempo?: number }) => Promise<ConcertState>;
+  concertGet: () => Promise<ConcertState>;
+  concertNew: () => Promise<ConcertState>;
+  concertOpen: () => Promise<ConcertState | null>;
+  concertOpenRecent: (filePath: string) => Promise<ConcertState>;
+  concertSave: (asNew?: boolean) => Promise<ConcertState | null>;
+  concertSync: (payload: ConcertSyncPayload) => Promise<{ dirty: boolean }>;
+  concertRecent: () => Promise<RecentConcert[]>;
+
   // Layout
   layoutChange: (layout: any) => Promise<boolean>;
   uiElementAdd: (element: any) => Promise<any>;
@@ -77,6 +92,9 @@ export interface ElectronAPI {
   onParameterChanged: (callback: (data: any) => void) => void;
   onEngineCrashed: (callback: (data: { message: string }) => void) => void;
   onEngineRecovered: (callback: (data: { presetId: string | null }) => void) => void;
+
+  // Menu nativo (Arquivo)
+  onMenuAction: (callback: (action: MenuAction) => void) => void;
 }
 
 declare global {

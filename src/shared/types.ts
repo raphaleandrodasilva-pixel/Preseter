@@ -159,6 +159,45 @@ export interface PreseterConcertFile {
   mappings: ConcertMapping[];
 }
 
+/** Estado do concert trocado entre main e renderer (Fase 2.2). */
+export interface ConcertState {
+  /** Caminho do arquivo `.preseter`, ou null se ainda não foi salvo. */
+  path: string | null;
+  name: string;
+  tempo: number;
+  sets: PresetSet[];
+  patches: Preset[];
+  layout: LayoutConfig;
+  dirty: boolean;
+  /** Último patch usado, para reabrir já selecionado. */
+  lastPatchId: string | null;
+}
+
+/** Trecho do concert que o renderer edita e reenvia ao main a cada mudança. */
+export interface ConcertSyncPayload {
+  name: string;
+  tempo: number;
+  sets: PresetSet[];
+}
+
+/** Dados lembrados entre execuções (userData/session.json). */
+export interface SessionState {
+  concertPath: string | null;
+  lastPatchId: string | null;
+}
+
+/** Item da lista de concerts recentes. */
+export interface RecentConcert {
+  path: string;
+  name: string;
+  openedAt: number;
+}
+
+/** Ação disparada pelo menu nativo "Arquivo". */
+export type MenuAction =
+  | { action: 'new' | 'open' | 'save' | 'save-as' }
+  | { action: 'open-recent'; path: string };
+
 export interface PresetPluginAssignment {
   pluginId: string;
   /** Identidade única do layer dentro do patch. */
@@ -349,6 +388,15 @@ export type ElectronChannels =
   | 'ui-element-add'
   | 'ui-element-update'
   | 'ui-element-remove'
+  | 'concert-init'
+  | 'concert-get'
+  | 'concert-new'
+  | 'concert-open'
+  | 'concert-open-recent'
+  | 'concert-save'
+  | 'concert-sync'
+  | 'concert-recent'
+  | 'menu-action'
   | 'open-plugin-dialog'
   | 'get-app-version';
 

@@ -13,6 +13,9 @@ import {
   MasterMixUpdate,
   SavedAudioSettings,
   AppPreferences,
+  ConcertState,
+  ConcertSyncPayload,
+  MenuAction,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
@@ -31,6 +34,14 @@ export interface AppContextType {
   preferences: AppPreferences | null;
   /** Mensagem quando o motor de áudio caiu (null = tudo certo). */
   engineError: string | null;
+  /** Caminho do arquivo `.preseter` aberto (null = ainda não salvo). */
+  concertPath: string | null;
+  /** true quando há alterações não salvas no concert. */
+  concertDirty: boolean;
+  /** Erro de Arquivo (abrir/salvar) do concert. */
+  concertError: string | null;
+  /** Incrementa a cada concert novo/aberto, para o shell descartar rascunhos. */
+  concertRevision: number;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -128,18 +139,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
   const [presets, setPresets] = useState<Preset[]>([]);
   const presetsRef = useRef(presets);
-  const [sets, setSets] = useState<PresetSet[]>(() => {
-    try {
-      const raw = localStorage.getItem('preseter.sets.v1');
-      if (raw) return JSON.parse(raw) as PresetSet[];
-    } catch { /* ignora */ }
-    return [];
-  });
-  const [concertName, setConcertNameState] = useState<string>(() => {
-    try {
-      return localStorage.getItem('preseter.concertName.v1') || 'Meu Concert';
-    } catch { return 'Meu Concert'; }
-  });
+  const [sets, setSets] = useState<PresetSet[]>([]);
+  const [concertName, setConcertNameState] = useState<string>('Meu Concert');
+  const [concertPath, setConcertPath] = useState<string | null>(null);
+  const [concertDirty, setConcertDirty] = useState(false);
+  const [concertError, setConcertError] = useState<string | null>(null);
+  const [concertRevision, setConcertRevision] = useState(0);
+  /** true depois que o estado do concert foi carregado do main (libera o sync). */
+  const concertReady = useRef(false);
+  /** Patch a reabrir depois que a lista de patches estiver pronta. */
+  const pendingPatchRef = useRef<string | null>(null);
+  /** Última ação do menu nativo, lida pelo listener (sem closure velha). */
+  const menuHandlerRef = useRef<(action: MenuAction) => void>(() => undefined);
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
   const [currentPreset, setCurrentPreset] = useState<Preset | null>(null);
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
@@ -164,27 +175,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     presets: false,
   });
 
-  // Carregar dados iniciais
+  /** Aplica no renderer o estado do concert vindo do main. */
+  const applyConcertState = useCallback((state: ConcertState) => {
+    setPresets(state.patches);
+    setSets(state.sets);
+    setConcertNameState(state.name);
+    setConcertPath(state.path);
+    setConcertDirty(state.dirty);
+    setLayoutState(state.layout);
+    setAppStatus((prev) => ({ ...prev, tempo: state.tempo, currentPresetId: null, currentProgramNumber: 0 }));
+    setConcertRevision((revision) => revision + 1);
+  }, []);
+
+  /** Lê os dados do modelo antigo (localStorage) para a migração da Fase 2. */
+  const readLegacyConcert = (): { sets?: PresetSet[]; name?: string } => {
+    try {
+      const rawSets = localStorage.getItem('preseter.sets.v1');
+      const name = localStorage.getItem('preseter.concertName.v1') ?? undefined;
+      return { sets: rawSets ? (JSON.parse(rawSets) as PresetSet[]) : undefined, name };
+    } catch {
+      return {};
+    }
+  };
+
+  // Carregar dados iniciais (concert + estado do motor)
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [presetList, loaded, audio, prefs] = await Promise.all([
-          window.electronAPI.presetList(),
+        const [concert, loaded, audio, prefs] = await Promise.all([
+          window.electronAPI.concertInit(readLegacyConcert()),
           window.electronAPI.vstLoaded(),
           window.electronAPI.audioSettingsGet(),
           window.electronAPI.preferencesGet(),
         ]);
-        setPresets(presetList);
+        applyConcertState(concert);
+        pendingPatchRef.current = concert.lastPatchId;
         setLoadedPlugins(loaded);
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
         setPreferences(prefs);
+        concertReady.current = true;
       } catch (error) {
         setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
       }
     };
     void loadData();
-  }, []);
+  }, [applyConcertState]);
 
   useEffect(() => {
     presetsRef.current = presets;
@@ -331,6 +367,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return result;
   }, [presets]);
 
+  // Reabre o último patch usado, após a lista de patches ter chegado do main.
+  useEffect(() => {
+    const id = pendingPatchRef.current;
+    if (!id || presets.length === 0) return;
+    pendingPatchRef.current = null;
+    if (presets.some((preset) => preset.id === id)) void loadPreset(id);
+  }, [presets, loadPreset]);
+
   const deletePreset = useCallback(async (presetId: string): Promise<boolean> => {
     const result = await window.electronAPI.presetDelete(presetId);
     if (result) {
@@ -357,13 +401,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     []
   );
 
-  // === Concert / Sets (visual, localStorage) ===
+  // === Concert / Sets (arquivo .preseter) ===
+
+  // Reenvia nome, tempo e sets ao main, que mantém o arquivo do concert.
+  // A lista de patches é sincronizada por preset-save/preset-delete.
   useEffect(() => {
-    try { localStorage.setItem('preseter.sets.v1', JSON.stringify(sets)); } catch { /* ignora */ }
-  }, [sets]);
+    if (!concertReady.current) return;
+    const handle = window.setTimeout(() => {
+      const payload: ConcertSyncPayload = { name: concertName, tempo: appStatus.tempo, sets };
+      window.electronAPI
+        .concertSync(payload)
+        .then((result) => setConcertDirty(result.dirty))
+        .catch((error: unknown) =>
+          setConcertError(error instanceof Error ? error.message : 'Falha ao sincronizar o concert.')
+        );
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [concertName, appStatus.tempo, sets, presets]);
+
+  // === Arquivo (menu nativo) ===
+  const handleMenuAction = useCallback(
+    async (action: MenuAction) => {
+      setConcertError(null);
+      try {
+        if (action.action === 'new') {
+          applyConcertState(await window.electronAPI.concertNew());
+        } else if (action.action === 'open') {
+          const state = await window.electronAPI.concertOpen();
+          if (state) applyConcertState(state);
+        } else if (action.action === 'open-recent') {
+          applyConcertState(await window.electronAPI.concertOpenRecent(action.path));
+        } else if (action.action === 'save' || action.action === 'save-as') {
+          const state = await window.electronAPI.concertSave(action.action === 'save-as');
+          if (state) {
+            setConcertPath(state.path);
+            setConcertDirty(state.dirty);
+          }
+        }
+      } catch (error) {
+        setConcertError(error instanceof Error ? error.message : 'Falha na operação de arquivo.');
+      }
+    },
+    [applyConcertState]
+  );
+  menuHandlerRef.current = handleMenuAction;
+
   useEffect(() => {
-    try { localStorage.setItem('preseter.concertName.v1', concertName); } catch { /* ignora */ }
-  }, [concertName]);
+    window.electronAPI.onMenuAction((action) => void menuHandlerRef.current(action));
+  }, []);
 
   const setConcertName = useCallback((name: string) => setConcertNameState(name), []);
 
@@ -834,6 +919,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     audioSettings,
     preferences,
     engineError,
+    concertPath,
+    concertDirty,
+    concertError,
+    concertRevision,
     midiDevices,
     midiError,
     midiLastMessage,
