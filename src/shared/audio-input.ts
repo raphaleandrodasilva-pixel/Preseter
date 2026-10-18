@@ -60,6 +60,7 @@ export function normalizeAudioInputState(value: unknown): AudioInputState {
     // `enabled` do motor pode ser true mesmo sem o patch ter o strip.
     enabled: input.enabled === true,
     peakDb: isNumber(input.peakDb) ? input.peakDb : -100,
+    pitchHz: isNumber(input.pitchHz) ? input.pitchHz : 0,
     feedback: input.feedback === true,
   };
 }
