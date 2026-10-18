@@ -21,6 +21,8 @@ import type {
   RecentConcert,
   SavedAudioSettings,
   VstPluginInfo,
+  VstPreset,
+  VstPresetListResult,
 } from '@shared/types';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
@@ -49,6 +51,12 @@ export interface ElectronAPI {
   vstCloseEditor: (pluginId: string) => Promise<boolean>;
   vstList: () => Promise<any[]>;
   vstLoaded: () => Promise<any[]>;
+  vstPresetsList: () => Promise<VstPresetListResult>;
+  vstPresetsRescan: () => Promise<VstPresetListResult>;
+  vstPresetApply: (presetId: string, layerId: string) => Promise<boolean>;
+  vstPresetSaveSnapshot: (payload: { layerId: string; name: string; category?: string }) => Promise<VstPreset | null>;
+  vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) => Promise<VstPreset | null>;
+  vstPresetDelete: (presetId: string) => Promise<boolean>;
   engineMidi: (bytes: number[]) => Promise<boolean>;
   enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;
@@ -128,6 +136,7 @@ export interface ElectronAPI {
   onPresetLoaded: (callback: (data: any) => void) => void;
   onLayoutChange: (callback: (layout: any) => void) => void;
   onVstScanned: (callback: (plugins: any[]) => void) => void;
+  onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => void;
   onPluginLoaded: (callback: (plugin: any) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;
   onParameterChanged: (callback: (data: any) => void) => void;

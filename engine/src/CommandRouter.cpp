@@ -417,6 +417,44 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "pluginPrograms")
+    {
+        auto key = message["plugin"].toString();
+        if (key.isEmpty()) key = message["path"].toString();
+        if (key.isEmpty())
+        {
+            fail (id, "Informe \"plugin\" (id) ou \"path\" do plugin.");
+            return;
+        }
+
+        engine.scanPluginPrograms (key, [this, id] (juce::var result, juce::String error)
+        {
+            if (error.isNotEmpty()) fail (id, error);
+            else                    ok (id, result);
+        });
+        return;
+    }
+
+    if (cmd == "setProgram")
+    {
+        juce::var result;
+        const auto error = engine.setPluginProgram (message["layerId"].toString(),
+                                                    intArg (message, "index", -1), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "setPresetFile")
+    {
+        juce::var result;
+        const auto error = engine.setPluginPresetFile (message["layerId"].toString(),
+                                                       message["path"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "openEditor")
     {
         juce::var result;

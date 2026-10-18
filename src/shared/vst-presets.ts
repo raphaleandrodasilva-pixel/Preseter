@@ -1,0 +1,21 @@
+/** Categorias exibidas na Channel Strip Library, na ordem do MainStage. */
+export const VST_PRESET_CATEGORIES = [
+  'Favoritos',
+  'Recentes',
+  'Meus presets',
+  'Piano',
+  'E-Piano',
+  'Organ',
+  'Strings',
+  'Brass',
+  'Woodwinds',
+  'Guitar',
+  'Bass',
+  'Synth Bass',
+  'Synth Lead',
+  'Synth Pad',
+  'Arp',
+  'Drums',
+  'FX',
+  'Outros',
+];

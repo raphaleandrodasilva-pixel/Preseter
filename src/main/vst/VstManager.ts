@@ -274,6 +274,76 @@ export class VstManager extends EventEmitter {
     };
   }
 
+  /** Lista os programas internos que o plugin expõe ao host (pode ser 0). */
+  async scanPluginPrograms(
+    pluginIdOrPath: string
+  ): Promise<{ programs: { index: number; name: string }[]; current: number; count: number }> {
+    const scanned = this.scannedPlugins.find(
+      (plugin) => plugin.path === pluginIdOrPath || plugin.id === pluginIdOrPath
+    );
+    const request = scanned ? { plugin: scanned.id } : { path: pluginIdOrPath };
+    return this.engine.request('pluginPrograms', request, 60_000);
+  }
+
+  /** Troca o programa interno de um layer carregado e atualiza o cache. */
+  async setPluginProgram(layerOrPluginId: string, programIndex: number): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('setProgram', { layerId: plugin.layerId, index: programIndex });
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return true;
+  }
+
+  /** Aplica um arquivo `.vstpreset` num layer carregado. */
+  async setPluginPresetFile(layerOrPluginId: string, filePath: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('setPresetFile', { layerId: plugin.layerId, path: filePath });
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return true;
+  }
+
+  /** Aplica um estado cru (ex.: JSON do Vital) codificado em base64. */
+  async applyRawState(layerOrPluginId: string, base64: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    await this.engine.request('setState', { layerId: plugin.layerId, data: base64 });
+    await this.refreshLoadedPlugin(plugin.layerId);
+    return true;
+  }
+
+  private async refreshLoadedPlugin(
+    layerId: string,
+    loaded?: EngineLoadedPlugin
+  ): Promise<void> {
+    const parameters = await this.engine.request('params', { layerId });
+    const current = this.loadedPlugins.get(layerId);
+    if (!current) return;
+    const updated = this.toVstPlugin(
+      loaded ?? {
+        layerId,
+        id: current.id,
+        name: current.name,
+        manufacturer: current.manufacturer ?? '',
+        format: 'VST3',
+        path: current.path,
+        isInstrument: current.isInstrument,
+        inputs: 0,
+        outputs: 0,
+        minNote: current.minNote ?? 0,
+        maxNote: current.maxNote ?? 127,
+        pinned: current.pinned === true,
+        parameterCount: parameters.length,
+        parameterCountTotal: parameters.length,
+        program: current.program,
+        programCount: current.programCount,
+      },
+      parameters
+    );
+    this.loadedPlugins.set(layerId, updated);
+    this.emit('plugin-loaded', updated);
+  }
+
   /** Abre (ou traz para a frente) a janela nativa de edição do plugin. */
   async openPluginEditor(layerOrPluginId: string): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
@@ -478,6 +548,11 @@ export class VstManager extends EventEmitter {
       isLoaded: loaded,
       isInstrument: plugin.isInstrument,
       parameters,
+      manufacturer: plugin.manufacturer,
+      version: plugin.version,
+      category: plugin.category,
+      program: 'program' in plugin ? plugin.program : undefined,
+      programCount: 'programCount' in plugin ? plugin.programCount : undefined,
     };
   }
 

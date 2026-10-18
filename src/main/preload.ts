@@ -39,6 +39,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstCloseEditor: (pluginId: string) => ipcRenderer.invoke('vst-close-editor', pluginId),
   vstList: () => ipcRenderer.invoke('vst-list'),
   vstLoaded: () => ipcRenderer.invoke('vst-loaded'),
+  vstPresetsList: () => ipcRenderer.invoke('vst-presets-list'),
+  vstPresetsRescan: () => ipcRenderer.invoke('vst-presets-rescan'),
+  vstPresetApply: (presetId: string, layerId: string) =>
+    ipcRenderer.invoke('vst-presets-apply', presetId, layerId),
+  vstPresetSaveSnapshot: (payload: { layerId: string; name: string; category?: string }) =>
+    ipcRenderer.invoke('vst-presets-snapshot', payload),
+  vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) =>
+    ipcRenderer.invoke('vst-presets-update', presetId, patch),
+  vstPresetDelete: (presetId: string) => ipcRenderer.invoke('vst-presets-delete', presetId),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
   enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>
@@ -137,6 +146,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('layout-change', (_event: Electron.IpcRendererEvent, layout: unknown) => callback(layout as any)),
   onVstScanned: (callback: (plugins: any[]) => void) =>
     ipcRenderer.on('vst-scanned', (_event: Electron.IpcRendererEvent, plugins: unknown) => callback(plugins as any[])),
+  onVstPresetsUpdated: (callback: (result: any) => void) =>
+    ipcRenderer.on('vst-presets-updated', (_event: Electron.IpcRendererEvent, result: unknown) => callback(result)),
   onPluginLoaded: (callback: (plugin: any) => void) =>
     ipcRenderer.on('plugin-loaded', (_event: Electron.IpcRendererEvent, plugin: unknown) => callback(plugin as any)),
   onPluginUnloaded: (callback: (pluginId: string) => void) =>

@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, session, Menu, MenuItemConstructor
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
+import { VstPresetLibrary } from './vst/VstPresetLibrary';
 import { PresetManager } from './preset/PresetManager';
 import { LayoutManager } from './layout/LayoutManager';
 import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
@@ -58,6 +59,10 @@ function samePluginPath(a: unknown, b: unknown): boolean {
 class MainWindow {
   private window: BrowserWindow | null = null;
   private vstManager: VstManager;
+  private vstPresetLibrary: VstPresetLibrary;
+  private vstWatchers: fs.FSWatcher[] = [];
+  private vstWatchTimer: NodeJS.Timeout | null = null;
+  private vstRefreshPending = false;
   private presetManager: PresetManager;
   private layoutManager: LayoutManager;
   private concertManager: ConcertManager;
@@ -78,6 +83,7 @@ class MainWindow {
 
   constructor() {
     this.vstManager = new VstManager();
+    this.vstPresetLibrary = new VstPresetLibrary(app.getPath('userData'), app.getPath('documents'));
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
     this.concertManager = new ConcertManager();
@@ -88,6 +94,7 @@ class MainWindow {
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
+    this.vstPresetLibrary.on('changed', (result) => this.sendToRenderer('vst-presets-updated', result));
     this.vstManager.on('engine-crashed', (error: unknown) => {
       const message = error instanceof Error ? error.message : 'O motor de áudio encerrou.';
       console.warn('[Preseter] O motor de áudio caiu:', message);
@@ -131,6 +138,10 @@ class MainWindow {
       if (shuttingDown) return;
       event.preventDefault();
       shuttingDown = true;
+      for (const watcher of this.vstWatchers) {
+        try { watcher.close(); } catch { /* ignora */ }
+      }
+      this.vstWatchers = [];
       void this.vstManager.shutdown().finally(() => app.quit());
     });
   }
@@ -200,7 +211,43 @@ class MainWindow {
     // === VST Handlers ===
 
     ipcMain.handle('vst-scan', async () => {
-      return this.vstManager.scanDefaultDirectories();
+      const plugins = await this.vstManager.scanDefaultDirectories();
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      return plugins;
+    });
+
+    ipcMain.handle('vst-presets-list', () => {
+      return this.vstPresetLibrary.listResult();
+    });
+
+    ipcMain.handle('vst-presets-rescan', async () => {
+      const plugins = await this.vstManager.scanDefaultDirectories();
+      await this.vstPresetLibrary.scan(plugins, this.vstManager, true);
+      return this.vstPresetLibrary.listResult();
+    });
+
+    ipcMain.handle('vst-presets-apply', async (_event, presetId: string, layerId: string) => {
+      return this.vstPresetLibrary.applyPreset(presetId, layerId, this.vstManager);
+    });
+
+    ipcMain.handle('vst-presets-snapshot', async (_event, payload: { layerId: string; name: string; category?: string }) => {
+      const plugin = this.vstManager.getLoadedPlugins().find((item) => item.layerId === payload.layerId);
+      if (!plugin) throw new Error('O layer selecionado não está carregado.');
+      return this.vstPresetLibrary.saveSnapshot({
+        layerId: payload.layerId,
+        plugin,
+        name: payload.name,
+        category: payload.category,
+        vst: this.vstManager,
+      });
+    });
+
+    ipcMain.handle('vst-presets-update', (_event, presetId: string, patch: { category?: string; favorite?: boolean }) => {
+      return this.vstPresetLibrary.updatePreset(presetId, patch);
+    });
+
+    ipcMain.handle('vst-presets-delete', (_event, presetId: string) => {
+      return this.vstPresetLibrary.deletePreset(presetId);
     });
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
@@ -1166,10 +1213,54 @@ class MainWindow {
     }
 
     try {
-      await this.vstManager.scanDefaultDirectories();
+      const plugins = await this.vstManager.scanDefaultDirectories();
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      this.watchVstFolders();
     } catch (error) {
       console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
     }
+  }
+
+  /** Observa as pastas de VST3/presets para indexar plugins instalados com o app aberto. */
+  private watchVstFolders(): void {
+    if (this.vstWatchers.length > 0) return;
+    const candidates = [
+      path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Common Files', 'VST3'),
+      path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Common Files', 'VST3'),
+      path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Common', 'VST3'),
+      path.join(app.getPath('documents'), 'VST3 Presets'),
+      path.join(app.getPath('documents'), 'Vital'),
+    ];
+    for (const dir of new Set(candidates)) {
+      if (!fs.existsSync(dir)) continue;
+      try {
+        const watcher = fs.watch(dir, { recursive: true }, () => this.scheduleVstRefresh());
+        watcher.on('error', (error) => console.warn(`[Preseter] Watcher de VST falhou em ${dir}:`, error));
+        this.vstWatchers.push(watcher);
+      } catch (error) {
+        // Alguns sistemas não permitem watch recursivo: o botão "Reescanear" cobre esse caso.
+        console.warn(`[Preseter] Não foi possível observar ${dir}:`, error);
+      }
+    }
+  }
+
+  private scheduleVstRefresh(): void {
+    this.vstRefreshPending = true;
+    if (this.vstWatchTimer) clearTimeout(this.vstWatchTimer);
+    this.vstWatchTimer = setTimeout(() => {
+      this.vstWatchTimer = null;
+      this.vstRefreshPending = false;
+      void (async () => {
+        try {
+          const plugins = await this.vstManager.scanDefaultDirectories();
+          await this.vstPresetLibrary.scan(plugins, this.vstManager);
+        } catch (error) {
+          console.warn('[Preseter] Falha ao reindexar VSTs após mudança nas pastas:', error);
+        } finally {
+          if (this.vstRefreshPending) this.scheduleVstRefresh();
+        }
+      })();
+    }, 2500);
   }
 
   /** Recupera o motor após uma queda: reinicia, reabre o áudio e recarrega o patch atual. */

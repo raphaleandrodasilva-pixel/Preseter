@@ -2267,6 +2267,8 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
         .set ("id", description.createIdentifierString())
         .set ("name", description.name)
         .set ("manufacturer", description.manufacturerName)
+        .set ("version", description.version)
+        .set ("category", description.category)
         .set ("format", description.pluginFormatName)
         .set ("path", description.fileOrIdentifier)
         .set ("isInstrument", description.isInstrument)
@@ -2276,7 +2278,9 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
         .set ("maxNote", layer.maxNote)
         .set ("pinned", layer.pinned)
         .set ("parameterCount", automatableCount)
-        .set ("parameterCountTotal", plugin->getParameters().size());
+        .set ("parameterCountTotal", plugin->getParameters().size())
+        .set ("program", plugin->getCurrentProgram())
+        .set ("programCount", plugin->getNumPrograms());
 }
 
 juce::var Engine::describeLoadedPlugins() const
@@ -2363,6 +2367,98 @@ juce::String Engine::setPluginState (const juce::String& layerId, const juce::St
         out = out.set ("slot", insertSlot);
     result = out;
     return {};
+}
+
+void Engine::scanPluginPrograms (const juce::String& idOrPath, Done done)
+{
+    juce::PluginDescription description;
+    if (! findDescription (idOrPath, description))
+    {
+        done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
+        return;
+    }
+
+    const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
+    const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
+    std::weak_ptr<bool> alive = aliveFlag;
+
+    formatManager.createPluginInstanceAsync (
+        description, sampleRate, blockSize,
+        [alive, done] (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
+        {
+            if (alive.lock() == nullptr)
+                return;
+
+            if (instance == nullptr)
+            {
+                done ({}, error.isNotEmpty() ? error
+                                             : juce::String (utf8 ("Falha ao criar a instância do plugin.")));
+                return;
+            }
+
+            const int count = juce::jmax (0, instance->getNumPrograms());
+            juce::Array<juce::var> programs;
+            for (int i = 0; i < count; ++i)
+            {
+                auto name = instance->getProgramName (i);
+                if (name.isEmpty())
+                    name = "Program " + juce::String (i + 1);
+                programs.add (Obj().set ("index", i).set ("name", name));
+            }
+
+            done (Obj()
+                      .set ("programs", juce::var (programs))
+                      .set ("current", instance->getCurrentProgram())
+                      .set ("count", count),
+                  {});
+        });
+}
+
+juce::String Engine::setPluginProgram (const juce::String& layerId, int programIndex,
+                                       juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    const int count = plugin->getNumPrograms();
+    if (! juce::isPositiveAndBelow (programIndex, count))
+        return utf8 ("Programa inválido: ") + juce::String (programIndex)
+             + utf8 (" (o plugin tem ") + juce::String (count) + utf8 (" programas).");
+
+    plugin->setCurrentProgram (programIndex);
+    result = describeLoadedPlugin (layerId);
+    return {};
+}
+
+juce::String Engine::setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
+                                          juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    const juce::File file (filePath);
+    if (! file.existsAsFile())
+        return utf8 ("Arquivo de preset não encontrado: ") + filePath;
+
+    if (plugin->getPluginDescription().pluginFormatName != "VST3")
+        return utf8 ("Este preset .vstpreset só pode ser aplicado em plugins VST3.");
+
+   #if defined (JUCE_PLUGINHOST_VST3) && JUCE_PLUGINHOST_VST3
+    juce::MemoryBlock data;
+    if (! file.loadFileAsData (data))
+        return utf8 ("Não foi possível ler o preset: ") + filePath;
+
+    if (! juce::VST3PluginFormat::setStateFromVSTPresetFile (plugin, data))
+        return utf8 ("O plugin recusou o preset: ") + file.getFileName();
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+   #else
+    juce::ignoreUnused (result);
+    return utf8 ("Este build do engine não inclui suporte a VST3.");
+   #endif
 }
 
 juce::String Engine::editorKey (const juce::String& layerId, int insertSlot) const

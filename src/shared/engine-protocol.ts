@@ -54,6 +54,8 @@ export interface EngineLoadedPlugin {
   id: string;
   name: string;
   manufacturer: string;
+  version?: string;
+  category?: string;
   format: string;
   path: string;
   isInstrument: boolean;
@@ -67,6 +69,10 @@ export interface EngineLoadedPlugin {
   parameterCount: number;
   /** Inclui os ~2000 "MIDI CC" que o wrapper VST3 do JUCE cria. */
   parameterCountTotal: number;
+  /** Programa interno atual (0-based). */
+  program?: number;
+  /** Quantidade de programas internos expostos pelo plugin. */
+  programCount?: number;
 }
 
 export interface EngineParameter {
@@ -231,6 +237,15 @@ export interface EngineCommands {
   getState: { args: { layerId?: string; slot?: number }; result: EnginePluginStateChunk };
   /** Aplica um estado completo (chunk) em base64. */
   setState: { args: { layerId?: string; data: string; slot?: number }; result: EnginePluginStateApplied };
+  /** Lista os programas internos de um plugin (instancia temporariamente). */
+  pluginPrograms: {
+    args: { plugin?: string; path?: string };
+    result: { programs: { index: number; name: string }[]; current: number; count: number };
+  };
+  /** Troca o programa interno de um layer carregado. */
+  setProgram: { args: { layerId?: string; index: number }; result: EngineLoadedPlugin };
+  /** Aplica um arquivo `.vstpreset` num layer VST3 carregado. */
+  setPresetFile: { args: { layerId?: string; path: string }; result: EngineLoadedPlugin };
   /** Abre (ou traz para a frente) a janela de edição do plugin. */
   openEditor: { args: { layerId?: string; slot?: number }; result: EngineEditorState };
   /** Fecha a janela de edição do plugin. */

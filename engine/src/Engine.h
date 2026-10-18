@@ -151,6 +151,15 @@ public:
     juce::String setPluginState (const juce::String& layerId, const juce::String& base64,
                                  juce::var& result, int insertSlot = -1);
 
+    /** Lista os programas internos de um plugin, instanciando-o temporariamente.
+        Resultado: { programs: [{ index, name }], current }. */
+    void scanPluginPrograms (const juce::String& idOrPath, Done done);
+    /** Troca o programa interno de um layer já carregado. */
+    juce::String setPluginProgram (const juce::String& layerId, int programIndex, juce::var& result);
+    /** Aplica um arquivo `.vstpreset` (formato VST3) num layer carregado. */
+    juce::String setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
+                                      juce::var& result);
+
     /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer/slot. */
     juce::String openPluginEditor (const juce::String& layerId, juce::var& result,
                                    int insertSlot = -1);

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
+import { ChannelStripLibrary } from './ChannelStripLibrary';
 
 interface InspectorProps {
   draft: Preset | null;
@@ -9,6 +10,8 @@ interface InspectorProps {
   scannedParams: { path: string; params: { id: string; name: string }[] }[];
   selectedElement: UiElement | null;
   selectedLayerId: string | null;
+  /** Plugin carregado no layer selecionado (para a Channel Strip Library). */
+  selectedPlugin: VstPluginInfo | null;
   onLayerRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
   onLayerVelocityChange: (assignment: PresetPluginAssignment, layerId: string, velocityMin: number, velocityMax: number) => void;
   /** Soma do transpose do patch + set + concert (Fase 3.4). */
@@ -24,7 +27,7 @@ interface InspectorProps {
   saving: boolean;
 }
 
-type Tab = 'library' | 'attributes' | 'strip' | 'mapping' | 'notes' | 'control';
+type Tab = 'library' | 'attributes' | 'strip' | 'stripLibrary' | 'mapping' | 'notes' | 'control';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const noteLabel = (note: number) => `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
@@ -38,6 +41,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   scannedParams,
   selectedElement,
   selectedLayerId,
+  selectedPlugin,
   onLayerRangeChange,
   onLayerVelocityChange,
   transposeTotal,
@@ -68,6 +72,7 @@ export const Inspector: React.FC<InspectorProps> = ({
     { id: 'library', label: 'Patch Library' },
     { id: 'attributes', label: 'Attributes' },
     { id: 'strip', label: 'Channel Strip' },
+    { id: 'stripLibrary', label: 'Channel Strip Library' },
     { id: 'mapping', label: 'Mapping' },
     { id: 'notes', label: 'Notes' },
     ...(selectedElement ? [{ id: 'control' as Tab, label: `Control: ${selectedElement.label}` }] : []),
@@ -131,6 +136,14 @@ export const Inspector: React.FC<InspectorProps> = ({
           <div className="text-[11px] text-slate-400">
             <p className="mb-2">Patch Library — clique para audicionar (carrega o patch). Edição completa do som chega nas próximas fases.</p>
             <p className="text-slate-600">Use a Patch List à esquerda como library nesta fase visual.</p>
+          </div>
+        )}
+        {tab === 'stripLibrary' && (
+          <div className="h-full min-h-[220px]">
+            <ChannelStripLibrary
+              selectedLayerId={selectedLayerId}
+              selectedPlugin={selectedPlugin}
+            />
           </div>
         )}
         {tab === 'attributes' && (

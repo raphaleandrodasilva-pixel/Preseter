@@ -18,6 +18,52 @@ export interface VstPluginInfo {
   maxNote?: number;
   velocityMin?: number;
   velocityMax?: number;
+  manufacturer?: string;
+  version?: string;
+  category?: string;
+  /** Programa interno atual, quando o plugin expõe programas. */
+  program?: number;
+  programCount?: number;
+}
+
+/** De onde veio um preset de VST exibido na Channel Strip Library. */
+export type VstPresetSource = 'program' | 'vstpreset' | 'vital' | 'snapshot';
+
+/** Preset de um VST3 indexado pelo Preseter. */
+export interface VstPreset {
+  id: string;
+  name: string;
+  /** Categoria de som (Piano, Synth Lead, Bass, ...). */
+  category: string;
+  source: VstPresetSource;
+  pluginId: string;
+  pluginName: string;
+  pluginPath: string;
+  /** Programa interno (source = program). */
+  programIndex?: number;
+  /** Arquivo .vstpreset ou .vital (source = vstpreset/vital). */
+  filePath?: string;
+  /** Nome do arquivo de estado capturado pelo Preseter (source = snapshot). */
+  stateFile?: string;
+  /** Pasta/coleção original (ex.: Factory, Afro). */
+  collection?: string;
+  favorite?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface VstPresetLibraryStatus {
+  scanning: boolean;
+  scanned: number;
+  total: number;
+  current?: string;
+  error?: string;
+  lastScan?: number;
+}
+
+export interface VstPresetListResult {
+  presets: VstPreset[];
+  status: VstPresetLibraryStatus;
 }
 
 export interface VstParameter {
@@ -673,6 +719,12 @@ export type ElectronChannels =
   | 'vst-close-editor'
   | 'vst-list'
   | 'vst-loaded'
+  | 'vst-presets-list'
+  | 'vst-presets-rescan'
+  | 'vst-presets-apply'
+  | 'vst-presets-snapshot'
+  | 'vst-presets-update'
+  | 'vst-presets-delete'
   | 'engine-midi'
   | 'engine-panic'
   | 'preferences-get'

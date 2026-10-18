@@ -1942,6 +1942,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               scannedParams={scannedParams}
               selectedElement={selected}
               selectedLayerId={selectedLayerId}
+              selectedPlugin={
+                (selectedLayerId
+                  ? loadedPlugins.find((plugin) => plugin.layerId === selectedLayerId)
+                  : null) ?? null
+              }
               onLayerRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
               onLayerVelocityChange={(assignment, layerId, velocityMin, velocityMax) => void changeLayerVelocity(assignment, layerId, velocityMin, velocityMax)}
               transposeTotal={(activePreset?.transpose ?? 0) + (currentSet?.transpose ?? 0) + (concertSettings?.midi.transpose ?? 0)}
