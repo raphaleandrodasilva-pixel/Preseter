@@ -24,12 +24,9 @@ Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 ite
 
 Pendências reais que continuam valendo:
 
-- Metrônomo, tempo, Tap Tempo, afinador e gravação ainda não existem no motor.
-- MIDI de hardware vai direto ao motor; a tela só reage a Program Change.
-- Cada patch ainda tem seu próprio layout (4.1 pendente; no MainStage o layout é do concert).
-- Assignments/mappings de concert, MIDI Thru, Jump/Pickup/Relative e ações mapeáveis ainda não existem.
-- Várias opções do Concert Settings (CC7/CC10, transpose, origem do Program Change, pan law) são só interface.
-- Program Change ainda ignora banco, skip e a origem definida no concert.
+- **2.4**: falta a semântica fina de “MIDI não atribuído” e “Program Change não usado” nos channel strips.
+- A validação auditiva (escutar transposes, metrônomo, tuner e gravação) depende de rodar o app com áudio/MIDI reais.
+- O motor e a UI compilam; os testes de fumaça cobrem comandos, migração e persistência, mas não substituem um ensaio de palco.
 
 Os itens parciais ou ausentes estão marcados com `[ ]` e uma anotação **Parcial**/**Não implementado**
 abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
