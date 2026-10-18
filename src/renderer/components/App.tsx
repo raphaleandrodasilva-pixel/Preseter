@@ -15,6 +15,7 @@ const AppContent: React.FC = () => {
     engineError,
     concertError,
     concertRevision,
+    concertLoaded,
     concertTemplates,
     templatePickerOpen,
     chooseTemplate,
@@ -52,6 +53,10 @@ const AppContent: React.FC = () => {
   };
 
   const startNewPatch = (setId?: string) => {
+    if (!concertLoaded) {
+      showToast('Carregando o concert… tente de novo em instantes.');
+      return;
+    }
     const usedPrograms = new Set(presets.map((p) => p.programNumber));
     const nextProgram =
       Array.from({ length: 128 }, (_, i) => i).find((pg) => !usedPrograms.has(pg)) ?? 0;
@@ -73,6 +78,10 @@ const AppContent: React.FC = () => {
   };
 
   const editPreset = (preset: Preset) => {
+    if (!concertLoaded) {
+      showToast('Carregando o concert… tente de novo em instantes.');
+      return;
+    }
     setDraft({
       ...preset,
       plugins: (preset.plugins ?? []).map((plugin, index) => ({

@@ -48,6 +48,8 @@ export interface AppContextType {
   presets: Preset[];
   sets: PresetSet[];
   concertName: string;
+  /** true depois que o concert inicial terminou de carregar. */
+  concertLoaded: boolean;
   currentPreset: Preset | null;
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
@@ -215,6 +217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const presetsRef = useRef(presets);
   const [sets, setSets] = useState<PresetSet[]>([]);
   const [concertName, setConcertNameState] = useState<string>('Meu Concert');
+  const [concertLoaded, setConcertLoaded] = useState(false);
   const [concertPath, setConcertPath] = useState<string | null>(null);
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
@@ -226,6 +229,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   /** true depois que o estado do concert foi carregado do main (libera o sync). */
   const concertReady = useRef(false);
+  /** Garante que o concert inicial seja carregado uma única vez. */
+  const concertInitialized = useRef(false);
   /** Patch a reabrir depois que a lista de patches estiver pronta. */
   const pendingPatchRef = useRef<string | null>(null);
   /** Última ação do menu nativo, lida pelo listener (sem closure velha). */
@@ -287,6 +292,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConcertMappings(state.mappings ?? []);
     setAppStatus((prev) => ({ ...prev, tempo: state.tempo, currentPresetId: null, currentProgramNumber: 0 }));
     setConcertRevision((revision) => revision + 1);
+    setConcertLoaded(true);
   }, [materializePatchLayout]);
 
   /** Lê os dados do modelo antigo (localStorage) para a migração da Fase 2. */
@@ -302,6 +308,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Carregar dados iniciais (concert + estado do motor)
   useEffect(() => {
+    if (concertInitialized.current) return;
+    concertInitialized.current = true;
     const loadData = async () => {
       try {
         const [concert, loaded, audio, prefs] = await Promise.all([
@@ -1364,6 +1372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     presets,
     sets,
     concertName,
+    concertLoaded,
     currentPreset,
     loadedPlugins,
     mixState,
