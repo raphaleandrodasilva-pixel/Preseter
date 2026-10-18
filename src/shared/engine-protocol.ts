@@ -14,6 +14,7 @@ import type {
   LayerMixUpdate,
   MasterMixUpdate,
   MidiThruBlock,
+  PlaybackState,
   VstParameter,
 } from './types';
 
@@ -205,6 +206,19 @@ export interface EngineCommands {
   audioInput: { args: {}; result: AudioInputState };
   /** Bloqueia no motor as mensagens marcadas como "Don't pass thru" (Fase 4.5). */
   setMidiThru: { args: { blocked: MidiThruBlock[] }; result: null };
+  /** Relógio do host para os plugins (Fase 6.2). */
+  setHostClock: { args: { bpm: number; numerator: number; denominator: number; playing: boolean }; result: null };
+  /** Metrônomo do motor (Fase 6.2). */
+  setMetronome: { args: { enabled: boolean; volumeDb: number; accentFirstBeat: boolean }; result: null };
+  /** Gravação da saída (Fase 6.4). */
+  recordStart: { args: { path: string }; result: { recording: boolean } };
+  recordStop: { args: {}; result: { recording: boolean } };
+  recordState: { args: {}; result: { recording: boolean } };
+  /** Plugin Playback (Fase 6.4). */
+  playbackLoad: { args: { path: string }; result: PlaybackState };
+  playbackPlay: { args: {}; result: PlaybackState };
+  playbackStop: { args: {}; result: PlaybackState };
+  playbackState: { args: {}; result: PlaybackState };
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */

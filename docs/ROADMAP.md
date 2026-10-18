@@ -18,9 +18,9 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **30 completos**
-- **5 parciais** (interface existe, mas não funciona de ponta a ponta)
-- **3 não implementados**
+- **35 completos**
+- **3 parciais** (interface existe, mas não funciona de ponta a ponta)
+- **0 não implementados**
 
 Pendências reais que continuam valendo:
 
@@ -91,11 +91,11 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 
 ## Fase 6 — Perform e extras
 
-- [ ] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip — **Parcial:** só ↑/↓ funcionam; faltam ←/→ por set, digitar número/nome e `Cmd/Ctrl+setas`.
-- [ ] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch — **Não implementado:** o motor não tem `AudioPlayHead`, click nem Tap Tempo.
-- [ ] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual) — **Não implementado.**
-- [ ] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback — **Não implementado.**
-- [ ] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário) — **Parcial:** o modal existe com MIDI/VST/Áudio/Geral e monitor MIDI, mas falta o atalho `Cmd/Ctrl+,` e a aba View.
+- [x] **6.1** Navegação no Perform: ↑/↓ patch, ←/→ primeiro patch do set anterior/próximo; digitar número ou nome seleciona; `Cmd/Ctrl+setas` pulam itens skip.
+- [x] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
+- [x] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual — no Windows use `Ctrl+Shift+T` por causa do Tap Tempo).
+- [x] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
+- [x] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
 
 ## Como saber se terminou uma tarefa
 

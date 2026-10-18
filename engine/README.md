@@ -179,6 +179,10 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setAudioInput` | `enabled`, `inputChannel`, `mode` (`mono`/`stereo`), `volumeDb`, `pan`, `muted`, `feedbackProtection`, `output`, `resetFeedback?` | Configura o strip de entrada de áudio (Fase 3.5) |
 | `audioInput` | — | Estado do strip de entrada (configuração + `peakDb`/`feedback`) |
 | `setMidiThru` | `blocked` (lista de `{ type, channel, number }`) | Bloqueia no motor as mensagens de hardware marcadas "Don't pass thru" |
+| `setHostClock` | `bpm`, `numerator`, `denominator`, `playing` | Envia tempo/compasso/transporte aos plugins (`AudioPlayHead`) |
+| `setMetronome` | `enabled`, `volumeDb`, `accentFirstBeat` | Liga/desliga o clique do metrônomo no motor |
+| `recordStart` / `recordStop` | `path` / — | Grava a saída do concert em WAV (Fase 6.4) |
+| `playbackLoad` / `playbackPlay` / `playbackStop` | `path` / — / — | Plugin Playback: carrega e toca um arquivo de áudio |
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |

@@ -48,6 +48,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audioInputSet: (settings: unknown) => ipcRenderer.invoke('audio-input-set', settings),
   audioInputState: () => ipcRenderer.invoke('audio-input-state'),
   midiThruSet: (blocked: unknown) => ipcRenderer.invoke('midi-thru-set', blocked),
+  hostClockSet: (bpm: number, numerator: number, denominator: number, playing: boolean) =>
+    ipcRenderer.invoke('host-clock-set', bpm, numerator, denominator, playing),
+  metronomeSet: (enabled: boolean, volumeDb: number, accentFirstBeat: boolean) =>
+    ipcRenderer.invoke('metronome-set', enabled, volumeDb, accentFirstBeat),
+  recordStart: () => ipcRenderer.invoke('record-start'),
+  recordStop: () => ipcRenderer.invoke('record-stop'),
+  playbackLoad: () => ipcRenderer.invoke('playback-load'),
+  playbackPlay: () => ipcRenderer.invoke('playback-play'),
+  playbackStop: () => ipcRenderer.invoke('playback-stop'),
+  playbackState: () => ipcRenderer.invoke('playback-state'),
   vstMixGet: () => ipcRenderer.invoke('vst-mix-get'),
   vstSetLayerMix: (layerId: string, update: unknown) =>
     ipcRenderer.invoke('vst-set-layer-mix', layerId, update),

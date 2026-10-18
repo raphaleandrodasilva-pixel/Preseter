@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AudioInputSettings,
   AudioInputState,
+  PlaybackState,
   BusMixUpdate,
   BusSettings,
   ConcertBusSettings,
@@ -51,6 +52,11 @@ interface ChannelStripsProps {
   onResetAudioFeedback: () => void;
   onKeepAudioMuted: () => void;
   onDisableAudioFeedbackProtection: () => void;
+  /** Plugin Playback (Fase 6.4). */
+  playbackState?: PlaybackState | null;
+  onLoadPlayback: () => void;
+  onPlayPlayback: () => void;
+  onStopPlayback: () => void;
   onRequestScan: () => Promise<unknown>;
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
@@ -179,6 +185,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onResetAudioFeedback,
   onKeepAudioMuted,
   onDisableAudioFeedbackProtection,
+  playbackState,
+  onLoadPlayback,
+  onPlayPlayback,
+  onStopPlayback,
   onRequestScan,
   onAdd,
   onRemove,
@@ -437,6 +447,48 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           )}
         </div>
       </>
+    );
+  };
+
+  /** Plugin Playback do concert (Fase 6.4). */
+  const renderPlayback = () => {
+    const fileName = playbackState?.path ? playbackState.path.split(/[\\/]/).pop() : '';
+    return (
+      <section
+        className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
+        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #232326, #2C2C2E)' }}
+      >
+        <div className="flex items-center gap-1 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#BF5AF2', color: '#fff' }}>PB</span>
+          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">Playback</span>
+          {playbackState?.playing && <span className="text-[9px]" style={{ color: '#30D158' }}>▶</span>}
+        </div>
+        <div className="hw-inset mt-2 truncate px-1.5 py-1 text-[8px]" title={playbackState?.path ?? ''} style={{ color: '#9A9AA0' }}>
+          {fileName || 'Nenhum arquivo'}
+        </div>
+        <button
+          className="hw-squarebtn mt-2 w-full px-1 py-1 text-[9px]"
+          onClick={onLoadPlayback}
+        >
+          Carregar áudio…
+        </button>
+        <div className="mt-1 flex gap-1">
+          <button
+            className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
+            disabled={!playbackState?.loaded}
+            onClick={onPlayPlayback}
+          >
+            Play
+          </button>
+          <button
+            className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
+            disabled={!playbackState?.playing}
+            onClick={onStopPlayback}
+          >
+            Stop
+          </button>
+        </div>
+      </section>
     );
   };
 
@@ -1108,6 +1160,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
+          {renderPlayback()}
           {renderAudioInput()}
           {renderInheritedGroup('concert', concertStrips)}
           {setName !== null && renderInheritedGroup('set', setStrips)}

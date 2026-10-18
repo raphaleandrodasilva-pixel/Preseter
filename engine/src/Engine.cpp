@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <optional>
 
 namespace preseter
 {
@@ -123,8 +124,281 @@ private:
     std::atomic<int> velocityMaximum { 127 };
     std::atomic<int> transposeSemitones { 0 };
     std::array<std::array<unsigned int, 128>, 16> activeNotes {};
-    /** Nota de entrada → nota transposta do note-on ainda ativo (-1 = nenhuma). */
+    /** Nota de entrada -> nota transposta do note-on ainda ativo (-1 = nenhuma). */
     std::array<std::array<int, 128>, 16> noteMap {};
+};
+
+/** Clique do metrônomo (Fase 6.2). */
+class MetronomeProcessor final : public juce::AudioProcessor
+{
+public:
+    MetronomeProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Metronome"; }
+    void prepareToPlay (double rate, int) override { sampleRate = rate > 0 ? rate : 44100.0; }
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        const int samples = audio.getNumSamples();
+        const int channels = audio.getNumChannels();
+        if (samples <= 0 || channels <= 0) return;
+
+        const bool on = enabled.load() && playing.load();
+        const double bpm = tempo.load();
+        const int beatsPerBar = juce::jmax (1, numerator.load());
+        const float gain = juce::Decibels::decibelsToGain (volumeDb.load());
+        const double ppqPerSample = bpm / 60.0 / sampleRate;
+
+        for (int sample = 0; sample < samples; ++sample)
+        {
+            if (on)
+            {
+                const double ppq = ppqPosition;
+                const int beat = (int) std::floor (ppq);
+                if (beat != lastBeat)
+                {
+                    lastBeat = beat;
+                    const int beatInBar = ((beat % beatsPerBar) + beatsPerBar) % beatsPerBar;
+                    const bool accent = accentFirstBeat.load() && beatInBar == 0;
+                    clickFrequency = accent ? 1760.0 : 1320.0;
+                    clickRemaining = samplesForClick;
+                    clickAccent = accent;
+                }
+                ppqPosition += ppqPerSample;
+                if (ppqPosition > 1.0e9) ppqPosition = 0.0;
+            }
+            else
+            {
+                ppqPosition = 0.0;
+                lastBeat = -1;
+            }
+
+            if (clickRemaining > 0)
+            {
+                const float phase = (float) (2.0 * juce::MathConstants<double>::pi * clickFrequency
+                                             * (samplesForClick - clickRemaining) / sampleRate);
+                const float envelope = (float) clickRemaining / (float) samplesForClick;
+                const float click = std::sin (phase) * envelope * gain * (clickAccent ? 0.5f : 0.35f);
+                --clickRemaining;
+                for (int ch = 0; ch < channels; ++ch)
+                    audio.addSample (ch, sample, click);
+            }
+        }
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void configure (bool shouldBeEnabled, double volume, bool accent, double bpmIn, int numeratorIn, bool playingIn)
+    {
+        enabled.store (shouldBeEnabled);
+        volumeDb.store (juce::jlimit (-60.0, 6.0, volume));
+        accentFirstBeat.store (accent);
+        setClock (bpmIn, numeratorIn, playingIn);
+    }
+
+    void setClock (double bpmIn, int numeratorIn, bool playingIn)
+    {
+        tempo.store (juce::jlimit (20.0, 300.0, bpmIn));
+        numerator.store (juce::jmax (1, numeratorIn));
+        if (! playingIn)
+        {
+            ppqPosition = 0.0;
+            lastBeat = -1;
+        }
+        playing.store (playingIn);
+    }
+
+    bool isEnabled() const { return enabled.load(); }
+    double getVolumeDb() const { return volumeDb.load(); }
+    bool isAccentFirstBeat() const { return accentFirstBeat.load(); }
+
+private:
+    std::atomic<bool> enabled { false };
+    std::atomic<bool> playing { false };
+    std::atomic<bool> accentFirstBeat { true };
+    std::atomic<double> volumeDb { -12.0 };
+    std::atomic<double> tempo { 120.0 };
+    std::atomic<int> numerator { 4 };
+    double sampleRate = 44100.0;
+    int samplesForClick = 2048;
+    double ppqPosition = 0.0;
+    int lastBeat = -1;
+    int clickRemaining = 0;
+    double clickFrequency = 1320.0;
+    bool clickAccent = false;
+};
+
+/** Grava a saída do concert em WAV (Fase 6.4). */
+class RecorderProcessor final : public juce::AudioProcessor
+{
+public:
+    RecorderProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+          thread ("Preseter Recorder")
+    {
+    }
+    ~RecorderProcessor() override { stop(); }
+
+    const juce::String getName() const override { return "Preseter Recorder"; }
+    void prepareToPlay (double rate, int) override { sampleRate = rate > 0 ? rate : 44100.0; }
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        if (writer != nullptr)
+            writer->write (audio.getArrayOfReadPointers(), audio.getNumSamples());
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    juce::String start (const juce::String& path)
+    {
+        stop();
+        if (path.isEmpty()) return utf8 ("Informe o arquivo de gravação.");
+        auto file = juce::File (path);
+        file.deleteFile();
+        auto stream = std::make_unique<juce::FileOutputStream> (file);
+        if (! stream->openedOk()) return utf8 ("Não foi possível criar o arquivo de gravação.");
+
+        juce::WavAudioFormat format;
+        auto* writerToOwn = format.createWriterFor (
+            stream.release(), getSampleRate() > 0 ? getSampleRate() : sampleRate, 2, 24, {}, 0);
+        if (writerToOwn == nullptr) return utf8 ("Não foi possível iniciar a gravação em WAV.");
+
+        writer = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (writerToOwn, thread, 32768);
+        thread.startThread();
+        return {};
+    }
+
+    void stop()
+    {
+        writer.reset();
+        thread.stopThread (2000);
+    }
+
+    bool isRecording() const { return writer != nullptr; }
+
+private:
+    juce::TimeSliceThread thread;
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> writer;
+    double sampleRate = 44100.0;
+};
+
+/** Plugin Playback: toca um arquivo de áudio no concert (Fase 6.4). */
+class PlaybackProcessor final : public juce::AudioProcessor
+{
+public:
+    PlaybackProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    {
+        formatManager.registerBasicFormats();
+    }
+
+    const juce::String getName() const override { return "Preseter Playback"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet().isDisabled()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        audio.clear();
+        if (! playing.load() || buffer.getNumSamples() == 0) return;
+
+        const int position = positionSamples.load();
+        const int remaining = buffer.getNumSamples() - position;
+        if (remaining <= 0) { playing.store (false); return; }
+        const int count = juce::jmin (audio.getNumSamples(), remaining);
+        for (int ch = 0; ch < juce::jmin (2, audio.getNumChannels()); ++ch)
+            audio.addFrom (ch, 0, buffer, juce::jmin (ch, buffer.getNumChannels() - 1), position, count);
+        const int next = position + count;
+        positionSamples.store (next >= buffer.getNumSamples() ? 0 : next);
+        if (next >= buffer.getNumSamples()) playing.store (false);
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    juce::String load (const juce::String& path)
+    {
+        stop();
+        auto file = juce::File (path);
+        if (! file.existsAsFile()) return utf8 ("Arquivo de playback não encontrado.");
+        std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
+        if (reader == nullptr) return utf8 ("Formato de áudio não suportado para playback.");
+        buffer.setSize (juce::jmin (2, (int) reader->numChannels), (int) reader->lengthInSamples);
+        reader->read (&buffer, 0, (int) reader->lengthInSamples, 0, true, true);
+        loadedPath = path;
+        return {};
+    }
+
+    void play() { if (buffer.getNumSamples() > 0) { positionSamples.store (0); playing.store (true); } }
+    void stop()
+    {
+        playing.store (false);
+        positionSamples.store (0);
+    }
+    bool isPlaying() const { return playing.load(); }
+    bool isLoaded() const { return buffer.getNumSamples() > 0; }
+    juce::String getLoadedPath() const { return loadedPath; }
+
+private:
+    juce::AudioFormatManager formatManager;
+    juce::AudioBuffer<float> buffer;
+    std::atomic<bool> playing { false };
+    std::atomic<int> positionSamples { 0 };
+    juce::String loadedPath;
 };
 
 /** Strip de entrada de áudio (guitarra/microfone) do patch (Fase 3.5). */
@@ -167,6 +441,15 @@ public:
         {
             const float left = audio.getSample (0, sample);
             const float right = (! isMono && channels > 1) ? audio.getSample (1, sample) : left;
+            if (enabled.load() && analysisCount < (int) analysisBuffer.size())
+            {
+                analysisBuffer[(size_t) analysisCount++] = isMono ? left : (left + right) * 0.5f;
+                if (analysisCount >= (int) analysisBuffer.size())
+                {
+                    pitchHz.store (detectPitch (analysisBuffer.data(), analysisCount, sampleRate));
+                    analysisCount = 0;
+                }
+            }
             const float outLeft = left * gain * leftGain;
             const float outRight = right * gain * rightGain;
             peak = juce::jmax (peak, juce::jmax (std::abs (outLeft), std::abs (outRight)));
@@ -223,6 +506,11 @@ public:
         muted.store (shouldBeMuted);
         feedbackProtection.store (protect);
         output.store (juce::jlimit (1, 4, outputBus));
+        if (! shouldBeEnabled)
+        {
+            analysisCount = 0;
+            pitchHz.store (0.0f);
+        }
     }
 
     void resetFeedback()
@@ -241,6 +529,7 @@ public:
     float getVolumeDb() const { return volumeDb.load(); }
     float getPan() const { return pan.load(); }
     float getPeak() const { return peakLevel.load(); }
+    float getPitchHz() const { return pitchHz.load(); }
 
 private:
     std::atomic<bool> enabled { false };
@@ -252,9 +541,46 @@ private:
     std::atomic<bool> feedbackProtection { true };
     std::atomic<bool> feedbackDetected { false };
     std::atomic<float> peakLevel { 0.0f };
+    std::atomic<float> pitchHz { 0.0f };
     std::atomic<int> output { 1 };
     double sampleRate = 44100.0;
     int loudBlocks = 0;
+    std::array<float, 2048> analysisBuffer {};
+    int analysisCount = 0;
+
+    static float detectPitch (const float* samples, int count, double rate)
+    {
+        if (count < 256 || rate <= 0.0) return 0.0f;
+        double mean = 0.0;
+        for (int i = 0; i < count; ++i) mean += samples[i];
+        mean /= count;
+        double energy = 0.0;
+        for (int i = 0; i < count; ++i)
+        {
+            const double value = samples[i] - mean;
+            energy += value * value;
+        }
+        if (energy < 1.0e-7) return 0.0f;
+
+        const int minLag = juce::jmax (2, (int) (rate / 1500.0));
+        const int maxLag = juce::jmin (count / 2, (int) (rate / 60.0));
+        double best = 0.0;
+        int bestLag = -1;
+        for (int lag = minLag; lag <= maxLag; ++lag)
+        {
+            double correlation = 0.0;
+            for (int i = 0; i + lag < count; ++i)
+                correlation += (samples[i] - mean) * (samples[i + lag] - mean);
+            if (correlation > best)
+            {
+                best = correlation;
+                bestLag = lag;
+            }
+        }
+        if (bestLag < 0 || best < energy * 0.3)
+            return 0.0f;
+        return (float) (rate / bestLag);
+    }
 };
 
 /** Filtro global de MIDI Thru: bloqueia mensagens marcadas como "Don't pass thru" (Fase 4.5). */
@@ -512,6 +838,9 @@ Engine::Engine()
     midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
     midiThruNode = graph.addNode (std::make_unique<MidiThruFilter>());
     audioInputNode = graph.addNode (std::make_unique<AudioInputProcessor>());
+    metronomeNode = graph.addNode (std::make_unique<MetronomeProcessor>());
+    recorderNode = graph.addNode (std::make_unique<RecorderProcessor>());
+    playbackNode = graph.addNode (std::make_unique<PlaybackProcessor>());
     masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
 
     // Barramentos do concert: 4 Aux + 4 Output (Fase 3.2). O strip do barramento
@@ -876,6 +1205,7 @@ juce::var Engine::describeAudioInput() const
         .set ("feedbackProtection", input->isFeedbackProtection())
         .set ("output", input->getOutput())
         .set ("peakDb", (double) juce::Decibels::gainToDecibels (input->getPeak(), -100.0f))
+        .set ("pitchHz", (double) input->getPitchHz())
         .set ("feedback", input->hasFeedback());
 }
 
@@ -1291,6 +1621,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.maxNote = maxNote;
             layer.role = staged ? Layer::Role::staged : Layer::Role::active;
             layer.pinned = pinned;
+            instance->setPlayHead (&playHead);
             layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
             layer.pluginNode = graph.addNode (std::move (instance));
             layer.stripNode = graph.addNode (
@@ -1440,8 +1771,7 @@ juce::String Engine::setTranspose (int semitones)
 }
 
 juce::String Engine::setMidiThru (const juce::var& options)
-{
-    auto* filter = midiThruNode != nullptr
+{    auto* filter = midiThruNode != nullptr
         ? dynamic_cast<MidiThruFilter*> (midiThruNode->getProcessor())
         : nullptr;
     if (filter == nullptr)
@@ -1473,6 +1803,102 @@ juce::String Engine::setMidiThru (const juce::var& options)
                             true);
     }
     return {};
+}
+
+juce::String Engine::setHostClock (double bpm, int numerator, int denominator, bool playing)
+{
+    playHead.setTempo (bpm);
+    playHead.setTimeSignature (numerator, denominator);
+    playHead.setPlaying (playing);
+    if (auto* metronome = metronomeNode != nullptr
+            ? dynamic_cast<MetronomeProcessor*> (metronomeNode->getProcessor())
+            : nullptr)
+        metronome->setClock (bpm, numerator, playing);
+    return {};
+}
+
+juce::String Engine::setMetronome (bool enabled, double volumeDb, bool accentFirstBeat)
+{
+    auto* metronome = metronomeNode != nullptr
+        ? dynamic_cast<MetronomeProcessor*> (metronomeNode->getProcessor())
+        : nullptr;
+    if (metronome == nullptr)
+        return utf8 ("O metrônomo não está disponível.");
+    metronome->configure (
+        enabled,
+        volumeDb,
+        accentFirstBeat,
+        playHead.getTempo(),
+        playHead.getNumerator(),
+        playHead.isPlaying());
+    return {};
+}
+
+juce::String Engine::startRecording (const juce::String& path)
+{
+    auto* recorder = recorderNode != nullptr
+        ? dynamic_cast<RecorderProcessor*> (recorderNode->getProcessor())
+        : nullptr;
+    if (recorder == nullptr)
+        return utf8 ("O gravador não está disponível.");
+    return recorder->start (path);
+}
+
+void Engine::stopRecording()
+{
+    if (auto* recorder = recorderNode != nullptr
+            ? dynamic_cast<RecorderProcessor*> (recorderNode->getProcessor())
+            : nullptr)
+        recorder->stop();
+}
+
+bool Engine::isRecording() const
+{
+    auto* recorder = recorderNode != nullptr
+        ? dynamic_cast<RecorderProcessor*> (recorderNode->getProcessor())
+        : nullptr;
+    return recorder != nullptr && recorder->isRecording();
+}
+
+juce::String Engine::loadPlayback (const juce::String& path)
+{
+    auto* playback = playbackNode != nullptr
+        ? dynamic_cast<PlaybackProcessor*> (playbackNode->getProcessor())
+        : nullptr;
+    if (playback == nullptr)
+        return utf8 ("O Playback não está disponível.");
+    const auto error = playback->load (path);
+    if (error.isNotEmpty()) return error;
+    rebuildConnections();
+    return {};
+}
+
+void Engine::playPlayback()
+{
+    if (auto* playback = playbackNode != nullptr
+            ? dynamic_cast<PlaybackProcessor*> (playbackNode->getProcessor())
+            : nullptr)
+        playback->play();
+}
+
+void Engine::stopPlayback()
+{
+    if (auto* playback = playbackNode != nullptr
+            ? dynamic_cast<PlaybackProcessor*> (playbackNode->getProcessor())
+            : nullptr)
+        playback->stop();
+}
+
+juce::var Engine::describePlayback() const
+{
+    auto* playback = playbackNode != nullptr
+        ? dynamic_cast<PlaybackProcessor*> (playbackNode->getProcessor())
+        : nullptr;
+    if (playback == nullptr) return Obj().set ("loaded", false);
+    return Obj()
+        .set ("loaded", playback->isLoaded())
+        .set ("playing", playback->isPlaying())
+        .set ("path", playback->getLoadedPath());
 }
 
 // ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------
@@ -1986,15 +2412,19 @@ void Engine::rebuildConnections()
 
     const int graphIn  = graph.getMainBusNumInputChannels();
     const int graphOut = graph.getMainBusNumOutputChannels();
-    if (masterNode != nullptr && audioOutNode != nullptr)
+    if (masterNode != nullptr && metronomeNode != nullptr && recorderNode != nullptr && audioOutNode != nullptr)
         for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
-            graph.addConnection ({ { masterNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
+        {
+            graph.addConnection ({ { masterNode->nodeID, ch }, { metronomeNode->nodeID, ch } });
+            graph.addConnection ({ { metronomeNode->nodeID, ch }, { recorderNode->nodeID, ch } });
+            graph.addConnection ({ { recorderNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
+        }
 
     if (midiInNode != nullptr && midiThruNode != nullptr)
         graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
                                { midiThruNode->nodeID, Graph::midiChannelIndex } });
 
-    // Liga `from` → `to` respeitando mono/estéreo: fonte mono duplica no canal
+    // Liga `from` -> `to` respeitando mono/estéreo: fonte mono duplica no canal
     // direito; destino mono soma os dois canais (canais de insert podem ser mono).
     auto connectAudio = [this] (Graph::Node::Ptr from, Graph::Node::Ptr to)
     {
@@ -2055,13 +2485,24 @@ void Engine::rebuildConnections()
         }
     }
 
-    // Output → Master.
+    // Plugin Playback: mistura o arquivo carregado na Output 1 (Fase 6.4).
+    if (playbackNode != nullptr)
+    {
+        if (auto* playback = dynamic_cast<PlaybackProcessor*> (playbackNode->getProcessor());
+            playback != nullptr && playback->isLoaded())
+        {
+            if (const int outIndex = findBus ("output1"); outIndex >= 0)
+                connectToBus (playbackNode, buses[(size_t) outIndex]);
+        }
+    }
+
+    // Output -> Master.
     for (const auto& bus : buses)
         if (bus.kind == Bus::Kind::output && bus.stripNode != nullptr)
             for (int ch = 0; ch < 2; ++ch)
                 graph.addConnection ({ { bus.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
 
-    // Aux → Output escolhido.
+    // Aux -> Output escolhido.
     for (const auto& bus : buses)
     {
         if (bus.kind != Bus::Kind::aux || bus.stripNode == nullptr)
@@ -2080,7 +2521,7 @@ void Engine::rebuildConnections()
         // Strip do concert/set (pinned) vale como atual mesmo fora da troca de patch.
         const bool current = layer.role == Layer::Role::active || layer.pinned;
 
-        // Cadeia de áudio: instrumento → inserts (pulando os com bypass) → channel strip.
+        // Cadeia de áudio: instrumento -> inserts (pulando os com bypass) -> channel strip.
         Graph::Node::Ptr previous = layer.pluginNode;
         for (int slot = 0; slot < kMaxInserts; ++slot)
         {

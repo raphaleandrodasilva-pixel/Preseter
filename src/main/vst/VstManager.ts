@@ -16,6 +16,7 @@ import type {
   LayerMixUpdate,
   MasterMixUpdate,
   MidiThruBlock,
+  PlaybackState,
   VstParameter,
   VstPluginInfo,
 } from '../../shared/types';
@@ -204,6 +205,42 @@ export class VstManager extends EventEmitter {
   async setMidiThru(blocked: MidiThruBlock[]): Promise<boolean> {
     await this.engine.request('setMidiThru', { blocked });
     return true;
+  }
+
+  async setHostClock(bpm: number, numerator: number, denominator: number, playing: boolean): Promise<boolean> {
+    await this.engine.request('setHostClock', { bpm, numerator, denominator, playing });
+    return true;
+  }
+
+  async setMetronome(enabled: boolean, volumeDb: number, accentFirstBeat: boolean): Promise<boolean> {
+    await this.engine.request('setMetronome', { enabled, volumeDb, accentFirstBeat });
+    return true;
+  }
+
+  async startRecording(path: string): Promise<boolean> {
+    const result = await this.engine.request('recordStart', { path });
+    return result.recording;
+  }
+
+  async stopRecording(): Promise<boolean> {
+    await this.engine.request('recordStop', {});
+    return true;
+  }
+
+  async loadPlayback(path: string): Promise<PlaybackState> {
+    return this.engine.request('playbackLoad', { path });
+  }
+
+  async playPlayback(): Promise<PlaybackState> {
+    return this.engine.request('playbackPlay', {});
+  }
+
+  async stopPlayback(): Promise<PlaybackState> {
+    return this.engine.request('playbackStop', {});
+  }
+
+  async getPlaybackState(): Promise<PlaybackState> {
+    return this.engine.request('playbackState', {});
   }
 
   async sendMidi(bytes: number[]): Promise<boolean> {

@@ -267,6 +267,41 @@ class MainWindow {
       return this.vstManager.setMidiThru(Array.isArray(blocked) ? blocked : []);
     });
 
+    ipcMain.handle('host-clock-set', (_event, bpm: number, numerator: number, denominator: number, playing: boolean) => {
+      return this.vstManager.setHostClock(bpm, numerator, denominator, playing);
+    });
+
+    ipcMain.handle('metronome-set', (_event, enabled: boolean, volumeDb: number, accentFirstBeat: boolean) => {
+      return this.vstManager.setMetronome(enabled, volumeDb, accentFirstBeat);
+    });
+
+    ipcMain.handle('record-start', async () => {
+      const result = await dialog.showSaveDialog(this.window!, {
+        title: 'Gravar saída do concert',
+        defaultPath: `Preseter ${new Date().toISOString().slice(0, 10)}.wav`,
+        filters: [{ name: 'WAV', extensions: ['wav'] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      const started = await this.vstManager.startRecording(result.filePath);
+      return started ? result.filePath : null;
+    });
+
+    ipcMain.handle('record-stop', () => this.vstManager.stopRecording());
+
+    ipcMain.handle('playback-load', async () => {
+      const result = await dialog.showOpenDialog(this.window!, {
+        title: 'Carregar áudio no Playback',
+        properties: ['openFile'],
+        filters: [{ name: 'Áudio', extensions: ['wav', 'aif', 'aiff', 'flac', 'mp3'] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return this.vstManager.loadPlayback(result.filePaths[0]);
+    });
+
+    ipcMain.handle('playback-play', () => this.vstManager.playPlayback());
+    ipcMain.handle('playback-stop', () => this.vstManager.stopPlayback());
+    ipcMain.handle('playback-state', () => this.vstManager.getPlaybackState());
+
     ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());
     ipcMain.handle('vst-set-layer-mix', (_event, layerId: string, update: LayerMixUpdate) => {
       return this.vstManager.setLayerMix(layerId, update);

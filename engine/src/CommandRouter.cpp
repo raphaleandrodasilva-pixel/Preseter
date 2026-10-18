@@ -1,4 +1,4 @@
-#include "CommandRouter.h"
+﻿#include "CommandRouter.h"
 
 #include "Output.h"
 
@@ -39,14 +39,14 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (parsed.failed() || ! message.isObject())
     {
-        fail ({}, utf8 ("JSON inválido: ") + parsed.getErrorMessage());
+        fail ({}, utf8 ("JSON invÃ¡lido: ") + parsed.getErrorMessage());
         return;
     }
 
     const auto id  = message["id"];
     const auto cmd = message["cmd"].toString();
 
-    // ---- Diagnóstico -------------------------------------------------------
+    // ---- DiagnÃ³stico -------------------------------------------------------
     if (cmd == "ping")
     {
         ok (id, Obj().set ("pong", true));
@@ -60,7 +60,7 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
-    // ---- Áudio e MIDI ------------------------------------------------------
+    // ---- Ãudio e MIDI ------------------------------------------------------
     if (cmd == "devices")
     {
         ok (id, engine.describeDevices());
@@ -267,6 +267,78 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setHostClock")
+    {
+        const auto error = engine.setHostClock (
+            message["bpm"].isDouble() ? (double) message["bpm"] : 120.0,
+            intArg (message, "numerator", 4),
+            intArg (message, "denominator", 4),
+            boolArg (message, "playing", false));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, juce::var());
+        return;
+    }
+
+    if (cmd == "setMetronome")
+    {
+        const auto error = engine.setMetronome (
+            boolArg (message, "enabled", false),
+            message["volumeDb"].isDouble() ? (double) message["volumeDb"] : -12.0,
+            boolArg (message, "accentFirstBeat", true));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, juce::var());
+        return;
+    }
+
+    if (cmd == "recordStart")
+    {
+        const auto error = engine.startRecording (message["path"].toString());
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, Obj().set ("recording", true));
+        return;
+    }
+
+    if (cmd == "recordStop")
+    {
+        engine.stopRecording();
+        ok (id, Obj().set ("recording", false));
+        return;
+    }
+
+    if (cmd == "recordState")
+    {
+        ok (id, Obj().set ("recording", engine.isRecording()));
+        return;
+    }
+
+    if (cmd == "playbackLoad")
+    {
+        const auto error = engine.loadPlayback (message["path"].toString());
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, engine.describePlayback());
+        return;
+    }
+
+    if (cmd == "playbackPlay")
+    {
+        engine.playPlayback();
+        ok (id, engine.describePlayback());
+        return;
+    }
+
+    if (cmd == "playbackStop")
+    {
+        engine.stopPlayback();
+        ok (id, engine.describePlayback());
+        return;
+    }
+
+    if (cmd == "playbackState")
+    {
+        ok (id, engine.describePlayback());
+        return;
+    }
+
     if (cmd == "setAudioInput")
     {
         juce::var result;
@@ -430,7 +502,7 @@ void CommandRouter::handleLine (const juce::String& line)
         const int aux = intArg (message, "aux", -1);
         if (! message.hasProperty ("levelDb"))
         {
-            fail (id, utf8 ("Informe \"levelDb\" (nível do send em dB)."));
+            fail (id, utf8 ("Informe \"levelDb\" (nÃ­vel do send em dB)."));
             return;
         }
         const double level = (double) message["levelDb"];

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 
-export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general';
+export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view';
 
 interface SettingsModalProps {
   initialTab: SettingsTab;
@@ -14,7 +14,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     midiDevices, midiError, midiLastMessage, listMidiDevices, openMidiPort,
     scannedPlugins, loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
-    preferences, updatePreferences,
+    preferences, updatePreferences, layout,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
@@ -59,7 +59,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
       ? `VST · ${loadedPlugins.length} layers`
       : tab === 'general'
         ? 'Geral'
-        : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
+        : tab === 'view'
+          ? 'Visualização'
+          : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
   const selectedAudioType = audioDevices?.audioTypes.find((item) => item.type === audioType);
   const asioAvailable = audioDevices?.asioSupported === true;
   const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
@@ -106,6 +108,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               : { color: '#9A9AA0' }}
           >
             Geral
+          </button>
+          <button
+            onClick={() => setTab('view')}
+            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            style={tab === 'view'
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
+              : { color: '#9A9AA0' }}
+          >
+            View
           </button>
           <button
             onClick={() => setTab('midi')}
@@ -289,6 +300,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             </div>
           )}
 
+          {tab === 'view' && (
+            <div className="space-y-4">
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Layout do concert</h4>
+                <p className="text-xs" style={{ color: '#C6C6CB' }}>
+                  {layout?.elements.length ?? 0} controle(s) no workspace. O layout é compartilhado por todos os patches.
+                </p>
+                <p className="text-[11px]" style={{ color: '#8E8E93' }}>
+                  Cmd/Ctrl+1 Layout · 2 Edit · 3 Perform · 4 Perform em tela cheia.
+                  Cmd/Ctrl+F abre a Patch Library; Shift+Cmd/Ctrl+M abre Assignments &amp; Mappings.
+                </p>
+                <button
+                  className="hw-squarebtn px-3 py-1.5 text-xs"
+                  onClick={() => { void window.electronAPI.windowSetFullscreen(true); onClose(); }}
+                >
+                  Entrar em tela cheia
+                </button>
+              </section>
+            </div>
+          )}
           {tab === 'midi' && (
             <div className="space-y-4">
               {midiError && (

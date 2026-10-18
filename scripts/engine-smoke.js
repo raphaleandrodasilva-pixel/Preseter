@@ -262,6 +262,23 @@ async function main() {
     console.log('MIDI Thru: bloqueio de CC, pitch e aftertouch: ok');
   }
 
+  if (flag('host-clock')) {
+    await request('setHostClock', { bpm: 140, numerator: 3, denominator: 4, playing: true });
+    await request('setMetronome', { enabled: true, volumeDb: -18, accentFirstBeat: true });
+    await request('setMetronome', { enabled: false, volumeDb: -18, accentFirstBeat: true });
+    await request('setHostClock', { bpm: 120, numerator: 4, denominator: 4, playing: false });
+    console.log('Relógio do host e metrônomo: ok');
+  }
+
+  if (flag('record')) {
+    const path = require('path').join(require('os').tmpdir(), `preseter-smoke-${Date.now()}.wav`);
+    await request('recordStart', { path });
+    await request('recordStop', {});
+    const state = await request('recordState');
+    if (state.recording) throw new Error('A gravação não parou.');
+    console.log('Gravação WAV: start/stop: ok');
+  }
+
   const params = await request('params');
   for (const p of params.slice(0, 10)) {
     console.log(`  [${p.index}] ${p.name}: ${p.text} ${p.label}`.trimEnd());

@@ -17,6 +17,7 @@ import type {
   ConcertMapping,
   MappableAction,
   MidiBinding,
+  PlaybackState,
 } from '@shared/types';
 import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
 import { defaultAudioInput } from '@shared/audio-input';
@@ -41,6 +42,7 @@ import { ConcertSettingsPanel } from './ConcertSettingsPanel';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
+import { TunerModal } from './TunerModal';
 import { ComposerCanvas } from '../composer/ComposerCanvas';
 import { ControlPalette } from '../composer/ControlPalette';
 import { buildScannedParams } from '../composer/MappingTable';
@@ -176,6 +178,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
+    setHostClock, setMetronome,
+    startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout, mappings, updateMappings,
     exportPatch, importPatch, exportSet, importSet,
@@ -191,10 +195,16 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const executeActionRef = useRef<(action: MappableAction) => void>(() => undefined);
   const tapTimesRef = useRef<number[]>([]);
   const [actionNotice, setActionNotice] = useState('');
+  const performQueryRef = useRef('');
+  const performQueryTimer = useRef<number | undefined>(undefined);
+  const [performQuery, setPerformQuery] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [mappingsOpen, setMappingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [tunerOpen, setTunerOpen] = useState(false);
+  const [recordingPath, setRecordingPath] = useState<string | null>(null);
+  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
@@ -501,7 +511,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
 
   useEffect(() => {
-    if (mode !== 'edit' || !activePreset?.audioInput?.enabled) {
+    if (!activePreset?.audioInput?.enabled) {
       setAudioInputState(null);
       return;
     }
@@ -516,7 +526,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [mode, activePreset?.audioInput?.enabled, getAudioInputState]);
+  }, [activePreset?.audioInput?.enabled, getAudioInputState]);
 
   // Assignments: MIDI de hardware move o controle de tela e o parâmetro mapeado (Fase 4.2).
   useEffect(() => {
@@ -689,6 +699,33 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const timer = window.setTimeout(() => setActionNotice(''), 2500);
     return () => window.clearTimeout(timer);
   }, [actionNotice]);
+
+  // Relógio do host e metrônomo (Fase 6.2).
+  useEffect(() => {
+    const signature = concertSettings?.timeSignature ?? { numerator: 4, denominator: 4 };
+    void setHostClock(appStatus.tempo, signature.numerator, signature.denominator, appStatus.isPlaying);
+  }, [appStatus.tempo, appStatus.isPlaying, concertSettings?.timeSignature, setHostClock]);
+
+  useEffect(() => {
+    if (!concertSettings) return;
+    void setMetronome(
+      concertSettings.metronome.enabled,
+      concertSettings.metronome.volumeDb,
+      concertSettings.metronome.accentFirstBeat
+    );
+  }, [concertSettings?.metronome, setMetronome]);
+
+  useEffect(() => {
+    void getPlaybackState().then((state) => { if (state) setPlaybackState(state); });
+  }, [getPlaybackState]);
+
+  useEffect(() => {
+    if (!playbackState?.playing) return;
+    const timer = window.setInterval(() => {
+      void getPlaybackState().then((state) => { if (state) setPlaybackState(state); });
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [playbackState?.playing, getPlaybackState]);
 
   const baseElements = useMemo(() => (draft ?? currentPreset)?.layout.elements ?? [], [draft, currentPreset]);
   const displayElements = useMemo(
@@ -1396,6 +1433,51 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const panic = () => { void enginePanic(); };
   const toggleMasterMute = () => { void setVstMasterMix({ muted: !masterMuted }); };
 
+  /** Gravação da saída (Fase 6.4). */
+  const toggleRecording = async () => {
+    if (recordingPath) {
+      await stopRecording();
+      setRecordingPath(null);
+      setActionNotice('Gravação salva');
+      return;
+    }
+    const path = await startRecording();
+    if (path) {
+      setRecordingPath(path);
+      setActionNotice('Gravando…');
+    }
+  };
+
+  const handleLoadPlayback = async () => {
+    const state = await loadPlayback();
+    if (state) setPlaybackState(state);
+  };
+
+  const handlePlayPlayback = async () => {
+    const state = await playPlayback();
+    if (state) setPlaybackState(state);
+  };
+
+  const handleStopPlayback = async () => {
+    const state = await stopPlayback();
+    if (state) setPlaybackState(state);
+  };
+
+  /** Tap Tempo compartilhado pelo atalho Ctrl+T e pela ação mapeável (6.2/4.7). */
+  const tapTempo = () => {    const now = Date.now();
+    tapTimesRef.current = [...tapTimesRef.current.filter((time) => now - time < 3000), now];
+    if (tapTimesRef.current.length >= 2) {
+      const taps = tapTimesRef.current;
+      const intervals = taps.slice(1).map((time, index) => time - taps[index]);
+      const average = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+      const tempo = Math.max(20, Math.min(300, Math.round(60000 / average)));
+      void setAppStatus({ tempo });
+      setActionNotice(`Tap Tempo: ${tempo} BPM`);
+    } else {
+      setActionNotice('Tap Tempo…');
+    }
+  };
+
   /** Executa as ações mapeáveis do 4.7 (chamado pelo listener de hardware). */
   executeActionRef.current = (action: MappableAction) => {
     switch (action) {
@@ -1407,21 +1489,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         toggleMasterMute();
         setActionNotice(masterMuted ? 'Master desmutado' : 'Master mudo');
         break;
-      case 'tap-tempo': {
-        const now = Date.now();
-        tapTimesRef.current = [...tapTimesRef.current.filter((time) => now - time < 3000), now];
-        if (tapTimesRef.current.length >= 2) {
-          const taps = tapTimesRef.current;
-          const intervals = taps.slice(1).map((time, index) => time - taps[index]);
-          const average = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
-          const tempo = Math.max(20, Math.min(300, Math.round(60000 / average)));
-          void setAppStatus({ tempo });
-          setActionNotice(`Tap Tempo: ${tempo} BPM`);
-        } else {
-          setActionNotice('Tap Tempo…');
-        }
+      case 'tap-tempo':
+        tapTempo();
         break;
-      }
       case 'next-patch':
       case 'previous-patch': {
         const ordered = [...presets]
@@ -1500,6 +1570,26 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         setLibraryOpen((open) => !open);
         return;
       }
+      if ((e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 't') || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't')) {
+        e.preventDefault();
+        setTunerOpen((open) => !open);
+        return;
+      }
+      if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        tapTempo();
+        return;
+      }
+      if (e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        void toggleRecording();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsTab('general');
+        return;
+      }
       if (target?.closest('input,select,textarea')) return;
       // Atalhos da Patch List (copiar, colar, duplicar, deletar patches) são
       // tratados pelo próprio componente quando ele tem o foco.
@@ -1510,15 +1600,55 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         return;
       }
       if (mode === 'perform') {
-        if (e.key === 'Escape') { e.preventDefault(); void window.electronAPI.windowSetFullscreen(false); return; }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          void window.electronAPI.windowSetFullscreen(false);
+          performQueryRef.current = '';
+          setPerformQuery('');
+          return;
+        }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
+        const skip = e.ctrlKey || e.metaKey;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          // Navega patches pulando skipped (MainStage: Cmd+setas pula skip; simples aqui)
-          const ordered = [...presets].sort((a, b) => a.programNumber - b.programNumber).filter((p) => !p.skipped);
-          const idx = ordered.findIndex((p) => p.id === currentPreset?.id);
-          const next = e.key === 'ArrowDown' ? ordered[idx + 1] : ordered[idx - 1];
+          const ordered = [...presets]
+            .sort((a, b) => a.programNumber - b.programNumber)
+            .filter((patch) => !skip || !patch.skipped);
+          const index = ordered.findIndex((patch) => patch.id === currentPreset?.id);
+          const next = e.key === 'ArrowDown' ? ordered[index + 1] : ordered[index - 1];
           if (next) { e.preventDefault(); onSelectPreset(next); }
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          const orderedSets = [...sets].sort((a, b) => a.order - b.order).filter((set) => !skip || !set.skipped);
+          const index = orderedSets.findIndex((set) => set.id === currentPreset?.setId);
+          const nextSet = e.key === 'ArrowRight' ? orderedSets[index + 1] : orderedSets[index - 1];
+          if (nextSet) {
+            const first = presets
+              .filter((patch) => patch.setId === nextSet.id && !patch.skipped)
+              .sort((a, b) => (a.setOrder ?? 0) - (b.setOrder ?? 0))[0];
+            if (first) { e.preventDefault(); onSelectPreset(first); }
+          }
+          return;
+        }
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
+          e.preventDefault();
+          const next = performQueryRef.current + e.key;
+          performQueryRef.current = next;
+          setPerformQuery(next);
+          window.clearTimeout(performQueryTimer.current);
+          performQueryTimer.current = window.setTimeout(() => {
+            const term = next.trim().toLowerCase();
+            const match = /^\d+$/.test(term)
+              ? [...presets]
+                  .sort((a, b) => a.programNumber - b.programNumber)
+                  .find((patch) => String(patch.programNumber + 1).startsWith(term))
+              : [...presets].find((patch) => patch.name.toLowerCase().startsWith(term));
+            if (match) onSelectPreset(match);
+            performQueryRef.current = '';
+            setPerformQuery('');
+          }, 600);
+          return;
         }
         return;
       }
@@ -1549,9 +1679,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           />
           <span className="font-semibold" style={{ color: '#EDEDEF' }}>{concertName}</span>
           <span style={{ color: '#9A9AA0' }}>Perform — Esc sai da tela cheia · ↑/↓ troca patch</span>
+          {performQuery && (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#0A84FF', color: '#fff' }}>
+              {performQuery}
+            </span>
+          )}
           {masterMuted && (
             <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
               MASTER MUDO
+            </span>
+          )}
+          {recordingPath && (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF453A', color: '#fff' }}>
+              ● GRAVANDO
             </span>
           )}
           <select
@@ -1568,6 +1708,21 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <option key={p.id} value={p.id}>{String(p.programNumber + 1).padStart(3, '0')} — {p.name}{p.skipped ? ' (skip)' : ''}</option>
             ))}
           </select>
+          <button
+            className="hw-squarebtn px-3 py-1.5 text-xs"
+            onClick={() => void toggleRecording()}
+            title="Gravar saída do concert (Ctrl+R)"
+            style={recordingPath ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
+          >
+            {recordingPath ? 'Parar gravação' : 'Gravar'}
+          </button>
+          <button
+            className="hw-squarebtn px-3 py-1.5 text-xs"
+            onClick={() => setTunerOpen(true)}
+            title="Afinador (Cmd+T / Ctrl+Shift+T)"
+          >
+            Afinador
+          </button>
           <button
             className="hw-squarebtn px-3 py-1.5 text-xs"
             onClick={() => setSettingsTab('midi')}
@@ -1781,6 +1936,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onResetAudioFeedback={resetAudioFeedback}
             onKeepAudioMuted={keepAudioInputMuted}
             onDisableAudioFeedbackProtection={disableAudioFeedbackProtection}
+            playbackState={playbackState}
+            onLoadPlayback={() => void handleLoadPlayback()}
+            onPlayPlayback={() => void handlePlayPlayback()}
+            onStopPlayback={() => void handleStopPlayback()}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onRemove={removeLayer}
@@ -1830,6 +1989,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           currentPresetId={currentPreset?.id ?? null}
           onSelect={(preset) => { setConcertSelected(false); onSelectPreset(preset); }}
           onClose={() => setLibraryOpen(false)}
+        />
+      )}
+      {tunerOpen && (
+        <TunerModal
+          state={audioInputState}
+          referenceHz={activePreset?.tuningReferenceHz ?? 440}
+          onClose={() => setTunerOpen(false)}
         />
       )}
       {mappingsOpen && (

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <memory>
@@ -11,6 +12,57 @@
 
 namespace preseter
 {
+/** Playhead do host: entrega tempo, compasso e posição aos plugins (Fase 6.2). */
+class HostPlayHead final : public juce::AudioPlayHead
+{
+public:
+    void setTempo (double bpm) { tempo.store (juce::jlimit (20.0, 300.0, bpm)); }
+    void setTimeSignature (int numerator, int denominator)
+    {
+        timeNumerator.store (juce::jmax (1, numerator));
+        timeDenominator.store (juce::jmax (1, denominator));
+    }
+    void setPlaying (bool value)
+    {
+        if (value && ! playing.load())
+            startMs = juce::Time::getMillisecondCounterHiRes();
+        playing.store (value);
+    }
+    double getTempo() const { return tempo.load(); }
+    int getNumerator() const { return timeNumerator.load(); }
+    int getDenominator() const { return timeDenominator.load(); }
+    bool isPlaying() const { return playing.load(); }
+
+    juce::Optional<PositionInfo> getPosition() const override
+    {
+        PositionInfo info;
+        const double bpm = tempo.load();
+        info.setBpm (bpm);
+        info.setTimeSignature (TimeSignature { timeNumerator.load(), timeDenominator.load() });
+        info.setIsPlaying (playing.load());
+        if (playing.load())
+        {
+            const double seconds = (juce::Time::getMillisecondCounterHiRes() - startMs) / 1000.0;
+            const double ppq = seconds * bpm / 60.0;
+            info.setPpqPosition (ppq);
+            const double barLength = juce::jmax (1, timeNumerator.load());
+            info.setPpqPositionOfLastBarStart (std::floor (ppq / barLength) * barLength);
+        }
+        else
+        {
+            info.setPpqPosition (0.0);
+        }
+        return info;
+    }
+
+private:
+    std::atomic<double> tempo { 120.0 };
+    std::atomic<int> timeNumerator { 4 };
+    std::atomic<int> timeDenominator { 4 };
+    std::atomic<bool> playing { false };
+    std::atomic<double> startMs { 0.0 };
+};
+
 /**
  * Núcleo do motor: um dispositivo de áudio e vários instrumentos em layers.
  *
@@ -68,6 +120,19 @@ public:
     juce::String setTranspose (int semitones);
     /** Bloqueia no motor as mensagens de hardware marcadas como "Don't pass thru" (Fase 4.5). */
     juce::String setMidiThru (const juce::var& options);
+    /** Relógio do host: tempo, compasso e play/stop para os plugins (Fase 6.2). */
+    juce::String setHostClock (double bpm, int numerator, int denominator, bool playing);
+    /** Metrônomo do motor (Fase 6.2). */
+    juce::String setMetronome (bool enabled, double volumeDb, bool accentFirstBeat);
+    /** Gravação da saída em WAV (Fase 6.4). */
+    juce::String startRecording (const juce::String& path);
+    void stopRecording();
+    bool isRecording() const;
+    /** Plugin Playback: carrega/toca um arquivo de áudio (Fase 6.4). */
+    juce::String loadPlayback (const juce::String& path);
+    void playPlayback();
+    void stopPlayback();
+    juce::var describePlayback() const;
 
     juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
     juce::var describeLoadedPlugins() const;
@@ -174,7 +239,9 @@ private:
     Graph graph;
     juce::AudioProcessorPlayer player;
 
-    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, masterNode;
+    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, metronomeNode, recorderNode, playbackNode, masterNode;
+    /** Relógio do host entregue aos plugins (Fase 6.2). */
+    HostPlayHead playHead;
     std::atomic<int> soloLayerCount { 0 };
     /** Transpose aplicado no filtro MIDI de cada layer (Fase 3.4). */
     std::atomic<int> transposeSemitones { 0 };

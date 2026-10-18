@@ -11,6 +11,7 @@ import {
   AudioInputState,
   AudioStartOptions,
   MidiThruBlock,
+  PlaybackState,
   EngineMixState,
   BusMixUpdate,
   LayerMixUpdate,
@@ -150,6 +151,14 @@ export interface AppContextType {
   setAudioInput: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState | null>;
   getAudioInputState: () => Promise<AudioInputState | null>;
   setMidiThruBlocked: (blocked: MidiThruBlock[]) => Promise<boolean>;
+  setHostClock: (bpm: number, numerator: number, denominator: number, playing: boolean) => Promise<boolean>;
+  setMetronome: (enabled: boolean, volumeDb: number, accentFirstBeat: boolean) => Promise<boolean>;
+  startRecording: () => Promise<string | null>;
+  stopRecording: () => Promise<boolean>;
+  loadPlayback: () => Promise<PlaybackState | null>;
+  playPlayback: () => Promise<PlaybackState | null>;
+  stopPlayback: () => Promise<PlaybackState | null>;
+  getPlaybackState: () => Promise<PlaybackState | null>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
   /** Altera um barramento Aux/Output do concert (Fase 3.2). */
@@ -1065,6 +1074,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setHostClock = useCallback(async (
+    bpm: number,
+    numerator: number,
+    denominator: number,
+    playing: boolean
+  ): Promise<boolean> => {
+    try {
+      return await window.electronAPI.hostClockSet(bpm, numerator, denominator, playing);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar o relógio do host.');
+      return false;
+    }
+  }, []);
+
+  const setMetronome = useCallback(async (
+    enabled: boolean,
+    volumeDb: number,
+    accentFirstBeat: boolean
+  ): Promise<boolean> => {
+    try {
+      return await window.electronAPI.metronomeSet(enabled, volumeDb, accentFirstBeat);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao configurar o metrônomo.');
+      return false;
+    }
+  }, []);
+
+  const startRecording = useCallback(async (): Promise<string | null> => {
+    try {
+      return await window.electronAPI.recordStart();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar a gravação.');
+      return null;
+    }
+  }, []);
+
+  const stopRecording = useCallback(async (): Promise<boolean> => {
+    try {
+      return await window.electronAPI.recordStop();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao parar a gravação.');
+      return false;
+    }
+  }, []);
+
+  const loadPlayback = useCallback(async (): Promise<PlaybackState | null> => {
+    try {
+      return await window.electronAPI.playbackLoad();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao carregar o Playback.');
+      return null;
+    }
+  }, []);
+
+  const playPlayback = useCallback(async (): Promise<PlaybackState | null> => {
+    try {
+      return await window.electronAPI.playbackPlay();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao tocar o Playback.');
+      return null;
+    }
+  }, []);
+
+  const stopPlayback = useCallback(async (): Promise<PlaybackState | null> => {
+    try {
+      return await window.electronAPI.playbackStop();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao parar o Playback.');
+      return null;
+    }
+  }, []);
+
+  const getPlaybackState = useCallback(async (): Promise<PlaybackState | null> => {
+    try {
+      return await window.electronAPI.playbackState();
+    } catch {
+      return null;
+    }
+  }, []);
+
   const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
@@ -1335,6 +1424,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAudioInput,
     getAudioInputState,
     setMidiThruBlocked,
+    setHostClock,
+    setMetronome,
+    startRecording,
+    stopRecording,
+    loadPlayback,
+    playPlayback,
+    stopPlayback,
+    getPlaybackState,
     setVstLayerMix,
     setVstMasterMix,
     setVstBusMix,

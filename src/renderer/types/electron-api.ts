@@ -15,6 +15,7 @@ import type {
   MasterMixUpdate,
   MenuAction,
   MidiThruBlock,
+  PlaybackState,
   Preset,
   PresetSet,
   RecentConcert,
@@ -55,6 +56,14 @@ export interface ElectronAPI {
   audioInputSet: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState>;
   audioInputState: () => Promise<AudioInputState>;
   midiThruSet: (blocked: MidiThruBlock[]) => Promise<boolean>;
+  hostClockSet: (bpm: number, numerator: number, denominator: number, playing: boolean) => Promise<boolean>;
+  metronomeSet: (enabled: boolean, volumeDb: number, accentFirstBeat: boolean) => Promise<boolean>;
+  recordStart: () => Promise<string | null>;
+  recordStop: () => Promise<boolean>;
+  playbackLoad: () => Promise<PlaybackState | null>;
+  playbackPlay: () => Promise<PlaybackState>;
+  playbackStop: () => Promise<PlaybackState>;
+  playbackState: () => Promise<PlaybackState>;
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;

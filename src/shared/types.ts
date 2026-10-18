@@ -128,9 +128,18 @@ export interface AudioInputSettings {
   output: number;
 }
 
+/** Estado do plugin Playback (Fase 6.4). */
+export interface PlaybackState {
+  loaded: boolean;
+  playing: boolean;
+  path: string;
+}
+
 /** Estado do strip de entrada de áudio no motor (peak/feedback em tempo real). */
 export interface AudioInputState extends AudioInputSettings {
   peakDb: number;
+  /** Frequência detectada no afinador (Hz); 0 = sem pitch. */
+  pitchHz?: number;
   feedback: boolean;
 }
 
