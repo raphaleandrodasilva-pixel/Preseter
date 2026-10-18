@@ -1125,7 +1125,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             ? 'Carregar instrumento'
             : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
           return (
-            <div className="absolute bottom-2 right-2 z-30 mb-10 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
+            <div className="absolute left-2 right-2 top-full z-50 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
               <div className="mb-1 flex items-center justify-between px-1">
                 <span className="hw-label">{title}</span>
                 <button className="px-1 text-xs text-slate-400" onClick={() => setPicker(null)}>✕</button>
