@@ -183,6 +183,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setMetronome` | `enabled`, `volumeDb`, `accentFirstBeat` | Liga/desliga o clique do metrônomo no motor |
 | `recordStart` / `recordStop` | `path` / — | Grava a saída do concert em WAV (Fase 6.4) |
 | `playbackLoad` / `playbackPlay` / `playbackStop` | `path` / — / — | Plugin Playback: carrega e toca um arquivo de áudio |
+| `setPanLaw` | `db`, `compensated` | Pan law dos channel strips do concert |
 | `plugin` | `layerId?` | Dados de um layer carregado |
 | `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
 | `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |

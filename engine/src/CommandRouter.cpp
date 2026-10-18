@@ -290,6 +290,15 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setPanLaw")
+    {
+        engine.setPanLaw (
+            message["db"].isDouble() ? (float) (double) message["db"] : 0.0f,
+            boolArg (message, "compensated", false));
+        ok (id, juce::var());
+        return;
+    }
+
     if (cmd == "recordStart")
     {
         const auto error = engine.startRecording (message["path"].toString());

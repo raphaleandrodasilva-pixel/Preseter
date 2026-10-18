@@ -243,6 +243,11 @@ export class VstManager extends EventEmitter {
     return this.engine.request('playbackState', {});
   }
 
+  async setPanLaw(db: number, compensated: boolean): Promise<boolean> {
+    await this.engine.request('setPanLaw', { db, compensated });
+    return true;
+  }
+
   async sendMidi(bytes: number[]): Promise<boolean> {
     if (this.loadedPlugins.size === 0) return false;
     await this.engine.request('midi', { bytes });

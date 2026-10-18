@@ -50,6 +50,7 @@ import { findPaletteItem, makeElement, snap8, type PaletteItem } from '../compos
 import { PatchLcd } from '../hardware/PatchLcd';
 import { StageControl } from '../stage/StageControl';
 import type { RawMidiEvent } from '../../services/WebMidiService';
+import { setParameterLearnHandler } from '../../services/parameter-learn';
 
 /** Campos de um controle que pertencem ao patch, não ao layout do concert (Fase 4.1). */
 const MAPPING_FIELDS = new Set<keyof UiElement>([
@@ -180,6 +181,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     setHostClock, setMetronome,
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
+    setPanLaw,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     concertStrips, updateConcertStrips, updateSet, layout, updateConcertLayout, mappings, updateMappings,
     exportPatch, importPatch, exportSet, importSet,
@@ -531,6 +533,20 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   // Assignments: MIDI de hardware move o controle de tela e o parâmetro mapeado (Fase 4.2).
   useEffect(() => {
     const unsubscribe = subscribeMidiLearn((event) => {
+      // CC7/CC10 globais do Concert Settings (Fase 2.4).
+      if (event.kind === 'cc' && event.number === 7 && concertSettings?.midi.cc7ControlsVolume) {
+        const volumeDb = event.value === 0 ? -60 : -60 + (event.value / 127) * 60;
+        for (const plugin of loadedPlugins) {
+          if (plugin.layerId) void setVstLayerMix(plugin.layerId, { volumeDb });
+        }
+      }
+      if (event.kind === 'cc' && event.number === 10 && concertSettings?.midi.cc10ControlsPan) {
+        const pan = (event.value / 127) * 2 - 1;
+        for (const plugin of loadedPlugins) {
+          if (plugin.layerId) void setVstLayerMix(plugin.layerId, { pan });
+        }
+      }
+
       const preset = draftRef.current ?? currentPresetRef.current;
       for (const element of preset?.layout.elements ?? []) {
         const binding = element.midiCommand;
@@ -649,7 +665,31 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       }
     });
     return unsubscribe;
-  }, [subscribeMidiLearn, onSetVstParameter, mappings, sets]);
+  }, [subscribeMidiLearn, onSetVstParameter, mappings, sets, concertSettings?.midi.cc7ControlsVolume, concertSettings?.midi.cc10ControlsPan, loadedPlugins, setVstLayerMix]);
+
+  // Learn de parâmetro por clique (Fase 4.3).
+  useEffect(() => {
+    setParameterLearnHandler((elementId, pluginPath, parameterId) => {
+      const current = draftRef.current;
+      if (!current) return;
+      const next: Preset = {
+        ...current,
+        layout: {
+          ...current.layout,
+          elements: current.layout.elements.map((element) =>
+            element.id === elementId
+              ? { ...element, pluginPath, pluginId: undefined, parameterId }
+              : element
+          ),
+        },
+        updatedAt: Date.now(),
+      };
+      draftRef.current = next;
+      onDraftChange(next);
+      setActionNotice('Parâmetro mapeado');
+    });
+    return () => setParameterLearnHandler(null);
+  }, [onDraftChange]);
 
   // Don't pass thru: bloqueia no motor as mensagens usadas só como assignment (Fase 4.5).
   useEffect(() => {
@@ -714,6 +754,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       concertSettings.metronome.accentFirstBeat
     );
   }, [concertSettings?.metronome, setMetronome]);
+
+  useEffect(() => {
+    if (!concertSettings) return;
+    void setPanLaw(concertSettings.channelStrips.panLaw, concertSettings.channelStrips.panLawCompensated);
+  }, [concertSettings?.channelStrips, setPanLaw]);
 
   useEffect(() => {
     void getPlaybackState().then((state) => { if (state) setPlaybackState(state); });

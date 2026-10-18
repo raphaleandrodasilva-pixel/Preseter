@@ -216,6 +216,7 @@ export class ConcertManager extends EventEmitter {
     const nextStrips = Array.isArray(payload.strips) ? payload.strips : this.file.concert.strips ?? [];
     const nextLayout = payload.layout ?? this.file.layout;
     const nextMappings = Array.isArray(payload.mappings) ? payload.mappings : this.file.mappings;
+    const nextPatches = Array.isArray(payload.patches) ? payload.patches : this.file.patches;
     const changed =
       this.file.concert.name !== payload.name ||
       this.file.concert.tempo !== payload.tempo ||
@@ -223,7 +224,8 @@ export class ConcertManager extends EventEmitter {
       signature(this.file.concert.settings) !== signature(nextSettings) ||
       signature(this.file.concert.strips ?? []) !== signature(nextStrips) ||
       signature(this.file.layout) !== signature(nextLayout) ||
-      signature(this.file.mappings) !== signature(nextMappings);
+      signature(this.file.mappings) !== signature(nextMappings) ||
+      signature(this.file.patches) !== signature(nextPatches);
     if (!changed) return false;
 
     this.file.concert.name = payload.name;
@@ -232,6 +234,7 @@ export class ConcertManager extends EventEmitter {
     this.file.concert.strips = nextStrips;
     this.file.layout = nextLayout;
     this.file.mappings = nextMappings;
+    this.file.patches = nextPatches;
     this.file.concert.updatedAt = Date.now();
     this.file.sets = nextSets;
     this.emitChanged();

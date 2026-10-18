@@ -302,6 +302,10 @@ class MainWindow {
     ipcMain.handle('playback-stop', () => this.vstManager.stopPlayback());
     ipcMain.handle('playback-state', () => this.vstManager.getPlaybackState());
 
+    ipcMain.handle('pan-law-set', (_event, db: number, compensated: boolean) => {
+      return this.vstManager.setPanLaw(db, compensated);
+    });
+
     ipcMain.handle('vst-mix-get', () => this.vstManager.getMixState());
     ipcMain.handle('vst-set-layer-mix', (_event, layerId: string, update: LayerMixUpdate) => {
       return this.vstManager.setLayerMix(layerId, update);

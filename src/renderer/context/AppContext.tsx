@@ -159,6 +159,7 @@ export interface AppContextType {
   playPlayback: () => Promise<PlaybackState | null>;
   stopPlayback: () => Promise<PlaybackState | null>;
   getPlaybackState: () => Promise<PlaybackState | null>;
+  setPanLaw: (db: number, compensated: boolean) => Promise<boolean>;
   setVstLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<boolean>;
   setVstMasterMix: (update: MasterMixUpdate) => Promise<boolean>;
   /** Altera um barramento Aux/Output do concert (Fase 3.2). */
@@ -566,6 +567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         settings: concertSettings,
         strips: concertStrips,
         mappings: concertMappings,
+        patches: presets.map(withoutLayoutGeometry),
         ...(layout ? { layout } : {}),
       };
       window.electronAPI
@@ -1154,6 +1156,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setPanLaw = useCallback(async (db: number, compensated: boolean): Promise<boolean> => {
+    try {
+      return await window.electronAPI.panLawSet(db, compensated);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao aplicar o pan law.');
+      return false;
+    }
+  }, []);
+
   const setVstLayerMix = useCallback(async (layerId: string, update: LayerMixUpdate) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerMix(layerId, update));
@@ -1432,6 +1443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     playPlayback,
     stopPlayback,
     getPlaybackState,
+    setPanLaw,
     setVstLayerMix,
     setVstMasterMix,
     setVstBusMix,

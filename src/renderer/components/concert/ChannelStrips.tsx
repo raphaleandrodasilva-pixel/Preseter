@@ -28,6 +28,7 @@ import {
   type StripEditTarget,
   type StripValue,
 } from '@shared/strip-levels';
+import { learnParameter, subscribeParameterLearn } from '../../services/parameter-learn';
 
 interface ChannelStripsProps {
   preset: Preset | null;
@@ -230,6 +231,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const [busy, setBusy] = useState(false);
   const [stripEditTargets, setStripEditTargets] = useState<Record<string, StripEditTarget>>({});
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [learningParameter, setLearningParameter] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     try {
       const raw = localStorage.getItem('preseter.channelStripsWidth.v1');
@@ -259,6 +261,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   };
   const selectedKey = selectedLayer?.layerId ?? null;
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => subscribeParameterLearn(setLearningParameter), []);
 
   useEffect(() => {
     if (selectedLayerId && !layers.some((layer) => layer.layerId === selectedLayerId)) {
@@ -1249,6 +1253,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                         className="w-full"
                         style={{ accentColor: '#0A84FF' }}
                       />
+                      {learningParameter && loaded && (
+                        <button
+                          className="mt-0.5 w-full rounded px-1 py-0.5 text-[8px] font-semibold"
+                          style={{ background: '#FF9F0A', color: '#1A1A1A' }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            learnParameter(loaded.path, parameter.id);
+                          }}
+                        >
+                          Mapear este parâmetro
+                        </button>
+                      )}
                     </label>
                   ))}
                 </div>

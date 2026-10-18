@@ -133,6 +133,8 @@ public:
     void playPlayback();
     void stopPlayback();
     juce::var describePlayback() const;
+    /** Pan law do concert (Fase 2.4). */
+    void setPanLaw (float db, bool compensated);
 
     juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
     juce::var describeLoadedPlugins() const;

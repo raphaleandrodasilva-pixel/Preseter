@@ -294,6 +294,8 @@ export interface ConcertSyncPayload {
   layout?: LayoutConfig;
   /** Mappings do concert/set/patch (Fase 4.6). */
   mappings?: ConcertMapping[];
+  /** Patches do concert (usado pelo undo/redo, Fase 2.5). */
+  patches?: Preset[];
 }
 
 /** Dados lembrados entre execuções (userData/session.json). */

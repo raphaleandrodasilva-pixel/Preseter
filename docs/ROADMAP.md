@@ -18,8 +18,8 @@ comportamento). Quando houver dúvida, copie o comportamento do manual.
 
 Auditoria feita lendo o código, não apenas os checkboxes. Resultado dos 38 itens:
 
-- **35 completos**
-- **3 parciais** (interface existe, mas não funciona de ponta a ponta)
+- **37 completos**
+- **1 parcial** (interface existe, mas não funciona de ponta a ponta)
 - **0 não implementados**
 
 Pendências reais que continuam valendo:
@@ -57,10 +57,10 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **2.1 Formato `.preseter`** (JSON) com: concert (nome, tempo, compasso, configurações), sets, patches, layout, mappings. Versão do formato no arquivo.
 - [x] **2.2 Arquivo > Novo / Abrir / Salvar / Salvar como / Abrir recente.** Atalhos `Cmd/Ctrl+N`, `O`, `S`. Perguntar se quer salvar ao fechar com alterações. Ao reabrir, selecionar o último patch usado.
 - [x] **2.3 Escolher template ao criar** (Teclado, Worship, Vazio). Mínimo: 3 templates.
-- [ ] **2.4 Concert Settings** (inspector ao selecionar o concert na Patch List), abas **MIDI, Timing, Tuning, Channel Strips, Metronome, Notes** — **Parcial:** as abas e a persistência existem, mas CC7/CC10, envio de MIDI não atribuído, transpose, origem do Program Change, envio de Program Change não usado, pan law e metrônomo ainda não são aplicados no motor.
+- [ ] **2.4 Concert Settings** (inspector ao selecionar o concert na Patch List), abas **MIDI, Timing, Tuning, Channel Strips, Metronome, Notes** — **Parcial:** CC7/CC10, transpose, origem do Program Change, pan law e metrônomo já funcionam. Faltam a semântica de “MIDI não atribuído” e “Program Change não usado” nos channel strips.
   - MIDI: CC7 controla volume e CC10 controla pan; "enviar MIDI não atribuído a todos os channel strips"; Transpose do concert; origem do Program Change (dispositivo e canal); "enviar Program Change não usado aos channel strips".
   - Timing: tempo, compasso. Channel Strips: pan law (0, −3, −3 comp., −4,5, −4,5 comp., −6, −6 comp. dB).
-- [ ] **2.5 Desfazer/Refazer** (`Ctrl+Z`, `Ctrl+Shift+Z`) para edições do concert — **Parcial:** o histórico restaura o estado do renderer, mas o `concert-sync` não reenvia patches, então edições de patches não voltam ao arquivo do concert.
+- [x] **2.5 Desfazer/Refazer** (`Ctrl+Z`, `Ctrl+Shift+Z`) para edições do concert.
 
 ## Fase 3 — Channel strips completas
 
@@ -74,7 +74,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 
 - [x] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
 - [x] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle.
-- [ ] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`) — **Parcial:** faixa mín./máx. e navegador de parâmetros implementados; falta aprender o parâmetro clicando nele.
+- [x] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`).
 - [x] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative.
 - [x] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa).
 - [x] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`).

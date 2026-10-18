@@ -219,6 +219,8 @@ export interface EngineCommands {
   playbackPlay: { args: {}; result: PlaybackState };
   playbackStop: { args: {}; result: PlaybackState };
   playbackState: { args: {}; result: PlaybackState };
+  /** Pan law do concert (Fase 2.4). */
+  setPanLaw: { args: { db: number; compensated: boolean }; result: null };
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */

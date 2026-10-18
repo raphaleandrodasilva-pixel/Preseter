@@ -64,6 +64,7 @@ export interface ElectronAPI {
   playbackPlay: () => Promise<PlaybackState>;
   playbackStop: () => Promise<PlaybackState>;
   playbackState: () => Promise<PlaybackState>;
+  panLawSet: (db: number, compensated: boolean) => Promise<boolean>;
   vstMixGet: () => Promise<EngineMixState>;
   vstSetLayerMix: (layerId: string, update: LayerMixUpdate) => Promise<EngineMixState>;
   vstSetMasterMix: (update: MasterMixUpdate) => Promise<EngineMixState>;

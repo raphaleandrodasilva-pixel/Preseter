@@ -693,8 +693,31 @@ public:
             || (sharedSoloCount != nullptr && sharedSoloCount->load() > 0 && ! isSoloed);
         const auto gain = juce::Decibels::decibelsToGain (volumeDb.load());
         const auto balance = pan.load();
-        const auto leftGain = gain * (balance > 0.0f ? 1.0f - balance : 1.0f);
-        const auto rightGain = gain * (balance < 0.0f ? 1.0f + balance : 1.0f);
+        const auto law = panLawDb.load();
+        float leftGain = balance > 0.0f ? 1.0f - balance : 1.0f;
+        float rightGain = balance < 0.0f ? 1.0f + balance : 1.0f;
+        if (law <= -5.5f)
+        {
+            leftGain = (1.0f - balance) * 0.5f;
+            rightGain = (1.0f + balance) * 0.5f;
+            if (panLawCompensated.load()) { leftGain *= 2.0f; rightGain *= 2.0f; }
+        }
+        else if (law <= -4.0f)
+        {
+            const float angle = (balance + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
+            leftGain = std::pow (std::cos (angle), 1.5f);
+            rightGain = std::pow (std::sin (angle), 1.5f);
+            if (panLawCompensated.load()) { leftGain *= 1.6818f; rightGain *= 1.6818f; }
+        }
+        else if (law <= -2.0f)
+        {
+            const float angle = (balance + 1.0f) * juce::MathConstants<float>::pi * 0.25f;
+            leftGain = std::cos (angle);
+            rightGain = std::sin (angle);
+            if (panLawCompensated.load()) { leftGain *= 1.4142f; rightGain *= 1.4142f; }
+        }
+        leftGain *= gain;
+        rightGain *= gain;
         float blockPeak = 0.0f;
 
         if (shouldSilence)
@@ -733,6 +756,11 @@ public:
 
     void setVolumeDb (float value) { volumeDb.store (value); }
     void setPan (float value) { pan.store (value); }
+    void setPanLaw (float db, bool compensated)
+    {
+        panLawDb.store (db);
+        panLawCompensated.store (compensated);
+    }
     void setMuted (bool value) { muted.store (value); }
     void setSolo (bool value) { solo.store (value); }
     float getVolumeDb() const { return volumeDb.load(); }
@@ -745,6 +773,8 @@ private:
     std::atomic<int>* sharedSoloCount = nullptr;
     std::atomic<float> volumeDb { 0.0f };
     std::atomic<float> pan { 0.0f };
+    std::atomic<float> panLawDb { 0.0f };
+    std::atomic<bool> panLawCompensated { false };
     std::atomic<float> peak { 0.0f };
     std::atomic<bool> muted { false };
     std::atomic<bool> solo { false };
@@ -1899,6 +1929,20 @@ juce::var Engine::describePlayback() const
         .set ("loaded", playback->isLoaded())
         .set ("playing", playback->isPlaying())
         .set ("path", playback->getLoadedPath());
+}
+
+void Engine::setPanLaw (float db, bool compensated)
+{
+    auto apply = [db, compensated] (Graph::Node::Ptr node)
+    {
+        if (node != nullptr)
+            if (auto* strip = dynamic_cast<ChannelStripProcessor*> (node->getProcessor()))
+                strip->setPanLaw (db, compensated);
+    };
+
+    for (const auto& layer : layers) apply (layer.stripNode);
+    for (const auto& bus : buses) apply (bus.stripNode);
+    apply (masterNode);
 }
 
 // ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------

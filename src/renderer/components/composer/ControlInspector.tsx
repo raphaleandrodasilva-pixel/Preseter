@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Preset, UiElement, VstPluginInfo } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import type { RawMidiEvent } from '../../services/WebMidiService';
+import { armParameterLearn } from '../../services/parameter-learn';
 import { noteName } from './elementFactory';
 
 interface ControlInspectorProps {
@@ -276,6 +277,13 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
 
       <section className="space-y-2">
         <h3 className={classTitle}>Send Value to (plugin)</h3>
+        <button
+          className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs font-semibold text-slate-200 hover:border-amber-300"
+          onClick={() => armParameterLearn(element.id)}
+          title="Depois clique no parâmetro do plugin no channel strip"
+        >
+          Aprender parâmetro (clique no channel strip)
+        </button>
         <label className={classLabel}>Plugin
           <select
             className={`${classInput} mt-1`}

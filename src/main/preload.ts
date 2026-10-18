@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   playbackPlay: () => ipcRenderer.invoke('playback-play'),
   playbackStop: () => ipcRenderer.invoke('playback-stop'),
   playbackState: () => ipcRenderer.invoke('playback-state'),
+  panLawSet: (db: number, compensated: boolean) => ipcRenderer.invoke('pan-law-set', db, compensated),
   vstMixGet: () => ipcRenderer.invoke('vst-mix-get'),
   vstSetLayerMix: (layerId: string, update: unknown) =>
     ipcRenderer.invoke('vst-set-layer-mix', layerId, update),
