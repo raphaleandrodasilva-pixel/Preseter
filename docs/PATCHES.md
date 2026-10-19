@@ -33,6 +33,18 @@ Ver também: `docs/ROADMAP.md` (fase 5.5, Patch Library) e `docs/COLECAO.md`
 5. Salvar o estado completo do plugin no patch (tarefa 1.1 do roadmap).
 6. Status: `a criar` → `criado` → `testado ao vivo`.
 
+## Gerar o concert automaticamente
+
+```
+npm run build:main
+node scripts/gerar-colecao.js --out=Colecao.preseter
+```
+
+O script varre os plugins instalados e cria sets, patches, camadas, splits, volumes e
+teclado na tela. Patches cujo plugin não existe são pulados (e listados). O **som**
+(preset do Surge/Dexed/Odin, arquivo SFZ) você escolhe em cada patch (tecla V) e salva.
+Use `--test` para validar o fluxo sem plugins reais.
+
 ---
 
 ## Set 1 — Pianos
