@@ -97,3 +97,22 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Como saber se terminou uma tarefa
 
 Cada tarefa só está pronta quando: o app compila, o teste descrito funciona na prática (ou um teste automático foi adicionado), o `git status` não mostra arquivos gerados, e o commit foi enviado com `git push`.
+
+## Fase 7 — Plugins MIDI (MIDI FX) por channel strip
+
+No MainStage, os plugins MIDI ficam em cada channel strip de instrumento, **abaixo do
+display de EQ e acima do slot do instrumento** (manual, seção "MIDI plug-ins"). O
+detalhe de cada plugin está no manual "MainStage Effects" (não incluído aqui); o
+comportamento abaixo segue o conhecimento geral do MainStage e deve ser conferido.
+
+Ordem do processamento no motor: entrada MIDI → filtro de faixa/transpose do strip →
+**cadeia de MIDI FX (na ordem dos slots)** → instrumento.
+
+- [ ] **7.1 Slot de MIDI FX no channel strip.** Lista ordenada de plugins MIDI por strip (salva no patch/concert), com ligar/desligar (bypass) e reordenar. Motor: `MidiFxChain` aplicada ao buffer MIDI antes do plugin, sem alocar memória na thread de áudio.
+- [ ] **7.2 Arpejador (Arpeggiator).** Modos: para cima, para baixo, cima e baixo, aleatório, ordem tocada. Parâmetros: taxa (1/4, 1/8, 1/16, 1/32, tercina), oitavas (1–4), **gate** (duração da nota em % do passo), swing, hold/latch. Sincronizado ao tempo do concert (depende da 6.2).
+- [ ] **7.3 Chord Trigger.** Uma nota dispara um acorde (maior, menor, 7ª, sus etc.) com intervalos configuráveis; opção de "aprender" um acorde tocado.
+- [ ] **7.4 Note Repeater.** Repete a nota segurada em uma taxa sincronizada (1/8, 1/16…), com velocity inicial/decaimento e **gate**.
+- [ ] **7.5 Transposer.** Transpõe em semitonas (−48 a +48) e opcionalmente prende as notas a uma escala.
+- [ ] **7.6 Velocity Processor.** Curva de velocity (linear, suave, dura), mínimo/máximo, velocity fixa e compressão de dinâmica.
+- [ ] **7.7 Scripter.** Plugin MIDI programável em JavaScript (funções `HandleMIDI(event)` e `ProcessMIDI()`), com sandbox sem acesso a arquivos/rede e limite de tempo por bloco. **Só depois dos outros** — é o item de maior risco; começar por um subconjunto da API.
+- [ ] **7.8 Interface.** Slot "MIDI FX" no strip e janela de edição de cada plugin MIDI (mesmo estilo visual do app); parâmetros mapeáveis a controles de tela (Fase 4).
