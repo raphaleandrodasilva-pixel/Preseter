@@ -52,6 +52,7 @@ import { PatchLcd } from '../hardware/PatchLcd';
 import { StageControl } from '../stage/StageControl';
 import type { RawMidiEvent } from '../../services/WebMidiService';
 import { setParameterLearnHandler } from '../../services/parameter-learn';
+import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
 
 /** Campos de um controle que pertencem ao patch, não ao layout do concert (Fase 4.1). */
 const MAPPING_FIELDS = new Set<keyof UiElement>([
@@ -206,6 +207,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const performQueryRef = useRef('');
   const performQueryTimer = useRef<number | undefined>(undefined);
   const [performQuery, setPerformQuery] = useState('');
+  const [performListOpen, setPerformListOpen] = useState(true);
+  const [performListQuery, setPerformListQuery] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [mappingsOpen, setMappingsOpen] = useState(false);
@@ -1894,7 +1897,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   // Atalhos globais: Cmd+1/2/3/4 modos, Ctrl+P panic, Ctrl+M mute, Del remove, Ctrl+D duplica, F foca busca
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
+      const target = e.target instanceof Element ? e.target : null;
       if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); changeMode('layout'); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); changeMode('edit'); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '3') { e.preventDefault(); changeMode('perform'); return; }
@@ -1946,6 +1949,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           void window.electronAPI.windowSetFullscreen(false);
           performQueryRef.current = '';
           setPerformQuery('');
+          return;
+        }
+        const shortcut = shortcutFromKeyboardEvent(e);
+        const shortcutPatch = shortcut
+          ? presets.find((patch) => (patch.shortcut ?? '') === shortcut)
+          : undefined;
+        if (shortcutPatch) {
+          e.preventDefault();
+          onSelectPreset(shortcutPatch);
           return;
         }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
@@ -2007,6 +2019,22 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   if (mode === 'perform') {
     const elements = performElements;
+    const performListTerm = performListQuery.trim().toLowerCase();
+    const performListRows = [...presets]
+      .filter((patch) => {
+        if (!performListTerm) return true;
+        const setName = sets.find((set) => set.id === patch.setId)?.name ?? '';
+        return `${patch.name} ${String(patch.programNumber + 1)} ${patch.shortcut ?? ''} ${setName}`
+          .toLowerCase()
+          .includes(performListTerm);
+      })
+      .sort((a, b) => {
+        const setA = sets.find((set) => set.id === a.setId)?.order ?? -1;
+        const setB = sets.find((set) => set.id === b.setId)?.order ?? -1;
+        return setA - setB
+          || (a.setOrder ?? 0) - (b.setOrder ?? 0)
+          || a.programNumber - b.programNumber;
+      });
     return (
       <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
         <div
@@ -2072,13 +2100,74 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             Configurações
           </button>
           <button
+            className="hw-squarebtn px-3 py-1.5 text-xs"
+            onClick={() => setPerformListOpen((open) => !open)}
+            title="Mostrar/ocultar lista de patches"
+          >
+            {performListOpen ? 'Ocultar lista' : 'Patch List'}
+          </button>
+          <button
             className="hw-squarebtn ml-auto px-3 py-1.5"
             onClick={() => changeMode('edit')}
           >
             Sair do Perform
           </button>
         </div>
-        <div className="relative min-h-0 flex-1" style={{ background: 'radial-gradient(circle at 50% 0%, #2A2A2D, #1C1C1E 70%)' }}>
+        <div className="flex min-h-0 flex-1">
+          {performListOpen && (
+            <aside
+              className="flex w-[240px] shrink-0 flex-col border-r"
+              style={{ borderColor: '#303032', background: '#1A1A1C' }}
+            >
+              <div className="border-b px-3 py-2" style={{ borderColor: '#303032' }}>
+                <div className="hw-label">Patch List</div>
+                <input
+                  value={performListQuery}
+                  onChange={(event) => setPerformListQuery(event.target.value)}
+                  placeholder="Buscar patch…"
+                  className="mt-2 w-full rounded-lg border px-2 py-1.5 text-[11px] text-slate-100 outline-none focus:border-[#0A84FF]"
+                  style={{ borderColor: '#3A3A3C', background: '#242426' }}
+                />
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+                {performListRows.length === 0 && (
+                  <div className="p-3 text-center text-[11px]" style={{ color: '#8E8E93' }}>
+                    Nenhum patch.
+                  </div>
+                )}
+                {performListRows.map((patch) => {
+                  const active = patch.id === currentPreset?.id;
+                  const setName = sets.find((set) => set.id === patch.setId)?.name;
+                  return (
+                    <button
+                      key={patch.id}
+                      onClick={() => onSelectPreset(patch)}
+                      className="mb-1 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px]"
+                      style={active
+                        ? { background: 'rgba(10,132,255,0.26)', color: '#FFFFFF' }
+                        : { color: '#D1D1D6' }}
+                    >
+                      <span className="w-8 shrink-0 text-right tabular-nums" style={{ color: active ? '#CFE5FF' : '#8E8E93' }}>
+                        {String(patch.programNumber + 1).padStart(3, '0')}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="block truncate font-medium">{patch.name}</span>
+                        <span className="block truncate text-[9px]" style={{ color: '#8E8E93' }}>
+                          {setName ?? 'Sem set'}{patch.skipped ? ' · skip' : ''}
+                        </span>
+                      </span>
+                      {patch.shortcut && (
+                        <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold" style={{ background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }}>
+                          {patch.shortcut}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+          )}
+          <div className="relative min-h-0 flex-1" style={{ background: 'radial-gradient(circle at 50% 0%, #2A2A2D, #1C1C1E 70%)' }}>
           {currentPreset ? (
             <>
               <div className="pointer-events-none absolute left-0 right-0 top-3 z-10 text-center">
@@ -2101,6 +2190,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               Nenhum patch selecionado — escolha na lista ou com ↑/↓.
             </div>
           )}
+        </div>
         </div>
         {settingsTab && (
           <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
@@ -2237,6 +2327,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           ) : draft ? (
             <Inspector
               draft={draft}
+              presets={presets}
               scannedPlugins={scannedPlugins}
               scannedParams={scannedParams}
               selectedElement={selected}

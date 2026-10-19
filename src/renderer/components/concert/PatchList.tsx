@@ -332,6 +332,15 @@ export const PatchList: React.FC<PatchListProps> = ({
         </span>
         <span className="w-4 shrink-0 text-center">{preset.icon ?? '🎹'}</span>
         <span className="min-w-0 flex-1 truncate text-left">{preset.name}</span>
+        {preset.shortcut && (
+          <span
+            className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold"
+            style={{ background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }}
+            title={`Atalho: ${preset.shortcut}`}
+          >
+            {preset.shortcut}
+          </span>
+        )}
         <button
           className="hidden shrink-0 rounded px-1 text-[10px] text-slate-500 hover:text-amber-200 group-hover:block"
           title={skipped ? 'Ativar (Don’t Skip)' : 'Pular (Skip) — ignora em Program Change'}

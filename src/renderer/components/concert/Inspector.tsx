@@ -1,11 +1,14 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 import { ChannelStripLibrary } from './ChannelStripLibrary';
+import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
 
 interface InspectorProps {
   draft: Preset | null;
+  /** Todos os patches do concert, para validar atalhos duplicados. */
+  presets: Preset[];
   scannedPlugins: VstPluginInfo[];
   scannedParams: { path: string; params: { id: string; name: string }[] }[];
   selectedElement: UiElement | null;
@@ -39,6 +42,7 @@ const classInput =
 
 export const Inspector: React.FC<InspectorProps> = ({
   draft,
+  presets,
   scannedPlugins,
   scannedParams,
   selectedElement,
@@ -71,6 +75,38 @@ export const Inspector: React.FC<InspectorProps> = ({
   const resizing = useRef<{ startY: number; originH: number } | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
+  const [learningShortcut, setLearningShortcut] = useState(false);
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!learningShortcut || !draft) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setLearningShortcut(false);
+        setShortcutError(null);
+        return;
+      }
+      const shortcut = shortcutFromKeyboardEvent(event);
+      if (!shortcut) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const conflict = presets.find(
+        (preset) => preset.id !== draft.id && (preset.shortcut ?? '') === shortcut
+      );
+      if (conflict) {
+        setShortcutError(`Atalho já usado por “${conflict.name}”.`);
+        setLearningShortcut(false);
+        return;
+      }
+      setShortcutError(null);
+      onPatchChange({ shortcut });
+      setLearningShortcut(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [learningShortcut, presets, draft, onPatchChange]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'library', label: 'Patch Library' },
@@ -158,6 +194,42 @@ export const Inspector: React.FC<InspectorProps> = ({
             <label className="text-[11px] text-slate-400">Categoria<input className={`${classInput} mt-1`} value={draft.category ?? ''} onChange={(e) => onPatchChange({ category: e.target.value })} /></label>
             <label className="text-[11px] text-slate-400">Programa (1-128)<input className={`${classInput} mt-1`} type="number" min={1} max={128} value={draft.programNumber + 1} onChange={(e) => onPatchChange({ programNumber: Math.max(0, Math.min(127, (Number(e.target.value) || 1) - 1)) })} /></label>
             <label className="text-[11px] text-slate-400">Banco<input className={`${classInput} mt-1`} type="number" min={0} max={127} value={draft.bankNumber ?? 0} onChange={(e) => onPatchChange({ bankNumber: Math.max(0, Math.min(127, Number(e.target.value) || 0)) })} /></label>
+            <div className="text-[11px] text-slate-400">
+              Atalho
+              <div className="mt-1 flex gap-1">
+                <input
+                  className={`${classInput} min-w-0`}
+                  value={learningShortcut ? 'Pressione uma tecla…' : (draft.shortcut ?? '')}
+                  readOnly
+                  placeholder="Nenhum"
+                />
+                <button
+                  type="button"
+                  className="rounded-lg px-2 py-1 text-[10px] font-semibold"
+                  style={{ background: learningShortcut ? '#FF9F0A' : '#0A84FF', color: '#fff' }}
+                  onClick={() => {
+                    setShortcutError(null);
+                    setLearningShortcut((value) => !value);
+                  }}
+                >
+                  {learningShortcut ? 'Aguardando…' : 'Aprender'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border px-2 py-1 text-[10px]"
+                  style={{ borderColor: '#3A3A3C', background: '#242426', color: '#D1D1D6' }}
+                  onClick={() => {
+                    setShortcutError(null);
+                    setLearningShortcut(false);
+                    onPatchChange({ shortcut: '' });
+                  }}
+                >
+                  Limpar
+                </button>
+              </div>
+              {shortcutError && <span className="mt-1 block text-[10px]" style={{ color: '#FF8A80' }}>{shortcutError}</span>}
+              <span className="mt-1 block text-[10px] text-slate-600">Qualquer tecla do computador; não pode repetir em outro patch.</span>
+            </div>
             <label className="text-[11px] text-slate-400">Transpose (semitons)<input className={`${classInput} mt-1`} type="number" min={-24} max={24} value={draft.transpose ?? 0} onChange={(e) => onPatchChange({ transpose: Math.max(-24, Math.min(24, Number(e.target.value) || 0)) })} /></label>
             <label className="text-[11px] text-slate-400">Tempo do patch (BPM)<input className={`${classInput} mt-1`} type="number" min={20} max={300} value={draft.layout.tempo} onChange={(e) => onPatchChange({ layout: { ...draft.layout, tempo: Math.max(20, Math.min(300, Number(e.target.value) || 120)) } })} /></label>
             <label className="text-[11px] text-slate-400">Compasso — numerador<input className={`${classInput} mt-1`} type="number" min={1} max={32} value={draft.timeSignature?.numerator ?? 4} onChange={(e) => onPatchChange({ timeSignature: { numerator: Math.max(1, Math.min(32, Number(e.target.value) || 4)), denominator: draft.timeSignature?.denominator ?? 4 } })} /></label>

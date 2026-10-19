@@ -92,6 +92,8 @@ export interface Preset {
   bankNumber?: number;
   /** Quando true, é pulado na navegação por Program Change / setas */
   skipped?: boolean;
+  /** Atalho do teclado do computador para selecionar este patch no Perform. */
+  shortcut?: string;
   /** Ícone do patch na Patch List */
   icon?: string;
   /** Anotações de texto sobre o patch */

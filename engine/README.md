@@ -102,6 +102,11 @@ O diretório precisa conter `pluginterfaces/vst2.x/aeffect.h`. Sem
 proprietário/descontinuado pela Steinberg: mantenha-o local e não o inclua no
 instalador. Plugins VST2 32-bit não carregam no engine 64-bit.
 
+O **LV2** já é habilitado pelo JUCE 8 (`JUCE_PLUGINHOST_LV2=1`). No Windows ele
+procura `%APPDATA%\LV2` e `%COMMONPROGRAMFILES%\LV2`; no Linux, `~/.lv2`,
+`/usr/lib/lv2` e `/usr/local/lib/lv2`. Pastas extras podem ser adicionadas pela
+interface.
+
 ### Linux (Ubuntu/Debian)
 
 ```bash
