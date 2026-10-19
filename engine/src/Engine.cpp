@@ -1321,15 +1321,41 @@ juce::var Engine::listKnownPlugins() const
     return juce::var (list);
 }
 
+/** Uma pasta é um bundle LV2 (ou contém bundles) se tiver manifest.ttl. */
+static bool looksLikeLv2Bundle (const juce::File& folder)
+{
+    if (! folder.isDirectory())
+        return false;
+
+    if (folder.getChildFile ("manifest.ttl").existsAsFile())
+        return true;
+
+    for (const auto& child : folder.findChildFiles (juce::File::findDirectories, false, "*"))
+        if (child.getChildFile ("manifest.ttl").existsAsFile())
+            return true;
+
+    return false;
+}
+
 bool Engine::beginNextScanFormat()
 {
     while (scanState.nextFormatIndex < formatManager.getNumFormats())
     {
         auto* format = formatManager.getFormat (scanState.nextFormatIndex++);
 
+        const bool isLv2 = format->getName().containsIgnoreCase ("LV2");
         auto paths = format->getDefaultLocationsToSearch();
         for (const auto& extra : scanState.extraPaths)
-            paths.add (juce::File (extra));
+        {
+            const juce::File folder (extra);
+
+            // O scanner LV2 não deve tentar abrir pastas de VST2/VST3 como
+            // bundles LV2; isso gerava erros de "manifest.ttl" no lilv.
+            if (isLv2 && ! looksLikeLv2Bundle (folder))
+                continue;
+
+            paths.add (folder);
+        }
 
         if (paths.getNumPaths() == 0)
             continue;

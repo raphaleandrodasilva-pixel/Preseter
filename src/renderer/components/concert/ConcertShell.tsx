@@ -2327,6 +2327,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   armed={mode === 'layout' && armedKey !== null && !!draft}
                   locked={!draft}
                   movable={mode === 'layout'}
+                  previewKeyboard={mode === 'edit'}
                   interactivePreview={false}
                   channel={(draft ?? currentPreset)?.midiChannel ?? 0}
                   onCanvasClick={(x, y) => {

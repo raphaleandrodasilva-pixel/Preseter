@@ -239,7 +239,12 @@ export const KeyboardControl: React.FC<KeyboardControlProps> = ({
     onPointerDown: (event: React.PointerEvent) => {
       if (!interactive) return;
       event.preventDefault();
-      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      try {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      } catch {
+        // Em alguns ambientes (ou eventos sintéticos) o capture não está
+        // disponível; mesmo assim a nota deve tocar.
+      }
       press(note, event.pointerId);
     },
     onPointerEnter: (event: React.PointerEvent) => {

@@ -373,8 +373,13 @@ class MainWindow {
       return this.vstManager.setPluginState(pluginId, state);
     });
 
-    ipcMain.handle('vst-open-editor', (_event, pluginId: string) => {
-      return this.vstManager.openPluginEditor(pluginId);
+    ipcMain.handle('vst-open-editor', async (_event, pluginId: string) => {
+      try {
+        return await this.vstManager.openPluginEditor(pluginId);
+      } catch {
+        // Plugins sem interface gráfica não têm editor; o renderer mostra o aviso.
+        return false;
+      }
     });
 
     ipcMain.handle('vst-close-editor', (_event, pluginId: string) => {
@@ -482,8 +487,13 @@ class MainWindow {
     ipcMain.handle('vst-insert-state-set', (_event, layerId: string, slot: number, data: string) => {
       return this.vstManager.setInsertState(layerId, slot, data);
     });
-    ipcMain.handle('vst-insert-open-editor', (_event, layerId: string, slot: number) => {
-      return this.vstManager.openInsertEditor(layerId, slot);
+    ipcMain.handle('vst-insert-open-editor', async (_event, layerId: string, slot: number) => {
+      try {
+        return await this.vstManager.openInsertEditor(layerId, slot);
+      } catch {
+        // Efeitos sem editor gráfico: não deixa o erro virar stack trace no Electron.
+        return false;
+      }
     });
     ipcMain.handle('vst-insert-close-editor', (_event, layerId: string, slot: number) => {
       return this.vstManager.closeInsertEditor(layerId, slot);

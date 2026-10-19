@@ -14,6 +14,8 @@ interface ComposerCanvasProps {
   locked: boolean;
   /** No Edit o controle pode ser selecionado, mas não arrastado/redimensionado. */
   movable?: boolean;
+  /** No Edit, o teclado continua tocando; os demais controles só selecionam. */
+  previewKeyboard?: boolean;
   interactivePreview: boolean;
   channel: number;
   onCanvasClick: (x: number, y: number) => void;
@@ -168,6 +170,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   armed,
   locked,
   movable = true,
+  previewKeyboard = false,
   interactivePreview,
   channel,
   onCanvasClick,
@@ -227,18 +230,59 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               onZoneClick={onZoneClick}
             />
           ))
-        : elements.map((element) => (
-            <CanvasElement
-              key={element.id}
-              element={element}
-              selected={element.id === selectedId}
-              locked={locked}
-              movable={movable}
-              onSelect={onSelect}
-              onMove={onMove}
-              onResize={onResize}
-            />
-          ))}
+        : elements.map((element) =>
+            previewKeyboard && element.type === 'keyboard' ? (
+              <React.Fragment key={element.id}>
+                <StageControl
+                  element={element}
+                  channel={channel}
+                  layoutMode="absolute"
+                  onMidiMessage={onMidiMessage}
+                  onSetVstParameter={onSetVstParameter}
+                  keyboardZones={keyboardZones}
+                  selectedZoneId={selectedZoneId}
+                  onZoneClick={onZoneClick}
+                />
+                {element.id === selectedId && (
+                  <div
+                    className="pointer-events-none absolute rounded-lg"
+                    style={{
+                      left: element.x,
+                      top: element.y,
+                      width: Math.max(element.width, 560),
+                      height: element.height,
+                      boxShadow: '0 0 0 2px #0A84FF',
+                    }}
+                  />
+                )}
+                <button
+                  type="button"
+                  className="absolute z-10 rounded px-1.5 py-0.5 text-[9px] font-semibold"
+                  style={{
+                    left: element.x + Math.max(element.width, 560) - 78,
+                    top: element.y + 6,
+                    background: '#0A84FF',
+                    color: '#FFFFFF',
+                  }}
+                  onClick={() => onSelect(element.id)}
+                  title="Selecionar o teclado para mapear"
+                >
+                  Selecionar
+                </button>
+              </React.Fragment>
+            ) : (
+              <CanvasElement
+                key={element.id}
+                element={element}
+                selected={element.id === selectedId}
+                locked={locked}
+                movable={movable}
+                onSelect={onSelect}
+                onMove={onMove}
+                onResize={onResize}
+              />
+            )
+          )}
       {!locked && (
         <button
           className="absolute left-2 top-2 rounded bg-transparent px-2 py-1 text-[10px] text-[#9A9AA0] hover:text-[#F2F2F2]"

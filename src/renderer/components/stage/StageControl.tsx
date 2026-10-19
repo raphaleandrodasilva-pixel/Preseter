@@ -242,6 +242,7 @@ export const StageControl: React.FC<StageControlProps> = ({
           upperColor={element.keyboardUpperColor ?? '#F2F2F2'}
           defaultVelocity={element.velocity ?? 100}
           compact
+          interactive
           activeNotes={activeNotes}
           zones={keyboardZones}
           selectedZoneId={selectedZoneId}
