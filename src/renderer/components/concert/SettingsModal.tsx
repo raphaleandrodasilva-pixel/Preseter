@@ -12,7 +12,8 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClose }) => {
   const {
     midiDevices, midiError, midiLastMessage, listMidiDevices, openMidiPort,
-    scannedPlugins, loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstParameter,
+    scannedPlugins, loadedPlugins, scanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
+    loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
     preferences, updatePreferences, layout,
   } = useAppContext();
@@ -386,29 +387,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   {midiError}
                 </div>
               )}
-              <button
-                onClick={() => { setScanning(true); void scanVstPlugins().finally(() => setScanning(false)); }}
-                disabled={scanning}
-                className="w-full rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
-                style={accentBtn}
-              >
-                {scanning ? 'Escaneando…' : 'Escanear plugins VST3'}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { setScanning(true); void scanVstPlugins().finally(() => setScanning(false)); }}
+                  disabled={scanning}
+                  className="rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
+                  style={accentBtn}
+                >
+                  {scanning ? 'Escaneando…' : 'Escanear plugins'}
+                </button>
+                <button
+                  onClick={() => { setScanning(true); void addVstPluginFolder().finally(() => setScanning(false)); }}
+                  disabled={scanning}
+                  className="hw-squarebtn rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
+                >
+                  Adicionar pasta de plugins
+                </button>
+              </div>
+              <section>
+                <h4 className="hw-label mb-2">Pastas de plugins</h4>
+                <div className="space-y-1.5">
+                  {(preferences?.pluginFolders ?? []).length === 0 && (
+                    <p className="text-xs" style={{ color: '#9A9AA0' }}>
+                      Nenhuma pasta extra. Use “Adicionar pasta” para plugins VST2/VST3 fora dos diretórios padrão.
+                    </p>
+                  )}
+                  {(preferences?.pluginFolders ?? []).map((folder) => (
+                    <div key={folder} className="hw-inset flex items-center gap-2 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-[11px]" style={{ color: '#D1D1D6' }} title={folder}>{folder}</span>
+                      <button
+                        onClick={() => void removeVstPluginFolder(folder)}
+                        className="rounded px-1.5 text-xs hover:text-red-300"
+                        style={{ color: '#9A9AA0' }}
+                        title="Remover pasta"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
               <section>
                 <h4 className="hw-label mb-2">Disponíveis ({scannedPlugins.length})</h4>
                 <div className="max-h-48 space-y-1.5 overflow-y-auto">
-                  {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin ainda. O app escaneia os diretórios VST3 automaticamente ao iniciar; aguarde ou clique em Escanear plugins VST3.</p>}
+                  {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin ainda. O app escaneia os diretórios VST3 e as pastas adicionadas automaticamente ao iniciar; aguarde ou clique em Escanear plugins.</p>}
                   {scannedPlugins.map((p) => {
                     const loadedCount = loadedPlugins.filter((l) => l.id === p.id).length;
                     return (
                       <div key={p.id} className="hw-inset flex items-center gap-2 px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs font-medium" style={{ color: '#EDEDEF' }}>{p.name}</div>
-                          <div className="text-[10px]" style={{ color: '#9A9AA0' }}>{p.isInstrument ? 'Instrumento' : 'Efeito'}</div>
+                          <div className="text-[10px]" style={{ color: p.arch === 'x86' ? '#FF9F0A' : '#9A9AA0' }}>
+                            {p.isInstrument ? 'Instrumento' : 'Efeito'} · {p.format ?? 'VST3'}
+                            {p.arch === 'x86' ? ' · 32-bit (não suportado)' : ''}
+                          </div>
                         </div>
                         {loadedCount > 0
                           ? <span className="rounded-lg px-2 py-1 text-[10px] font-semibold" style={{ background: 'rgba(10,132,255,0.18)', color: '#0A84FF', border: '1px solid #0A84FF' }}>{loadedCount} carregado(s)</span>
-                          : <button onClick={() => void loadVstPlugin(p.path)} className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110" style={accentBtn}>Carregar</button>}
+                          : <button
+                              onClick={() => void loadVstPlugin(p.path)}
+                              disabled={p.arch === 'x86'}
+                              className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-40"
+                              style={accentBtn}
+                              title={p.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : undefined}
+                            >Carregar</button>}
                       </div>
                     );
                   })}

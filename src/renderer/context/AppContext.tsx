@@ -143,6 +143,8 @@ export interface AppContextType {
 
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
+  addVstPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
+  removeVstPluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
   setVstParameter: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
@@ -959,6 +961,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const addVstPluginFolder = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.vstAddPluginFolder();
+      setScannedPlugins(result.plugins);
+      setPreferences(await window.electronAPI.preferencesGet());
+      setMidiError(null);
+      return result;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao adicionar pasta de plugins.');
+      return { canceled: true, plugins: [] as VstPluginInfo[] };
+    }
+  }, []);
+
+  const removeVstPluginFolder = useCallback(async (folder: string) => {
+    try {
+      const result = await window.electronAPI.vstRemovePluginFolder(folder);
+      setScannedPlugins(result.plugins);
+      setPreferences(await window.electronAPI.preferencesGet());
+      setMidiError(null);
+      return result;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao remover pasta de plugins.');
+      return { folders: [], plugins: [] as VstPluginInfo[] };
+    }
+  }, []);
+
   const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127, pinned = false) => {
     try {
       const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote, pinned);
@@ -1456,6 +1484,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     enginePanic,
     subscribeMidiLearn,
     scanVstPlugins,
+    addVstPluginFolder,
+    removeVstPluginFolder,
     loadVstPlugin,
     unloadVstPlugin,
     setVstParameter,

@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // === VST ===
   vstScan: () => ipcRenderer.invoke('vst-scan'),
+  vstAddPluginFolder: () => ipcRenderer.invoke('vst-add-plugin-folder'),
+  vstRemovePluginFolder: (folder: string) => ipcRenderer.invoke('vst-remove-plugin-folder', folder),
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) =>
     ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),

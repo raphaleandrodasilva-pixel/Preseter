@@ -33,6 +33,7 @@ endif()
 option(PRESETER_ENABLE_ASIO "Windows: habilita ASIO (exige o SDK da Steinberg)" OFF)
 set(PRESETER_ASIO_SDK_DIR "" CACHE PATH "Windows: pasta do ASIO SDK")
 option(PRESETER_ENABLE_JACK "Linux: habilita JACK (exige libjack-dev)" OFF)
+set(PRESETER_VST2_SDK_DIR "" CACHE PATH "VST2 SDK (ex.: R-Tur/VST_SDK_2.4); vazio desativa VST2")
 
 # --------------------------------------------------------------------------
 # Alvo: processo sem janela, controlado por JSON em stdin/stdout
@@ -52,11 +53,20 @@ target_compile_definitions(PreseterEngine PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_PLUGINHOST_VST3=1
-    JUCE_PLUGINHOST_VST=0
+    JUCE_PLUGINHOST_VST=$<BOOL:${PRESETER_VST2_SDK_DIR}>
     JUCE_PLUGINHOST_LADSPA=0
     JUCE_PLUGINHOST_LV2=0
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     JUCE_MODAL_LOOPS_PERMITTED=0)
+
+if(PRESETER_VST2_SDK_DIR)
+    if(NOT EXISTS "${PRESETER_VST2_SDK_DIR}/pluginterfaces/vst2.x/aeffect.h")
+        message(FATAL_ERROR "PRESETER_VST2_SDK_DIR não contém pluginterfaces/vst2.x/aeffect.h: ${PRESETER_VST2_SDK_DIR}")
+    endif()
+    target_include_directories(PreseterEngine PRIVATE
+        "${PRESETER_VST2_SDK_DIR}"
+        "${PRESETER_VST2_SDK_DIR}/public.sdk/source/vst2.x")
+endif()
 
 if(APPLE)
     target_compile_definitions(PreseterEngine PRIVATE JUCE_PLUGINHOST_AU=1)

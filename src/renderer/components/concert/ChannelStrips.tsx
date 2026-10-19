@@ -264,6 +264,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     : [];
   const selectedLayer = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0] ?? null;
   const canAdd = editable;
+  /** O Preseter agora usa somente strips do patch; níveis herdados ficam desativados. */
+  const showInheritedLevels = false;
   /** Valores dos strips herdados em cada nível (concert/set/patch) — Fase 3.3. */
   const stripViews = useMemo(
     () => stripLevelViews({ concertStrips, setStrips, setOverrides, patch: preset }),
@@ -1179,8 +1181,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               ) : list.map((plugin) => (
                 <button
                   key={plugin.id}
-                  disabled={busy}
-                  className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+                  disabled={busy || plugin.arch === 'x86'}
+                  className="block w-full rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
                   onClick={() => void withLoadingMessage(async () => {
                     const added = picker.kind === 'replace'
                       ? await onReplace(picker.assignment, picker.layerId, plugin)
@@ -1190,9 +1192,14 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     if (added) setPicker(null);
                     return added;
                   })}
-                  title={`${plugin.name} — ${plugin.path}`}
+                  title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${plugin.name} — ${plugin.path}`}
                 >
-                  {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
+                  <span className="block truncate">
+                    {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
+                  </span>
+                  <span className="text-[9px]" style={{ color: plugin.arch === 'x86' ? '#FF9F0A' : '#8E8E93' }}>
+                    {plugin.format ?? 'VST'}{plugin.arch === 'x86' ? ' · 32-bit' : ''}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1209,8 +1216,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         <div className="flex min-h-full items-stretch gap-2">
           {renderPlayback()}
           {renderAudioInput()}
-          {renderInheritedGroup('concert', concertStrips)}
-          {setName !== null && renderInheritedGroup('set', setStrips)}
+          {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
+          {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
             const loaded = loadedPlugins.find((plugin) => plugin.layerId === layerId);
             const liveMix = mixState?.layers.find((state) => state.layerId === layerId);
@@ -1466,7 +1473,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         </div>
       )}
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
-        Nos strips do patch, use a aba Channel Strip do Inspector para as teclas (Low/High Key); nos strips do concert/set, edite KEY aqui mesmo.
+        Nos strips do patch, use a aba Channel Strip do Inspector para as teclas (Low/High Key).
       </div>
     </aside>
   );

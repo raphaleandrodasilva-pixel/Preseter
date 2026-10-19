@@ -1,7 +1,7 @@
 # preseter-engine
 
 Motor de áudio nativo do Preseter. É um processo **sem janela**, escrito em C++
-com [JUCE](https://juce.com), que hospeda plugins VST3 e fala com o app Electron
+com [JUCE](https://juce.com), que hospeda plugins VST3 (e VST2 quando compilado com o SDK) e fala com o app Electron
 por **JSON em stdin/stdout** (uma mensagem por linha).
 
 Por que um processo separado? O Node/Electron não consegue rodar áudio em tempo
@@ -85,6 +85,22 @@ licenciado e mantido localmente; não é incluído no Git nem no instalador do
 Preseter. A interface mostra separadamente se o backend foi compilado e se
 encontrou um driver ASIO instalado. Sem suporte ASIO, os drivers disponíveis
 (por exemplo, WASAPI) continuam listados normalmente.
+
+### VST2 (opcional)
+
+O VST2 não é incluído por padrão. Para habilitar, use um SDK VST2 local:
+
+```powershell
+git clone https://github.com/R-Tur/VST_SDK_2.4.git engine/vst2-sdk
+cmake -S engine -B engine/build -G "Visual Studio 17 2022" `
+  -DPRESETER_VST2_SDK_DIR="$PWD/engine/vst2-sdk"
+cmake --build engine/build --config Release
+```
+
+O diretório precisa conter `pluginterfaces/vst2.x/aeffect.h`. Sem
+`PRESETER_VST2_SDK_DIR`, o engine compila somente com VST3. O SDK é
+proprietário/descontinuado pela Steinberg: mantenha-o local e não o inclua no
+instalador. Plugins VST2 32-bit não carregam no engine 64-bit.
 
 ### Linux (Ubuntu/Debian)
 

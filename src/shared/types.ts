@@ -21,6 +21,8 @@ export interface VstPluginInfo {
   manufacturer?: string;
   version?: string;
   category?: string;
+  format?: string;
+  arch?: 'x64' | 'x86' | 'unknown';
   /** Programa interno atual, quando o plugin expõe programas. */
   program?: number;
   programCount?: number;
@@ -616,6 +618,8 @@ export interface AudioSettingsSnapshot {
 export interface AppPreferences {
   /** Corta o patch anterior assim que troca; padrão false (deixa as caudas acabarem). */
   silencePreviousPatch: boolean;
+  /** Pastas extras de plugins VST2/VST3/LV2 escolhidas pelo usuário. */
+  pluginFolders: string[];
 }
 
 // Configuração de layout da interface

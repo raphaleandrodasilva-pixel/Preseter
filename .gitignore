@@ -13,4 +13,5 @@ presets/*.json
 engine/build/
 engine/build-*/
 engine/.cache/
+engine/vst2-sdk/
 engine/CMakeUserPresets.json

@@ -1423,7 +1423,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const keyboardZoneColors = ['#FF9F0A', '#30D158', '#0A84FF', '#BF5AF2', '#FF453A', '#5E5CE6'];
   const keyboardZones = useMemo(
     () => stripViews.patch
-      .filter((strip) => strip.role === 'instrument')
+      .filter((strip) => strip.role === 'instrument' && strip.level === 'patch')
       .map((strip, index) => ({
         id: strip.id,
         label: strip.name,

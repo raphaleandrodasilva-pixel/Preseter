@@ -286,17 +286,45 @@ class MainWindow {
     // === VST Handlers ===
 
     ipcMain.handle('vst-scan', async () => {
-      const plugins = await this.vstManager.scanDefaultDirectories();
+      const plugins = await this.scanWithPreferences();
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
       return plugins;
     });
+
+    ipcMain.handle('vst-add-plugin-folder', async () => {
+      if (!this.window) return { canceled: true, plugins: this.vstManager.getScannedPlugins() };
+      const result = await dialog.showOpenDialog(this.window, {
+        title: 'Adicionar pasta de plugins (VST2/VST3)',
+        properties: ['openDirectory'],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return { canceled: true, plugins: this.vstManager.getScannedPlugins() };
+      }
+      const folder = result.filePaths[0];
+      const preferences = this.readPreferences();
+      const folders = Array.from(new Set([...preferences.pluginFolders, folder]));
+      this.writePreferences({ ...preferences, pluginFolders: folders });
+      const plugins = await this.vstManager.scanDirectories(folders);
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      return { canceled: false, folder, folders, plugins };
+    });
+
+    ipcMain.handle('vst-remove-plugin-folder', async (_event, folder: string) => {
+      const preferences = this.readPreferences();
+      const folders = preferences.pluginFolders.filter((item) => item !== folder);
+      this.writePreferences({ ...preferences, pluginFolders: folders });
+      const plugins = await this.scanWithPreferences();
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      return { folders, plugins };
+    });
+
 
     ipcMain.handle('vst-presets-list', () => {
       return this.vstPresetLibrary.listResult();
     });
 
     ipcMain.handle('vst-presets-rescan', async () => {
-      const plugins = await this.vstManager.scanDefaultDirectories();
+      const plugins = await this.scanWithPreferences();
       await this.vstPresetLibrary.scan(plugins, this.vstManager, true);
       return this.vstPresetLibrary.listResult();
     });
@@ -622,7 +650,7 @@ class MainWindow {
       const result = await dialog.showOpenDialog(this.window, {
         title: 'Selecione um plugin VST',
         properties: ['openFile', 'openDirectory'],
-        filters: [{ name: 'Plugins VST3', extensions: ['vst3'] }],
+        filters: [{ name: 'Plugins VST', extensions: ['vst3', 'dll', 'vst', 'so'] }],
       });
       return result;
     });
@@ -1277,6 +1305,13 @@ class MainWindow {
     this.window?.setTitle(`${state.name}${marker} — Preseter`);
   }
 
+  private async scanWithPreferences(): Promise<VstPluginInfo[]> {
+    const folders = this.readPreferences().pluginFolders;
+    return folders.length > 0
+      ? this.vstManager.scanDirectories(folders)
+      : this.vstManager.scanDefaultDirectories();
+  }
+
   private async initializeEngine(): Promise<void> {
     const saved = this.readAudioSettings();
     if (saved.enabled) {
@@ -1288,7 +1323,7 @@ class MainWindow {
     }
 
     try {
-      const plugins = await this.vstManager.scanDefaultDirectories();
+      const plugins = await this.scanWithPreferences();
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
       this.watchVstFolders();
     } catch (error) {
@@ -1305,6 +1340,7 @@ class MainWindow {
       path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Common', 'VST3'),
       path.join(app.getPath('documents'), 'VST3 Presets'),
       path.join(app.getPath('documents'), 'Vital'),
+      ...this.readPreferences().pluginFolders,
     ];
     for (const dir of new Set(candidates)) {
       if (!fs.existsSync(dir)) continue;
@@ -1398,7 +1434,7 @@ class MainWindow {
   }
 
   private readPreferences(): AppPreferences {
-    const defaults: AppPreferences = { silencePreviousPatch: false };
+    const defaults: AppPreferences = { silencePreviousPatch: false, pluginFolders: [] };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
       const data: unknown = JSON.parse(fs.readFileSync(this.preferencesPath, 'utf8'));
@@ -1408,6 +1444,9 @@ class MainWindow {
         ...defaults,
         ...saved,
         silencePreviousPatch: saved.silencePreviousPatch === true,
+        pluginFolders: Array.isArray(saved.pluginFolders)
+          ? saved.pluginFolders.filter((folder): folder is string => typeof folder === 'string' && folder.trim() !== '')
+          : [],
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

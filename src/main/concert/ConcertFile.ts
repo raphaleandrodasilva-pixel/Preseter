@@ -199,7 +199,15 @@ export function parseConcertFile(text: string): PreseterConcertFile {
     mappings: normalizeObjectArray<ConcertMapping>(raw.mappings, 'mappings'),
   };
   const migrated = migrateConcertLayout(parsed.layout, parsed.patches);
-  return { ...parsed, layout: migrated.layout, patches: migrated.patches };
+  // O Preseter agora trabalha apenas com channel strips do patch. Mantém a
+  // leitura de concerts antigos, mas descarta strips herdados do concert/set.
+  return {
+    ...parsed,
+    concert: { ...parsed.concert, strips: [] },
+    sets: parsed.sets.map((set) => ({ ...set, strips: [], stripOverrides: {} })),
+    layout: migrated.layout,
+    patches: migrated.patches,
+  };
 }
 
 function normalizeObjectArray<T>(value: unknown, field: string): T[] {
@@ -395,7 +403,7 @@ export function migrateLegacyConcert(input: LegacyConcertInput): PreseterConcert
       createdAt: now,
       updatedAt: now,
     },
-    sets: input.sets ?? [],
+    sets: (input.sets ?? []).map((set) => ({ ...set, strips: [], stripOverrides: {} })),
     patches: migrated.patches,
     layout: migrated.layout,
     mappings: [],

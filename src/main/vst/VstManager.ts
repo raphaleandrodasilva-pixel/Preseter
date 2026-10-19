@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
+import * as fs from 'fs';
 import type {
   EngineInsertState,
   EngineLoadedPlugin,
@@ -52,6 +53,7 @@ export class VstManager extends EventEmitter {
   }
 
   async scanDirectories(directories: string[]): Promise<VstPluginInfo[]> {
+    if (this.scanPromise) await this.scanPromise.catch(() => undefined);
     return this.runScan({ paths: directories, rescan: false });
   }
 
@@ -117,6 +119,11 @@ export class VstManager extends EventEmitter {
     const scanned = this.scannedPlugins.find(
       (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
     );
+    if (scanned?.arch === 'x86' && process.arch === 'x64') {
+      throw new Error(
+        `O plugin "${scanned.name}" é 32-bit e não pode ser carregado pelo engine 64-bit.`
+      );
+    }
     const request = scanned
       ? { plugin: scanned.id, layerId, minNote, maxNote, pinned }
       : { path: pluginPathOrId, layerId, minNote, maxNote, pinned };
@@ -334,7 +341,7 @@ export class VstManager extends EventEmitter {
         id: current.id,
         name: current.name,
         manufacturer: current.manufacturer ?? '',
-        format: 'VST3',
+        format: current.format ?? 'VST3',
         path: current.path,
         isInstrument: current.isInstrument,
         inputs: 0,
@@ -560,9 +567,39 @@ export class VstManager extends EventEmitter {
       manufacturer: plugin.manufacturer,
       version: plugin.version,
       category: plugin.category,
+      format: plugin.format,
+      arch: this.detectArch(plugin.path),
       program: 'program' in plugin ? plugin.program : undefined,
       programCount: 'programCount' in plugin ? plugin.programCount : undefined,
     };
+  }
+
+  private detectArch(filePath: string): 'x64' | 'x86' | 'unknown' {
+    try {
+      const fd = fs.openSync(filePath, 'r');
+      const buffer = Buffer.alloc(0x1000);
+      const read = fs.readSync(fd, buffer, 0, buffer.length, 0);
+      fs.closeSync(fd);
+      if (read < 0x40) return 'unknown';
+      // Windows PE
+      if (buffer[0] === 0x4d && buffer[1] === 0x5a) {
+        const peOffset = buffer.readUInt32LE(0x3c);
+        if (peOffset + 6 <= read && buffer.toString('ascii', peOffset, peOffset + 4) === 'PE\u0000\u0000') {
+          const machine = buffer.readUInt16LE(peOffset + 4);
+          if (machine === 0x8664) return 'x64';
+          if (machine === 0x014c) return 'x86';
+        }
+      }
+      // Linux ELF
+      if (buffer[0] === 0x7f && buffer.toString('ascii', 1, 4) === 'ELF') {
+        const machine = buffer.readUInt16LE(18);
+        if (machine === 0x3e) return 'x64';
+        if (machine === 0x03) return 'x86';
+      }
+    } catch {
+      // Plugin em bundle/arquivo especial: arquitetura desconhecida.
+    }
+    return 'unknown';
   }
 
   private withParameter(plugin: VstPluginInfo, parameter: EngineParameter): VstPluginInfo {
