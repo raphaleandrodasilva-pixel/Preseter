@@ -1930,6 +1930,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   // Modos: 1/2 = Layout/Edit (em janela), 3 = Perform (em janela), 4 = Perform em tela cheia.
   const changeMode = (next: ConcertMode) => {
     void window.electronAPI.windowSetFullscreen(false);
+    if (next === 'layout') setConcertSelected(false);
     onModeChange(next);
   };
   const enterPerformFullscreen = () => {
@@ -2273,7 +2274,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           currentPresetId={currentPreset?.id ?? null}
           concertName={concertName}
           concertSelected={concertSelected}
-          onSelectConcert={() => { setConcertSelected(true); onSelectedId(null); }}
+          onSelectConcert={() => {
+            if (mode === 'layout') return;
+            setConcertSelected(true);
+            onSelectedId(null);
+          }}
           onSelectPreset={(preset) => { setConcertSelected(false); onSelectPreset(preset); }}
           onEditPreset={onEditPreset}
           onNewPatch={onNewPatch}
@@ -2318,10 +2323,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <>
                 <ComposerCanvas
                   elements={displayElements}
-                  selectedId={mode === 'layout' ? selectedId : selectedId}
+                  selectedId={selectedId}
                   armed={mode === 'layout' && armedKey !== null && !!draft}
-                  locked={!draft || mode !== 'layout'}
-                  interactivePreview={mode === 'edit'}
+                  locked={!draft}
+                  movable={mode === 'layout'}
+                  interactivePreview={false}
                   channel={(draft ?? currentPreset)?.midiChannel ?? 0}
                   onCanvasClick={(x, y) => {
                     const item = findPaletteItem(armedKey);
@@ -2359,7 +2365,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               </div>
             )}
           </div>
-          {concertSelected && concertSettings ? (
+          {concertSelected && concertSettings && mode !== 'layout' ? (
             <ConcertSettingsPanel
               settings={concertSettings}
               tempo={appStatus.tempo}
@@ -2369,6 +2375,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             />
           ) : draft ? (
             <Inspector
+              mode={mode === 'layout' ? 'layout' : 'edit'}
               draft={draft}
               presets={presets}
               scannedPlugins={scannedPlugins}

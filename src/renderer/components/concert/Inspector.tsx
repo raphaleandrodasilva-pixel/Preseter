@@ -6,6 +6,8 @@ import { ChannelStripLibrary } from './ChannelStripLibrary';
 import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
 
 interface InspectorProps {
+  /** No Layout, mostra só o Screen Control Inspector; no Edit, as abas do patch. */
+  mode: 'layout' | 'edit';
   draft: Preset | null;
   /** Todos os patches do concert, para validar atalhos duplicados. */
   presets: Preset[];
@@ -44,6 +46,7 @@ const classInput =
   'w-full rounded-lg border border-[#3A3A3C] bg-[#242426] px-2 py-1.5 text-xs text-slate-100 outline-none focus:border-[#0A84FF]';
 
 export const Inspector: React.FC<InspectorProps> = ({
+  mode,
   draft,
   presets,
   scannedPlugins,
@@ -80,6 +83,15 @@ export const Inspector: React.FC<InspectorProps> = ({
   heightRef.current = height;
   const [learningShortcut, setLearningShortcut] = useState(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
+
+  // No Edit, selecionar um screen control abre direto a aba de mapeamento.
+  useEffect(() => {
+    if (mode === 'layout') return;
+    setTab((previous) => {
+      if (selectedElement) return 'control';
+      return previous === 'control' ? 'attributes' : previous;
+    });
+  }, [mode, selectedElement?.id]);
 
   useEffect(() => {
     if (!learningShortcut || !draft) return;
@@ -124,7 +136,9 @@ export const Inspector: React.FC<InspectorProps> = ({
   if (!draft) {
     return (
       <div className="shrink-0 border-t px-4 py-3 text-xs" style={{ borderColor: '#1E1E24', background: '#0A0A0C', color: '#9A9AA0' }}>
-        Selecione ou crie um patch na Patch List para ver o Inspector.
+        {mode === 'layout'
+          ? 'Selecione um patch e clique em Editar para desenhar o layout.'
+          : 'Selecione ou crie um patch na Patch List para ver o Inspector.'}
       </div>
     );
   }
@@ -153,28 +167,64 @@ export const Inspector: React.FC<InspectorProps> = ({
         <div className="mx-auto h-1 w-16 rounded-full" style={{ background: '#303032' }} />
       </div>
       <div className="flex items-center gap-1 border-b px-3" style={{ borderColor: '#1E1E24' }}>
-        {tabs.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`border-b-2 px-3 py-2 text-[11px] ${
-              tab === id ? 'text-white' : 'border-transparent hover:text-slate-200'
-            }`}
-            style={tab === id ? { borderColor: '#0A84FF' } : { color: '#9A9AA0' }}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
-          style={{ background: '#0A84FF', color: '#FFFFFF' }}
-        >
-          {saving ? 'Salvando…' : 'Salvar patch'}
-        </button>
+        {mode === 'layout' ? (
+          <>
+            <span className="px-1 py-2 text-[11px] font-semibold text-white">Layout</span>
+            <span className="ml-auto px-1 py-2 text-[10px]" style={{ color: '#8E8E93' }}>
+              Layout salvo com o concert (Ctrl+S)
+            </span>
+          </>
+        ) : (
+          <>
+            {tabs.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`border-b-2 px-3 py-2 text-[11px] ${
+                  tab === id ? 'text-white' : 'border-transparent hover:text-slate-200'
+                }`}
+                style={tab === id ? { borderColor: '#0A84FF' } : { color: '#9A9AA0' }}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
+              style={{ background: '#0A84FF', color: '#FFFFFF' }}
+            >
+              {saving ? 'Salvando…' : 'Salvar patch'}
+            </button>
+          </>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">
+        {mode === 'layout' ? (
+          selectedElement ? (
+            <div className="max-w-3xl">
+              <ControlInspector
+                mode="layout"
+                element={selectedElement}
+                draft={draft}
+                scannedPlugins={scannedPlugins}
+                onUpdate={onUpdateElement}
+                onRemove={onRemoveElement}
+                onDuplicate={onDuplicateElement}
+                onBringFront={onBringFront}
+                onSendBack={onSendBack}
+              />
+            </div>
+          ) : (
+            <div className="rounded-lg border border-[#303032] bg-[#141416] p-3 text-[11px] leading-relaxed text-slate-400">
+              <span className="font-semibold text-slate-200">Screen Control Inspector</span>
+              <br />
+              Selecione um controle no canvas para editar Hardware Input, aparência e textos.
+              Use a Screen Controls Palette embaixo para adicionar controles.
+            </div>
+          )
+        ) : (
+          <>
         {tab === 'library' && (
           <div className="text-[11px] text-slate-400">
             <p className="mb-2">Patch Library — clique para audicionar (carrega o patch). Edição completa do som chega nas próximas fases.</p>
@@ -344,6 +394,7 @@ export const Inspector: React.FC<InspectorProps> = ({
         {tab === 'control' && selectedElement && (
           <div className="max-w-3xl">
             <ControlInspector
+              mode="edit"
               element={selectedElement}
               draft={draft}
               scannedPlugins={scannedPlugins}
@@ -354,6 +405,8 @@ export const Inspector: React.FC<InspectorProps> = ({
               onSendBack={onSendBack}
             />
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

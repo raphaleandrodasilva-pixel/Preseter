@@ -335,6 +335,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
 
               <section className="border-t border-slate-800 pt-4">
                 <ControlInspector
+                  mode="all"
                   element={selected}
                   draft={draft}
                   scannedPlugins={scannedPlugins}

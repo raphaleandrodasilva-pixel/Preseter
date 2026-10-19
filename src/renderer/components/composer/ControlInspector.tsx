@@ -6,6 +6,8 @@ import { armParameterLearn } from '../../services/parameter-learn';
 import { noteName } from './elementFactory';
 
 interface ControlInspectorProps {
+  /** Layout: hardware/MIDI e aparência. Edit: mapeamento. All: editor legado. */
+  mode: 'layout' | 'edit' | 'all';
   element: UiElement | null;
   draft: Preset;
   scannedPlugins: VstPluginInfo[];
@@ -31,6 +33,7 @@ function currentBindingType(element: UiElement): BindingType {
 }
 
 export const ControlInspector: React.FC<ControlInspectorProps> = ({
+  mode,
   element,
   draft,
   scannedPlugins,
@@ -49,7 +52,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!learning || !element) return;
+    if (mode === 'edit' || !learning || !element) return;
     const apply = (evt: RawMidiEvent) => {
       if (evt.kind === 'note' && evt.value === 0) return;
       if (evt.kind === 'note') {
@@ -84,11 +87,11 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
       window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [learning, element?.id]);
+  }, [mode, learning, element?.id]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!element) return;
+      if (mode === 'edit' || !element) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input,textarea,select')) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
@@ -98,7 +101,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [element?.id]);
+  }, [mode, element?.id]);
 
   if (!element) {
     return (
@@ -110,6 +113,8 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     );
   }
 
+  const showLayout = mode !== 'edit';
+  const showMapping = mode !== 'layout';
   const bindingType = currentBindingType(element);
   const inputs = midiDevices.filter((d) => d.type === 'input');
   const bindingNumber =
@@ -177,13 +182,23 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className={classTitle}>Screen Control Inspector</h2>
-        <button className="text-[11px] text-red-300 hover:text-red-200" onClick={() => onRemove(element.id)}>
-          Remover
-        </button>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className={classTitle}>{mode === 'edit' ? 'Mapeamento do controle' : 'Screen Control Inspector'}</h2>
+          {mode === 'edit' && (
+            <p className="mt-1 text-[11px] text-slate-500">
+              {element.label} · {element.type}. Aparência e atribuição MIDI ficam no Layout.
+            </p>
+          )}
+        </div>
+        {mode !== 'edit' && (
+          <button className="text-[11px] text-red-300 hover:text-red-200" onClick={() => onRemove(element.id)}>
+            Remover
+          </button>
+        )}
       </div>
 
+      {showLayout && (
       <section className="space-y-2">
         <h3 className={classTitle}>Hardware Input</h3>
         <button
@@ -274,7 +289,9 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           </select>
         </label>
       </section>
+      )}
 
+      {showMapping && (
       <section className="space-y-2">
         <h3 className={classTitle}>Send Value to (plugin)</h3>
         <button
@@ -343,7 +360,10 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           </div>
         )}
       </section>
+      )}
 
+      {showLayout && (
+      <>
       <section className="space-y-2">
         <h3 className={classTitle}>Settings</h3>
         <label className={classLabel}>Name
@@ -418,7 +438,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
         </label>
       </section>
 
-      {element.type === 'keyboard' && (
+      {showLayout && element.type === 'keyboard' && (
         <section className="space-y-2">
           <h3 className={classTitle}>Teclado</h3>
           <div className="grid grid-cols-2 gap-2">
@@ -540,7 +560,10 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           )}
         </section>
       )}
+      </>
+      )}
 
+      {showLayout && (
       <section className="grid grid-cols-3 gap-2">        <button className="rounded border border-slate-700 px-2 py-1.5 text-[11px] hover:bg-slate-800" onClick={() => onDuplicate(element.id)} title="Duplicar (Ctrl+D)">
           Duplicar
         </button>
@@ -551,6 +574,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           Trás
         </button>
       </section>
+      )}
     </div>
   );
 };

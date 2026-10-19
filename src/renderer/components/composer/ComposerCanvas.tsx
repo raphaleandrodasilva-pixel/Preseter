@@ -12,6 +12,8 @@ interface ComposerCanvasProps {
   selectedId: string | null;
   armed: boolean;
   locked: boolean;
+  /** No Edit o controle pode ser selecionado, mas não arrastado/redimensionado. */
+  movable?: boolean;
   interactivePreview: boolean;
   channel: number;
   onCanvasClick: (x: number, y: number) => void;
@@ -79,12 +81,13 @@ interface CanvasElementProps {
   element: UiElement;
   selected: boolean;
   locked: boolean;
+  movable: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
 }
 
-const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked, onSelect, onMove, onResize }) => {
+const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked, movable, onSelect, onMove, onResize }) => {
   const drag = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const resizing = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
 
@@ -93,9 +96,10 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
       onPointerDown={(event) => {
         if (locked) return;
         if ((event.target as HTMLElement).closest('input,button,[data-resize]')) return;
+        onSelect(element.id);
+        if (!movable) return;
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         drag.current = { startX: event.clientX, startY: event.clientY, originX: element.x, originY: element.y };
-        onSelect(element.id);
       }}
       onPointerMove={(event) => {
         const d = drag.current;
@@ -113,9 +117,9 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
         drag.current = null;
         resizing.current = null;
       }}
-      className={`absolute flex cursor-move select-none flex-col items-center justify-center rounded-lg border px-2 py-1 text-center shadow-lg ${
-        selected ? 'ring-2' : ''
-      } ${element.type === 'label' ? 'border-transparent bg-transparent' : ''}`}
+      className={`absolute flex select-none flex-col items-center justify-center rounded-lg border px-2 py-1 text-center shadow-lg ${
+        movable ? 'cursor-move' : 'cursor-pointer'
+      } ${selected ? 'ring-2' : ''} ${element.type === 'label' ? 'border-transparent bg-transparent' : ''}`}
       style={{
         left: element.x,
         top: element.y,
@@ -128,7 +132,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
       }}
     >
       <PreviewShape element={element} />
-      {selected && !locked && (
+      {selected && !locked && movable && (
         <span
           data-resize
           title="Redimensionar"
@@ -163,6 +167,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   selectedId,
   armed,
   locked,
+  movable = true,
   interactivePreview,
   channel,
   onCanvasClick,
@@ -228,6 +233,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               element={element}
               selected={element.id === selectedId}
               locked={locked}
+              movable={movable}
               onSelect={onSelect}
               onMove={onMove}
               onResize={onResize}
