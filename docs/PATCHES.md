@@ -12,7 +12,7 @@ Ver também: `docs/ROADMAP.md` (fase 5.5, Patch Library) e `docs/COLECAO.md`
 
 | Sigla | Instrumento | Formato | Licença |
 |---|---|---|---|
-| SFZ | sfizz (leitor) + bibliotecas SFZ | VST3 | sfizz: BSD-2. Cada biblioteca tem licença própria |
+| SFZ | **sforzando** (escolha do dono do projeto) ou sfizz, + bibliotecas SFZ | VST3 | sforzando: freeware (Plogue), **não é open source** e não deve ser redistribuído junto do Preseter; sfizz: BSD-2. Cada biblioteca tem licença própria |
 | SURGE | Surge XT | VST3 | GPLv3 |
 | DEXED | Dexed (estilo DX7) | VST3 | GPLv3 |
 | ODIN | Odin 2 | VST3 | GPLv3 |
