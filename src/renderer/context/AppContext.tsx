@@ -386,6 +386,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLoadedPlugins((prev) => prev.filter((p) => (p.layerId ?? p.id) !== pluginId));
     });
 
+    // O main já escaneia os VSTs no startup; aqui sincronizamos a lista
+    // inicial e acompanhamos o resultado do scan em andamento.
+    window.electronAPI.onVstScanned((plugins) => {
+      if (Array.isArray(plugins)) setScannedPlugins(plugins);
+    });
+    void window.electronAPI.vstList()
+      .then((plugins) => {
+        if (Array.isArray(plugins) && plugins.length > 0) setScannedPlugins(plugins);
+      })
+      .catch(() => {
+        // O evento vst-scanned continua sendo a fonte quando o scan terminar.
+      });
+
     window.electronAPI.onParameterChanged((data) => {
       // Atualizar parâmetro visual
       setLoadedPlugins((prev) =>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { PatchLcd } from '../hardware/PatchLcd';
 
 export type ConcertMode = 'layout' | 'edit' | 'perform';
@@ -44,30 +44,6 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
   onPanic,
   onOpenSettings,
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
-
-  const openTab = (tab: SettingsTab) => {
-    setMenuOpen(false);
-    onOpenSettings(tab);
-  };
-
   const midiActive = !!midiLastMessage;
 
   return (
@@ -112,55 +88,20 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
       <PatchLcd programNumber={programNumber} patchName={currentPresetName} tempo={tempo} />
 
       <div className="flex items-center justify-end gap-2 text-[11px]">
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            title="Configurações — MIDI e VST"
-            className="hw-squarebtn flex items-center gap-2 px-3 py-1.5 text-xs"
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{
-                background: midiActive ? '#30D158' : '#636366',
-                boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
-              }}
-            />
-            Configurações
-            <span style={{ color: '#9A9AA0' }}>▾</span>
-          </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl"
-              style={{ background: '#2C2C2E', border: '1px solid #3A3A3C', boxShadow: '0 18px 45px rgba(0,0,0,0.6)' }}
-            >
-              <button
-                onClick={() => openTab('midi')}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs"
-                style={{ color: '#EDEDEF' }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{
-                    background: midiActive ? '#30D158' : '#636366',
-                    boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
-                  }}
-                />
-                <span className="flex-1">Dispositivos MIDI</span>
-                <span style={{ color: '#9A9AA0' }}>→</span>
-              </button>
-              <div style={{ height: 1, background: '#3A3A3C' }} />
-              <button
-                onClick={() => openTab('vst')}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs"
-                style={{ color: '#EDEDEF' }}
-              >
-                <span className="hw-label" style={{ fontSize: 9 }}>VST</span>
-                <span className="flex-1">Plugins VST</span>
-                <span style={{ color: '#9A9AA0' }}>→</span>
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => onOpenSettings('general')}
+          title="Configurações"
+          className="hw-squarebtn flex items-center gap-2 px-3 py-1.5 text-xs"
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{
+              background: midiActive ? '#30D158' : '#636366',
+              boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
+            }}
+          />
+          Configurações
+        </button>
 
         <label
           className="hw-squarebtn flex items-center gap-1.5 px-2.5 py-1.5"

@@ -397,7 +397,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               <section>
                 <h4 className="hw-label mb-2">Disponíveis ({scannedPlugins.length})</h4>
                 <div className="max-h-48 space-y-1.5 overflow-y-auto">
-                  {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin. Escaneie os diretórios VST3.</p>}
+                  {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin ainda. O app escaneia os diretórios VST3 automaticamente ao iniciar; aguarde ou clique em Escanear plugins VST3.</p>}
                   {scannedPlugins.map((p) => {
                     const loadedCount = loadedPlugins.filter((l) => l.id === p.id).length;
                     return (

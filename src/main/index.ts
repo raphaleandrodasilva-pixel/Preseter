@@ -93,6 +93,7 @@ class MainWindow {
     this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
+    this.vstManager.on('scanned', (plugins) => this.sendToRenderer('vst-scanned', plugins));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
     this.vstPresetLibrary.on('changed', (result) => this.sendToRenderer('vst-presets-updated', result));
     this.vstManager.on('engine-crashed', (error: unknown) => {

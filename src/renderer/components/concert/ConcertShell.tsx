@@ -1770,8 +1770,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           </button>
           <button
             className="hw-squarebtn px-3 py-1.5 text-xs"
-            onClick={() => setSettingsTab('midi')}
-            title="Configurações — MIDI e VST"
+            onClick={() => setSettingsTab('general')}
+            title="Configurações"
           >
             Configurações
           </button>

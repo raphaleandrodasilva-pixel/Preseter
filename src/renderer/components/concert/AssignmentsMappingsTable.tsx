@@ -8,6 +8,7 @@ import type {
   PresetSet,
   VstPluginInfo,
 } from '@shared/types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface AssignmentsMappingsTableProps {
   mappings: ConcertMapping[];
@@ -140,28 +141,15 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
     (level === 'set' && !currentSet) || (level === 'patch' && !currentPatch);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    <ModalShell
+      label="Configurações"
+      title="Assignments & Mappings"
+      lcd="concert → set → patch"
+      onClose={onClose}
+      maxWidth="max-w-5xl"
+      maxHeight="max-h-[85vh]"
     >
-      <div
-        className="flex max-h-[85vh] w-full max-w-5xl flex-col rounded-xl shadow-2xl"
-        style={{ border: '1px solid #3A3A3C', background: '#1F1F21' }}
-      >
-        <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: '#303032' }}>
-          <div className="text-sm font-semibold text-white">Assignments &amp; Mappings</div>
-          <span className="text-[11px]" style={{ color: '#8E8E93' }}>
-            concert → set → patch (o mais específico vence)
-          </span>
-          <button
-            className="ml-auto rounded px-2 py-1 text-xs text-slate-300 hover:text-white"
-            onClick={onClose}
-          >
-            Fechar
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className="p-4">
           <table className="w-full min-w-[720px] border-collapse text-left text-xs">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: '#8E8E93' }}>
@@ -315,7 +303,6 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </ModalShell>
   );
 };
