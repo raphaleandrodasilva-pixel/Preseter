@@ -135,7 +135,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
         });
       }
     } else {
-      const element = makeElement(item.type, 0, 0, item.label, item.orientation);
+      const element = makeElement(item.type, 0, 0, item.label, item.orientation, item);
       element.x = snap8(Math.max(0, x - element.width / 2));
       element.y = snap8(Math.max(0, y - element.height / 2));
       created.push(element);

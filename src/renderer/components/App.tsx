@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { EffectiveStrip, Preset } from '@shared/types';
 import { resolveStrips } from '@shared/concert-strips';
+import { createDefaultKeyboardLayout } from '@shared/default-layout';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
@@ -29,6 +30,7 @@ const AppContent: React.FC = () => {
     concertStrips,
     sets,
     layout,
+    updateConcertLayout,
   } = context;
 
   const [mode, setMode] = useState<ConcertMode>('edit');
@@ -61,11 +63,15 @@ const AppContent: React.FC = () => {
     const nextProgram =
       Array.from({ length: 128 }, (_, i) => i).find((pg) => !usedPrograms.has(pg)) ?? 0;
     const base = createPreset('Novo patch', nextProgram);
+    const nextLayout = layout && layout.elements.length > 0
+      ? layout
+      : createDefaultKeyboardLayout(layout?.tempo ?? 120);
+    if (!layout || layout.elements.length === 0) updateConcertLayout(nextLayout);
     const siblings = presets.filter((p) => (p.setId ?? undefined) === setId);
     const nextOrder = siblings.reduce((max, p) => Math.max(max, p.setOrder ?? 0), -1) + 1;
     setDraft({
       ...base,
-      layout: layout ?? base.layout,
+      layout: nextLayout,
       mappings: {},
       setId,
       setOrder: nextOrder,

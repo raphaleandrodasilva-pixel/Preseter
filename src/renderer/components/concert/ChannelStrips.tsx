@@ -62,6 +62,10 @@ interface ChannelStripsProps {
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
   onCopy: (assignment: PresetPluginAssignment, layerId: string) => Promise<boolean>;
+  /** Troca o instrumento de um channel strip existente, preservando o strip. */
+  onReplace: (assignment: PresetPluginAssignment, layerId: string, plugin: VstPluginInfo) => Promise<boolean>;
+  /** Layer que deve ser selecionado após criar/carregar um instrumento. */
+  focusLayerId?: string | null;
   onAddInsert: (layerId: string, slot: number, plugin: VstPluginInfo) => Promise<boolean>;
   onRemoveInsert: (layerId: string, slot: number) => Promise<void>;
   onToggleInsertBypass: (layerId: string, slot: number, bypass: boolean) => Promise<void>;
@@ -71,6 +75,8 @@ interface ChannelStripsProps {
   onSetLayerOutput: (layerId: string, output: number) => void;
   /** Barramentos do concert (Fase 3.2). */
   onSetBusMix: (bus: string, update: BusMixUpdate) => void;
+  onAddAux: () => void;
+  onRemoveAux: (index: number) => void;
   onAddBusInsert: (bus: string, slot: number, plugin: VstPluginInfo) => Promise<boolean>;
   onRemoveBusInsert: (bus: string, slot: number) => Promise<void>;
   onToggleBusInsertBypass: (bus: string, slot: number, bypass: boolean) => Promise<void>;
@@ -95,8 +101,11 @@ interface ChannelStripsProps {
   onSetMasterMix: (update: MasterMixUpdate) => void;
 }
 
-/** Onde o seletor de plugins está carregando: num layer do patch ou num strip herdado. */
-type PickerTarget = { kind: 'layer' } | { kind: 'strip'; level: 'concert' | 'set' };
+/** Onde o seletor de plugins está carregando: num layer do patch, num strip herdado ou trocando um instrumento. */
+type PickerTarget =
+  | { kind: 'layer' }
+  | { kind: 'strip'; level: 'concert' | 'set' }
+  | { kind: 'replace'; assignment: PresetPluginAssignment; layerId: string };
 
 const layerIdFor = (preset: Preset, assignment: PresetPluginAssignment, index: number) =>
   assignment.layerId ?? `${preset.id}:layer:${index}`;
@@ -194,6 +203,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onAdd,
   onRemove,
   onCopy,
+  onReplace,
+  focusLayerId,
   onAddInsert,
   onRemoveInsert,
   onToggleInsertBypass,
@@ -201,6 +212,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetSend,
   onSetLayerOutput,
   onSetBusMix,
+  onAddAux,
+  onRemoveAux,
   onAddBusInsert,
   onRemoveBusInsert,
   onToggleBusInsertBypass,
@@ -218,6 +231,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetMasterMix,
 }) => {
   const plugins = preset?.plugins ?? [];
+  const visibleAux = (busSettings?.aux ?? [])
+    .map((bus, index) => ({ bus, index: index + 1 }))
+    .filter(({ bus }) => bus.enabled === true || (bus.enabled === undefined && bus.inserts.length > 0));
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -269,6 +285,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       setSelectedLayerId(layers[0]?.layerId ?? null);
     }
   }, [selectedLayerId, layers]);
+
+  useEffect(() => {
+    if (focusLayerId && layers.some((layer) => layer.layerId === focusLayerId)) {
+      setSelectedLayerId(focusLayerId);
+    }
+  }, [focusLayerId, layers]);
 
   const withLoadingMessage = async (action: () => Promise<boolean>) => {
     setBusy(true);
@@ -649,9 +671,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     <div className="mt-2">
       <span className="hw-label" style={{ fontSize: 8 }}>SENDS (Aux)</span>
       <div className="mt-1 space-y-0.5">
-        {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
-          const aux = index + 1;
-          const level = options.sends[index] ?? SEND_OFF_DB;
+        {visibleAux.length === 0 && (
+          <div className="text-[8px]" style={{ color: '#636366' }}>Nenhum Aux criado.</div>
+        )}
+        {visibleAux.map(({ index }) => {
+          const aux = index;
+          const level = options.sends[index - 1] ?? SEND_OFF_DB;
           const active = level > SEND_OFF_DB;
           return (
             <label
@@ -725,6 +750,20 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             {kind === 'aux' ? 'AUX' : 'OUT'}
           </span>
           <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={label}>{label}</span>
+          {kind === 'aux' && (
+            <button
+              type="button"
+              className="px-1 text-[10px]"
+              style={{ color: '#8E8E93' }}
+              title={`Remover ${label}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemoveAux(Number(ownerId.replace('aux', '')) - 1);
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <div className="mt-2 flex items-center justify-center gap-2">
           <div
@@ -1119,11 +1158,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </span>
         )}
         {picker && (() => {
-          const isLayerPicker = picker.kind === 'layer';
+          const isLayerPicker = picker.kind === 'layer' || picker.kind === 'replace';
           const list = isLayerPicker ? instruments : scannedPlugins;
-          const title = isLayerPicker
-            ? 'Carregar instrumento'
-            : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
+          const title = picker.kind === 'replace'
+            ? `Trocar VST de ${picker.assignment.name}`
+            : isLayerPicker
+              ? 'Carregar instrumento'
+              : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
           return (
             <div className="absolute left-2 right-2 top-full z-50 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
               <div className="mb-1 flex items-center justify-between px-1">
@@ -1141,9 +1182,11 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   disabled={busy}
                   className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
                   onClick={() => void withLoadingMessage(async () => {
-                    const added = picker.kind === 'layer'
-                      ? await onAdd(plugin)
-                      : await onAddStrip(picker.level, plugin);
+                    const added = picker.kind === 'replace'
+                      ? await onReplace(picker.assignment, picker.layerId, plugin)
+                      : picker.kind === 'layer'
+                        ? await onAdd(plugin)
+                        : await onAddStrip(picker.level, plugin);
                     if (added) setPicker(null);
                     return added;
                   })}
@@ -1192,10 +1235,21 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 }}
                 onClick={() => setSelectedLayerId(layerId)}
               >
-                <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 border-b pb-1.5 text-left"
+                  style={{ borderColor: '#3A3A3C', cursor: editable ? 'pointer' : 'default' }}
+                  title={editable ? 'Trocar VST deste channel strip' : assignment.name}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedLayerId(layerId);
+                    if (editable) openPicker({ kind: 'replace', assignment, layerId });
+                  }}
+                >
                   <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>INST</span>
-                  <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={assignment.name}>{assignment.name}</span>
-                </div>
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">{assignment.name}</span>
+                  {editable && <span style={{ color: '#9A9AA0' }}>▾</span>}
+                </button>
                 <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
                   Insert: {loaded ? 'VST3' : 'Carregando…'}
                 </div>
@@ -1297,8 +1351,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           })}
           {busSettings && (
             <>
-              {busSettings.aux.slice(0, MAX_AUX_BUSES).map((bus, index) =>
-                renderBusStrip(`aux${index + 1}`, `Aux ${index + 1}`, 'aux', bus)
+              <button
+                type="button"
+                className="hw-squarebtn flex h-[72px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl px-2 text-[10px] font-semibold disabled:opacity-40"
+                disabled={!editable || visibleAux.length >= MAX_AUX_BUSES}
+                onClick={onAddAux}
+                title="Criar um novo Aux"
+              >
+                ＋ Aux
+              </button>
+              {visibleAux.map(({ bus, index }) =>
+                renderBusStrip(`aux${index}`, `Aux ${index}`, 'aux', bus)
               )}
               {busSettings.outputs.slice(0, MAX_OUTPUT_BUSES).map((bus, index) =>
                 renderBusStrip(`output${index + 1}`, `Output ${index + 1}`, 'output', bus)

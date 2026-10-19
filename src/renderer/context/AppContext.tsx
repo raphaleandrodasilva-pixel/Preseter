@@ -905,19 +905,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const sendMidiMessage = useCallback(async (message: number[]) => {
     let externalSent = false;
-    try {
-      externalSent = await webMidi.current!.send(message);
-    } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar MIDI para a saída externa.');
+    let externalError: string | null = null;
+    // A saída MIDI externa é opcional: o teclado da tela toca o engine
+    // interno mesmo sem nenhum dispositivo MIDI conectado.
+    if (webMidi.current?.hasSelectedOutput()) {
+      try {
+        externalSent = await webMidi.current.send(message);
+      } catch (error) {
+        externalError = error instanceof Error ? error.message : 'Falha ao enviar MIDI para a saída externa.';
+      }
     }
 
     try {
       const engineSent = await window.electronAPI.engineMidi(message);
-      if (externalSent || engineSent) setMidiError(null);
+      if (engineSent) setMidiError(externalError);
+      else if (externalError) setMidiError(externalError);
       return externalSent || engineSent;
     } catch (error) {
       if (!externalSent) {
-        setMidiError(error instanceof Error ? error.message : 'Falha ao enviar MIDI ao engine.');
+        setMidiError(
+          externalError
+            ?? (error instanceof Error ? error.message : 'Falha ao enviar MIDI ao engine.')
+        );
       }
       return externalSent;
     }

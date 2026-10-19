@@ -440,6 +440,12 @@ export class VstPresetLibrary extends EventEmitter {
     const preset = this.index.presets.find((item) => item.id === presetId);
     if (!preset) throw new Error('Preset não encontrado.');
 
+    if (preset.source === 'vital') {
+      throw new Error(
+        'Presets .vital não podem ser aplicados diretamente no VST3. Carregue o preset no Vital e use "Salvar som atual".'
+      );
+    }
+
     if (preset.source === 'program') {
       if (preset.programIndex === undefined) throw new Error('Programa interno inválido.');
       return vst.setPluginProgram(layerId, preset.programIndex);
@@ -448,12 +454,6 @@ export class VstPresetLibrary extends EventEmitter {
     if (preset.source === 'vstpreset') {
       if (!preset.filePath) throw new Error('Arquivo .vstpreset não informado.');
       return vst.setPluginPresetFile(layerId, preset.filePath);
-    }
-
-    if (preset.source === 'vital') {
-      if (!preset.filePath) throw new Error('Arquivo .vital não informado.');
-      const raw = fs.readFileSync(preset.filePath);
-      return vst.applyRawState(layerId, raw.toString('base64'));
     }
 
     if (preset.source === 'snapshot') {

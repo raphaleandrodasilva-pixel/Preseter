@@ -28,6 +28,8 @@ export class VstManager extends EventEmitter {
   private loadedPlugins = new Map<string, VstPluginInfo>();
   /** Fila para serializar cargas concorrentes de plugins. */
   private loadQueue: Promise<unknown> = Promise.resolve();
+  /** Serializa varreduras de VST3 (startup, watcher e botão manual). */
+  private scanPromise: Promise<VstPluginInfo[]> | null = null;
 
   constructor() {
     super();
@@ -46,17 +48,24 @@ export class VstManager extends EventEmitter {
   }
 
   async scanDefaultDirectories(): Promise<VstPluginInfo[]> {
-    const result = await this.engine.request('scan', { rescan: false }, 10 * 60 * 1000);
-    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
-    this.emit('scanned', this.scannedPlugins);
-    return this.scannedPlugins;
+    return this.runScan({ rescan: false });
   }
 
   async scanDirectories(directories: string[]): Promise<VstPluginInfo[]> {
-    const result = await this.engine.request('scan', { paths: directories, rescan: false }, 10 * 60 * 1000);
-    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
-    this.emit('scanned', this.scannedPlugins);
-    return this.scannedPlugins;
+    return this.runScan({ paths: directories, rescan: false });
+  }
+
+  private runScan(args: { paths?: string[]; rescan?: boolean }): Promise<VstPluginInfo[]> {
+    if (this.scanPromise) return this.scanPromise;
+    this.scanPromise = (async () => {
+      const result = await this.engine.request('scan', args, 10 * 60 * 1000);
+      this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+      this.emit('scanned', this.scannedPlugins);
+      return this.scannedPlugins;
+    })().finally(() => {
+      this.scanPromise = null;
+    });
+    return this.scanPromise;
   }
 
   async loadPlugin(

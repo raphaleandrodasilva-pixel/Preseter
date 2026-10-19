@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, session, Menu, MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, session, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
@@ -58,6 +58,8 @@ function samePluginPath(a: unknown, b: unknown): boolean {
 
 class MainWindow {
   private window: BrowserWindow | null = null;
+  private splash: BrowserWindow | null = null;
+  private splashShownAt = 0;
   private vstManager: VstManager;
   private vstPresetLibrary: VstPresetLibrary;
   private vstWatchers: fs.FSWatcher[] = [];
@@ -113,7 +115,9 @@ class MainWindow {
 
     // Configurar eventos do app
     app.whenReady().then(() => {
+      app.setAppUserModelId('com.preseter.app');
       this.configureMidiPermissions();
+      this.createSplash();
       this.createWindow();
       this.buildMenu();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
@@ -143,8 +147,67 @@ class MainWindow {
         try { watcher.close(); } catch { /* ignora */ }
       }
       this.vstWatchers = [];
+      if (this.splash && !this.splash.isDestroyed()) this.splash.close();
+      this.splash = null;
       void this.vstManager.shutdown().finally(() => app.quit());
     });
+  }
+
+  private iconPath(): string {
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'icon.png')
+      : path.join(app.getAppPath(), 'build', 'icon.png');
+  }
+
+  private createSplash(): void {
+    const icon = nativeImage.createFromPath(this.iconPath());
+    if (icon.isEmpty()) return;
+    const dataUrl = icon.toDataURL();
+    const splash = new BrowserWindow({
+      width: 420,
+      height: 320,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      show: false,
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: false },
+    });
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+      html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:system-ui,sans-serif}
+      .wrap{height:100%;display:flex;align-items:center;justify-content:center}
+      .card{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        background:linear-gradient(to bottom,#232326,#1A1A1C);border-radius:18px;border:1px solid #3A3A3C;
+        box-shadow:0 24px 70px rgba(0,0,0,.7)}
+      img{width:210px;height:210px;object-fit:contain;border-radius:16px}
+      .name{margin-top:14px;color:#EDEDEF;font-size:18px;font-weight:700;letter-spacing:.08em}
+      .hint{margin-top:4px;color:#8E8E93;font-size:11px}
+    </style></head><body><div class="wrap"><div class="card">
+      <img src="${dataUrl}" alt="Preseter"><div class="name">PRESETER</div>
+      <div class="hint">carregando…</div>
+    </div></div></body></html>`;
+    void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    this.splashShownAt = Date.now();
+    splash.showInactive();
+    splash.once('ready-to-show', () => {
+      if (!splash.isDestroyed()) splash.showInactive();
+    });
+    splash.on('closed', () => {
+      if (this.splash === splash) this.splash = null;
+    });
+    this.splash = splash;
+  }
+
+  private closeSplash(): void {
+    const splash = this.splash;
+    if (!splash) return;
+    const elapsed = Date.now() - this.splashShownAt;
+    const delay = Math.max(0, 700 - elapsed);
+    setTimeout(() => {
+      if (this.splash === splash && !splash.isDestroyed()) splash.close();
+      if (this.splash === splash) this.splash = null;
+    }, delay);
   }
 
   private createWindow(): void {
@@ -154,6 +217,8 @@ class MainWindow {
       minWidth: 1200,
       minHeight: 700,
       backgroundColor: '#111827',
+      show: false,
+      icon: this.iconPath(),
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
@@ -169,6 +234,15 @@ class MainWindow {
       `file://${path.join(__dirname, '../renderer/index.html')}`;
 
     this.window.loadURL(startUrl);
+
+    this.window.once('ready-to-show', () => {
+      this.window?.show();
+      this.closeSplash();
+    });
+    this.window.webContents.on('did-fail-load', () => {
+      this.window?.show();
+      this.closeSplash();
+    });
 
     // Enviar status inicial
     this.window.webContents.on('did-finish-load', () => {

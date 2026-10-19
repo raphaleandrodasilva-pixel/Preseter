@@ -26,6 +26,7 @@ import {
 } from '../../shared/constants';
 import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES } from '../../shared/types';
 import { migrateConcertLayout } from '../../shared/concert-layout';
+import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 
 const PAN_LAWS: readonly PanLaw[] = [0, -3, -4.5, -6];
 
@@ -72,15 +73,16 @@ function toTimestamp(value: unknown): number {
 }
 
 /** Barramento padrão ("Aux 1".."Aux 4" / "Output 1".."Output 4"), sem inserts (Fase 3.2). */
-export function createDefaultBus(): BusSettings {
-  return { volumeDb: 0, pan: 0, muted: false, output: 1, inserts: [] };
+export function createDefaultBus(enabled = true): BusSettings {
+  return { volumeDb: 0, pan: 0, muted: false, output: 1, inserts: [], enabled };
 }
 
 /** Barramentos Aux/Output padrão de um concert (Fase 3.2). */
 export function createDefaultBuses(): ConcertBusSettings {
   return {
-    aux: Array.from({ length: MAX_AUX_BUSES }, () => createDefaultBus()),
-    outputs: Array.from({ length: MAX_OUTPUT_BUSES }, () => createDefaultBus()),
+    // Aux começa vazio: o usuário cria com "+ Aux" quando precisar.
+    aux: Array.from({ length: MAX_AUX_BUSES }, () => createDefaultBus(false)),
+    outputs: Array.from({ length: MAX_OUTPUT_BUSES }, () => createDefaultBus(true)),
   };
 }
 
@@ -127,7 +129,7 @@ export function createEmptyConcertFile(name?: string, tempo?: number): PreseterC
     concert: createEmptyConcert(name, tempo),
     sets: [],
     patches: [],
-    layout: createEmptyLayout(tempo),
+    layout: createDefaultKeyboardLayout(tempo),
     mappings: [],
   };
 }
@@ -291,14 +293,23 @@ function normalizeBuses(value: unknown, defaults: ConcertBusSettings): ConcertBu
 }
 
 function normalizeBus(value: unknown, fallback: BusSettings): BusSettings {
-  if (!isObject(value)) return { ...fallback, inserts: [] };
+  if (!isObject(value)) return { ...fallback, inserts: [], enabled: fallback.enabled ?? true };
   const volumeDb = toFiniteNumber(value.volumeDb, fallback.volumeDb);
+  const inserts = Array.isArray(value.inserts) ? (value.inserts.filter(isObject) as unknown as BusSettings['inserts']) : [];
+  const hasData =
+    inserts.length > 0 ||
+    volumeDb !== 0 ||
+    toFiniteNumber(value.pan, 0) !== 0 ||
+    value.muted === true;
   return {
     volumeDb: volumeDb >= -60 && volumeDb <= 6 ? volumeDb : fallback.volumeDb,
     pan: Math.max(-1, Math.min(1, toFiniteNumber(value.pan, fallback.pan))),
     muted: toBoolean(value.muted, fallback.muted),
     output: Math.max(1, Math.min(MAX_OUTPUT_BUSES, toInteger(value.output, fallback.output))),
-    inserts: Array.isArray(value.inserts) ? (value.inserts.filter(isObject) as unknown as BusSettings['inserts']) : [],
+    inserts,
+    enabled: typeof value.enabled === 'boolean'
+      ? value.enabled
+      : (fallback.enabled === false ? hasData : true),
   };
 }
 

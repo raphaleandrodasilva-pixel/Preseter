@@ -12,6 +12,7 @@ import type {
   StripAttribute,
   UiElement,
   VstPluginInfo,
+  VstPreset,
   AudioInputSettings,
   AudioInputState,
   ConcertMapping,
@@ -188,6 +189,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   } = ctx;
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  type PresetLoadResult = { ok: boolean; message: string };
+  const pendingPresetRef = useRef<{
+    preset: VstPreset;
+    resolve: (result: PresetLoadResult) => void;
+  } | null>(null);
   const currentPresetRef = useRef(currentPreset);
   currentPresetRef.current = currentPreset;
   const [liveValues, setLiveValues] = useState<Record<string, number>>({});
@@ -209,6 +215,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [focusLayerId, setFocusLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
@@ -233,6 +240,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
 
   const activePreset = draft ?? currentPreset;
+  const selectedLoadedPlugin = selectedLayerId
+    ? loadedPlugins.find((plugin) => plugin.layerId === selectedLayerId) ?? null
+    : null;
   /** Patches copiados na Patch List (Fase 5.1). */
   const patchClipboard = useRef<Preset[]>([]);
 
@@ -811,6 +821,128 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onError('');
     return true;
   };
+
+  /** Carrega um preset criando um channel strip novo. */
+  const performPresetLoad = async (
+    preset: VstPreset,
+    patch: Preset
+  ): Promise<PresetLoadResult> => {
+    const plugin =
+      scannedPlugins.find(
+        (item) =>
+          item.id === preset.pluginId ||
+          item.path === preset.pluginPath ||
+          item.name === preset.pluginName
+      ) ?? null;
+    if (!plugin) {
+      return { ok: false, message: `Plugin "${preset.pluginName}" não encontrado. Reescaneie os VSTs.` };
+    }
+
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const loaded = await loadVstPlugin(plugin.path, layerId, 0, 127);
+    if (!loaded) {
+      return { ok: false, message: `Não foi possível carregar "${plugin.name}".` };
+    }
+
+    if (preset.source === 'vital') {
+      const assignment: PresetPluginAssignment = {
+        pluginId: plugin.id,
+        layerId,
+        name: plugin.name,
+        path: plugin.path,
+        role: 'instrument',
+        minNote: 0,
+        maxNote: 127,
+      };
+      onDraftChange({
+        ...patch,
+        plugins: [...(patch.plugins ?? []), assignment],
+        updatedAt: Date.now(),
+      });
+      setFocusLayerId(layerId);
+      if (mode !== 'edit') onModeChange('edit');
+      return {
+        ok: true,
+        message: `Channel strip criado. O preset .vital não é aplicável diretamente; use "Salvar som atual".`,
+      };
+    }
+
+    try {
+      const applied = await window.electronAPI.vstPresetApply(preset.id, layerId);
+      if (!applied) throw new Error('O plugin não confirmou a aplicação do preset.');
+    } catch (error) {
+      await unloadVstPlugin(layerId);
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Falha ao aplicar o preset.',
+      };
+    }
+
+    const assignment: PresetPluginAssignment = {
+      pluginId: plugin.id,
+      layerId,
+      name: plugin.name,
+      path: plugin.path,
+      role: 'instrument',
+      minNote: 0,
+      maxNote: 127,
+    };
+    onDraftChange({
+      ...patch,
+      plugins: [...(patch.plugins ?? []), assignment],
+      updatedAt: Date.now(),
+    });
+    setFocusLayerId(layerId);
+    if (mode !== 'edit') onModeChange('edit');
+    return { ok: true, message: `Preset "${preset.name}" carregado.` };
+  };
+
+  const loadPresetAsNewStrip = (preset: VstPreset): Promise<PresetLoadResult> => {
+    if (draft) return performPresetLoad(preset, draft);
+    return new Promise((resolve) => {
+      pendingPresetRef.current = { preset, resolve };
+      onNewPatch();
+    });
+  };
+
+  const applyPresetToSelected = async (preset: VstPreset): Promise<PresetLoadResult> => {
+    if (!selectedLayerId) {
+      return { ok: false, message: 'Selecione um channel strip para aplicar o preset.' };
+    }
+    if (preset.source === 'vital') {
+      return {
+        ok: false,
+        message: 'Presets .vital não são aplicáveis diretamente. Use "Salvar som atual" no Vital.',
+      };
+    }
+    if (selectedLoadedPlugin && preset.pluginId && preset.pluginId !== selectedLoadedPlugin.id) {
+      return {
+        ok: false,
+        message: `Este preset é do plugin "${preset.pluginName}". Troque o VST do strip ou crie outro.`,
+      };
+    }
+    try {
+      const applied = await window.electronAPI.vstPresetApply(preset.id, selectedLayerId);
+      return applied
+        ? { ok: true, message: `Preset "${preset.name}" aplicado.` }
+        : { ok: false, message: 'O preset não pôde ser aplicado.' };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Falha ao aplicar o preset.',
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (!draft || !pendingPresetRef.current) return;
+    const pending = pendingPresetRef.current;
+    pendingPresetRef.current = null;
+    void performPresetLoad(pending.preset, draft).then((result) => pending.resolve(result));
+  }, [draft]);
+
   const removeLayer = async (assignment: PresetPluginAssignment, layerId: string) => {
     if (!draft) return;
     const removed = await unloadVstPlugin(layerId);
@@ -876,6 +1008,99 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       return false;
     }
   };
+  /** Troca o VST de um layer mantendo o mesmo strip, mixagem, key range e inserts. */
+  const replaceLayer = async (
+    assignment: PresetPluginAssignment,
+    layerId: string,
+    plugin: VstPluginInfo
+  ): Promise<boolean> => {
+    if (!draft) return false;
+    const minNote = assignment.minNote ?? 0;
+    const maxNote = assignment.maxNote ?? 127;
+    const oldPluginId = assignment.pluginId;
+    const oldState = await window.electronAPI.vstGetState(layerId);
+    const insertStates: { slot: number; data: string }[] = [];
+    for (const insert of assignment.inserts ?? []) {
+      const state = await window.electronAPI.vstInsertStateGet(layerId, insert.slot);
+      if (state?.data) insertStates.push({ slot: insert.slot, data: state.data });
+    }
+
+    const unloaded = await unloadVstPlugin(layerId);
+    if (!unloaded) {
+      onError(`Não foi possível descarregar "${assignment.name}" para trocar o VST.`);
+      return false;
+    }
+
+    try {
+      const loaded = await loadVstPlugin(plugin.path, layerId, minNote, maxNote);
+      if (!loaded) throw new Error('O engine não confirmou o carregamento do novo plugin.');
+
+      await setVstLayerMix(layerId, assignment.mix ?? {});
+      await setVstLayerOutput(layerId, assignment.output ?? 1);
+      await window.electronAPI.vstSetLayerVelocity(
+        layerId,
+        assignment.velocityMin ?? 1,
+        assignment.velocityMax ?? 127
+      );
+      for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+        await setVstSend(layerId, aux, assignment.sends?.[aux - 1] ?? SEND_OFF_DB);
+      }
+      for (const insert of [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+        await window.electronAPI.vstInsertSet(layerId, insert.slot, insert.path, insert.bypass);
+        const saved = insertStates.find((item) => item.slot === insert.slot);
+        if (saved) await window.electronAPI.vstInsertStateSet(layerId, insert.slot, saved.data);
+      }
+
+      const mappings = { ...(draft.mappings ?? {}) };
+      let removedMappings = 0;
+      for (const [id, mapping] of Object.entries(mappings)) {
+        if (mapping.pluginId === oldPluginId || mapping.pluginPath === assignment.path) {
+          delete mappings[id];
+          removedMappings += 1;
+        }
+      }
+
+      onDraftChange({
+        ...draft,
+        plugins: (draft.plugins ?? []).map((item) =>
+          item.layerId === layerId
+            ? { ...item, pluginId: plugin.id, name: plugin.name, path: plugin.path }
+            : item
+        ),
+        mappings,
+        vstStates: Object.fromEntries(
+          Object.entries(draft.vstStates).filter(
+            ([key]) => key !== `loaded_${layerId}` && !key.startsWith(`insert_${layerId}_`)
+          )
+        ),
+        updatedAt: Date.now(),
+      });
+
+      if (removedMappings > 0) {
+        onError(`${removedMappings} mapping(s) do plugin antigo foram removidos.`);
+      } else {
+        onError('');
+      }
+      return true;
+    } catch (cause) {
+      // Tenta voltar ao plugin anterior para não deixar o strip sem som.
+      try {
+        await loadVstPlugin(assignment.path, layerId, minNote, maxNote);
+        if (oldState) await window.electronAPI.vstSetState(layerId, oldState);
+        await setVstLayerMix(layerId, assignment.mix ?? {});
+        await setVstLayerOutput(layerId, assignment.output ?? 1);
+      } catch {
+        // O erro principal abaixo já explica a falha.
+      }
+      onError(
+        `Falha ao trocar "${assignment.name}" por "${plugin.name}": ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`
+      );
+      return false;
+    }
+  };
+
   const changeLayerRange = async (
     assignment: PresetPluginAssignment,
     layerId: string,
@@ -1073,6 +1298,58 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
   };
 
+  const addAux = () => {
+    if (!concertSettings) return;
+    const aux = [...(concertSettings.buses.aux ?? [])];
+    const index = aux.findIndex(
+      (bus) => bus.enabled === false || (bus.enabled === undefined && bus.inserts.length === 0)
+    );
+    if (index < 0 || index >= MAX_AUX_BUSES) return;
+    aux[index] = { ...aux[index], enabled: true };
+    updateConcertSettings({ buses: { ...concertSettings.buses, aux } });
+  };
+
+  const removeAux = (index: number) => {
+    if (!concertSettings) return;
+    const aux = [...(concertSettings.buses.aux ?? [])];
+    if (!aux[index]) return;
+    aux[index] = {
+      ...aux[index],
+      enabled: false,
+      volumeDb: 0,
+      pan: 0,
+      muted: false,
+      output: 1,
+      inserts: [],
+    };
+    updateConcertSettings({ buses: { ...concertSettings.buses, aux } });
+
+    if (draft) {
+      onDraftChange({
+        ...draft,
+        plugins: (draft.plugins ?? []).map((plugin) => ({
+          ...plugin,
+          sends: (plugin.sends ?? []).map((value, position) =>
+            position === index ? SEND_OFF_DB : value
+          ),
+        })),
+        updatedAt: Date.now(),
+      });
+    }
+    const clearSends = <T extends { sends?: number[] }>(strip: T): T => ({
+      ...strip,
+      sends: (strip.sends ?? []).map((value, position) => position === index ? SEND_OFF_DB : value),
+    });
+    updateConcertStrips(concertStrips.map(clearSends));
+    if (currentSet) {
+      updateSet(currentSet.id, { strips: (currentSet.strips ?? []).map(clearSends) });
+    }
+    for (const plugin of loadedPlugins) {
+      const layerId = plugin.layerId ?? plugin.id;
+      void setVstSend(layerId, index + 1, SEND_OFF_DB);
+    }
+  };
+
   const changeBusMix = async (busId: string, update: BusMixUpdate) => {
     if (!await setVstBusMix(busId, update)) return;
     if (!concertSettings) return;
@@ -1141,6 +1418,25 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }),
     [concertStrips, currentSet, activePreset]
   );
+
+  /** Nível que define um strip herdado (o concert tem prioridade). */
+  const keyboardZoneColors = ['#FF9F0A', '#30D158', '#0A84FF', '#BF5AF2', '#FF453A', '#5E5CE6'];
+  const keyboardZones = useMemo(
+    () => stripViews.patch
+      .filter((strip) => strip.role === 'instrument')
+      .map((strip, index) => ({
+        id: strip.id,
+        label: strip.name,
+        low: strip.minNote ?? 0,
+        high: strip.maxNote ?? 127,
+        color: keyboardZoneColors[index % keyboardZoneColors.length],
+      })),
+    [stripViews]
+  );
+  const selectZone = (zoneId: string) => {
+    setSelectedLayerId(zoneId);
+    setFocusLayerId(zoneId);
+  };
 
   /** Nível que define um strip herdado (o concert tem prioridade). */
   const stripOwnerLevel = (stripId: string): 'concert' | 'set' =>
@@ -1457,7 +1753,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     if (item.group) {
       for (const m of item.group) created.push({ ...makeElement(m.type, snap8(x + m.dx), snap8(y + m.dy), m.label) });
     } else {
-      const el = makeElement(item.type, 0, 0, item.label, item.orientation);
+      const el = makeElement(item.type, 0, 0, item.label, item.orientation, item);
       el.x = snap8(Math.max(0, x - el.width / 2));
       el.y = snap8(Math.max(0, y - el.height / 2));
       created.push(el);
@@ -1791,7 +2087,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               </div>
               <FitToView elements={elements} topInset={64}>
                 {elements.map((el) => (
-                  <StageControl key={el.id} element={el} channel={currentPreset.midiChannel} layoutMode="absolute" activeNotes={activeNotes} onMidiMessage={onMidiMessage} onSetVstParameter={onSetVstParameter} />
+                  <StageControl key={el.id} element={el} channel={currentPreset.midiChannel} layoutMode="absolute" activeNotes={activeNotes} onMidiMessage={onMidiMessage} onSetVstParameter={onSetVstParameter} keyboardZones={keyboardZones} selectedZoneId={selectedLayerId} onZoneClick={selectZone} />
                 ))}
               </FitToView>
               {elements.length === 0 && (
@@ -1907,6 +2203,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   onResize={(id, width, height) => updateElement(id, { width, height })}
                   onMidiMessage={onMidiMessage}
                   onSetVstParameter={onSetVstParameter}
+                  keyboardZones={keyboardZones}
+                  selectedZoneId={selectedLayerId}
+                  onZoneClick={selectZone}
                 />
                 {!draft && (
                   <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid rgba(10,132,255,0.4)', background: 'rgba(10,132,255,0.08)', color: '#EDEDEF' }}>
@@ -1942,11 +2241,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               scannedParams={scannedParams}
               selectedElement={selected}
               selectedLayerId={selectedLayerId}
-              selectedPlugin={
-                (selectedLayerId
-                  ? loadedPlugins.find((plugin) => plugin.layerId === selectedLayerId)
-                  : null) ?? null
-              }
+              selectedPlugin={selectedLoadedPlugin}
+              onLoadPresetAsNewStrip={loadPresetAsNewStrip}
+              onApplyPresetToSelected={applyPresetToSelected}
               onLayerRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
               onLayerVelocityChange={(assignment, layerId, velocityMin, velocityMax) => void changeLayerVelocity(assignment, layerId, velocityMin, velocityMax)}
               transposeTotal={(activePreset?.transpose ?? 0) + (currentSet?.transpose ?? 0) + (concertSettings?.midi.transpose ?? 0)}
@@ -1994,6 +2291,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onAdd={addLayer}
             onRemove={removeLayer}
             onCopy={copyLayer}
+            onReplace={replaceLayer}
+            focusLayerId={focusLayerId}
             onAddInsert={addInsert}
             onRemoveInsert={removeInsertFromStrip}
             onToggleInsertBypass={toggleInsertBypass}
@@ -2001,6 +2300,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onSetSend={(layerId, aux, levelDb) => void changeLayerSend(layerId, aux, levelDb)}
             onSetLayerOutput={(layerId, output) => void changeLayerOutput(layerId, output)}
             onSetBusMix={(bus, update) => void changeBusMix(bus, update)}
+            onAddAux={addAux}
+            onRemoveAux={removeAux}
             onAddBusInsert={addBusInsert}
             onRemoveBusInsert={removeBusInsert}
             onToggleBusInsertBypass={toggleBusInsertBypass}

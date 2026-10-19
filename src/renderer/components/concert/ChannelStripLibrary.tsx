@@ -5,6 +5,8 @@ import { VST_PRESET_CATEGORIES } from '@shared/vst-presets';
 interface ChannelStripLibraryProps {
   selectedLayerId: string | null;
   selectedPlugin: VstPluginInfo | null;
+  onLoadPresetAsNewStrip: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
+  onApplyPresetToSelected: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
 }
 
 const EMPTY_STATUS: VstPresetLibraryStatus = { scanning: false, scanned: 0, total: 0 };
@@ -37,9 +39,12 @@ const rowClass = 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-lef
 export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
   selectedLayerId,
   selectedPlugin,
+  onLoadPresetAsNewStrip,
+  onApplyPresetToSelected,
 }) => {
   const [result, setResult] = useState<VstPresetListResult>({ presets: [], status: EMPTY_STATUS });
   const [category, setCategory] = useState('Todos');
+  const [allPlugins, setAllPlugins] = useState(false);
   const [collection, setCollection] = useState<string>('Todos');
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<string[]>(loadRecent);
@@ -66,14 +71,15 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     setSelectedId(null);
     setCollection('Todos');
     setCategory('Todos');
+    setAllPlugins(false);
   }, [selectedPlugin?.id]);
 
   const pluginPresets = useMemo(() => {
-    if (!selectedPlugin) return result.presets;
+    if (!selectedPlugin || allPlugins) return result.presets;
     return result.presets.filter(
       (preset) => preset.pluginId === selectedPlugin.id || preset.pluginName === selectedPlugin.name
     );
-  }, [result.presets, selectedPlugin]);
+  }, [result.presets, selectedPlugin, allPlugins]);
 
   const categories = useMemo(() => {
     const available = new Set(pluginPresets.map((preset) => preset.category));
@@ -145,28 +151,29 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     saveRecent(next);
   };
 
-  const applyPreset = async (preset: VstPreset) => {
+  const loadPreset = async (preset: VstPreset) => {
     setSelectedId(preset.id);
-    if (!selectedLayerId) {
-      setMessage('Selecione um channel strip no palco para aplicar o preset.');
-      return;
-    }
-    if (selectedPlugin && preset.pluginId && preset.pluginId !== selectedPlugin.id) {
-      setMessage(
-        `Este preset é do plugin “${preset.pluginName}”. Selecione um layer com esse plugin para aplicá-lo.`
-      );
-      return;
-    }
     setBusy(true);
     setMessage(null);
     try {
-      const applied = await window.electronAPI.vstPresetApply(preset.id, selectedLayerId);
-      if (!applied) {
-        setMessage('O preset não pôde ser aplicado.');
-        return;
-      }
-      markRecent(preset.id);
-      setMessage(`Preset “${preset.name}” aplicado.`);
+      const result = await onLoadPresetAsNewStrip(preset);
+      if (result.ok) markRecent(preset.id);
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao carregar o preset.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyToSelected = async (preset: VstPreset) => {
+    setSelectedId(preset.id);
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await onApplyPresetToSelected(preset);
+      if (result.ok) markRecent(preset.id);
+      setMessage(result.message);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao aplicar o preset.');
     } finally {
@@ -269,6 +276,16 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
           <div className="text-[10px]" style={{ color: '#8E8E93' }}>{statusText}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {selectedPlugin && (
+            <button
+              className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110"
+              style={{ borderColor: '#3A3A3C', background: '#242426' }}
+              onClick={() => setAllPlugins((value) => !value)}
+              title={allPlugins ? 'Mostrar só o plugin do strip selecionado' : 'Mostrar presets de todos os plugins'}
+            >
+              {allPlugins ? 'Só este plugin' : 'Todos os plugins'}
+            </button>
+          )}
           <button
             className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110 disabled:opacity-50"
             style={{ borderColor: '#3A3A3C', background: '#242426' }}
@@ -326,8 +343,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
       </div>
 
       {!selectedLayerId && (
-        <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#5A4B1F', background: '#2C2615', color: '#FFD60A' }}>
-          Selecione um channel strip no palco para ouvir e aplicar presets.
+        <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
+          Clique em um preset para criar um novo channel strip e carregar o VST.
         </div>
       )}
 
@@ -375,10 +392,10 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
             <div className="p-2 text-[10px]" style={{ color: '#8E8E93' }}>
               {result.status.scanning
                 ? 'Escaneando presets…'
-                : !selectedPlugin
-                  ? 'Selecione um channel strip para ver os presets.'
+                : selectedPlugin && pluginPresets.length === 0
+                  ? 'Este plugin não expõe presets ao host. Use “Salvar som atual”.'
                   : pluginPresets.length === 0
-                    ? 'Este plugin não expõe presets ao host. Use “Salvar som atual”.'
+                    ? 'Nenhum preset indexado ainda.'
                     : 'Nenhum preset nesta categoria/coleção.'}
             </div>
           )}
@@ -391,11 +408,24 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               <button
                 className="min-w-0 flex-1 truncate text-left text-[11px]"
                 style={{ color: '#E5E5EA' }}
-                onClick={() => void applyPreset(preset)}
-                title={`${preset.name}${preset.collection ? ` · ${preset.collection}` : ''}`}
+                onClick={() => void loadPreset(preset)}
+                title={`Carregar “${preset.name}” em um novo channel strip`}
               >
                 {preset.name}
               </button>
+              {selectedLayerId && selectedPlugin && preset.pluginId === selectedPlugin.id && (
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void applyToSelected(preset);
+                  }}
+                  className="px-1 text-[11px] opacity-0 group-hover:opacity-100"
+                  style={{ color: '#64D2FF' }}
+                  title="Aplicar neste channel strip"
+                >
+                  ↳
+                </button>
+              )}
               <button
                 onClick={() => void toggleFavorite(preset)}
                 className="px-1 text-[11px]"

@@ -1,4 +1,4 @@
-import type { ElementType, Preset, UiElement } from '@shared/types';
+import type { ElementType, MidiBinding, Preset, UiElement } from '@shared/types';
 
 export const snap8 = (value: number): number => Math.round(value / 8) * 8;
 
@@ -26,6 +26,11 @@ export interface PaletteItem {
   category: PaletteCategory;
   orientation?: 'horizontal' | 'vertical';
   group?: GroupMember[];
+  midiCommand?: MidiBinding;
+  isMomentary?: boolean;
+  pedalKind?: UiElement['pedalKind'];
+  value?: number;
+  color?: string;
 }
 
 export const PALETTE_CATEGORIES: { id: PaletteCategory | 'all'; label: string }[] = [
@@ -43,6 +48,21 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'toggle', type: 'toggle', label: 'Toggle', hint: 'Liga / desliga', category: 'panel' },
   { key: 'pad', type: 'pad', label: 'Drum Pad', hint: 'Nota MIDI', category: 'panel' },
   { key: 'pedal', type: 'pedal', label: 'Pedal', hint: 'Momentâneo', category: 'panel' },
+  {
+    key: 'sustain', type: 'pedal', label: 'Sustain', hint: 'Momentâneo · CC64', category: 'panel',
+    midiCommand: { type: 'cc', channel: 0, controllerNumber: 64 }, isMomentary: true,
+    pedalKind: 'sustain', value: 0, color: '#30D158',
+  },
+  {
+    key: 'expression', type: 'pedal', label: 'Expression', hint: 'Contínuo · CC11', category: 'panel',
+    midiCommand: { type: 'cc', channel: 0, controllerNumber: 11 }, isMomentary: false,
+    pedalKind: 'expression', value: 0.5, color: '#0A84FF',
+  },
+  {
+    key: 'volume-pedal', type: 'pedal', label: 'Volume', hint: 'Contínuo · CC7', category: 'panel',
+    midiCommand: { type: 'cc', channel: 0, controllerNumber: 7 }, isMomentary: false,
+    pedalKind: 'volume', value: 0.5, color: '#FF9F0A',
+  },
   { key: 'keyboard', type: 'keyboard', label: 'Keyboard', hint: 'Toca com mouse e MIDI', category: 'panel' },
   { key: 'label', type: 'label', label: 'Text Label', hint: 'Texto livre', category: 'panel' },
   { key: 'meter-v', type: 'meter-vertical', label: 'Vertical Meter', hint: 'Nível (Fase E)', category: 'meters', orientation: 'vertical' },
@@ -92,7 +112,8 @@ export function makeElement(
   x: number,
   y: number,
   label: string,
-  orientation?: 'horizontal' | 'vertical'
+  orientation?: 'horizontal' | 'vertical',
+  palette?: PaletteItem
 ): UiElement {
   const size = DEFAULT_SIZES[type];
   return {
@@ -103,12 +124,14 @@ export function makeElement(
     y: Math.max(0, y),
     width: size.width,
     height: size.height,
-    color: type === 'pedal' ? '#0A84FF' : '#9A9AA0',
+    color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : '#9A9AA0'),
     minValue: 0,
     maxValue: 1,
     orientation: orientation ?? (type === 'slider' ? 'horizontal' : 'vertical'),
-    isMomentary: type === 'button' || type === 'pedal' || type === 'pad',
-    value: 0.5,
+    isMomentary: palette?.isMomentary ?? (type === 'button' || type === 'pedal' || type === 'pad'),
+    value: palette?.value ?? 0.5,
+    ...(palette?.midiCommand ? { midiCommand: palette.midiCommand } : {}),
+    ...(palette?.pedalKind ? { pedalKind: palette.pedalKind } : {}),
   };
 }
 

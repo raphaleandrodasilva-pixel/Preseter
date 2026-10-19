@@ -7,6 +7,7 @@ import { ConcertTemplateSummary, Preset, PresetSet, PreseterConcertFile, UiEleme
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
+import { createDefaultKeyboardLayout, ensureDefaultPedals } from '../../shared/default-layout';
 
 interface PatchSpec {
   name: string;
@@ -41,6 +42,9 @@ function element(spec: {
   orientation?: 'horizontal' | 'vertical';
   color?: string;
   midiCommand?: UiElement['midiCommand'];
+  isMomentary?: boolean;
+  pedalKind?: UiElement['pedalKind'];
+  value?: number;
 }): UiElement {
   return {
     id: nextId('element'),
@@ -54,9 +58,10 @@ function element(spec: {
     minValue: 0,
     maxValue: 1,
     orientation: spec.orientation ?? 'vertical',
-    isMomentary: spec.type === 'button' || spec.type === 'pedal' || spec.type === 'pad',
-    value: spec.type === 'keyboard' ? undefined : 0.5,
+    isMomentary: spec.isMomentary ?? (spec.type === 'button' || spec.type === 'pedal' || spec.type === 'pad'),
+    value: spec.type === 'keyboard' ? undefined : (spec.value ?? 0.5),
     ...(spec.midiCommand ? { midiCommand: spec.midiCommand } : {}),
+    ...(spec.pedalKind ? { pedalKind: spec.pedalKind } : {}),
   };
 }
 
@@ -64,10 +69,22 @@ function cc(controllerNumber: number): UiElement['midiCommand'] {
   return { type: 'cc', channel: 0, controllerNumber };
 }
 
-/** Rig padrão de um patch de teclado: teclado, volume (CC7), modulação (CC1) e atividade MIDI. */
+/** Rig padrão de um patch de teclado: teclado central, sustain, expression, volume, modulação e atividade MIDI. */
 function keyboardRig(notes: string): UiElement[] {
   return [
-    element({ type: 'keyboard', label: 'Teclado', x: 24, y: 148, width: 720, height: 220, color: '#0A84FF' }),
+    element({ type: 'keyboard', label: 'Teclado', x: 200, y: 300, width: 520, height: 200, color: '#0A84FF' }),
+    element({
+      type: 'pedal', label: 'Sustain', x: 100, y: 400, width: 72, height: 100,
+      color: '#30D158', midiCommand: cc(64), isMomentary: true, pedalKind: 'sustain', value: 0,
+    }),
+    element({
+      type: 'pedal', label: 'Expression', x: 16, y: 400, width: 72, height: 100,
+      color: '#0A84FF', midiCommand: cc(11), isMomentary: false, pedalKind: 'expression',
+    }),
+    element({
+      type: 'pedal', label: 'Volume', x: 16, y: 280, width: 72, height: 100,
+      color: '#FF9F0A', midiCommand: cc(7), isMomentary: false, pedalKind: 'volume',
+    }),
     element({ type: 'fader', label: 'Volume', x: 24, y: 24, width: 66, height: 112, midiCommand: cc(7) }),
     element({ type: 'knob', label: 'Modulação', x: 104, y: 24, width: 96, height: 112, midiCommand: cc(1) }),
     element({ type: 'midi-activity', label: 'MIDI', x: 216, y: 24, width: 128, height: 48 }),
@@ -157,6 +174,9 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
   });
 
   const migrated = migrateConcertLayout(createEmptyLayout(template.tempo), rawPatches);
+  const layout = migrated.layout.elements.length > 0
+    ? ensureDefaultPedals(migrated.layout)
+    : createDefaultKeyboardLayout(template.tempo);
   return {
     format: CONCERT_FILE_FORMAT,
     version: CONCERT_FILE_VERSION,
@@ -171,7 +191,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     },
     sets,
     patches: migrated.patches,
-    layout: migrated.layout,
+    layout,
     mappings: [],
   };
 }

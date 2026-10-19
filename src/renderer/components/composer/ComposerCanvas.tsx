@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import type { UiElement } from '@shared/types';
 import { StageControl } from '../stage/StageControl';
 import { KeyboardControl } from '../stage/KeyboardControl';
+import type { KeyboardZone } from '../stage/KeyboardControl';
 import { ActivityFace, ButtonFace, FaderFace, KnobFace, LabelFace, MeterFace, PadFace, PedalFace, SliderFace, ToggleFace } from '../stage/faces';
 import { DRAG_MIME } from './ControlPalette';
 import { snap8 } from './elementFactory';
@@ -20,6 +21,9 @@ interface ComposerCanvasProps {
   onResize: (id: string, width: number, height: number) => void;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  keyboardZones?: KeyboardZone[];
+  selectedZoneId?: string | null;
+  onZoneClick?: (id: string) => void;
 }
 
 function PreviewShape({ element }: { element: UiElement }) {
@@ -168,6 +172,9 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   onResize,
   onMidiMessage,
   onSetVstParameter,
+  keyboardZones,
+  selectedZoneId,
+  onZoneClick,
 }) => {
   const coordsOf = (clientX: number, clientY: number, currentTarget: HTMLDivElement) => {
     const rect = currentTarget.getBoundingClientRect();
@@ -210,6 +217,9 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               layoutMode="absolute"
               onMidiMessage={onMidiMessage}
               onSetVstParameter={onSetVstParameter}
+              keyboardZones={keyboardZones}
+              selectedZoneId={selectedZoneId}
+              onZoneClick={onZoneClick}
             />
           ))
         : elements.map((element) => (

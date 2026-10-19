@@ -176,16 +176,22 @@ export const PadFace: React.FC<{ label: string }> = ({ label }) => (
   </>
 );
 
-export const PedalFace: React.FC<{ label: string; active: boolean }> = ({ label, active }) => (
+export const PedalFace: React.FC<{ label: string; active: boolean; value?: number }> = ({ label, active, value }) => (
   <>
     <div
-      className={`hw-pedal-face mb-1 h-10 w-14 rounded-b-xl${active ? ' is-on' : ''}`}
+      className={`hw-pedal-face relative mb-1 h-10 w-14 overflow-hidden rounded-b-xl${active ? ' is-on' : ''}`}
       style={
-        active
+        active || (value !== undefined && value > 0)
           ? { background: 'linear-gradient(to bottom, #303037, #151519)', border: '2px solid #0A84FF', boxShadow: '0 0 8px rgba(10,132,255,0.35), inset 0 2px 6px rgba(0,0,0,0.5)' }
           : { background: 'linear-gradient(to bottom, #303037, #151519)', border: '2px solid #55555D', boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)' }
       }
     >
+      {value !== undefined && (
+        <div
+          className="absolute bottom-0 left-0 right-0"
+          style={{ height: `${Math.max(0, Math.min(1, value)) * 100}%`, background: 'rgba(10,132,255,0.35)' }}
+        />
+      )}
       <span />
     </div>
     <span className="hw-label">{label}</span>

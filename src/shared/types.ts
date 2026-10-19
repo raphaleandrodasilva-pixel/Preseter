@@ -427,6 +427,8 @@ export interface BusSettings {
   output: number;
   /** Slots de insert (efeitos) do barramento. */
   inserts: Insert[];
+  /** Aux criado/visível. Ausente em concerts antigos = inferir pelo uso. */
+  enabled?: boolean;
 }
 
 /** Barramentos Aux/Output do concert (Fase 3.2). */
@@ -672,6 +674,8 @@ export interface UiElement {
   keyboardLowerColor?: string;
   keyboardUpperColor?: string;
   keyboardChannel?: number;
+  /** Tipo de pedal contínuo/momentâneo (Sustain, Expression, Volume). */
+  pedalKind?: 'sustain' | 'expression' | 'volume';
 }
 
 export interface MidiBinding {

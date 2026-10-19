@@ -76,6 +76,13 @@ export class WebMidiService {
     return true;
   }
 
+  hasSelectedOutput(): boolean {
+    const output = this.selectedOutputId
+      ? this.outputs.get(this.selectedOutputId)
+      : undefined;
+    return output !== undefined && output.state === 'connected';
+  }
+
   async send(message: number[]): Promise<boolean> {
     const output = this.selectedOutputId
       ? this.outputs.get(this.selectedOutputId)

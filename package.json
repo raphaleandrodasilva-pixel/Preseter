@@ -50,7 +50,8 @@
     "appId": "com.preseter.app",
     "productName": "Preseter",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -63,18 +64,28 @@
     ],
     "win": {
       "target": "nsis",
+      "icon": "build/icon.ico",
       "extraResources": [
         {
           "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine.exe",
           "to": "engine/PreseterEngine.exe"
+        },
+        {
+          "from": "build/icon.png",
+          "to": "icon.png"
         }
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "extraResources": [
         {
           "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine",
           "to": "engine/PreseterEngine"
+        },
+        {
+          "from": "build/icon.png",
+          "to": "icon.png"
         }
       ]
     },
@@ -83,6 +94,10 @@
         {
           "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine",
           "to": "engine/PreseterEngine"
+        },
+        {
+          "from": "build/icon.png",
+          "to": "icon.png"
         }
       ]
     },

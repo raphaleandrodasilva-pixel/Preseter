@@ -1,5 +1,13 @@
 import React, { useMemo, useRef, useState } from 'react';
 
+export interface KeyboardZone {
+  id: string;
+  label: string;
+  low: number;
+  high: number;
+  color: string;
+}
+
 export interface KeyboardControlProps {
   /** Nota MIDI mais grave (default C2 = 36) */
   low?: number;
@@ -28,6 +36,10 @@ export interface KeyboardControlProps {
   onPitchBend?: (value: number) => void;
   /** 0..1 */
   onModulation?: (value: number) => void;
+  /** Layers de channel strips exibidas acima do teclado (MainStage). */
+  zones?: KeyboardZone[];
+  selectedZoneId?: string | null;
+  onZoneClick?: (id: string) => void;
 }
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -129,6 +141,9 @@ export const KeyboardControl: React.FC<KeyboardControlProps> = ({
   onNoteOff,
   onPitchBend,
   onModulation,
+  zones,
+  selectedZoneId,
+  onZoneClick,
 }) => {
   const [shift, setShift] = useState(0);
   const [held, setHeld] = useState<Set<number>>(new Set());
@@ -169,6 +184,25 @@ export const KeyboardControl: React.FC<KeyboardControlProps> = ({
 
   const remote = useMemo(() => new Set(activeNotes ?? []), [activeNotes]);
   const isLit = (note: number) => remote.has(note) || held.has(note);
+
+  const zoneRows = useMemo(() => {
+    if (!zones || zones.length === 0 || whites.length === 0) return [];
+    return zones
+      .map((zone) => {
+        const low = Math.max(effLow, zone.low);
+        const high = Math.min(effHigh, zone.high);
+        if (low > high) return null;
+        const first = whites.findIndex((note) => note >= low);
+        const last = whites.reduce((acc, note, index) => (note <= high ? index : acc), -1);
+        if (first < 0 || last < first) return null;
+        return {
+          ...zone,
+          left: (first / whites.length) * 100,
+          width: ((last - first + 1) / whites.length) * 100,
+        };
+      })
+      .filter((zone): zone is KeyboardZone & { left: number; width: number } => zone !== null);
+  }, [zones, whites, effLow, effHigh]);
 
   const press = (note: number, pointerId: number) => {
     if (!interactive) return;
@@ -222,7 +256,32 @@ export const KeyboardControl: React.FC<KeyboardControlProps> = ({
 
   return (
     <div className={`stg-keys${compact ? ' stg-keys-compact' : ''}`}>
-      {!compact && splitNote !== null && splitNote !== undefined && (
+      {zoneRows.length > 0 && (
+        <div className="relative mb-1" style={{ height: zoneRows.length * 15 }}>
+          {zoneRows.map((zone, index) => (
+            <button
+              type="button"
+              key={zone.id}
+              onClick={() => onZoneClick?.(zone.id)}
+              className="absolute flex h-[13px] items-center overflow-hidden rounded px-1 text-[9px] font-semibold"
+              style={{
+                left: `${zone.left}%`,
+                width: `${Math.max(zone.width, 2)}%`,
+                top: index * 15,
+                background: zone.color,
+                color: '#101014',
+                border: selectedZoneId === zone.id ? '1px solid #FFFFFF' : '1px solid rgba(0,0,0,0.35)',
+                boxShadow: selectedZoneId === zone.id ? '0 0 8px rgba(255,255,255,0.35)' : undefined,
+                opacity: selectedZoneId && selectedZoneId !== zone.id ? 0.65 : 1,
+              }}
+              title={`${zone.label} · ${noteName(zone.low)}–${noteName(zone.high)}`}
+            >
+              <span className="truncate">{zone.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!compact && zoneRows.length === 0 && splitNote !== null && splitNote !== undefined && (
         <div className="stg-layerbar" aria-hidden>
           <div className="stg-layer" style={{ width: `${lowerPct}%`, background: lowerColor }}>
             {lowerLabel}

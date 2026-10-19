@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo } from '@shared/types';
+import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 import { ChannelStripLibrary } from './ChannelStripLibrary';
@@ -12,6 +12,8 @@ interface InspectorProps {
   selectedLayerId: string | null;
   /** Plugin carregado no layer selecionado (para a Channel Strip Library). */
   selectedPlugin: VstPluginInfo | null;
+  onLoadPresetAsNewStrip: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
+  onApplyPresetToSelected: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
   onLayerRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
   onLayerVelocityChange: (assignment: PresetPluginAssignment, layerId: string, velocityMin: number, velocityMax: number) => void;
   /** Soma do transpose do patch + set + concert (Fase 3.4). */
@@ -42,6 +44,8 @@ export const Inspector: React.FC<InspectorProps> = ({
   selectedElement,
   selectedLayerId,
   selectedPlugin,
+  onLoadPresetAsNewStrip,
+  onApplyPresetToSelected,
   onLayerRangeChange,
   onLayerVelocityChange,
   transposeTotal,
@@ -143,6 +147,8 @@ export const Inspector: React.FC<InspectorProps> = ({
             <ChannelStripLibrary
               selectedLayerId={selectedLayerId}
               selectedPlugin={selectedPlugin}
+              onLoadPresetAsNewStrip={onLoadPresetAsNewStrip}
+              onApplyPresetToSelected={onApplyPresetToSelected}
             />
           </div>
         )}

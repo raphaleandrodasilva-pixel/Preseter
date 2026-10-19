@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { UiElement } from '@shared/types';
 import { KeyboardControl } from './KeyboardControl';
+import type { KeyboardZone } from './KeyboardControl';
 import {
   ActivityFace,
   ButtonFace,
@@ -23,6 +24,9 @@ interface StageControlProps {
   activeNotes?: Set<number>;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  keyboardZones?: KeyboardZone[];
+  selectedZoneId?: string | null;
+  onZoneClick?: (id: string) => void;
 }
 
 function normOf(value: number, min: number, max: number): number {
@@ -37,6 +41,9 @@ export const StageControl: React.FC<StageControlProps> = ({
   activeNotes,
   onMidiMessage,
   onSetVstParameter,
+  keyboardZones,
+  selectedZoneId,
+  onZoneClick,
 }) => {
   const [value, setValue] = useState(element.value ?? 0.5);
   const min = element.minValue ?? 0;
@@ -196,13 +203,28 @@ export const StageControl: React.FC<StageControlProps> = ({
         </FaceButton>
       )}
       {element.type === 'pedal' && (
-        <FaceButton
-          title={element.label}
-          onActivate={activate}
-          onPress={(down) => sendValue(down ? max : element.isMomentary ? min : max)}
-        >
-          <PedalFace label={element.label} active={isOn} />
-        </FaceButton>
+        element.isMomentary ? (
+          <FaceButton
+            title={element.label}
+            onActivate={activate}
+            onPress={(down) => sendValue(down ? max : min)}
+          >
+            <PedalFace label={element.label} active={isOn} />
+          </FaceButton>
+        ) : (
+          <div
+            className="hw-facebutton flex touch-none select-none flex-col items-center justify-center"
+            title={`${element.label} — arraste para cima/baixo`}
+            style={{ padding: 4 }}
+            onPointerDown={(event) => beginTrackDrag(event, true)}
+            onPointerMove={moveTrackDrag(true)}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
+            <PedalFace label={element.label} active={isOn} value={norm} />
+            <span className="hw-badge mt-1" style={{ fontSize: 9 }}>{Math.round(norm * 127)}</span>
+          </div>
+        )
       )}
       {element.type === 'meter-vertical' && (
         <MeterFace label={element.label} norm={norm} horizontal={element.orientation === 'horizontal'} />
@@ -221,6 +243,9 @@ export const StageControl: React.FC<StageControlProps> = ({
           defaultVelocity={element.velocity ?? 100}
           compact
           activeNotes={activeNotes}
+          zones={keyboardZones}
+          selectedZoneId={selectedZoneId}
+          onZoneClick={onZoneClick}
           foot={element.label}
           channel={element.keyboardChannel ?? channel}
           onNoteOn={(note, velocity) =>
