@@ -16,7 +16,10 @@ interface InspectorProps {
   /** Plugin carregado no layer selecionado (para a Channel Strip Library). */
   selectedPlugin: VstPluginInfo | null;
   onLoadPresetAsNewStrip: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
-  onApplyPresetToSelected: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
+  onApplyPresetToSelected: (
+    preset: VstPreset,
+    options?: { replacePlugin?: boolean }
+  ) => Promise<{ ok: boolean; message: string }>;
   onLayerRangeChange: (assignment: PresetPluginAssignment, layerId: string, minNote: number, maxNote: number) => void;
   onLayerVelocityChange: (assignment: PresetPluginAssignment, layerId: string, velocityMin: number, velocityMax: number) => void;
   /** Soma do transpose do patch + set + concert (Fase 3.4). */

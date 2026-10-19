@@ -825,18 +825,21 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     return true;
   };
 
+  /** Localiza o plugin escaneado que originou um preset da Channel Strip Library. */
+  const findPresetPlugin = (preset: VstPreset): VstPluginInfo | null =>
+    scannedPlugins.find(
+      (item) =>
+        item.id === preset.pluginId ||
+        item.path === preset.pluginPath ||
+        item.name === preset.pluginName
+    ) ?? null;
+
   /** Carrega um preset criando um channel strip novo. */
   const performPresetLoad = async (
     preset: VstPreset,
     patch: Preset
   ): Promise<PresetLoadResult> => {
-    const plugin =
-      scannedPlugins.find(
-        (item) =>
-          item.id === preset.pluginId ||
-          item.path === preset.pluginPath ||
-          item.name === preset.pluginName
-      ) ?? null;
+    const plugin = findPresetPlugin(preset);
     if (!plugin) {
       return { ok: false, message: `Plugin "${preset.pluginName}" não encontrado. Reescaneie os VSTs.` };
     }
@@ -910,9 +913,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     });
   };
 
-  const applyPresetToSelected = async (preset: VstPreset): Promise<PresetLoadResult> => {
+  const applyPresetToSelected = async (
+    preset: VstPreset,
+    options: { replacePlugin?: boolean } = {}
+  ): Promise<PresetLoadResult> => {
     if (!selectedLayerId) {
       return { ok: false, message: 'Selecione um channel strip para aplicar o preset.' };
+    }
+    if (!draft) {
+      return { ok: false, message: 'Abra um patch antes de aplicar o preset.' };
+    }
+    if (!selectedLoadedPlugin) {
+      return { ok: false, message: 'Aguarde o plugin do channel strip terminar de carregar.' };
     }
     if (preset.source === 'vital') {
       return {
@@ -920,17 +932,48 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         message: 'Presets .vital não são aplicáveis diretamente. Use "Salvar som atual" no Vital.',
       };
     }
-    if (selectedLoadedPlugin && preset.pluginId && preset.pluginId !== selectedLoadedPlugin.id) {
-      return {
-        ok: false,
-        message: `Este preset é do plugin "${preset.pluginName}". Troque o VST do strip ou crie outro.`,
-      };
+
+    const samePlugin =
+      preset.pluginId === selectedLoadedPlugin.id ||
+      (!!preset.pluginPath && preset.pluginPath === selectedLoadedPlugin.path);
+
+    if (!samePlugin) {
+      if (!options.replacePlugin) {
+        return {
+          ok: false,
+          message: `O preset "${preset.name}" usa outro VST. Confirme a substituição do instrumento do strip.`,
+        };
+      }
+      const plugin = findPresetPlugin(preset);
+      if (!plugin) {
+        return {
+          ok: false,
+          message: `Plugin "${preset.pluginName}" não encontrado. Reescaneie os VSTs.`,
+        };
+      }
+      const assignment = (draft.plugins ?? []).find(
+        (item, index) => (item.layerId ?? `${draft.id}:layer:${index}`) === selectedLayerId
+      );
+      if (!assignment) {
+        return { ok: false, message: 'Channel strip não encontrado no patch.' };
+      }
+      const replaced = await replaceLayer(assignment, selectedLayerId, plugin);
+      if (!replaced) {
+        return { ok: false, message: 'Não foi possível substituir o VST do channel strip.' };
+      }
     }
+
     try {
       const applied = await window.electronAPI.vstPresetApply(preset.id, selectedLayerId);
-      return applied
-        ? { ok: true, message: `Preset "${preset.name}" aplicado.` }
-        : { ok: false, message: 'O preset não pôde ser aplicado.' };
+      if (!applied) {
+        return { ok: false, message: 'O preset não pôde ser aplicado.' };
+      }
+      return {
+        ok: true,
+        message: samePlugin
+          ? `Preset "${preset.name}" aplicado.`
+          : `VST substituído e preset "${preset.name}" aplicado.`,
+      };
     } catch (error) {
       return {
         ok: false,

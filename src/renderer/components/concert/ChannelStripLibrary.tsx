@@ -6,7 +6,10 @@ interface ChannelStripLibraryProps {
   selectedLayerId: string | null;
   selectedPlugin: VstPluginInfo | null;
   onLoadPresetAsNewStrip: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
-  onApplyPresetToSelected: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
+  onApplyPresetToSelected: (
+    preset: VstPreset,
+    options?: { replacePlugin?: boolean }
+  ) => Promise<{ ok: boolean; message: string }>;
 }
 
 const EMPTY_STATUS: VstPresetLibraryStatus = { scanning: false, scanned: 0, total: 0 };
@@ -52,6 +55,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
   const [snapshotName, setSnapshotName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [replacePrompt, setReplacePrompt] = useState<VstPreset | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -72,7 +76,12 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     setCollection('Todos');
     setCategory('Todos');
     setAllPlugins(false);
+    setReplacePrompt(null);
   }, [selectedPlugin?.id]);
+
+  useEffect(() => {
+    setReplacePrompt(null);
+  }, [selectedLayerId]);
 
   const pluginPresets = useMemo(() => {
     if (!selectedPlugin || allPlugins) return result.presets;
@@ -153,6 +162,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
 
   const loadPreset = async (preset: VstPreset) => {
     setSelectedId(preset.id);
+    setReplacePrompt(null);
     setBusy(true);
     setMessage(null);
     try {
@@ -166,12 +176,12 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     }
   };
 
-  const applyToSelected = async (preset: VstPreset) => {
+  const applyToSelected = async (preset: VstPreset, replacePlugin = false) => {
     setSelectedId(preset.id);
     setBusy(true);
     setMessage(null);
     try {
-      const result = await onApplyPresetToSelected(preset);
+      const result = await onApplyPresetToSelected(preset, { replacePlugin });
       if (result.ok) markRecent(preset.id);
       setMessage(result.message);
     } catch (error) {
@@ -179,6 +189,40 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     } finally {
       setBusy(false);
     }
+  };
+
+  const isSamePlugin = (preset: VstPreset, plugin: VstPluginInfo) =>
+    preset.pluginId === plugin.id ||
+    (!!preset.pluginPath && preset.pluginPath === plugin.path);
+
+  const handlePresetClick = (preset: VstPreset) => {
+    if (busy) return;
+    if (!selectedLayerId) {
+      void loadPreset(preset);
+      return;
+    }
+    if (preset.source === 'vital') {
+      void applyToSelected(preset);
+      return;
+    }
+    if (!selectedPlugin) {
+      setMessage('Aguarde o plugin do channel strip terminar de carregar.');
+      return;
+    }
+    if (!isSamePlugin(preset, selectedPlugin)) {
+      setSelectedId(preset.id);
+      setMessage(null);
+      setReplacePrompt(preset);
+      return;
+    }
+    void applyToSelected(preset);
+  };
+
+  const confirmReplace = () => {
+    const preset = replacePrompt;
+    if (!preset) return;
+    setReplacePrompt(null);
+    void applyToSelected(preset, true);
   };
 
   const saveSnapshot = async () => {
@@ -265,8 +309,10 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
   const statusText = result.status.scanning
     ? `Lendo presets… ${result.status.scanned}/${result.status.total}${result.status.current ? ` · ${result.status.current}` : ''}`
     : selectedPlugin
-      ? selectedPlugin.name
-      : 'Selecione um channel strip';
+      ? `Aplicar em: ${selectedPlugin.name}`
+      : selectedLayerId
+        ? 'Aguardando o channel strip carregar…'
+        : 'Nenhum channel strip selecionado';
 
   return (
     <div className="flex h-full min-h-[190px] flex-col">
@@ -342,9 +388,45 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
         )}
       </div>
 
-      {!selectedLayerId && (
+      {selectedLayerId ? (
         <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
-          Clique em um preset para criar um novo channel strip e carregar o VST.
+          Clique em um preset para aplicá-lo ao channel strip selecionado. Use <strong>+</strong> para criar um channel strip novo.
+          {!allPlugins && ' Para presets de outro VST, use “Todos os plugins”.'}
+        </div>
+      ) : (
+        <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
+          Selecione um channel strip para aplicar o preset nele. Sem seleção, o clique cria um novo channel strip.
+        </div>
+      )}
+
+      {replacePrompt && (
+        <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#7A5A1F', background: '#2E2410', color: '#FFE0A3' }}>
+          <div className="font-semibold">Este preset usa outro VST.</div>
+          <div className="mt-0.5">
+            O preset “{replacePrompt.name}” usa “{replacePrompt.pluginName}”, diferente do strip selecionado
+            {selectedPlugin ? ` (“${selectedPlugin.name}”)` : ''}. Substituir o instrumento e aplicar o preset?
+            Mixagem, key range e inserts serão mantidos.
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
+              style={{ background: '#FF9F0A', color: '#1C1C1E' }}
+              disabled={busy}
+              onClick={confirmReplace}
+            >
+              Substituir e aplicar
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110 disabled:opacity-50"
+              style={{ borderColor: '#5A4A28', background: '#242426' }}
+              disabled={busy}
+              onClick={() => setReplacePrompt(null)}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
@@ -406,26 +488,30 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               style={selectedId === preset.id ? { background: 'rgba(10,132,255,0.24)' } : undefined}
             >
               <button
-                className="min-w-0 flex-1 truncate text-left text-[11px]"
+                className="min-w-0 flex-1 truncate text-left text-[11px] disabled:opacity-50"
                 style={{ color: '#E5E5EA' }}
-                onClick={() => void loadPreset(preset)}
-                title={`Carregar “${preset.name}” em um novo channel strip`}
+                disabled={busy}
+                onClick={() => handlePresetClick(preset)}
+                title={
+                  selectedLayerId
+                    ? `Aplicar “${preset.name}” ao channel strip selecionado`
+                    : `Criar um novo channel strip com “${preset.name}”`
+                }
               >
                 {preset.name}
               </button>
-              {selectedLayerId && selectedPlugin && preset.pluginId === selectedPlugin.id && (
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void applyToSelected(preset);
-                  }}
-                  className="px-1 text-[11px] opacity-0 group-hover:opacity-100"
-                  style={{ color: '#64D2FF' }}
-                  title="Aplicar neste channel strip"
-                >
-                  ↳
-                </button>
-              )}
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!busy) void loadPreset(preset);
+                }}
+                className="px-1 text-[11px] disabled:opacity-40"
+                style={{ color: '#64D2FF' }}
+                disabled={busy}
+                title="Criar novo channel strip com este preset"
+              >
+                ＋
+              </button>
               <button
                 onClick={() => void toggleFavorite(preset)}
                 className="px-1 text-[11px]"
