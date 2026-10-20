@@ -151,18 +151,49 @@ const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: 
   );
 };
 
-/** Área rolável do workspace Layout/Edit, expandida conforme os controles. */
-const ScrollableCanvas: React.FC<{
-  elements: UiElement[];
+/** Canvas fixo (MainStage): tamanho lógico constante, escalado para caber no workspace. */
+const CANVAS_LOGICAL_W = 1000;
+const CANVAS_LOGICAL_H = 625;
+
+const FixedCanvas: React.FC<{
   children: (scale: number, canvasW: number, canvasH: number) => React.ReactNode;
-}> = ({ elements, children }) => {
-  const canvasW = Math.max(1600, ...elements.map((element) => element.x + (element.width ?? 40) + 24));
-  const canvasH = Math.max(1000, ...elements.map((element) => element.y + (element.height ?? 28) + 24));
+}> = ({ children }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 1, left: 0, top: 0 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const calc = () => {
+      const availW = Math.max(200, el.clientWidth - 16);
+      const availH = Math.max(150, el.clientHeight - 16);
+      const s = Math.max(0.3, Math.min(2.5, availW / CANVAS_LOGICAL_W, availH / CANVAS_LOGICAL_H));
+      setFit({
+        scale: s,
+        left: 8 + Math.max(0, (availW - CANVAS_LOGICAL_W * s) / 2),
+        top: 8 + Math.max(0, (availH - CANVAS_LOGICAL_H * s) / 2),
+      });
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
-    <div className="h-full w-full overflow-auto">
-      <div style={{ width: canvasW, height: canvasH }}>
-        {children(1, canvasW, canvasH)}
+    <div ref={ref} className="relative h-full w-full overflow-hidden">
+      <div
+        style={{
+          position: 'absolute',
+          width: CANVAS_LOGICAL_W,
+          height: CANVAS_LOGICAL_H,
+          left: fit.left,
+          top: fit.top,
+          transform: `scale(${fit.scale})`,
+          transformOrigin: 'top left',
+        }}
+      >
+        {children(fit.scale, CANVAS_LOGICAL_W, CANVAS_LOGICAL_H)}
       </div>
     </div>
   );
@@ -2413,8 +2444,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           {error && <div className="border-b border-red-900 bg-red-950/40 px-4 py-1 text-[11px] text-red-300">{error}</div>}
           <div data-workspace-region className="min-h-0 flex-1 overflow-hidden p-2">
             {(draft ?? currentPreset) ? (
-              <ScrollableCanvas
-                elements={displayElements}
+              <FixedCanvas
                 children={(scale, canvasW, canvasH) => (
                   <>
                     <ComposerCanvas
