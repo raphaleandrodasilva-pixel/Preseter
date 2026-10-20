@@ -69,6 +69,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   onSelectElement,
   onSave,
   saving,
+  orientation = 'bottom',
 }) => {
   const isLeft = orientation === 'left';
   const [width, setWidth] = useState<number>(() => {
@@ -174,7 +175,7 @@ export const Inspector: React.FC<InspectorProps> = ({
 
   if (!draft && isLeft) {
     return (
-      <aside className="flex shrink-0 flex-col border-r overflow-hidden" style={{ width, borderColor: '#1E1E24', background: '#0A0A0C' }}>
+      <aside className="relative flex shrink-0 flex-col border-r overflow-hidden" style={{ width, borderColor: '#1E1E24', background: '#0A0A0C' }}>
         <div className="flex items-center border-b px-3 py-2" style={{ borderColor: '#1E1E24' }}>
           <span className="text-[11px] font-semibold text-white">Screen Control Inspector</span>
         </div>
@@ -217,6 +218,70 @@ export const Inspector: React.FC<InspectorProps> = ({
           ? 'Selecione um patch e clique em Editar para desenhar o layout.'
           : 'Selecione ou crie um patch na Patch List para ver o Inspector.'}
       </div>
+    );
+  }
+
+  if (isLeft) {
+    return (
+      <aside
+        className="relative flex h-full shrink-0 flex-col border-r"
+        style={{ width, borderColor: '#1E1E24', background: '#0A0A0C' }}
+      >
+        <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: '#1E1E24' }}>
+          <span className="text-[11px] font-semibold text-white">Screen Control Inspector</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          {selectedElement ? (
+            <ControlInspector
+              mode="layout"
+              element={selectedElement}
+              draft={draft}
+              scannedPlugins={scannedPlugins}
+              onUpdate={onUpdateElement}
+              onRemove={onRemoveElement}
+              onDuplicate={onDuplicateElement}
+              onBringFront={onBringFront}
+              onSendBack={onSendBack}
+            />
+          ) : (
+            <div className="rounded-lg border border-[#303032] bg-[#141416] p-3 text-[11px] leading-relaxed text-slate-400">
+              <span className="font-semibold text-slate-200">Screen Control Inspector</span>
+              <br />
+              Selecione um controle no canvas para editar Hardware Input, aparência e textos.
+              Use a Screen Controls Palette embaixo para adicionar controles.
+            </div>
+          )}
+        </div>
+        <div className="border-t px-3 py-2" style={{ borderColor: '#1E1E24' }}>
+          <div className="text-[10px] font-semibold uppercase" style={{ color: '#8E8E93' }}>Quick Help</div>
+          <p className="mt-1 text-[10px] leading-relaxed" style={{ color: '#636366' }}>
+            Selecione um controle no canvas para ver Hardware Input, aparência e textos. Arraste controles da palette para o workspace.
+          </p>
+        </div>
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize"
+          title="Arrastar para redimensionar · duplo clique para 300px"
+          onDoubleClick={() => {
+            setWidth(300);
+            try { localStorage.setItem('preseter.inspectorWidth.v1', '300'); } catch { /* ignora */ }
+          }}
+          onPointerDown={(event) => {
+            (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+            widthResize.current = { startX: event.clientX, originW: width };
+          }}
+          onPointerMove={(event) => {
+            const r = widthResize.current;
+            if (!r) return;
+            const next = Math.max(240, Math.min(480, r.originW + (event.clientX - r.startX)));
+            setWidth(next);
+          }}
+          onPointerUp={() => {
+            widthResize.current = null;
+            try { localStorage.setItem('preseter.inspectorWidth.v1', String(widthRef.current)); } catch { /* ignora */ }
+          }}
+          onPointerCancel={() => { widthResize.current = null; }}
+        />
+      </aside>
     );
   }
 

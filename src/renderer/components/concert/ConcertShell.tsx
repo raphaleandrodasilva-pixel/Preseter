@@ -2392,14 +2392,40 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         onOpenSettings={(tab) => setSettingsTab(tab)}
       />
       <div className="flex min-h-0 flex-1">
-        <PatchList
+        {mode === 'layout' ? (
+          <Inspector
+            orientation="left"
+            mode="layout"
+            draft={draft}
+            presets={presets}
+            scannedPlugins={scannedPlugins}
+            scannedParams={scannedParams}
+            selectedElement={selected}
+            selectedLayerId={selectedLayerId}
+            selectedPlugin={selectedLoadedPlugin}
+            onLoadPresetAsNewStrip={loadPresetAsNewStrip}
+            onApplyPresetToSelected={applyPresetToSelected}
+            onLayerRangeChange={(assignment, layerId, minNote, maxNote) => void changeLayerRange(assignment, layerId, minNote, maxNote)}
+            onLayerVelocityChange={(assignment, layerId, velocityMin, velocityMax) => void changeLayerVelocity(assignment, layerId, velocityMin, velocityMax)}
+            transposeTotal={(activePreset?.transpose ?? 0) + (currentSet?.transpose ?? 0) + (concertSettings?.midi.transpose ?? 0)}
+            onPatchChange={updateDraft}
+            onUpdateElement={updateElement}
+            onRemoveElement={removeElement}
+            onDuplicateElement={duplicateElement}
+            onBringFront={bringFront}
+            onSendBack={sendBack}
+            onSelectElement={(id) => onSelectedId(id)}
+            onSave={onSaveDraft}
+            saving={saving}
+          />
+        ) : (
+          <PatchList
           presets={presets}
           sets={sets}
           currentPresetId={currentPreset?.id ?? null}
           concertName={concertName}
           concertSelected={concertSelected}
           onSelectConcert={() => {
-            if (mode === 'layout') return;
             setConcertSelected(true);
             onSelectedId(null);
           }}
@@ -2426,11 +2452,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onExportSet={(id) => void exportSet(id)}
           onImportSet={() => void importSet()}
           onMovePatches={movePatches}
-        />
+          />
+        )}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b px-4 py-1.5 text-xs" style={{ borderColor: '#303032' }}>
             <span className="font-medium text-white">
-              {mode === 'layout' ? 'Workspace — Layout do concert' : 'Workspace — Edit + Mapping'}
+              {mode === 'layout' ? 'Layout' : 'Workspace — Edit + Mapping'}
             </span>
             <span style={{ color: '#9A9AA0' }}>
               {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
@@ -2443,6 +2470,44 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           </div>
           {error && <div className="border-b border-red-900 bg-red-950/40 px-4 py-1 text-[11px] text-red-300">{error}</div>}
           <div data-workspace-region className="min-h-0 flex-1 overflow-hidden p-2">
+            <div className="flex h-full">
+              {mode === 'layout' && (
+                <div className="w-[200px] shrink-0 overflow-y-auto border-r" style={{ borderColor: '#0E0E10', background: '#262628' }}>
+                  <PatchList
+                    compact
+                    presets={presets}
+                    sets={sets}
+                    currentPresetId={currentPreset?.id ?? null}
+                    concertName={concertName}
+                    concertSelected={concertSelected}
+                    onSelectConcert={() => { setConcertSelected(true); onSelectedId(null); }}
+                    onSelectPreset={(preset) => { setConcertSelected(false); onSelectPreset(preset); }}
+                    onEditPreset={onEditPreset}
+                    onNewPatch={onNewPatch}
+                    onNewSet={() => createSet()}
+                    onRenameSet={renameSet}
+                    onDeleteSet={deleteSet}
+                    onSetTranspose={(setId, semitones) => updateSet(setId, { transpose: semitones })}
+                    onToggleSetExpanded={toggleSetExpanded}
+                    onToggleSetSkipped={toggleSetSkipped}
+                    onTogglePresetSkipped={(id) => void togglePresetSkipped(id)}
+                    onReorderSets={reorderSets}
+                    onResetProgramNumbers={() => void resetProgramNumbers()}
+                    onCopyPatches={copyPatches}
+                    onPastePatches={pastePatches}
+                    onDuplicatePatches={duplicatePatches}
+                    onDeletePatches={deletePatches}
+                    onNewPatchFromSelection={newPatchFromSelection}
+                    onNewSetFromSelection={newSetFromSelection}
+                    onExportPatch={(id) => void exportPatch(id)}
+                    onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
+                    onExportSet={(id) => void exportSet(id)}
+                    onImportSet={() => void importSet()}
+                    onMovePatches={movePatches}
+                  />
+                </div>
+              )}
+              <div className="min-h-0 flex-1 overflow-hidden p-2">
             {(draft ?? currentPreset) ? (
               <FixedCanvas
                 children={(scale, canvasW, canvasH) => (
@@ -2496,6 +2561,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                 </div>
               </div>
             )}
+              </div>
+            </div>
           </div>
 
           {concertSelected && concertSettings && mode !== 'layout' ? (
@@ -2506,9 +2573,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               onTempoChange={(tempo) => void setAppStatus({ tempo })}
               midiInputNames={midiInputNames}
             />
-          ) : draft ? (
+          ) : mode !== 'layout' && draft ? (
             <Inspector
-              mode={mode === 'layout' ? 'layout' : 'edit'}
+              mode="edit"
               draft={draft}
               presets={presets}
               scannedPlugins={scannedPlugins}
