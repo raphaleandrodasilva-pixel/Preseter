@@ -12,13 +12,14 @@ Ver também: `docs/ROADMAP.md` (fase 5.5, Patch Library) e `docs/COLECAO.md`
 
 | Sigla | Instrumento | Formato | Licença |
 |---|---|---|---|
-| SFZ | **sforzando** (escolha do dono do projeto) ou sfizz, + bibliotecas SFZ | VST3 | sforzando: freeware (Plogue), **não é open source** e não deve ser redistribuído junto do Preseter; sfizz: BSD-2. Cada biblioteca tem licença própria |
+| SFZ | **sforzando** (escolha do dono do projeto) ou sfizz, só para o **Salamander Grand Piano V3** | VST3 | sforzando: freeware (Plogue), **não é open source**, não redistribuir; sfizz: BSD-2. Salamander: CC BY 3.0 |
+| SF2 | **SF2 Player** (Bertom Audio) + **MuseScore_General** (MIT) e **Sonatina Symphonic Orchestra** (CC Sampling Plus 1.0) | VST3 (Windows 64-bit) | Plugin gratuito ("Free / Pay what you want"), licença não informada: não redistribuir. Um preset por instância |
 | SURGE | Surge XT | VST3 | GPLv3 |
 | DEXED | Dexed (estilo DX7) | VST3 | GPLv3 |
 | ODIN | Odin 2 | VST3 | GPLv3 |
 | HELM | Helm | VST3/LV2 | GPLv3 |
 | MDA | MDA (ePiano, Piano, JX10…) | VST (confirmar se há VST3) | GPL |
-| ORG | setBfree (órgão) | **LV2/JACK apenas** | GPL-2.0 — só carrega depois de ligar o LV2 no motor |
+| ORG | setBfree (órgão) | LV2 (o motor já tem LV2 ligado; **carregar ainda não testado**) | GPL-2.0 |
 
 > Os formatos e licenças acima vêm do conhecimento geral, exceto sfizz (BSD-2,
 > VST3/LV2/AU), Salamander Grand Piano (CC BY 3.0) e setBfree (LV2/JACK, GPL-2.0),
@@ -54,7 +55,7 @@ Use `--test` para validar o fluxo sem plugins reais.
 | 1 | Piano de Cauda | 1 | SFZ + Salamander Grand Piano | 0–127 | a criar |
 | 2 | Piano de Cauda Brilhante | 1 | SFZ + Salamander (EQ/brilho no strip) | 0–127 | a criar |
 | 3 | Piano Suave | 1 | SFZ + Salamander, velocity suavizada | 0–127 | a criar |
-| 4 | Piano Vertical | 1 | SFZ + biblioteca de piano vertical livre | 0–127 | a criar |
+| 4 | Piano Vertical | 1 | SF2 + MuseScore_General (piano GM) | 0–127 | a criar |
 | 5 | Piano + Pad | 2 | SFZ Salamander + SURGE pad quente (−12 dB) | 0–127 | a criar |
 
 ## Set 2 — Teclas elétricas
@@ -71,21 +72,21 @@ Use `--test` para validar o fluxo sem plugins reais.
 
 | # | Patch | Camadas | Instrumento / preset | Faixas | Status |
 |---|---|---|---|---|---|
-| 11 | Órgão Tonewheel | 1 | ORG (setBfree) — **depende de LV2** | 0–127 | bloqueado |
-| 12 | Órgão Rock | 1 | ORG com overdrive/leslie rápido — **depende de LV2** | 0–127 | bloqueado |
-| 13 | Órgão de Igreja | 1 | SFZ + biblioteca de órgão de tubos livre | 0–127 | a criar |
+| 11 | Órgão Tonewheel | 1 | ORG (setBfree) — LV2 | 0–127 | a criar |
+| 12 | Órgão Rock | 1 | ORG com overdrive/leslie rápido — LV2 | 0–127 | a criar |
+| 13 | Órgão de Igreja | 1 | SF2 + MuseScore_General (Church Organ) | 0–127 | a criar |
 | 14 | Órgão Suave (provisório) | 1 | SURGE (preset de órgão) enquanto o LV2 não chega | 0–127 | a criar |
 
 ## Set 4 — Cordas e orquestra
 
 | # | Patch | Camadas | Instrumento / preset | Faixas | Status |
 |---|---|---|---|---|---|
-| 15 | Cordas Legato | 1 | SFZ + biblioteca de cordas livre (sustain) | 0–127 | a criar |
-| 16 | Cordas Staccato | 1 | SFZ + mesma biblioteca (staccato) | 0–127 | a criar |
+| 15 | Cordas Legato | 1 | SF2 + Sonatina (cordas sustain) | 0–127 | a criar |
+| 16 | Cordas Staccato | 1 | SF2 + Sonatina (cordas staccato) | 0–127 | a criar |
 | 17 | Cordas Sintéticas | 1 | SURGE ou ODIN (preset de "string ensemble") | 0–127 | a criar |
-| 18 | Metais | 1 | SFZ + biblioteca de metais livre | 0–127 | a criar |
-| 19 | Flauta | 1 | SFZ + biblioteca de madeiras livre | 0–127 | a criar |
-| 20 | Coral | 1 | SFZ (coral livre) ou SURGE (preset "choir") | 0–127 | a criar |
+| 18 | Metais | 1 | SF2 + Sonatina (metais) | 0–127 | a criar |
+| 19 | Flauta | 1 | SF2 + Sonatina (flauta) | 0–127 | a criar |
+| 20 | Coral | 1 | SF2 + MuseScore_General (Choir) ou SURGE (preset "choir") | 0–127 | a criar |
 
 ## Set 5 — Pads
 
@@ -112,27 +113,30 @@ Use `--test` para validar o fluxo sem plugins reais.
 | # | Patch | Camadas | Instrumento / preset | Faixas | Status |
 |---|---|---|---|---|---|
 | 31 | Baixo Sintético | 1 | SURGE (sub bass) | 0–127 | a criar |
-| 32 | Baixo Elétrico | 1 | SFZ + baixo elétrico livre | 0–127 | a criar |
-| 33 | Baixo Acústico | 1 | SFZ + contrabaixo livre | 0–127 | a criar |
+| 32 | Baixo Elétrico | 1 | SF2 + MuseScore_General (Electric Bass) | 0–127 | a criar |
+| 33 | Baixo Acústico | 1 | SF2 + MuseScore_General (Acoustic Bass) | 0–127 | a criar |
 
 ## Set 8 — Layers e splits (uso de palco)
 
 | # | Patch | Camadas | Instrumentos | Faixas | Status |
 |---|---|---|---|---|---|
-| 34 | Split Baixo + Piano | 2 | Baixo (SFZ) + Piano (SFZ Salamander) | Baixo 0–59, Piano 60–127 | a criar |
+| 34 | Split Baixo + Piano | 2 | Baixo (SF2) + Piano (SFZ Salamander) | Baixo 0–59, Piano 60–127 | a criar |
 | 35 | Split Baixo + Elétrico | 2 | SURGE sub bass + DEXED elétrico | Baixo 0–53, Elétrico 54–127 | a criar |
-| 36 | Piano + Cordas | 2 | Salamander + Cordas Legato (−9 dB) | 0–127 | a criar |
+| 36 | Piano + Cordas | 2 | Salamander + Cordas Legato SF2 (−9 dB) | 0–127 | a criar |
 | 37 | Piano + Pad (worship) | 2 | Salamander + Pad Quente (−12 dB) | 0–127 | a criar |
 | 38 | Elétrico + Pad | 2 | DEXED + SURGE pad | 0–127 | a criar |
-| 39 | Split Cordas / Piano | 2 | Cordas (SFZ) + Piano (SFZ) | Cordas 0–59, Piano 60–127 | a criar |
+| 39 | Split Cordas / Piano | 2 | Cordas (SF2) + Piano (SFZ Salamander) | Cordas 0–59, Piano 60–127 | a criar |
 | 40 | Tripla: Piano + Cordas + Pad | 3 | Salamander + Cordas + Pad Quente | 0–127 | a criar |
 
 ---
 
 ## Observações
 
-- Os patches 11 e 12 só funcionam depois de ligar o suporte a **LV2** no motor
-  (`JUCE_PLUGINHOST_LV2`). Até lá, use o 13 e o 14.
+- Os patches 11 e 12 usam o setBfree (LV2). O LV2 já está ligado no motor, mas o
+  carregamento ainda **não foi testado**; se falhar, use o 13 e o 14.
+- Piano de cauda: só o **Salamander** (CC BY 3.0, exige atribuição). Samples da Nord
+  **não** entram na coleção (licença não confirmada; uso pessoal apenas).
+- SF2: baixe os arquivos à parte; não são distribuídos com o Preseter.
 - O nome exato de cada preset dos synths (SURGE, DEXED, ODIN) deve ser anotado na
   coluna "Instrumento / preset" quando o patch for criado.
 - Antes de **distribuir** qualquer patch com samples, conferir a licença da

@@ -42,13 +42,14 @@ const { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION } = require(path.join(__dirnam
 // Cada sigla tem expressões para achar o plugin pelo nome na lista do motor.
 const SFZ_NAME = first('sfz', 'sforzando');
 const INSTRUMENTS = {
-  SFZ: { label: 'SFZ', match: [new RegExp(SFZ_NAME, 'i'), /sfizz/i, /sforzando/i] },
+  SFZ: { label: 'sforzando/sfizz (Salamander)', match: [new RegExp(SFZ_NAME, 'i'), /sfizz/i, /sforzando/i] },
+  SF2: { label: 'SF2 Player (Bertom)', match: [/sf2 player/i, /sf2/i] },
   SURGE: { label: 'Surge XT', match: [/surge/i] },
   DEXED: { label: 'Dexed', match: [/dexed/i] },
   ODIN: { label: 'Odin 2', match: [/odin/i] },
   HELM: { label: 'Helm', match: [/helm/i] },
   MDA: { label: 'MDA', match: [/mda/i] },
-  ORG: { label: 'setBfree', match: [/setbfree/i], blocked: 'setBfree só tem LV2/JACK' },
+  ORG: { label: 'setBfree', match: [/setbfree/i] },
 };
 
 // ---------------------------------------------------------------------- coleção
@@ -59,7 +60,7 @@ const SETS = [
     ['Piano de Cauda', [L('SFZ', 0, 0, 127, 'Salamander')]],
     ['Piano de Cauda Brilhante', [L('SFZ', 0, 0, 127, 'Salamander + brilho')]],
     ['Piano Suave', [L('SFZ', 0, 0, 127, 'Salamander suave')]],
-    ['Piano Vertical', [L('SFZ', 0, 0, 127, 'Piano vertical')]],
+    ['Piano Vertical', [L('SF2', 0, 0, 127, 'Piano vertical')]],
     ['Piano + Pad', [L('SFZ', -6, 0, 127, 'Salamander'), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],
   ['Teclas elétricas', [
@@ -72,16 +73,16 @@ const SETS = [
   ['Órgãos', [
     ['Órgão Tonewheel', [L('ORG', -6, 0, 127, 'Tonewheel')]],
     ['Órgão Rock', [L('ORG', -6, 0, 127, 'Leslie rápido')]],
-    ['Órgão de Igreja', [L('SFZ', -6, 0, 127, 'Órgão de tubos')]],
+    ['Órgão de Igreja', [L('SF2', -6, 0, 127, 'Órgão de tubos')]],
     ['Órgão Suave', [L('SURGE', -6, 0, 127, 'Órgão')]],
   ]],
   ['Cordas e orquestra', [
-    ['Cordas Legato', [L('SFZ', -6, 0, 127, 'Cordas sustain')]],
-    ['Cordas Staccato', [L('SFZ', -6, 0, 127, 'Cordas staccato')]],
+    ['Cordas Legato', [L('SF2', -6, 0, 127, 'Cordas sustain')]],
+    ['Cordas Staccato', [L('SF2', -6, 0, 127, 'Cordas staccato')]],
     ['Cordas Sintéticas', [L('SURGE', -6, 0, 127, 'String ensemble')]],
-    ['Metais', [L('SFZ', -6, 0, 127, 'Metais')]],
-    ['Flauta', [L('SFZ', -6, 0, 127, 'Flauta')]],
-    ['Coral', [L('SFZ', -6, 0, 127, 'Coral')]],
+    ['Metais', [L('SF2', -6, 0, 127, 'Metais')]],
+    ['Flauta', [L('SF2', -6, 0, 127, 'Flauta')]],
+    ['Coral', [L('SF2', -6, 0, 127, 'Coral')]],
   ]],
   ['Pads', [
     ['Pad Quente', [L('SURGE', -6, 0, 127, 'Pad')]],
@@ -99,17 +100,17 @@ const SETS = [
   ]],
   ['Baixos', [
     ['Baixo Sintético', [L('SURGE', -6, 0, 127, 'Sub bass')]],
-    ['Baixo Elétrico', [L('SFZ', -6, 0, 127, 'Baixo elétrico')]],
-    ['Baixo Acústico', [L('SFZ', -6, 0, 127, 'Contrabaixo')]],
+    ['Baixo Elétrico', [L('SF2', -6, 0, 127, 'Baixo elétrico')]],
+    ['Baixo Acústico', [L('SF2', -6, 0, 127, 'Contrabaixo')]],
   ]],
   ['Layers e splits', [
-    ['Split Baixo + Piano', [L('SFZ', -6, 0, 59, 'Baixo'), L('SFZ', -6, 60, 127, 'Salamander')]],
+    ['Split Baixo + Piano', [L('SF2', -6, 0, 59, 'Baixo'), L('SFZ', -6, 60, 127, 'Salamander')]],
     ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('DEXED', -6, 54, 127, 'E.Piano')]],
-    ['Piano + Cordas', [L('SFZ', -6, 0, 127, 'Salamander'), L('SFZ', -9, 0, 127, 'Cordas legato')]],
+    ['Piano + Cordas', [L('SFZ', -6, 0, 127, 'Salamander'), L('SF2', -9, 0, 127, 'Cordas legato')]],
     ['Piano + Pad (worship)', [L('SFZ', -6, 0, 127, 'Salamander'), L('SURGE', -12, 0, 127, 'Pad quente')]],
     ['Elétrico + Pad', [L('DEXED', -6, 0, 127, 'E.Piano'), L('SURGE', -12, 0, 127, 'Pad')]],
-    ['Split Cordas / Piano', [L('SFZ', -6, 0, 59, 'Cordas'), L('SFZ', -6, 60, 127, 'Piano')]],
-    ['Tripla: Piano + Cordas + Pad', [L('SFZ', -6, 0, 127, 'Salamander'), L('SFZ', -9, 0, 127, 'Cordas'), L('SURGE', -12, 0, 127, 'Pad quente')]],
+    ['Split Cordas / Piano', [L('SF2', -6, 0, 59, 'Cordas'), L('SFZ', -6, 60, 127, 'Piano')]],
+    ['Tripla: Piano + Cordas + Pad', [L('SFZ', -6, 0, 127, 'Salamander'), L('SF2', -9, 0, 127, 'Cordas'), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],
 ];
 
