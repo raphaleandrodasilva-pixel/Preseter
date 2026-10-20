@@ -151,86 +151,18 @@ const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: 
   );
 };
 
-/** Auto-fit do workspace Layout/Edit: enquadra pelo bounding box dos controles (não mostra vazio). */
-const ZoomToFit: React.FC<{
+/** Área rolável do workspace Layout/Edit, expandida conforme os controles. */
+const ScrollableCanvas: React.FC<{
   elements: UiElement[];
-  frozen?: boolean;
   children: (scale: number, canvasW: number, canvasH: number) => React.ReactNode;
-}> = ({ elements, frozen, children }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [frame, setFrame] = useState<{ minX: number; minY: number; maxX: number; maxY: number }>(
-    typeof window !== 'undefined'
-      ? { minX: 0, minY: 0, maxX: 680, maxY: 520 }
-      : { minX: 0, minY: 0, maxX: 680, maxY: 520 }
-  );
-  const [fit, setFit] = useState<{ scale: number; left: number; top: number }>({ scale: 1, left: 0, top: 0 });
-
-  useEffect(() => {
-    if (frozen) return;
-    const margin = 24;
-    if (elements.length === 0) {
-      setFrame({ minX: 0, minY: 0, maxX: 680, maxY: 520 });
-      return;
-    }
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const e of elements) {
-      minX = Math.min(minX, e.x);
-      minY = Math.min(minY, e.y);
-      maxX = Math.max(maxX, e.x + (e.width ?? 40));
-      maxY = Math.max(maxY, e.y + (e.height ?? 28));
-    }
-    setFrame({
-      minX: Math.max(0, minX - margin),
-      minY: Math.max(0, minY - margin),
-      maxX: Math.max(680, maxX + margin),
-      maxY: Math.max(520, maxY + margin),
-    });
-  }, [elements, frozen]);
-
-  const contentW = Math.max(0, frame.maxX - frame.minX);
-  const contentH = Math.max(0, frame.maxY - frame.minY);
-  const canvasW = Math.max(680, frame.maxX);
-  const canvasH = Math.max(520, frame.maxY);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const calc = () => {
-      const availW = Math.max(100, el.clientWidth - 16);
-      const availH = Math.max(100, el.clientHeight - 16);
-      const s = Math.max(0.2, Math.min(1, availW / Math.max(1, contentW), availH / Math.max(1, contentH)));
-      setFit({
-        scale: s,
-        left: 8 + Math.max(0, (availW - contentW * s) / 2),
-        top: 8 + Math.max(0, (availH - contentH * s) / 2),
-      });
-    };
-    calc();
-    const ro = new ResizeObserver(calc);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [contentW, contentH]);
+}> = ({ elements, children }) => {
+  const canvasW = Math.max(1600, ...elements.map((element) => element.x + (element.width ?? 40) + 24));
+  const canvasH = Math.max(1000, ...elements.map((element) => element.y + (element.height ?? 28) + 24));
 
   return (
-    <div ref={ref} className="relative h-full w-full overflow-hidden">
-      <div
-        style={{
-          position: 'absolute',
-          width: contentW,
-          height: contentH,
-          left: fit.left,
-          top: fit.top,
-          overflow: 'hidden',
-          transform: `scale(${fit.scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        <div style={{ position: 'absolute', left: -frame.minX, top: -frame.minY, width: canvasW, height: canvasH }}>
-          {children(fit.scale, canvasW, canvasH)}
-        </div>
+    <div className="h-full w-full overflow-auto">
+      <div style={{ width: canvasW, height: canvasH }}>
+        {children(1, canvasW, canvasH)}
       </div>
     </div>
   );
@@ -295,7 +227,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [performListOpen, setPerformListOpen] = useState(true);
   const [performListQuery, setPerformListQuery] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
-  const [canvasInteracting, setCanvasInteracting] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [mappingsOpen, setMappingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -2480,11 +2411,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             )}
           </div>
           {error && <div className="border-b border-red-900 bg-red-950/40 px-4 py-1 text-[11px] text-red-300">{error}</div>}
-          <div className="min-h-0 flex-1 overflow-hidden p-2">
+          <div data-workspace-region className="min-h-0 flex-1 overflow-hidden p-2">
             {(draft ?? currentPreset) ? (
-              <ZoomToFit
+              <ScrollableCanvas
                 elements={displayElements}
-                frozen={canvasInteracting}
                 children={(scale, canvasW, canvasH) => (
                   <>
                     <ComposerCanvas
@@ -2515,7 +2445,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       scale={scale}
                       canvasWidth={canvasW}
                       canvasHeight={canvasH}
-                      onInteractionChange={setCanvasInteracting}
                     />
                     {!draft && (
                       <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid rgba(10,132,255,0.4)', background: 'rgba(10,132,255,0.08)', color: '#EDEDEF' }}>

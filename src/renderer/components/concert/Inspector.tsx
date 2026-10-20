@@ -79,11 +79,40 @@ export const Inspector: React.FC<InspectorProps> = ({
     // 50% da janela
     return Math.round(window.innerHeight * 0.5);
   });
+  const [maxHeight, setMaxHeight] = useState(() => Math.max(160, window.innerHeight * 0.7));
+  const panelRef = useRef<HTMLDivElement>(null);
   const resizing = useRef<{ startY: number; originH: number } | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
   const [learningShortcut, setLearningShortcut] = useState(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    const parent = panel?.parentElement;
+    if (!panel || !parent) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      const fixedHeight = Array.from(parent.children).reduce((total, child) => {
+        const element = child as HTMLElement;
+        if (element === panel || element.hasAttribute('data-workspace-region')) return total;
+        return total + element.getBoundingClientRect().height;
+      }, 0);
+      const available = Math.max(160, parent.clientHeight - fixedHeight - 160);
+      setMaxHeight(available);
+      setHeight((current) => Math.min(current, available));
+    });
+    const mutationObserver = new MutationObserver(() => {
+      Array.from(parent.children).forEach((child) => resizeObserver.observe(child));
+    });
+    resizeObserver.observe(parent);
+    Array.from(parent.children).forEach((child) => resizeObserver.observe(child));
+    mutationObserver.observe(parent, { childList: true });
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
 
   // No Edit, selecionar um screen control abre direto a aba de mapeamento.
   useEffect(() => {
@@ -145,12 +174,12 @@ export const Inspector: React.FC<InspectorProps> = ({
   }
 
   return (
-    <div className="flex shrink-0 flex-col border-t" style={{ borderColor: '#1E1E24', background: '#0A0A0C', height }}>
+    <div ref={panelRef} className="flex shrink-0 flex-col border-t" style={{ borderColor: '#1E1E24', background: '#0A0A0C', height, maxHeight }}>
       <div
         className="cursor-ns-resize pt-1.5"
         title="Arrastar para redimensionar · duplo clique para 50/50"
         onDoubleClick={() => {
-          const next = Math.round(window.innerHeight * 0.5);
+          const next = Math.min(maxHeight, Math.round(window.innerHeight * 0.5));
           setHeight(next);
           try { localStorage.setItem('preseter.inspectorHeight.v2', String(next)); } catch { /* ignora */ }
         }}
@@ -161,7 +190,7 @@ export const Inspector: React.FC<InspectorProps> = ({
         onPointerMove={(event) => {
           const r = resizing.current;
           if (!r) return;
-          const next = Math.max(160, Math.min(window.innerHeight * 0.7, r.originH - (event.clientY - r.startY)));
+          const next = Math.max(160, Math.min(maxHeight, r.originH - (event.clientY - r.startY)));
           setHeight(next);
         }}
         onPointerUp={() => {
