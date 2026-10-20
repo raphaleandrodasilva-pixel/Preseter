@@ -1444,7 +1444,7 @@ class MainWindow {
   }
 
   private readPreferences(): AppPreferences {
-    const defaults: AppPreferences = { silencePreviousPatch: false, pluginFolders: [] };
+    const defaults: AppPreferences = { silencePreviousPatch: false, pluginFolders: [], scrollSpeed: 'slow' };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
       const data: unknown = JSON.parse(fs.readFileSync(this.preferencesPath, 'utf8'));
@@ -1457,6 +1457,9 @@ class MainWindow {
         pluginFolders: Array.isArray(saved.pluginFolders)
           ? saved.pluginFolders.filter((folder): folder is string => typeof folder === 'string' && folder.trim() !== '')
           : [],
+        scrollSpeed: saved.scrollSpeed === 'normal' || saved.scrollSpeed === 'slower'
+          ? saved.scrollSpeed
+          : 'slow',
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

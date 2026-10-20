@@ -20,7 +20,7 @@ import type {
   MidiBinding,
   PlaybackState,
 } from '@shared/types';
-import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
+import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
 import { defaultAudioInput } from '@shared/audio-input';
 import {
   clearOverride,
@@ -243,6 +243,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
 
   const activePreset = draft ?? currentPreset;
+  const activeOutputChannels = ctx.audioDevices?.current?.outputChannels
+    ?? ctx.audioSettings?.outputs
+    ?? 2;
+  const availableOutputPairs = Math.max(1, Math.min(MAX_OUTPUT_BUSES, Math.ceil(activeOutputChannels / 2)));
   const selectedLoadedPlugin = selectedLayerId
     ? loadedPlugins.find((plugin) => plugin.layerId === selectedLayerId) ?? null
     : null;
@@ -2491,6 +2495,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             audioInput={activePreset?.audioInput}
             audioInputState={audioInputState}
             audioInputChannels={ctx.audioDevices?.current?.inputChannels ?? 0}
+            availableOutputPairs={availableOutputPairs}
             onAddAudioInput={addAudioInput}
             onRemoveAudioInput={removeAudioInput}
             onAudioInputChange={changeAudioInput}

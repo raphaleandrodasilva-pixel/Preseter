@@ -48,6 +48,8 @@ interface ChannelStripsProps {
   audioInput?: AudioInputSettings;
   audioInputState?: AudioInputState | null;
   audioInputChannels: number;
+  /** Pares estéreo de saída disponíveis na interface de áudio (1 a 4). */
+  availableOutputPairs: number;
   onAddAudioInput: () => void;
   onRemoveAudioInput: () => void;
   onAudioInputChange: (update: Partial<AudioInputSettings>) => void;
@@ -198,6 +200,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   audioInput,
   audioInputState,
   audioInputChannels,
+  availableOutputPairs,
   onAddAudioInput,
   onRemoveAudioInput,
   onAudioInputChange,
@@ -245,6 +248,32 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const visibleAux = (busSettings?.aux ?? [])
     .map((bus, index) => ({ bus, index: index + 1 }))
     .filter(({ bus }) => bus.enabled === true || (bus.enabled === undefined && bus.inserts.length > 0));
+  const outputPairLimit = Math.max(1, Math.min(MAX_OUTPUT_BUSES, availableOutputPairs || 1));
+  const outputIsUsed = (index: number) => {
+    const targets = (value: number | undefined) => (value ?? 1) === index;
+    return plugins.some((item) => targets(item.output))
+      || (busSettings?.aux ?? []).some((bus) => targets(bus.output))
+      || concertStrips.some((strip) => targets(strip.output))
+      || setStrips.some((strip) => targets(strip.output));
+  };
+  const outputIsConfigured = (bus: BusSettings) =>
+    (bus.inserts?.length ?? 0) > 0 || bus.volumeDb !== 0 || bus.pan !== 0 || bus.muted === true;
+  const visibleOutputs = (busSettings?.outputs ?? [])
+    .slice(0, outputPairLimit)
+    .map((bus, index) => ({ bus, index: index + 1 }))
+    .filter(({ bus, index }) => index === 1 || outputIsUsed(index) || outputIsConfigured(bus));
+  const outputOptions = (current: number) => {
+    const values = new Set<number>();
+    for (let index = 1; index <= outputPairLimit; index += 1) values.add(index);
+    if (current > outputPairLimit) values.add(current);
+    return [...values]
+      .sort((a, b) => a - b)
+      .map((value) => ({
+        value,
+        label: value > outputPairLimit ? `Output ${value} (indisponível)` : `Output ${value}`,
+        unavailable: value > outputPairLimit,
+      }));
+  };
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -768,10 +797,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => options.onOutput(Number(event.target.value))}
         >
-          {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
-            <option key={index + 1} value={index + 1}>Output {index + 1}</option>
+          {outputOptions(options.output).map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        {options.output > outputPairLimit && (
+          <span
+            title={`Output ${options.output} indisponível: a interface tem ${outputPairLimit} par(es) de saída.`}
+            style={{ color: '#FFB74D' }}
+          >
+            ⚠
+          </span>
+        )}
       </label>
     </div>
   );
@@ -880,10 +917,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => onSetBusMix(ownerId, { output: Number(event.target.value) })}
             >
-              {Array.from({ length: MAX_OUTPUT_BUSES }, (_, index) => (
-                <option key={index + 1} value={index + 1}>Output {index + 1}</option>
+              {outputOptions(mix.output).map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+            {mix.output > outputPairLimit && (
+              <span
+                title={`Output ${mix.output} indisponível: a interface tem ${outputPairLimit} par(es) de saída.`}
+                style={{ color: '#FFB74D' }}
+              >
+                ⚠
+              </span>
+            )}
           </label>
         )}
         {renderInserts({
@@ -1568,8 +1613,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               {visibleAux.map(({ bus, index }) =>
                 renderBusStrip(`aux${index}`, `Aux ${index}`, 'aux', bus)
               )}
-              {busSettings.outputs.slice(0, MAX_OUTPUT_BUSES).map((bus, index) =>
-                renderBusStrip(`output${index + 1}`, `Output ${index + 1}`, 'output', bus)
+              {visibleOutputs.map(({ bus, index }) =>
+                renderBusStrip(`output${index}`, `Output ${index}`, 'output', bus)
               )}
             </>
           )}

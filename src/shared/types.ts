@@ -616,12 +616,17 @@ export interface AudioSettingsSnapshot {
   settings: SavedAudioSettings;
 }
 
+/** Velocidade do scroll de listas/menus do Preseter. */
+export type ScrollSpeed = 'normal' | 'slow' | 'slower';
+
 /** Preferências gerais do app (arquivo preferences.json no userData). */
 export interface AppPreferences {
   /** Corta o patch anterior assim que troca; padrão false (deixa as caudas acabarem). */
   silencePreviousPatch: boolean;
   /** Pastas extras de plugins VST2/VST3/LV2 escolhidas pelo usuário. */
   pluginFolders: string[];
+  /** Velocidade do scroll; padrão 'slow' (0,5×). */
+  scrollSpeed: ScrollSpeed;
 }
 
 // Configuração de layout da interface

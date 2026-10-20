@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { ScrollSpeed } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 
 export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view';
@@ -25,6 +26,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const [audioOutput, setAudioOutput] = useState('');
   const [sampleRate, setSampleRate] = useState(48000);
   const [bufferSize, setBufferSize] = useState(512);
+  const [audioOutputPairs, setAudioOutputPairs] = useState(1);
   const [audioBusy, setAudioBusy] = useState(false);
 
   useEffect(() => setTab(initialTab), [initialTab]);
@@ -43,6 +45,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     setAudioOutput('');
     setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
     setBufferSize(audioSettings?.bufferSize ?? audioDevices.current?.bufferSize ?? 512);
+    const channels = audioSettings?.outputs ?? audioDevices.current?.outputChannels ?? 2;
+    setAudioOutputPairs(Math.max(1, Math.min(4, Math.ceil(channels / 2))));
   }, [audioDevices, audioSettings]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -260,19 +264,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     </select>
                   </label>
                 </div>
+                <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                  Saídas estéreo
+                  <select
+                    value={audioOutputPairs}
+                    onChange={(event) => setAudioOutputPairs(Math.max(1, Math.min(4, Number(event.target.value) || 1)))}
+                    className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                  >
+                    {[1, 2, 3, 4].map((pairs) => (
+                      <option key={pairs} value={pairs}>
+                        {pairs} par{pairs > 1 ? 'es' : ''} · {pairs * 2} canais
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+                  Cada par = 2 canais. No Edit, outputs extras só aparecem quando usados ou configurados.
+                </p>
                 <div className="flex gap-2">
                   <button
                     onClick={async () => {
                       setAudioBusy(true);
-                      await startAudio({
+                      const started = await startAudio({
                         type: audioType || undefined,
                         input: audioInput || undefined,
                         output: audioOutput || undefined,
                         inputs: audioInput ? 2 : 0,
-                        outputs: 2,
+                        outputs: audioOutputPairs * 2,
                         sampleRate,
                         bufferSize,
                       });
+                      if (!started) {
+                        const channels = audioSettings?.outputs ?? audioDevices?.current?.outputChannels ?? 2;
+                        setAudioOutputPairs(Math.max(1, Math.min(4, Math.ceil(channels / 2))));
+                      }
                       setAudioBusy(false);
                     }}
                     disabled={audioBusy}
@@ -318,6 +343,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 >
                   Entrar em tela cheia
                 </button>
+              </section>
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Velocidade do scroll</h4>
+                <p className="text-[11px]" style={{ color: '#8E8E93' }}>
+                  Afeta listas e menus do Preseter. Menus nativos do Windows não mudam.
+                </p>
+                <select
+                  value={preferences?.scrollSpeed ?? 'slow'}
+                  onChange={(event) => void updatePreferences({ scrollSpeed: event.target.value as ScrollSpeed })}
+                  className="hw-inset w-full px-2 py-2 text-xs text-slate-100"
+                >
+                  <option value="normal">Normal (nativo)</option>
+                  <option value="slow">Lenta (0,5×)</option>
+                  <option value="slower">Muito lenta (0,35×)</option>
+                </select>
               </section>
             </div>
           )}

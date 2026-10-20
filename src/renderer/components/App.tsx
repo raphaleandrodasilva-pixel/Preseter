@@ -3,6 +3,7 @@ import { EffectiveStrip, Preset } from '@shared/types';
 import { resolveStrips } from '@shared/concert-strips';
 import { createDefaultKeyboardLayout } from '@shared/default-layout';
 import { AppProvider, useAppContext } from '../context/AppContext';
+import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
 import type { ConcertMode } from './concert/ModeToolbar';
@@ -31,7 +32,10 @@ const AppContent: React.FC = () => {
     sets,
     layout,
     updateConcertLayout,
+    preferences,
   } = context;
+
+  useSlowScroll(preferences?.scrollSpeed ?? 'slow');
 
   const [mode, setMode] = useState<ConcertMode>('edit');
   const [draft, setDraft] = useState<Preset | null>(null);
