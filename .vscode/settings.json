@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/rapha/Documents/My_apps/preseter/engine"
+    "cmake.sourceDirectory": "C:/Users/rapha/Documents/My_apps/preseter/engine",
+    "cmake.buildDirectory": "${workspaceFolder}/engine/build"
 }
