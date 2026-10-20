@@ -35,6 +35,7 @@ interface InspectorProps {
   onSelectElement: (id: string) => void;
   onSave: () => void;
   saving: boolean;
+  orientation?: 'bottom' | 'left';
 }
 
 type Tab = 'library' | 'attributes' | 'strip' | 'stripLibrary' | 'mapping' | 'notes' | 'control';
@@ -69,6 +70,12 @@ export const Inspector: React.FC<InspectorProps> = ({
   onSave,
   saving,
 }) => {
+  const isLeft = orientation === 'left';
+  const [width, setWidth] = useState<number>(() => {
+    try { const raw = localStorage.getItem('preseter.inspectorWidth.v1'); const parsed = raw ? Number(raw) : NaN; if (Number.isFinite(parsed)) return Math.max(240, Math.min(480, parsed)); } catch { /* ignora */ }
+    return 300;
+  });
+  const widthRef = useRef(width); widthRef.current = width;
   const [tab, setTab] = useState<Tab>('attributes');
   const [height, setHeight] = useState<number>(() => {
     try {
@@ -82,12 +89,14 @@ export const Inspector: React.FC<InspectorProps> = ({
   const [maxHeight, setMaxHeight] = useState(() => Math.max(160, window.innerHeight * 0.7));
   const panelRef = useRef<HTMLDivElement>(null);
   const resizing = useRef<{ startY: number; originH: number } | null>(null);
+  const widthResize = useRef<{ startX: number; originW: number } | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
   const [learningShortcut, setLearningShortcut] = useState(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isLeft) return;
     const panel = panelRef.current;
     const parent = panel?.parentElement;
     if (!panel || !parent) return;
@@ -163,6 +172,44 @@ export const Inspector: React.FC<InspectorProps> = ({
     ...(selectedElement ? [{ id: 'control' as Tab, label: `Control: ${selectedElement.label}` }] : []),
   ];
 
+  if (!draft && isLeft) {
+    return (
+      <aside className="flex shrink-0 flex-col border-r overflow-hidden" style={{ width, borderColor: '#1E1E24', background: '#0A0A0C' }}>
+        <div className="flex items-center border-b px-3 py-2" style={{ borderColor: '#1E1E24' }}>
+          <span className="text-[11px] font-semibold text-white">Screen Control Inspector</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-3 text-[11px] text-slate-400">
+          {mode === 'layout'
+            ? 'Selecione um patch e clique em Editar para desenhar o layout, ou selecione um controle no canvas.'
+            : 'Selecione um patch na Patch List para ver o Inspector.'}
+        </div>
+        <div className="border-t px-3 py-2" style={{ borderColor: '#1E1E24' }}>
+          <div className="text-[10px] font-semibold uppercase" style={{ color: '#8E8E93' }}>Quick Help</div>
+          <p className="mt-1 text-[10px] leading-relaxed" style={{ color: '#636366' }}>Selecione um controle no canvas para ver Hardware Input, aparência e textos. Arraste controles da palette para o workspace.</p>
+        </div>
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize"
+          style={{ background: 'transparent' }}
+          title="Arrastar para redimensionar"
+          onPointerDown={(event) => {
+            (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+            widthResize.current = { startX: event.clientX, originW: width };
+          }}
+          onPointerMove={(event) => {
+            const r = widthResize.current;
+            if (!r) return;
+            const next = Math.max(240, Math.min(480, r.originW + (event.clientX - r.startX)));
+            setWidth(next);
+          }}
+          onPointerUp={() => {
+            widthResize.current = null;
+            try { localStorage.setItem('preseter.inspectorWidth.v1', String(widthRef.current)); } catch { /* ignora */ }
+          }}
+          onPointerCancel={() => { widthResize.current = null; }}
+        />
+      </aside>
+    );
+  }
   if (!draft) {
     return (
       <div className="shrink-0 border-t px-4 py-3 text-xs" style={{ borderColor: '#1E1E24', background: '#0A0A0C', color: '#9A9AA0' }}>

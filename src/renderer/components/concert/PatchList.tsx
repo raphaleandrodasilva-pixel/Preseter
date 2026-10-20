@@ -36,6 +36,7 @@ interface PatchListProps {
     beforeId: string | null,
     copy: boolean
   ) => Promise<string[]>;
+  compact?: boolean;
 }
 
 function sortedSets(sets: PresetSet[]): PresetSet[] {
@@ -90,6 +91,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   onExportSet,
   onImportSet,
   onMovePatches,
+  compact = false,
 }) => {
   const [query, setQuery] = useState('');
   const [actionOpen, setActionOpen] = useState(false);
@@ -383,7 +385,7 @@ export const PatchList: React.FC<PatchListProps> = ({
       data-patch-list
       tabIndex={0}
       onKeyDown={handleListKeyDown}
-      className="flex w-[264px] shrink-0 flex-col border-r outline-none"
+      className={`flex shrink-0 flex-col border-r outline-none ${compact ? 'w-[200px]' : 'w-[264px]'}`}
       style={{ borderColor: '#0E0E10', background: '#262628' }}
     >
       <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: '#303032' }}>
