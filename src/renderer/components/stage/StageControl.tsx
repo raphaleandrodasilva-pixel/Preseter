@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { UiElement } from '@shared/types';
+import type { PlaybackState, UiElement } from '@shared/types';
 import { KeyboardControl } from './KeyboardControl';
 import type { KeyboardZone } from './KeyboardControl';
 import {
   ActivityFace,
   ButtonFace,
+  DrawbarFace,
   FaceButton,
   FaderFace,
   KnobFace,
@@ -12,6 +13,7 @@ import {
   MeterFace,
   PadFace,
   PedalFace,
+  PlaybackFace,
   SliderFace,
   ToggleFace,
 } from './faces';
@@ -27,6 +29,11 @@ interface StageControlProps {
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
+  /** Playback opcional no Layout. */
+  playbackState?: PlaybackState | null;
+  onLoadPlayback?: () => void;
+  onPlayPlayback?: () => void;
+  onStopPlayback?: () => void;
 }
 
 function normOf(value: number, min: number, max: number): number {
@@ -44,11 +51,15 @@ export const StageControl: React.FC<StageControlProps> = ({
   keyboardZones,
   selectedZoneId,
   onZoneClick,
+  playbackState,
+  onLoadPlayback,
+  onPlayPlayback,
+  onStopPlayback,
 }) => {
   const [value, setValue] = useState(element.value ?? 0.5);
   const min = element.minValue ?? 0;
   const max = element.maxValue ?? 1;
-  const drag = useRef<{ kind: 'v' | 'h' | 'knob'; startX: number; startY: number; startNorm: number } | null>(null);
+  const drag = useRef<{ kind: 'v' | 'h' | 'knob' | 'drawbar'; startX: number; startY: number; startNorm: number } | null>(null);
 
   useEffect(() => {
     setValue(element.value ?? 0.5);
@@ -91,6 +102,23 @@ export const StageControl: React.FC<StageControlProps> = ({
   const isOn = value >= (min + max) / 2;
 
   const valueOfNorm = (n: number) => min + Math.max(0, Math.min(1, n)) * (max - min);
+
+  const setDrawbarFromTrack = (target: HTMLElement, clientY: number) => {
+    const rect = target.getBoundingClientRect();
+    const n = 1 - (clientY - rect.top) / rect.height;
+    sendValue(Math.round(Math.max(0, Math.min(1, n)) * max));
+  };
+  const beginDrawbarDrag = (e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { kind: 'drawbar', startX: e.clientX, startY: e.clientY, startNorm: norm };
+    setDrawbarFromTrack(e.currentTarget as HTMLElement, e.clientY);
+  };
+  const moveDrawbarDrag = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.kind !== 'drawbar') return;
+    if (!(e.buttons & 1)) return;
+    setDrawbarFromTrack(e.currentTarget as HTMLElement, e.clientY);
+  };
 
   const beginKnobDrag = (e: React.PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -225,6 +253,28 @@ export const StageControl: React.FC<StageControlProps> = ({
             <span className="hw-badge mt-1" style={{ fontSize: 9 }}>{Math.round(norm * 127)}</span>
           </div>
         )
+      )}
+      {element.type === 'drawbar' && (
+        <DrawbarFace
+          label={element.label}
+          value={value}
+          max={max}
+          trackProps={{
+            title: `${element.label} — arrastar (0–${Math.round(max)})`,
+            onPointerDown: beginDrawbarDrag,
+            onPointerMove: moveDrawbarDrag,
+            onPointerUp: endDrag,
+            onPointerCancel: endDrag,
+          }}
+        />
+      )}
+      {element.type === 'playback' && (
+        <PlaybackFace
+          state={playbackState}
+          onLoad={onLoadPlayback}
+          onPlay={onPlayPlayback}
+          onStop={onStopPlayback}
+        />
       )}
       {element.type === 'meter-vertical' && (
         <MeterFace label={element.label} norm={norm} horizontal={element.orientation === 'horizontal'} />

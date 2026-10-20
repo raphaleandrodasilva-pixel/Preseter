@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
-import type { UiElement } from '@shared/types';
+import type { PlaybackState, UiElement } from '@shared/types';
 import { StageControl } from '../stage/StageControl';
 import { KeyboardControl } from '../stage/KeyboardControl';
 import type { KeyboardZone } from '../stage/KeyboardControl';
-import { ActivityFace, ButtonFace, FaderFace, KnobFace, LabelFace, MeterFace, PadFace, PedalFace, SliderFace, ToggleFace } from '../stage/faces';
+import { ActivityFace, ButtonFace, DrawbarFace, FaderFace, KnobFace, LabelFace, MeterFace, PadFace, PedalFace, PlaybackFace, SliderFace, ToggleFace } from '../stage/faces';
 import { DRAG_MIME } from './ControlPalette';
 import { snap8 } from './elementFactory';
 
@@ -35,9 +35,13 @@ interface ComposerCanvasProps {
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
+  playbackState?: PlaybackState | null;
+  onLoadPlayback?: () => void;
+  onPlayPlayback?: () => void;
+  onStopPlayback?: () => void;
 }
 
-function PreviewShape({ element }: { element: UiElement }) {
+function PreviewShape({ element, playbackState }: { element: UiElement; playbackState?: PlaybackState | null }) {
   const min = element.minValue ?? 0;
   const max = element.maxValue ?? 1;
   const value = element.value ?? 0.5;
@@ -59,6 +63,10 @@ function PreviewShape({ element }: { element: UiElement }) {
       return <PadFace label={element.label} />;
     case 'button':
       return <ButtonFace label={element.label} />;
+    case 'drawbar':
+      return <DrawbarFace label={element.label} value={value} max={max} />;
+    case 'playback':
+      return <PlaybackFace state={playbackState} />;
     case 'meter-vertical':
       return <MeterFace label={element.label} norm={norm} horizontal={element.orientation === 'horizontal'} />;
     case 'midi-activity':
@@ -96,6 +104,7 @@ interface CanvasElementProps {
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
   onInteractionChange?: (active: boolean) => void;
+  playbackState?: PlaybackState | null;
 }
 
 const CanvasElement: React.FC<CanvasElementProps> = ({
@@ -108,6 +117,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   onMove,
   onResize,
   onInteractionChange,
+  playbackState,
 }) => {
   const drag = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const resizing = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
@@ -158,7 +168,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
         ...(selected ? { boxShadow: '0 0 0 2px #0A84FF' } : {}),
       }}
     >
-      <PreviewShape element={element} />
+      <PreviewShape element={element} playbackState={playbackState} />
       {selected && !locked && movable && (
         <span
           data-resize
@@ -218,6 +228,10 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   keyboardZones,
   selectedZoneId,
   onZoneClick,
+  playbackState,
+  onLoadPlayback,
+  onPlayPlayback,
+  onStopPlayback,
 }) => {
   const safeScale = Math.max(0.01, scale);
   const coordsOf = (clientX: number, clientY: number, currentTarget: HTMLDivElement) => {
@@ -266,6 +280,10 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               keyboardZones={keyboardZones}
               selectedZoneId={selectedZoneId}
               onZoneClick={onZoneClick}
+              playbackState={playbackState}
+              onLoadPlayback={onLoadPlayback}
+              onPlayPlayback={onPlayPlayback}
+              onStopPlayback={onStopPlayback}
             />
           ))
         : elements.map((element) =>
@@ -280,6 +298,10 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   keyboardZones={keyboardZones}
                   selectedZoneId={selectedZoneId}
                   onZoneClick={onZoneClick}
+                  playbackState={playbackState}
+                  onLoadPlayback={onLoadPlayback}
+                  onPlayPlayback={onPlayPlayback}
+                  onStopPlayback={onStopPlayback}
                 />
                 {element.id === selectedId && (
                   <div
@@ -320,6 +342,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                 onMove={onMove}
                 onResize={onResize}
                 onInteractionChange={onInteractionChange}
+                playbackState={playbackState}
               />
             )
           )}

@@ -627,6 +627,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programNumber,
         midiChannel: 0,
         plugins: [],
+        master: { volumeDb: 0, pan: 0, muted: false, inserts: [] },
         vstStates: {},
         layout: { elements: [], background: null, tempo: 120 },
         createdAt: Date.now(),
@@ -1367,7 +1368,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setVstBusMix = useCallback(async (bus: string, update: BusMixUpdate) => {
     try {
-      await window.electronAPI.vstSetBusMix(bus, update);
+      const changed = await window.electronAPI.vstSetBusMix(bus, update);
+      setMixState((current) => {
+        if (!current) return current;
+        const merge = (list: EngineMixState['aux']) =>
+          list.map((item) => changed.find((next) => next.bus === item.bus) ?? item);
+        return { ...current, aux: merge(current.aux), outputs: merge(current.outputs) };
+      });
       setMidiError(null);
       return true;
     } catch (error) {

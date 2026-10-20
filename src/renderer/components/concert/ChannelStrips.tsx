@@ -5,7 +5,6 @@ import type {
   PlaybackState,
   BusMixUpdate,
   BusSettings,
-  ConcertBusSettings,
   ConcertStrip,
   EffectiveStrip,
   EngineMixState,
@@ -37,8 +36,8 @@ interface ChannelStripsProps {
   scannedPlugins: VstPluginInfo[];
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
-  /** Barramentos Aux/Output definidos no concert (Fase 3.2). */
-  busSettings: ConcertBusSettings | null;
+  /** Master do patch (o Output 1 internamente). */
+  masterSettings: BusSettings;
   /** Channel strips do concert e do set do patch atual (Fase 3.3). */
   concertStrips: ConcertStrip[];
   setStrips: ConcertStrip[];
@@ -83,10 +82,8 @@ interface ChannelStripsProps {
   /** Sends e saída dos channel strips (Fase 3.2). */
   onSetSend: (layerId: string, aux: number, levelDb: number) => void;
   onSetLayerOutput: (layerId: string, output: number) => void;
-  /** Barramentos do concert (Fase 3.2). */
+  /** Master do patch (Fase 3.2). */
   onSetBusMix: (bus: string, update: BusMixUpdate) => void;
-  onAddAux: () => void;
-  onRemoveAux: (index: number) => void;
   onAddBusInsert: (bus: string, slot: number, plugin: VstPluginInfo) => Promise<boolean>;
   onRemoveBusInsert: (bus: string, slot: number) => Promise<void>;
   onToggleBusInsertBypass: (bus: string, slot: number, bypass: boolean) => Promise<void>;
@@ -192,7 +189,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   scannedPlugins,
   loadedPlugins,
   mixState,
-  busSettings,
+  masterSettings,
   concertStrips,
   setStrips,
   setName,
@@ -226,8 +223,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetSend,
   onSetLayerOutput,
   onSetBusMix,
-  onAddAux,
-  onRemoveAux,
   onAddBusInsert,
   onRemoveBusInsert,
   onToggleBusInsertBypass,
@@ -245,23 +240,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetMasterMix,
 }) => {
   const plugins = preset?.plugins ?? [];
-  const visibleAux = (busSettings?.aux ?? [])
-    .map((bus, index) => ({ bus, index: index + 1 }))
-    .filter(({ bus }) => bus.enabled === true || (bus.enabled === undefined && bus.inserts.length > 0));
   const outputPairLimit = Math.max(1, Math.min(MAX_OUTPUT_BUSES, availableOutputPairs || 1));
-  const outputIsUsed = (index: number) => {
-    const targets = (value: number | undefined) => (value ?? 1) === index;
-    return plugins.some((item) => targets(item.output))
-      || (busSettings?.aux ?? []).some((bus) => targets(bus.output))
-      || concertStrips.some((strip) => targets(strip.output))
-      || setStrips.some((strip) => targets(strip.output));
-  };
-  const outputIsConfigured = (bus: BusSettings) =>
-    (bus.inserts?.length ?? 0) > 0 || bus.volumeDb !== 0 || bus.pan !== 0 || bus.muted === true;
-  const visibleOutputs = (busSettings?.outputs ?? [])
-    .slice(0, outputPairLimit)
-    .map((bus, index) => ({ bus, index: index + 1 }))
-    .filter(({ bus, index }) => index === 1 || outputIsUsed(index) || outputIsConfigured(bus));
   const outputOptions = (current: number) => {
     const values = new Set<number>();
     for (let index = 1; index <= outputPairLimit; index += 1) values.add(index);
@@ -741,86 +720,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     </div>
   );
 
-  /** Os 4 sends post-fader para os Aux e a escolha de saída. */
-  const renderSends = (options: {
-    label: string;
-    sends: number[];
-    output: number;
-    disabled: boolean;
-    onSend: (aux: number, levelDb: number) => void;
-    onOutput: (output: number) => void;
-  }) => (
-    <div className="mt-2">
-      <span className="hw-label" style={{ fontSize: 8 }}>SENDS (Aux)</span>
-      <div className="mt-1 space-y-0.5">
-        {visibleAux.length === 0 && (
-          <div className="text-[8px]" style={{ color: '#636366' }}>Nenhum Aux criado.</div>
-        )}
-        {visibleAux.map(({ index }) => {
-          const aux = index;
-          const level = options.sends[index - 1] ?? SEND_OFF_DB;
-          const active = level > SEND_OFF_DB;
-          return (
-            <label
-              key={aux}
-              className="flex items-center gap-1 text-[8px]"
-              style={{ color: active ? '#9AD1FF' : '#8E8E93' }}
-              title={`Send post-fader para Aux ${aux}`}
-            >
-              <span className="w-5 shrink-0">A{aux}</span>
-              <input
-                aria-label={`Send para Aux ${aux} de ${options.label}`}
-                type="range"
-                min={SEND_OFF_DB}
-                max={6}
-                step={0.5}
-                value={Math.max(SEND_OFF_DB, level)}
-                disabled={options.disabled}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => options.onSend(aux, Number(event.target.value))}
-                className="h-1 min-w-0 flex-1"
-                style={{ accentColor: '#FF9F0A' }}
-              />
-              <span className="w-6 shrink-0 text-right">{active ? level.toFixed(0) : '−∞'}</span>
-            </label>
-          );
-        })}
-      </div>
-      <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
-        OUT
-        <select
-          aria-label={`Saída de ${options.label}`}
-          className="min-w-0 flex-1 rounded px-1 py-0.5 text-[8px] outline-none"
-          style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
-          value={options.output}
-          disabled={options.disabled}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => options.onOutput(Number(event.target.value))}
-        >
-          {outputOptions(options.output).map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        {options.output > outputPairLimit && (
-          <span
-            title={`Output ${options.output} indisponível: a interface tem ${outputPairLimit} par(es) de saída.`}
-            style={{ color: '#FFB74D' }}
-          >
-            ⚠
-          </span>
-        )}
-      </label>
-    </div>
-  );
-
-  /** Strip de um barramento (Aux/Output) do concert (Fase 3.2). */
-  const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output', settings: BusSettings) => {
+  /** Strip do Master do Patch (Output 1 interno). */
+  const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output' | 'master', settings: BusSettings) => {
     const live = mixState?.aux.find((bus) => bus.bus === ownerId)
       ?? mixState?.outputs.find((bus) => bus.bus === ownerId);
+    // O Master do Patch pertence ao patch, então o valor salvo manda no
+    // controle; o medidor continua vindo do motor. Isso evita que um
+    // mixState antigo (sem layers carregados) mostre o volume de outro patch.
     const mix = {
-      volumeDb: live?.volumeDb ?? settings.volumeDb,
-      pan: live?.pan ?? settings.pan,
-      muted: live?.muted ?? settings.muted,
+      volumeDb: kind === 'master' ? settings.volumeDb : live?.volumeDb ?? settings.volumeDb,
+      pan: kind === 'master' ? settings.pan : live?.pan ?? settings.pan,
+      muted: kind === 'master' ? settings.muted : live?.muted ?? settings.muted,
       peakDb: live?.peakDb ?? -100,
       output: live?.output ?? settings.output ?? 1,
     };
@@ -829,31 +739,20 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     return (
       <section
         key={ownerId}
-        className="flex w-[124px] shrink-0 flex-col rounded-xl p-2"
-        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #1F1F21, #26262A)' }}
+        className={`flex ${kind === 'master' ? 'w-[152px]' : 'w-[124px]'} shrink-0 flex-col rounded-xl p-2`}
+        style={{
+          border: `1px solid ${kind === 'master' ? '#30D158' : '#3A3A3C'}`,
+          background: 'linear-gradient(to bottom, #1F1F21, #26262A)',
+        }}
       >
         <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
           <span
             className="rounded px-1 py-0.5 text-[9px] font-bold"
-            style={{ background: kind === 'aux' ? '#FF9F0A' : '#5E5CE6', color: '#FFFFFF' }}
+            style={{ background: kind === 'aux' ? '#FF9F0A' : kind === 'master' ? '#30D158' : '#5E5CE6', color: kind === 'master' ? '#0B1A10' : '#FFFFFF' }}
           >
-            {kind === 'aux' ? 'AUX' : 'OUT'}
+            {kind === 'aux' ? 'AUX' : kind === 'master' ? 'MST' : 'OUT'}
           </span>
           <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white" title={label}>{label}</span>
-          {kind === 'aux' && (
-            <button
-              type="button"
-              className="px-1 text-[10px]"
-              style={{ color: '#8E8E93' }}
-              title={`Remover ${label}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onRemoveAux(Number(ownerId.replace('aux', '')) - 1);
-              }}
-            >
-              ✕
-            </button>
-          )}
         </div>
         <div className="mt-2 flex items-center justify-center gap-2">
           <div
@@ -1166,18 +1065,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             ])
           ),
         })}
-        {renderSends({
-          label: strip.name,
-          sends: view.sends,
-          output: view.output,
-          disabled: !editable || !loaded,
-          onSend: (aux, levelDb) => {
-            const next = [...view.sends];
-            next[aux - 1] = levelDb;
-            onSetStripValue(target, strip.id, 'sends', next);
-          },
-          onOutput: (output) => onSetStripValue(target, strip.id, 'output', output),
-        })}
         <div className="mt-1 flex gap-1 border-t pt-1.5" style={{ borderColor: '#3A3A3C' }}>
           <button
             className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
@@ -1457,6 +1344,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
+          {renderBusStrip('output1', 'Master do Patch', 'master', masterSettings)}
           {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
           {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
@@ -1532,14 +1420,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     (plugin) => onAddInsert(layerId, slot, plugin)
                   ),
                 })}
-                {renderSends({
-                  label: assignment.name,
-                  sends: mix.sends ?? [],
-                  output: mix.output ?? 1,
-                  disabled: !editable || !loaded,
-                  onSend: (aux, levelDb) => onSetSend(layerId, aux, levelDb),
-                  onOutput: (output) => onSetLayerOutput(layerId, output),
-                })}
                 <div className="min-h-0 flex-1 space-y-2 overflow-auto py-1">
                   {loaded?.parameters.slice(0, 4).map((parameter) => (
                     <label key={parameter.id} className="block text-[9px]" style={{ color: '#9A9AA0' }}>
@@ -1597,78 +1477,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </section>
             );
           })}
-          {busSettings && (
-            <>
-              {visibleOutputs.map(({ bus, index }) =>
-                renderBusStrip(`output${index}`, `Output ${index}`, 'output', bus)
-              )}
-              <button
-                type="button"
-                className="hw-squarebtn flex h-[72px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl px-2 text-[10px] font-semibold disabled:opacity-40"
-                disabled={!editable || visibleAux.length >= MAX_AUX_BUSES}
-                onClick={onAddAux}
-                title="Criar um novo Aux"
-              >
-                ＋ Aux
-              </button>
-              {visibleAux.map(({ bus, index }) =>
-                renderBusStrip(`aux${index}`, `Aux ${index}`, 'aux', bus)
-              )}
-            </>
-          )}
           {renderPlayback()}
           {renderAudioInput()}
-          <div className="hw-inset sticky right-0 z-10 flex w-[132px] shrink-0 flex-col rounded-xl p-2" style={{ background: '#1F1F21' }}>
-            <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
-              <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>OUT</span>
-              <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">Master</span>
-            </div>
-            <span className="hw-label mt-2" style={{ fontSize: 8 }}>OUTPUT 1-2</span>
-            {(() => {
-              const master = mixState?.master ?? {
-                volumeDb: preset?.masterMix?.volumeDb ?? 0,
-                muted: preset?.masterMix?.muted ?? false,
-                peakDb: -100,
-              };
-              const meterPercent = Math.max(0, Math.min(100, ((master.peakDb + 60) / 60) * 100));
-              return (
-                <>
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <div className="relative h-28 w-2 overflow-hidden rounded-sm bg-black/70" role="meter" aria-label="Master peak" aria-valuemin={-60} aria-valuemax={0} aria-valuenow={Math.max(-60, master.peakDb)}>
-                      <div className="absolute bottom-0 w-full" style={{ height: `${meterPercent}%`, background: meterPercent > 90 ? '#FF554D' : '#30D158' }} />
-                    </div>
-                    <div className="flex h-28 flex-col items-center justify-between">
-                      <span className="text-[8px]" style={{ color: '#C6C6CB' }}>{master.volumeDb.toFixed(1)} dB</span>
-                      <input
-                        aria-label="Volume Master"
-                        type="range"
-                        min={-60}
-                        max={6}
-                        step={0.1}
-                        value={master.volumeDb}
-                        disabled={loadedPlugins.length === 0}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => onSetMasterMix({ volumeDb: Number(event.target.value) })}
-                        className="h-20 w-4"
-                        style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
-                      />
-                      <span className="text-[8px]" style={{ color: '#8E8E93' }}>−60</span>
-                    </div>
-                  </div>
-                  <button
-                    className="hw-squarebtn mt-2 w-full px-1 py-1 text-[9px]"
-                    aria-pressed={master.muted}
-                    disabled={loadedPlugins.length === 0}
-                    onClick={(event) => { event.stopPropagation(); onSetMasterMix({ muted: !master.muted }); }}
-                    style={master.muted ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
-                  >MUTE MASTER</button>
-                </>
-              );
-            })()}
-            <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
-              {layers.length} layer(s) · Saídas somadas
-            </div>
-          </div>
         </div>
       </div>
       {insertPicker && (

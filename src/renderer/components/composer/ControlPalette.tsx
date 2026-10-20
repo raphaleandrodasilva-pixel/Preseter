@@ -60,6 +60,25 @@ function PaletteIcon({ type, orientation }: { type: ElementType; orientation?: '
       );
     case 'midi-activity':
       return <span className="h-4 w-4 rounded-full" style={{ border: '2px solid #0A84FF', background: '#1F1F21' }} />;
+    case 'drawbar':
+      return (
+        <span className="flex h-9 items-center gap-[3px]">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="relative h-8 w-1.5 rounded" style={{ background: '#242426' }}>
+              <span
+                className="absolute left-1/2 h-1.5 w-3 rounded-sm"
+                style={{ top: `${i * 20}%`, transform: 'translateX(-50%)', background: '#C6A15B' }}
+              />
+            </span>
+          ))}
+        </span>
+      );
+    case 'playback':
+      return (
+        <span className="flex h-7 w-12 items-center justify-center rounded" style={{ border: '1px solid #5E5CE6', background: 'rgba(94,92,230,0.18)' }}>
+          <span className="text-[9px] font-bold" style={{ color: '#C7C6FF' }}>PB</span>
+        </span>
+      );
     default:
       return <span className="h-6 w-6 rounded" style={{ background: '#303032' }} />;
   }

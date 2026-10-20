@@ -114,7 +114,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   }
 
   const showLayout = mode !== 'edit';
-  const showMapping = mode !== 'layout';
+  const showMapping = mode !== 'layout' && element.type !== 'playback';
   const bindingType = currentBindingType(element);
   const inputs = midiDevices.filter((d) => d.type === 'input');
   const bindingNumber =
@@ -407,6 +407,27 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           </label>
         </div>
       </section>
+
+      {element.type === 'drawbar' && (
+        <section className="space-y-2">
+          <h3 className={classTitle}>Drawbar</h3>
+          <label className={classLabel}>Valor padrão (0–8)
+            <input
+              className={`${classInput} mt-1`}
+              type="number"
+              min={element.minValue ?? 0}
+              max={element.maxValue ?? 8}
+              value={Math.round(element.value ?? 0)}
+              onChange={(event) => onUpdate(element.id, {
+                value: Math.max(element.minValue ?? 0, Math.min(element.maxValue ?? 8, Number(event.target.value) || 0)),
+              })}
+            />
+          </label>
+          <p className="text-[11px] text-slate-500">
+            O valor visual é o padrão do Layout; o som do órgão fica salvo no estado do plugin de cada patch.
+          </p>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h3 className={classTitle}>Appearance</h3>

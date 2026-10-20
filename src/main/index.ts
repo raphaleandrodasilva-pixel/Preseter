@@ -23,6 +23,7 @@ import {
   Insert,
   LayerMixUpdate,
   MasterMixUpdate,
+  PatchMasterSettings,
   SavedAudioSettings,
   AppPreferences,
   ConcertState,
@@ -413,7 +414,16 @@ class MainWindow {
     });
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
-      return this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);
+      const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);
+      // Todo layer novo entra direto no Master do Patch (Output 1 interno).
+      if (loaded.layerId) {
+        try {
+          await this.vstManager.setLayerOutput(loaded.layerId, 1);
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível rotear o layer para o Master do Patch:', error);
+        }
+      }
+      return loaded;
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
@@ -754,7 +764,7 @@ class MainWindow {
     const current = preset ?? (this.lastLoadedPresetId
       ? this.concertManager.getPreset(this.lastLoadedPresetId) ?? null
       : null);
-    const settings = normalizeAudioInput(current?.audioInput);
+    const settings = { ...normalizeAudioInput(current?.audioInput), output: 1 };
     try {
       await this.vstManager.setAudioInput(settings);
     } catch (error) {
@@ -990,12 +1000,11 @@ class MainWindow {
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
       try {
-        await this.vstManager.setLayerOutput(layerId, this.clampOutput(assignment.output));
-        const sends = assignment.sends ?? [];
+        // Todos os layers vão para o Master do Patch (Output 1 internamente).
+        await this.vstManager.setLayerOutput(layerId, 1);
+        // Aux desativado: nenhum layer manda send.
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
-          const level = sends[aux - 1];
-          const levelDb = typeof level === 'number' && Number.isFinite(level) ? level : SEND_OFF_DB;
-          await this.vstManager.setSend(layerId, aux, levelDb);
+          await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
         }
       } catch (error) {
         console.warn(`[Preseter] Não foi possível aplicar sends/saída do layer "${layerId}":`, error);
@@ -1031,6 +1040,10 @@ class MainWindow {
         }
       }
     }
+
+    // O Output 1 é o Master do Patch: sobrepõe o barramento do concert com a
+    // cadeia e o mix salvos neste patch (Fase 7).
+    await this.applyPatchMaster(preset);
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
     const pluginStates = preset.vstStates;
@@ -1075,6 +1088,44 @@ class MainWindow {
   private clampOutput(output: unknown): number {
     const value = typeof output === 'number' && Number.isFinite(output) ? Math.round(output) : 1;
     return Math.max(1, Math.min(MAX_OUTPUT_BUSES, value));
+  }
+
+  /** Master do patch; patches antigos usam o Output 1 do concert como fallback. */
+  private patchMaster(preset: Preset): PatchMasterSettings {
+    if (preset.master) return preset.master;
+    const output1 = this.concertManager.getState().settings.buses?.outputs?.[0];
+    return {
+      volumeDb: output1?.volumeDb ?? 0,
+      pan: output1?.pan ?? 0,
+      muted: output1?.muted ?? false,
+      inserts: output1?.inserts ?? [],
+    };
+  }
+
+  /** Aplica no motor o Master do Patch, sempre no barramento Output 1. */
+  private async applyPatchMaster(preset: Preset): Promise<void> {
+    const master = this.patchMaster(preset);
+    const inserts = [...(master.inserts ?? [])].sort((a, b) => a.slot - b.slot);
+    await this.alignInserts('output1', inserts);
+    try {
+      await this.vstManager.setBusMix('output1', {
+        volumeDb: master.volumeDb,
+        pan: master.pan,
+        muted: master.muted,
+        output: 1,
+      });
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível ajustar o Master do Patch:', error);
+    }
+    for (const insert of inserts) {
+      const saved = preset.vstStates[`insert_output1_${insert.slot}`];
+      if (typeof saved?.data !== 'string') continue;
+      try {
+        await this.vstManager.setInsertState('output1', insert.slot, saved.data);
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível restaurar o efeito do Master do Patch:`, error);
+      }
+    }
   }
 
   /**
@@ -1203,9 +1254,10 @@ class MainWindow {
           await this.vstManager.setLayerRange(strip.id, strip.minNote, strip.maxNote);
         }
         await this.vstManager.setLayerVelocityRange(strip.id, strip.velocityMin, strip.velocityMax);
-        await this.vstManager.setLayerOutput(strip.id, this.clampOutput(strip.output));
+        // Strips herdados também entram no Master do Patch.
+        await this.vstManager.setLayerOutput(strip.id, 1);
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
-          await this.vstManager.setSend(strip.id, aux, strip.sends[aux - 1]);
+          await this.vstManager.setSend(strip.id, aux, SEND_OFF_DB);
         }
       } catch (error) {
         console.warn(`[Preseter] Não foi possível ajustar o channel strip "${strip.name}":`, error);

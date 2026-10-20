@@ -108,6 +108,8 @@ export interface Preset {
   tuningReferenceHz?: number;
   /** Strip de entrada de áudio (guitarra/microfone) deste patch (Fase 3.5). */
   audioInput?: AudioInputSettings;
+  /** Master do patch: volume, pan, mute e os 4 inserts que processam todos os layers. */
+  master?: PatchMasterSettings;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
   /** Valores que este patch sobrepõe nos strips herdados do set/concert (Fase 3.3). */
@@ -453,6 +455,14 @@ export interface MasterMixSettings {
   muted: boolean;
 }
 
+/** Master do patch: o único strip por onde todos os layers passam. */
+export interface PatchMasterSettings {
+  volumeDb: number;
+  pan: number;
+  muted: boolean;
+  inserts: Insert[];
+}
+
 export interface LayerMixState extends LayerMixSettings {
   layerId: string;
   peakDb: number;
@@ -637,7 +647,7 @@ export interface LayoutConfig {
 }
 
 // Elementos de interface
-export type ElementType = 'button' | 'fader' | 'knob' | 'pedal' | 'toggle' | 'slider' | 'label' | 'pad' | 'meter-vertical' | 'midi-activity' | 'keyboard';
+export type ElementType = 'button' | 'fader' | 'knob' | 'pedal' | 'toggle' | 'slider' | 'label' | 'pad' | 'meter-vertical' | 'midi-activity' | 'keyboard' | 'drawbar' | 'playback';
 
 export interface UiElement {
   id: string;

@@ -172,10 +172,26 @@ const AppContent: React.FC = () => {
           if (state) vstStates[`insert_${layerId}_${insert.slot}`] = state;
         }
       }
+      // Master do Patch: patches antigos passam a guardar o mix/inserts do
+      // Output 1 do concert na primeira vez que forem salvos.
+      const output1 = concertSettings?.buses.outputs[0];
+      const master = draft.master ?? {
+        volumeDb: output1?.volumeDb ?? 0,
+        pan: output1?.pan ?? 0,
+        muted: output1?.muted ?? false,
+        inserts: output1?.inserts ?? [],
+      };
+      for (const insert of master.inserts ?? []) {
+        const state = await window.electronAPI.vstInsertStateGet('output1', insert.slot);
+        if (state) vstStates[`insert_output1_${insert.slot}`] = state;
+      }
       // Barramentos Aux/Output do concert: o estado dos efeitos fica no patch (Fase 3.2).
       const concertBuses = [
         ...(concertSettings?.buses.aux ?? []).map((bus, index) => ({ id: `aux${index + 1}`, bus })),
-        ...(concertSettings?.buses.outputs ?? []).map((bus, index) => ({ id: `output${index + 1}`, bus })),
+        // Output 1 é o Master do Patch: seus estados já foram salvos acima.
+        ...(concertSettings?.buses.outputs ?? [])
+          .map((bus, index) => ({ id: `output${index + 1}`, bus }))
+          .filter(({ id }) => id !== 'output1'),
       ];
       for (const { id, bus } of concertBuses) {
         for (const insert of bus.inserts ?? []) {
@@ -194,7 +210,7 @@ const AppContent: React.FC = () => {
           if (state) vstStates[`insert_${strip.id}_${insert.slot}`] = state;
         }
       }
-      const saved = await savePreset({ ...draft, vstStates, updatedAt: Date.now() });
+      const saved = await savePreset({ ...draft, master, vstStates, updatedAt: Date.now() });
       if (!saved) setError('O armazenamento não confirmou que o patch foi salvo.');
       else {
         setError(null);

@@ -9,7 +9,7 @@ export function noteName(midi: number): string {
   return `${NOTE_NAMES[n % 12]}${Math.floor(n / 12) - 1}`;
 }
 
-export type PaletteCategory = 'panel' | 'meters' | 'grouped';
+export type PaletteCategory = 'panel' | 'meters' | 'grouped' | 'organ' | 'concert';
 
 export interface GroupMember {
   type: ElementType;
@@ -35,6 +35,8 @@ export interface PaletteItem {
 
 export const PALETTE_CATEGORIES: { id: PaletteCategory | 'all'; label: string }[] = [
   { id: 'panel', label: 'Panel Controls' },
+  { id: 'organ', label: 'Organ' },
+  { id: 'concert', label: 'Concert' },
   { id: 'meters', label: 'Meters & MIDI' },
   { id: 'grouped', label: 'Grouped' },
   { id: 'all', label: 'All Controls' },
@@ -86,6 +88,23 @@ export const PALETTE_ITEMS: PaletteItem[] = [
       { type: 'pad', dx: 104, dy: 104, label: 'Pad 4' },
     ],
   },
+  {
+    key: 'group-drawbars', type: 'drawbar', label: 'Organ Drawbars (9)', hint: '9 drawbars 0–8', category: 'organ',
+    group: [
+      { type: 'drawbar', dx: 0, dy: 0, label: "16'" },
+      { type: 'drawbar', dx: 42, dy: 0, label: "5⅓'" },
+      { type: 'drawbar', dx: 84, dy: 0, label: "8'" },
+      { type: 'drawbar', dx: 126, dy: 0, label: "4'" },
+      { type: 'drawbar', dx: 168, dy: 0, label: "2⅔'" },
+      { type: 'drawbar', dx: 210, dy: 0, label: "2'" },
+      { type: 'drawbar', dx: 252, dy: 0, label: "1⅗'" },
+      { type: 'drawbar', dx: 294, dy: 0, label: "1⅓'" },
+      { type: 'drawbar', dx: 336, dy: 0, label: "1'" },
+    ],
+    value: 0,
+    color: '#C6A15B',
+  },
+  { key: 'playback', type: 'playback', label: 'Playback', hint: 'Player opcional do Layout', category: 'concert' },
 ];
 
 export function findPaletteItem(key: string | null): PaletteItem | null {
@@ -105,6 +124,8 @@ const DEFAULT_SIZES: Record<ElementType, { width: number; height: number }> = {
   keyboard: { width: 720, height: 220 },
   'meter-vertical': { width: 72, height: 170 },
   'midi-activity': { width: 128, height: 56 },
+  drawbar: { width: 36, height: 190 },
+  playback: { width: 196, height: 118 },
 };
 
 export function makeElement(
@@ -116,6 +137,7 @@ export function makeElement(
   palette?: PaletteItem
 ): UiElement {
   const size = DEFAULT_SIZES[type];
+  const isDrawbar = type === 'drawbar';
   return {
     id: `element_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     type,
@@ -124,12 +146,12 @@ export function makeElement(
     y: Math.max(0, y),
     width: size.width,
     height: size.height,
-    color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : '#9A9AA0'),
+    color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : type === 'drawbar' ? '#C6A15B' : '#9A9AA0'),
     minValue: 0,
-    maxValue: 1,
+    maxValue: isDrawbar ? 8 : 1,
     orientation: orientation ?? (type === 'slider' ? 'horizontal' : 'vertical'),
     isMomentary: palette?.isMomentary ?? (type === 'button' || type === 'pedal' || type === 'pad'),
-    value: palette?.value ?? 0.5,
+    value: palette?.value ?? (isDrawbar ? 0 : 0.5),
     ...(palette?.midiCommand ? { midiCommand: palette.midiCommand } : {}),
     ...(palette?.pedalKind ? { pedalKind: palette.pedalKind } : {}),
   };

@@ -7,6 +7,7 @@ import type {
   Insert,
   LayerMixUpdate,
   MasterMixUpdate,
+  PatchMasterSettings,
   Preset,
   PresetPluginAssignment,
   StripAttribute,
@@ -1449,8 +1450,35 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const busIndexOf = (busId: string) => Number(busId.replace(/\D/g, '')) - 1;
 
+  /** Master do patch atual; patches antigos usam o Output 1 do concert. */
+  const fallbackPatchMaster = (): PatchMasterSettings => {
+    const output1 = concertSettings?.buses.outputs[0];
+    return {
+      volumeDb: output1?.volumeDb ?? 0,
+      pan: output1?.pan ?? 0,
+      muted: output1?.muted ?? false,
+      inserts: output1?.inserts ?? [],
+    };
+  };
+
   /** Aplica uma alteração à lista de inserts de um barramento do concert. */
   const mutateBusInserts = (busId: string, update: (inserts: Insert[]) => Insert[]) => {
+    // O Output 1 é o Master do Patch: os inserts moram no patch, não no concert.
+    if (busId === 'output1') {
+      const current = draftRef.current;
+      if (!current) return;
+      const base = current.master ?? fallbackPatchMaster();
+      const inserts = update([...(base.inserts ?? [])].sort((a, b) => a.slot - b.slot))
+        .sort((a, b) => a.slot - b.slot);
+      const next: Preset = {
+        ...current,
+        master: { ...base, inserts },
+        updatedAt: Date.now(),
+      };
+      draftRef.current = next;
+      onDraftChange(next);
+      return;
+    }
     if (!concertSettings) return;
     const index = busIndexOf(busId);
     if (!Number.isInteger(index) || index < 0) return;
@@ -1468,60 +1496,25 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
   };
 
-  const addAux = () => {
-    if (!concertSettings) return;
-    const aux = [...(concertSettings.buses.aux ?? [])];
-    const index = aux.findIndex(
-      (bus) => bus.enabled === false || (bus.enabled === undefined && bus.inserts.length === 0)
-    );
-    if (index < 0 || index >= MAX_AUX_BUSES) return;
-    aux[index] = { ...aux[index], enabled: true };
-    updateConcertSettings({ buses: { ...concertSettings.buses, aux } });
-  };
-
-  const removeAux = (index: number) => {
-    if (!concertSettings) return;
-    const aux = [...(concertSettings.buses.aux ?? [])];
-    if (!aux[index]) return;
-    aux[index] = {
-      ...aux[index],
-      enabled: false,
-      volumeDb: 0,
-      pan: 0,
-      muted: false,
-      output: 1,
-      inserts: [],
-    };
-    updateConcertSettings({ buses: { ...concertSettings.buses, aux } });
-
-    if (draft) {
-      onDraftChange({
-        ...draft,
-        plugins: (draft.plugins ?? []).map((plugin) => ({
-          ...plugin,
-          sends: (plugin.sends ?? []).map((value, position) =>
-            position === index ? SEND_OFF_DB : value
-          ),
-        })),
-        updatedAt: Date.now(),
-      });
-    }
-    const clearSends = <T extends { sends?: number[] }>(strip: T): T => ({
-      ...strip,
-      sends: (strip.sends ?? []).map((value, position) => position === index ? SEND_OFF_DB : value),
-    });
-    updateConcertStrips(concertStrips.map(clearSends));
-    if (currentSet) {
-      updateSet(currentSet.id, { strips: (currentSet.strips ?? []).map(clearSends) });
-    }
-    for (const plugin of loadedPlugins) {
-      const layerId = plugin.layerId ?? plugin.id;
-      void setVstSend(layerId, index + 1, SEND_OFF_DB);
-    }
-  };
-
   const changeBusMix = async (busId: string, update: BusMixUpdate) => {
     if (!await setVstBusMix(busId, update)) return;
+    if (busId === 'output1') {
+      const current = draftRef.current;
+      if (!current) return;
+      const base = current.master ?? fallbackPatchMaster();
+      const masterUpdate: Partial<Pick<PatchMasterSettings, 'volumeDb' | 'pan' | 'muted'>> = {};
+      if (update.volumeDb !== undefined) masterUpdate.volumeDb = update.volumeDb;
+      if (update.pan !== undefined) masterUpdate.pan = update.pan;
+      if (update.muted !== undefined) masterUpdate.muted = update.muted;
+      const next: Preset = {
+        ...current,
+        master: { ...base, ...masterUpdate },
+        updatedAt: Date.now(),
+      };
+      draftRef.current = next;
+      onDraftChange(next);
+      return;
+    }
     if (!concertSettings) return;
     const index = busIndexOf(busId);
     if (!Number.isInteger(index) || index < 0) return;
@@ -2344,7 +2337,22 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               </div>
               <FitToView elements={elements} topInset={64}>
                 {elements.map((el) => (
-                  <StageControl key={el.id} element={el} channel={currentPreset.midiChannel} layoutMode="absolute" activeNotes={activeNotes} onMidiMessage={onMidiMessage} onSetVstParameter={onSetVstParameter} keyboardZones={keyboardZones} selectedZoneId={selectedLayerId} onZoneClick={selectZone} />
+                  <StageControl
+                    key={el.id}
+                    element={el}
+                    channel={currentPreset.midiChannel}
+                    layoutMode="absolute"
+                    activeNotes={activeNotes}
+                    onMidiMessage={onMidiMessage}
+                    onSetVstParameter={onSetVstParameter}
+                    keyboardZones={keyboardZones}
+                    selectedZoneId={selectedLayerId}
+                    onZoneClick={selectZone}
+                    playbackState={playbackState}
+                    onLoadPlayback={() => void handleLoadPlayback()}
+                    onPlayPlayback={() => void handlePlayPlayback()}
+                    onStopPlayback={() => void handleStopPlayback()}
+                  />
                 ))}
               </FitToView>
               {elements.length === 0 && (
@@ -2537,6 +2545,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       keyboardZones={keyboardZones}
                       selectedZoneId={selectedLayerId}
                       onZoneClick={selectZone}
+                      playbackState={playbackState}
+                      onLoadPlayback={() => void handleLoadPlayback()}
+                      onPlayPlayback={() => void handlePlayPlayback()}
+                      onStopPlayback={() => void handleStopPlayback()}
                       scale={scale}
                       canvasWidth={canvasW}
                       canvasHeight={canvasH}
@@ -2610,7 +2622,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             scannedPlugins={scannedPlugins}
             loadedPlugins={loadedPlugins}
             mixState={mixState}
-            busSettings={concertSettings?.buses ?? null}
+            masterSettings={{
+              ...((draft ?? currentPreset)?.master ?? fallbackPatchMaster()),
+              output: 1,
+              enabled: true,
+            }}
             concertStrips={concertStrips}
             setStrips={currentSet?.strips ?? []}
             setName={currentSet?.name ?? null}
@@ -2644,8 +2660,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onSetSend={(layerId, aux, levelDb) => void changeLayerSend(layerId, aux, levelDb)}
             onSetLayerOutput={(layerId, output) => void changeLayerOutput(layerId, output)}
             onSetBusMix={(bus, update) => void changeBusMix(bus, update)}
-            onAddAux={addAux}
-            onRemoveAux={removeAux}
             onAddBusInsert={addBusInsert}
             onRemoveBusInsert={removeBusInsert}
             onToggleBusInsertBypass={toggleBusInsertBypass}

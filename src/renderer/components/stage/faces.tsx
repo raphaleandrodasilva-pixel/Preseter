@@ -1,4 +1,5 @@
 import React from 'react';
+import type { PlaybackState } from '@shared/types';
 
 /**
  * Faces — fonte única do desenho dos controles de hardware.
@@ -197,6 +198,103 @@ export const PedalFace: React.FC<{ label: string; active: boolean; value?: numbe
     <span className="hw-label">{label}</span>
   </>
 );
+
+/** Drawbar de órgão: vertical, discreto, 0–8. */
+export const DrawbarFace: React.FC<{
+  label: string;
+  value: number;
+  max?: number;
+  trackProps?: React.HTMLAttributes<HTMLDivElement>;
+}> = ({ label, value, max = 8, trackProps }) => {
+  const steps = Math.max(1, Math.round(max));
+  const current = Math.max(0, Math.min(steps, Math.round(value)));
+  const n = current / steps;
+  return (
+    <>
+      <div
+        className="hw-fadertrack relative mb-1 h-24 w-5 rounded"
+        style={{
+          background: '#242426',
+          cursor: trackProps?.onPointerDown ? 'ns-resize' : undefined,
+          touchAction: 'none',
+        }}
+        {...trackProps}
+      >
+        {Array.from({ length: steps + 1 }).map((_, i) => (
+          <span
+            key={i}
+            className="absolute left-0 right-0"
+            style={{
+              top: `${(1 - i / steps) * 100}%`,
+              height: 1,
+              background: i <= current ? 'rgba(198,161,91,0.85)' : '#3A3A41',
+            }}
+          />
+        ))}
+        <div
+          className="absolute left-1/2 rounded-[2px]"
+          style={{
+            top: `${(1 - n) * 100}%`,
+            width: 30,
+            height: 12,
+            transform: 'translate(-50%, -50%)',
+            background: 'linear-gradient(to bottom, #494950, #202025)',
+            border: '1px solid #5A5A62',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12)',
+          }}
+        />
+      </div>
+      <span className="hw-label" style={{ fontSize: 9 }}>{label}</span>
+      <span className="hw-badge mt-0.5">{current}</span>
+    </>
+  );
+};
+
+/** Controle opcional de Playback no Layout. */
+export const PlaybackFace: React.FC<{
+  state?: PlaybackState | null;
+  onLoad?: () => void;
+  onPlay?: () => void;
+  onStop?: () => void;
+}> = ({ state, onLoad, onPlay, onStop }) => {
+  const file = state?.path ? state.path.split(/[\\/]/).pop() : null;
+  const buttonClass = 'hw-squarebtn px-1.5 py-0.5 text-[9px] font-semibold';
+  return (
+    <>
+      <div className="flex w-full items-center justify-center gap-1">
+        <span
+          className="rounded px-1 py-0.5 text-[9px] font-bold"
+          style={{ background: state?.playing ? '#30D158' : '#5E5CE6', color: '#FFFFFF' }}
+        >
+          PB
+        </span>
+        <span className="hw-label min-w-0 truncate" title={state?.path ?? ''}>
+          {file ?? 'Playback'}
+        </span>
+      </div>
+      <div className="mt-1 flex items-center justify-center gap-1">
+        {onLoad ? (
+          <button type="button" className={buttonClass} onClick={(event) => { event.stopPropagation(); onLoad(); }}>LOAD</button>
+        ) : (
+          <span className={`${buttonClass} opacity-50`}>LOAD</span>
+        )}
+        {onPlay ? (
+          <button type="button" className={buttonClass} onClick={(event) => { event.stopPropagation(); onPlay(); }}>PLAY</button>
+        ) : (
+          <span className={`${buttonClass} opacity-50`}>PLAY</span>
+        )}
+        {onStop ? (
+          <button type="button" className={buttonClass} onClick={(event) => { event.stopPropagation(); onStop(); }}>STOP</button>
+        ) : (
+          <span className={`${buttonClass} opacity-50`}>STOP</span>
+        )}
+      </div>
+      <span className="mt-0.5 text-[8px]" style={{ color: '#8E8E93' }}>
+        {state?.playing ? 'Playing' : state?.loaded ? 'Ready' : 'No file'}
+      </span>
+    </>
+  );
+};
 
 export const MeterFace: React.FC<{ label: string; norm: number; horizontal?: boolean }> = ({
   label,
