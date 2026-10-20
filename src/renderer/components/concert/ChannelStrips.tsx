@@ -20,6 +20,7 @@ import type {
   VstPluginInfo,
 } from '@shared/types';
 import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
+import { noteName } from '../composer/elementFactory';
 import {
   maskedAttributes,
   stripLevelViews,
@@ -60,6 +61,13 @@ interface ChannelStripsProps {
   onStopPlayback: () => void;
   onRequestScan: () => Promise<unknown>;
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
+  /** Cria um layer novo dividindo o range do layer base (split). */
+  onAddSplit: (
+    plugin: VstPluginInfo,
+    options: { baseLayerId: string; splitNote: number; keep: 'low' | 'high' }
+  ) => Promise<boolean>;
+  /** Escuta a próxima nota MIDI para definir a nota de corte do split. */
+  onLearnSplitNote: (listener: (note: number) => void) => () => void;
   onRemove: (assignment: PresetPluginAssignment, layerId: string) => Promise<void>;
   onCopy: (assignment: PresetPluginAssignment, layerId: string) => Promise<boolean>;
   /** Troca o instrumento de um channel strip existente, preservando o strip. */
@@ -104,6 +112,7 @@ interface ChannelStripsProps {
 /** Onde o seletor de plugins está carregando: num layer do patch, num strip herdado ou trocando um instrumento. */
 type PickerTarget =
   | { kind: 'layer' }
+  | { kind: 'split'; baseLayerId: string; splitNote: number; keep: 'low' | 'high' }
   | { kind: 'strip'; level: 'concert' | 'set' }
   | { kind: 'replace'; assignment: PresetPluginAssignment; layerId: string };
 
@@ -201,6 +210,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onStopPlayback,
   onRequestScan,
   onAdd,
+  onAddSplit,
+  onLearnSplitNote,
   onRemove,
   onCopy,
   onReplace,
@@ -238,6 +249,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [splitDraft, setSplitDraft] = useState<{
+    baseLayerId: string;
+    splitNote: number;
+    keep: 'low' | 'high';
+    learning: boolean;
+  } | null>(null);
   const [insertPicker, setInsertPicker] = useState<{
     title: string;
     slot: number;
@@ -294,6 +312,21 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     }
   }, [focusLayerId, layers]);
 
+  // Learn da nota de corte do split: pega a próxima nota MIDI pressionada.
+  useEffect(() => {
+    if (!splitDraft?.learning) return;
+    const unsubscribe = onLearnSplitNote((note) => {
+      setSplitDraft((previous) => (previous ? { ...previous, splitNote: note, learning: false } : previous));
+    });
+    const timer = window.setTimeout(() => {
+      setSplitDraft((previous) => (previous ? { ...previous, learning: false } : previous));
+    }, 15000);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timer);
+    };
+  }, [splitDraft?.learning, onLearnSplitNote]);
+
   const withLoadingMessage = async (action: () => Promise<boolean>) => {
     setBusy(true);
     setLoadingMessage('Carregando instrumento VST… isso pode levar cerca de 10 segundos.');
@@ -319,7 +352,25 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   /** Seletor de plugin: um layer novo no patch ou um channel strip do concert/set. */
   const openPicker = (target: PickerTarget) => {
     setPicker(target);
-    requestScanIfEmpty(target.kind === 'layer' ? instruments.length === 0 : scannedPlugins.length === 0);
+    const picksInstrument = target.kind === 'layer' || target.kind === 'split';
+    requestScanIfEmpty(picksInstrument ? instruments.length === 0 : scannedPlugins.length === 0);
+  };
+
+  /** Inicia o assistente de split usando o layer selecionado como base. */
+  const startSplit = () => {
+    const base = selectedLayer;
+    if (!base) return;
+    const min = base.assignment.minNote ?? 0;
+    const max = base.assignment.maxNote ?? 127;
+    if (max - min < 1) return;
+    const preferred = 60 >= min + 1 && 60 <= max ? 60 : Math.round((min + max) / 2);
+    setSplitDraft({
+      baseLayerId: base.layerId,
+      splitNote: Math.max(min + 1, Math.min(max, preferred)),
+      keep: 'low',
+      learning: false,
+    });
+    setAddMenuOpen(false);
   };
 
   /** Seletor de efeito para um slot de insert, com o dono resolvido pelo chamador. */
@@ -1126,6 +1177,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     </div>
   );
 
+  const splitBase = splitDraft
+    ? layers.find((layer) => layer.layerId === splitDraft.baseLayerId) ?? null
+    : null;
+  const splitMin = splitBase?.assignment.minNote ?? 0;
+  const splitMax = splitBase?.assignment.maxNote ?? 127;
+  const splitCut = splitDraft
+    ? Math.max(splitMin + 1, Math.min(splitMax, clampNote(splitDraft.splitNote)))
+    : 60;
+
   return (
     <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}>
       <div
@@ -1159,14 +1219,60 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             ⚠ acima de 3 pode pesar
           </span>
         )}
+        <div className="relative">
+          <button
+            type="button"
+            className="rounded-lg px-2 py-1 text-[10px] font-semibold disabled:opacity-40"
+            style={{ background: canAdd ? '#0A84FF' : '#3A3A3C', color: '#FFFFFF' }}
+            disabled={!canAdd || busy}
+            onClick={() => setAddMenuOpen((open) => !open)}
+            title={canAdd ? 'Adicionar layer ou criar split' : 'Edite ou crie um patch para adicionar layers'}
+          >
+            {busy ? 'Carregando…' : '＋ Adicionar layer ▾'}
+          </button>
+          {addMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
+              <div
+                className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border shadow-2xl"
+                style={{ background: '#2C2C2E', borderColor: '#36363D' }}
+              >
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-[11px] text-slate-100 hover:bg-white/10"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    openPicker({ kind: 'layer' });
+                  }}
+                >
+                  Novo layer
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-[11px] text-slate-100 hover:bg-white/10 disabled:opacity-40"
+                  disabled={
+                    !selectedLayer ||
+                    (selectedLayer.assignment.maxNote ?? 127) - (selectedLayer.assignment.minNote ?? 0) < 1
+                  }
+                  onClick={startSplit}
+                  title="Divide o range do layer selecionado e cria outro layer"
+                >
+                  Split…
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         {picker && (() => {
-          const isLayerPicker = picker.kind === 'layer' || picker.kind === 'replace';
+          const isLayerPicker = picker.kind === 'layer' || picker.kind === 'replace' || picker.kind === 'split';
           const list = isLayerPicker ? instruments : scannedPlugins;
           const title = picker.kind === 'replace'
             ? `Trocar VST de ${picker.assignment.name}`
-            : isLayerPicker
-              ? 'Carregar instrumento'
-              : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
+            : picker.kind === 'split'
+              ? 'Escolher instrumento para o split'
+              : isLayerPicker
+                ? 'Adicionar layer — escolha o instrumento'
+                : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
           return (
             <div className="absolute left-2 right-2 top-full z-50 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
               <div className="mb-1 flex items-center justify-between px-1">
@@ -1184,12 +1290,22 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   disabled={busy || plugin.arch === 'x86'}
                   className="block w-full rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
                   onClick={() => void withLoadingMessage(async () => {
-                    const added = picker.kind === 'replace'
-                      ? await onReplace(picker.assignment, picker.layerId, plugin)
-                      : picker.kind === 'layer'
+                    const target = picker;
+                    const added = target.kind === 'replace'
+                      ? await onReplace(target.assignment, target.layerId, plugin)
+                      : target.kind === 'layer'
                         ? await onAdd(plugin)
-                        : await onAddStrip(picker.level, plugin);
-                    if (added) setPicker(null);
+                        : target.kind === 'split'
+                          ? await onAddSplit(plugin, {
+                              baseLayerId: target.baseLayerId,
+                              splitNote: target.splitNote,
+                              keep: target.keep,
+                            })
+                          : await onAddStrip(target.level, plugin);
+                    if (added) {
+                      setPicker(null);
+                      if (target.kind === 'split') setSplitDraft(null);
+                    }
                     return added;
                   })}
                   title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${plugin.name} — ${plugin.path}`}
@@ -1206,6 +1322,88 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           );
         })()}
       </div>
+      {splitDraft && splitBase && (
+        <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: '#3A3A3C', background: '#1F1F21' }}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-white">Split de {splitBase.assignment.name}</span>
+            <button
+              type="button"
+              className="text-[11px]"
+              style={{ color: '#8E8E93' }}
+              onClick={() => setSplitDraft(null)}
+              title="Cancelar split"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-end gap-2 text-[10px]" style={{ color: '#9A9AA0' }}>
+            <label>
+              Nota de corte
+              <input
+                type="number"
+                min={splitMin + 1}
+                max={splitMax}
+                value={splitCut}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  if (!Number.isFinite(value)) return;
+                  setSplitDraft((previous) => previous
+                    ? { ...previous, splitNote: Math.max(splitMin + 1, Math.min(splitMax, Math.round(value))) }
+                    : previous);
+                }}
+                className="hw-inset mt-1 w-20 px-2 py-1 text-[11px] text-slate-100"
+              />
+            </label>
+            <button
+              type="button"
+              className="hw-squarebtn px-2 py-1 text-[10px]"
+              onClick={() => setSplitDraft((previous) => previous ? { ...previous, learning: !previous.learning } : previous)}
+              title="Toque uma nota no teclado MIDI para definir a nota de corte"
+            >
+              {splitDraft.learning ? 'Ouvindo…' : 'Aprender'}
+            </button>
+            <label>
+              Layer base fica com
+              <select
+                value={splitDraft.keep}
+                onChange={(event) => setSplitDraft((previous) => previous
+                  ? { ...previous, keep: event.target.value as 'low' | 'high' }
+                  : previous)}
+                className="hw-inset mt-1 px-2 py-1 text-[11px] text-slate-100"
+              >
+                <option value="low">Grave</option>
+                <option value="high">Agudo</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white"
+              style={{ background: '#0A84FF' }}
+              onClick={() => openPicker({
+                kind: 'split',
+                baseLayerId: splitDraft.baseLayerId,
+                splitNote: splitCut,
+                keep: splitDraft.keep,
+              })}
+            >
+              Escolher instrumento
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border px-2 py-1 text-[10px]"
+              style={{ borderColor: '#3A3A3C', color: '#E5E5EA' }}
+              onClick={() => setSplitDraft(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+          <p className="mt-1 text-[10px]" style={{ color: '#8E8E93' }}>
+            {splitDraft.keep === 'low'
+              ? `Base (grave): ${noteName(splitMin)}–${noteName(splitCut - 1)} · Novo (agudo): ${noteName(splitCut)}–${noteName(splitMax)}`
+              : `Base (agudo): ${noteName(splitCut)}–${noteName(splitMax)} · Novo (grave): ${noteName(splitMin)}–${noteName(splitCut - 1)}`}
+          </p>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto p-2">
         {loadingMessage && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
@@ -1425,14 +1623,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
               {layers.length} layer(s) · Saídas somadas
             </div>
-            <button
-              className="hw-squarebtn mt-auto w-full px-2 py-2 text-[10px] disabled:opacity-40"
-              disabled={!canAdd || busy}
-              onClick={() => openPicker({ kind: 'layer' })}
-              title={!editable ? 'Edite ou crie um patch para carregar instrumentos' : 'Carregar instrumento VST'}
-            >
-              {busy ? 'Carregando…' : '＋ Carregar VST'}
-            </button>
           </div>
         </div>
       </div>

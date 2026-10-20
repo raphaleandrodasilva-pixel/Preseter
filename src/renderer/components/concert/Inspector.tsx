@@ -309,7 +309,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           }));
           const current = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0];
           if (!current) {
-            return <div className="text-[11px] text-slate-400">Este patch ainda não tem channel strips. Use “Carregar VST” à direita.</div>;
+            return <div className="text-[11px] text-slate-400">Este patch ainda não tem channel strips. Use “＋ Adicionar layer” no painel Layers.</div>;
           }
           const low = current.assignment.minNote ?? 0;
           const high = current.assignment.maxNote ?? 127;

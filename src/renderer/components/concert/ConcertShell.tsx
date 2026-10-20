@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BusMixUpdate,
   BusSettings,
@@ -821,9 +821,81 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       maxNote: 127,
     };
     onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), assignment], updatedAt: Date.now() });
+    setFocusLayerId(layerId);
     onError('');
     return true;
   };
+
+  /** Cria um layer novo dividindo o range do layer base em grave/agudo. */
+  const addSplitLayer = async (
+    plugin: VstPluginInfo,
+    options: { baseLayerId: string; splitNote: number; keep: 'low' | 'high' }
+  ): Promise<boolean> => {
+    if (!draft) return false;
+    const plugins = draft.plugins ?? [];
+    const baseIndex = plugins.findIndex(
+      (item, index) => (item.layerId ?? `${draft.id}:layer:${index}`) === options.baseLayerId
+    );
+    if (baseIndex < 0) {
+      onError('Layer base não encontrado para o split.');
+      return false;
+    }
+    const base = plugins[baseIndex];
+    const baseMin = base.minNote ?? 0;
+    const baseMax = base.maxNote ?? 127;
+    if (baseMax - baseMin < 1) {
+      onError('O layer base precisa ter pelo menos duas notas para criar um split.');
+      return false;
+    }
+    const cut = Math.max(baseMin + 1, Math.min(baseMax, Math.round(options.splitNote)));
+    const nextBaseMin = options.keep === 'low' ? baseMin : cut;
+    const nextBaseMax = options.keep === 'low' ? cut - 1 : baseMax;
+    const newMin = options.keep === 'low' ? cut : baseMin;
+    const newMax = options.keep === 'low' ? baseMax : cut - 1;
+
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const loaded = await loadVstPlugin(plugin.path, layerId, newMin, newMax);
+    if (!loaded) {
+      onError(`Não foi possível carregar o instrumento "${plugin.name}" para o split.`);
+      return false;
+    }
+
+    const rangeChanged = await setVstLayerRange(options.baseLayerId, nextBaseMin, nextBaseMax);
+    if (!rangeChanged) {
+      await unloadVstPlugin(layerId);
+      onError(`Não foi possível ajustar o range do layer "${base.name}".`);
+      return false;
+    }
+
+    const assignment: PresetPluginAssignment = {
+      pluginId: plugin.id,
+      layerId,
+      name: plugin.name,
+      path: plugin.path,
+      role: 'instrument',
+      minNote: newMin,
+      maxNote: newMax,
+    };
+    onDraftChange({
+      ...draft,
+      plugins: plugins.map((item, index) =>
+        index === baseIndex ? { ...item, minNote: nextBaseMin, maxNote: nextBaseMax } : item
+      ).concat(assignment),
+      updatedAt: Date.now(),
+    });
+    setFocusLayerId(layerId);
+    onError('');
+    return true;
+  };
+
+  /** Learn da nota de corte do split: repassa a próxima nota MIDI pressionada. */
+  const learnSplitNote = useCallback((listener: (note: number) => void) => {
+    return subscribeMidiLearn((event) => {
+      if (event.kind === 'note' && event.value > 0) listener(event.number);
+    });
+  }, [subscribeMidiLearn]);
 
   /** Localiza o plugin escaneado que originou um preset da Channel Strip Library. */
   const findPresetPlugin = (preset: VstPreset): VstPluginInfo | null =>
@@ -2431,6 +2503,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onStopPlayback={() => void handleStopPlayback()}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
+            onAddSplit={addSplitLayer}
+            onLearnSplitNote={learnSplitNote}
             onRemove={removeLayer}
             onCopy={copyLayer}
             onReplace={replaceLayer}
