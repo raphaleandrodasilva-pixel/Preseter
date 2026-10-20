@@ -535,7 +535,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       result = await window.electronAPI.presetLoad(presetId);
     } catch (error) {
       setMidiError(error instanceof Error ? error.message : 'Falha ao carregar o preset.');
-      return false;
+      // Repassa a mensagem real para a tela em vez de só "não foi possível carregar".
+      throw error;
     }
     if (result) {
       setLoadedPlugins(await window.electronAPI.vstLoaded());
@@ -575,7 +576,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = pendingPatchRef.current;
     if (!id || presets.length === 0) return;
     pendingPatchRef.current = null;
-    if (presets.some((preset) => preset.id === id)) void loadPreset(id);
+    if (presets.some((preset) => preset.id === id)) {
+      void loadPreset(id).catch(() => undefined);
+    }
   }, [presets, loadPreset]);
 
   const deletePreset = useCallback(async (presetId: string): Promise<boolean> => {

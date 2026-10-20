@@ -72,6 +72,9 @@ class MainWindow {
   private preferencesPath: string;
   /** Último patch carregado, para recarregar após uma queda do motor. */
   private lastLoadedPresetId: string | null = null;
+  /** Fila para não carregar patches concorrentemente. */
+  private patchLoadQueue: Promise<unknown> = Promise.resolve();
+  private patchLoadInFlight: { id: string; promise: Promise<boolean> } | null = null;
   private recovering: Promise<void> | null = null;
   /** true quando o usuário já confirmou o fechamento com alterações pendentes. */
   private closing = false;
@@ -834,7 +837,26 @@ class MainWindow {
     return { set, patches };
   }
 
-  private async loadPreset(presetId: string): Promise<boolean> {
+  private loadPreset(presetId: string): Promise<boolean> {
+    // Duas chamadas para o mesmo patch (ex.: auto-seleção + clique) compartilham
+    // a mesma carga em vez de tentarem carregar os mesmos layerIds em paralelo.
+    if (this.patchLoadInFlight?.id === presetId) {
+      return this.patchLoadInFlight.promise;
+    }
+
+    const run = this.patchLoadQueue.then(
+      () => this.loadPresetNow(presetId),
+      () => this.loadPresetNow(presetId)
+    );
+    this.patchLoadInFlight = { id: presetId, promise: run };
+    this.patchLoadQueue = run.then(() => undefined, () => undefined);
+    void run.finally(() => {
+      if (this.patchLoadInFlight?.promise === run) this.patchLoadInFlight = null;
+    }).catch(() => undefined);
+    return run;
+  }
+
+  private async loadPresetNow(presetId: string): Promise<boolean> {
     const preset = this.concertManager.getPreset(presetId);
     if (!preset) return false;
 

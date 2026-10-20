@@ -127,7 +127,25 @@ export class VstManager extends EventEmitter {
     const request = scanned
       ? { plugin: scanned.id, layerId, minNote, maxNote, pinned }
       : { path: pluginPathOrId, layerId, minNote, maxNote, pinned };
-    const enginePlugin = await this.engine.request(command, request, 60_000);
+
+    const requestLoad = () => this.engine.request(command, request, 60_000);
+    let enginePlugin: EngineLoadedPlugin;
+    try {
+      enginePlugin = await requestLoad();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('Já existe um instrumento com este identificador de layer')) {
+        throw error;
+      }
+      const existing = this.loadedPlugins.get(layerId);
+      if (existing?.pinned) throw error;
+
+      // O patch pode referenciar um layer que já está carregado (por exemplo,
+      // ao salvar e selecionar o mesmo patch). Descarrega e tenta de novo.
+      await this.engine.request('unload', { layerId }).catch(() => null);
+      if (this.loadedPlugins.delete(layerId)) this.emit('plugin-unloaded', layerId);
+      enginePlugin = await requestLoad();
+    }
     try {
       const devices = await this.getAudioDevices();
       if (!devices.running) {
