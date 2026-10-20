@@ -227,13 +227,17 @@ class MainWindow {
         typeof data?.x === 'number' && typeof data?.y === 'number' &&
         typeof data?.width === 'number' && typeof data?.height === 'number'
       ) {
-        // Só reaproveita se ainda couber numa tela conectada (evita janela sumida).
-        const fits = screen.getAllDisplays().some(
-          (display) => data.x >= display.bounds.x && data.y >= display.bounds.y
-            && data.x < display.bounds.x + display.bounds.width
-            && data.y < display.bounds.y + display.bounds.height
-        );
-        if (fits) return data;
+        // Reaproveita se a janela ainda tiver área visível numa tela conectada
+        // (janelas maximizadas podem ter x/y negativos por causa da borda do SO).
+        const width = Math.max(1200, Math.round(data.width));
+        const height = Math.max(700, Math.round(data.height));
+        const visible = screen.getAllDisplays().some((display) => {
+          const area = display.workArea;
+          const overlapX = Math.min(data.x + width, area.x + area.width) - Math.max(data.x, area.x);
+          const overlapY = Math.min(data.y + height, area.y + area.height) - Math.max(data.y, area.y);
+          return overlapX > 80 && overlapY > 80;
+        });
+        if (visible) return { x: Math.round(data.x), y: Math.round(data.y), width, height };
       }
     } catch { /* ignora */ }
     return undefined;

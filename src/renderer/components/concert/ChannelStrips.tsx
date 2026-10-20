@@ -1599,6 +1599,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           })}
           {busSettings && (
             <>
+              {visibleOutputs.map(({ bus, index }) =>
+                renderBusStrip(`output${index}`, `Output ${index}`, 'output', bus)
+              )}
               <button
                 type="button"
                 className="hw-squarebtn flex h-[72px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl px-2 text-[10px] font-semibold disabled:opacity-40"
@@ -1610,9 +1613,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </button>
               {visibleAux.map(({ bus, index }) =>
                 renderBusStrip(`aux${index}`, `Aux ${index}`, 'aux', bus)
-              )}
-              {visibleOutputs.map(({ bus, index }) =>
-                renderBusStrip(`output${index}`, `Output ${index}`, 'output', bus)
               )}
             </>
           )}
