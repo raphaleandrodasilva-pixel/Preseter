@@ -72,11 +72,12 @@ export const Inspector: React.FC<InspectorProps> = ({
   const [tab, setTab] = useState<Tab>('attributes');
   const [height, setHeight] = useState<number>(() => {
     try {
-      const raw = localStorage.getItem('preseter.inspectorHeight.v1');
+      const raw = localStorage.getItem('preseter.inspectorHeight.v2');
       const parsed = raw ? Number(raw) : NaN;
       if (Number.isFinite(parsed)) return Math.max(160, Math.min(window.innerHeight * 0.7, parsed));
     } catch { /* ignora */ }
-    return 248;
+    // 50% da janela
+    return Math.round(window.innerHeight * 0.5);
   });
   const resizing = useRef<{ startY: number; originH: number } | null>(null);
   const heightRef = useRef(height);
@@ -147,7 +148,12 @@ export const Inspector: React.FC<InspectorProps> = ({
     <div className="flex shrink-0 flex-col border-t" style={{ borderColor: '#1E1E24', background: '#0A0A0C', height }}>
       <div
         className="cursor-ns-resize pt-1.5"
-        title="Arrastar para redimensionar"
+        title="Arrastar para redimensionar · duplo clique para 50/50"
+        onDoubleClick={() => {
+          const next = Math.round(window.innerHeight * 0.5);
+          setHeight(next);
+          try { localStorage.setItem('preseter.inspectorHeight.v2', String(next)); } catch { /* ignora */ }
+        }}
         onPointerDown={(event) => {
           (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
           resizing.current = { startY: event.clientY, originH: height };
@@ -160,7 +166,7 @@ export const Inspector: React.FC<InspectorProps> = ({
         }}
         onPointerUp={() => {
           resizing.current = null;
-          try { localStorage.setItem('preseter.inspectorHeight.v1', String(heightRef.current)); } catch { /* ignora */ }
+          try { localStorage.setItem('preseter.inspectorHeight.v2', String(heightRef.current)); } catch { /* ignora */ }
         }}
         onPointerCancel={() => { resizing.current = null; }}
       >

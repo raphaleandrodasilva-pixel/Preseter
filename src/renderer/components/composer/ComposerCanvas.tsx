@@ -16,6 +16,13 @@ interface ComposerCanvasProps {
   movable?: boolean;
   /** No Edit, o teclado continua tocando; os demais controles só selecionam. */
   previewKeyboard?: boolean;
+  /** Zoom aplicado pelo workspace para caber todos os controles. */
+  scale?: number;
+  /** Tamanho lógico do canvas (antes do zoom). */
+  canvasWidth?: number;
+  canvasHeight?: number;
+  /** Avisa quando um controle começa/termina de ser arrastado ou redimensionado. */
+  onInteractionChange?: (active: boolean) => void;
   interactivePreview: boolean;
   channel: number;
   onCanvasClick: (x: number, y: number) => void;
@@ -84,14 +91,27 @@ interface CanvasElementProps {
   selected: boolean;
   locked: boolean;
   movable: boolean;
+  scale: number;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
+  onInteractionChange?: (active: boolean) => void;
 }
 
-const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked, movable, onSelect, onMove, onResize }) => {
+const CanvasElement: React.FC<CanvasElementProps> = ({
+  element,
+  selected,
+  locked,
+  movable,
+  scale,
+  onSelect,
+  onMove,
+  onResize,
+  onInteractionChange,
+}) => {
   const drag = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const resizing = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
+  const safeScale = Math.max(0.01, scale);
 
   return (
     <div
@@ -102,22 +122,27 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
         if (!movable) return;
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         drag.current = { startX: event.clientX, startY: event.clientY, originX: element.x, originY: element.y };
+        onInteractionChange?.(true);
       }}
       onPointerMove={(event) => {
         const d = drag.current;
         if (!d) return;
         onMove(
           element.id,
-          snap8(Math.max(0, d.originX + event.clientX - d.startX)),
-          snap8(Math.max(0, d.originY + event.clientY - d.startY))
+          snap8(Math.max(0, d.originX + (event.clientX - d.startX) / safeScale)),
+          snap8(Math.max(0, d.originY + (event.clientY - d.startY) / safeScale))
         );
       }}
       onPointerUp={() => {
+        const wasDragging = drag.current !== null;
         drag.current = null;
+        if (wasDragging) onInteractionChange?.(false);
       }}
       onPointerCancel={() => {
+        const wasInteracting = drag.current !== null || resizing.current !== null;
         drag.current = null;
         resizing.current = null;
+        if (wasInteracting) onInteractionChange?.(false);
       }}
       className={`absolute flex select-none flex-col items-center justify-center rounded-lg border px-2 py-1 text-center shadow-lg ${
         movable ? 'cursor-move' : 'cursor-pointer'
@@ -142,6 +167,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
             event.stopPropagation();
             (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
             resizing.current = { startX: event.clientX, startY: event.clientY, originW: element.width, originH: element.height };
+            onInteractionChange?.(true);
           }}
           onPointerMove={(event) => {
             const r = resizing.current;
@@ -150,12 +176,17 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, selected, locked
             const minH = element.type === 'keyboard' ? 180 : 28;
             onResize(
               element.id,
-              snap8(Math.max(minW, r.originW + event.clientX - r.startX)),
-              snap8(Math.max(minH, r.originH + event.clientY - r.startY))
+              snap8(Math.max(minW, r.originW + (event.clientX - r.startX) / safeScale)),
+              snap8(Math.max(minH, r.originH + (event.clientY - r.startY) / safeScale))
             );
           }}
           onPointerUp={() => {
             resizing.current = null;
+            onInteractionChange?.(false);
+          }}
+          onPointerCancel={() => {
+            resizing.current = null;
+            onInteractionChange?.(false);
           }}
           className="absolute -bottom-1.5 -right-1.5 h-4 w-4 cursor-nwse-resize rounded-sm border border-[#3A3A3C] bg-[#0A84FF]"
         />
@@ -171,6 +202,10 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   locked,
   movable = true,
   previewKeyboard = false,
+  scale = 1,
+  canvasWidth,
+  canvasHeight,
+  onInteractionChange,
   interactivePreview,
   channel,
   onCanvasClick,
@@ -184,9 +219,10 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   selectedZoneId,
   onZoneClick,
 }) => {
+  const safeScale = Math.max(0.01, scale);
   const coordsOf = (clientX: number, clientY: number, currentTarget: HTMLDivElement) => {
     const rect = currentTarget.getBoundingClientRect();
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return { x: (clientX - rect.left) / safeScale, y: (clientY - rect.top) / safeScale };
   };
 
   return (
@@ -207,14 +243,16 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
         const { x, y } = coordsOf(event.clientX, event.clientY, event.currentTarget);
         onDropKey(key, x, y);
       }}
-      className={`relative min-h-[520px] min-w-[680px] overflow-hidden rounded-lg border border-[#303032] bg-[#242426] ${
+       className={`relative min-w-[680px] min-h-[520px] overflow-hidden rounded-lg border border-[#303032] bg-[#242426] ${
         armed && !locked ? 'cursor-crosshair' : ''
       }`}
-      style={{
-        backgroundImage:
-          'linear-gradient(rgba(154,154,160,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(154,154,160,.06) 1px,transparent 1px)',
-        backgroundSize: '28px 28px',
-      }}
+       style={{
+         width: canvasWidth,
+         height: canvasHeight,
+         backgroundImage:
+           'linear-gradient(rgba(154,154,160,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(154,154,160,.06) 1px,transparent 1px)',
+         backgroundSize: '28px 28px',
+       }}
     >
       {interactivePreview
         ? elements.map((element) => (
@@ -277,9 +315,11 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                 selected={element.id === selectedId}
                 locked={locked}
                 movable={movable}
+                scale={scale}
                 onSelect={onSelect}
                 onMove={onMove}
                 onResize={onResize}
+                onInteractionChange={onInteractionChange}
               />
             )
           )}

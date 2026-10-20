@@ -1457,8 +1457,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
-          {renderPlayback()}
-          {renderAudioInput()}
           {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
           {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
@@ -1618,6 +1616,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               )}
             </>
           )}
+          {renderPlayback()}
+          {renderAudioInput()}
           <div className="hw-inset sticky right-0 z-10 flex w-[132px] shrink-0 flex-col rounded-xl p-2" style={{ background: '#1F1F21' }}>
             <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
               <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#0A84FF', color: '#FFFFFF' }}>OUT</span>
