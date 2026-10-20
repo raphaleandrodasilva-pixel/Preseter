@@ -228,6 +228,32 @@ function formatMidiEvent(event: RawMidiEvent): string {
   }
 }
 
+/** Converte um evento do Web MIDI nos bytes crus que o motor entende. */
+function rawMidiToBytes(event: RawMidiEvent): number[] | null {
+  const channel = event.channel & 0x0f;
+  switch (event.kind) {
+    case 'note':
+      return event.value === 0
+        ? [0x80 | channel, event.number & 0x7f, 0]
+        : [0x90 | channel, event.number & 0x7f, event.value & 0x7f];
+    case 'cc':
+      return [0xb0 | channel, event.number & 0x7f, event.value & 0x7f];
+    case 'pitch': {
+      const value = Math.max(0, Math.min(16383, event.value));
+      return [0xe0 | channel, value & 0x7f, (value >> 7) & 0x7f];
+    }
+    case 'aftertouch':
+      return event.poly
+        ? [0xa0 | channel, event.number & 0x7f, event.value & 0x7f]
+        : [0xd0 | channel, event.value & 0x7f];
+    case 'pc':
+      // Program Change já aciona a troca de patch; não reenvia ao plugin.
+      return null;
+    default:
+      return null;
+  }
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiLastMessage, setMidiLastMessage] = useState<string | null>(null);
@@ -964,6 +990,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
   }, []);
+
+  /** Envia MIDI externo somente ao motor (sem devolver para a saída MIDI). */
+  const sendMidiToEngine = useCallback(async (message: number[]): Promise<boolean> => {
+    try {
+      return await window.electronAPI.engineMidi(message);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao enviar MIDI ao motor.');
+      return false;
+    }
+  }, []);
+
+  // Hardware MIDI → motor: notas, CC, pitch e aftertouch tocam os instrumentos.
+  useEffect(() => {
+    const service = webMidi.current;
+    if (!service) return;
+    return service.onRawMessage((event) => {
+      const bytes = rawMidiToBytes(event);
+      if (bytes) void sendMidiToEngine(bytes);
+    });
+  }, [sendMidiToEngine]);
 
   const sendProgramChange = useCallback(
     async (program: number, channel: number = 0) => {

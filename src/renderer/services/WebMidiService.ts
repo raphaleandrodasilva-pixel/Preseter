@@ -16,6 +16,8 @@ export interface RawMidiEvent {
   value: number;
   /** Porta/dispositivo que enviou a mensagem (id do Web MIDI). */
   deviceId?: string;
+  /** Aftertouch: true = poly aftertouch; false/ausente = channel pressure. */
+  poly?: boolean;
 }
 
 export class WebMidiService {
@@ -157,10 +159,10 @@ export class WebMidiService {
       if (data.length < 3) return;
       this.emitRaw({ kind: 'pitch', channel, number: 0, value: (data[2] << 7) | data[1], deviceId });
     } else if (status === 0xd0) {
-      this.emitRaw({ kind: 'aftertouch', channel, number: 0, value: data[1], deviceId });
+      this.emitRaw({ kind: 'aftertouch', channel, number: 0, value: data[1], deviceId, poly: false });
     } else if (status === 0xa0) {
       if (data.length < 3) return;
-      this.emitRaw({ kind: 'aftertouch', channel, number: data[1], value: data[2], deviceId });
+      this.emitRaw({ kind: 'aftertouch', channel, number: data[1], value: data[2], deviceId, poly: true });
     }
   }
 
