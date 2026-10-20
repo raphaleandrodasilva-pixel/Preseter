@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, session, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
@@ -213,10 +213,53 @@ class MainWindow {
     }, delay);
   }
 
+  private windowBoundsPath(): string {
+    return path.join(app.getPath('userData'), 'window-bounds.json');
+  }
+
+  /** Lê a última posição/tamanho da janela principal. */
+  private loadWindowBounds(): Electron.Rectangle | undefined {
+    try {
+      const file = this.windowBoundsPath();
+      if (!fs.existsSync(file)) return undefined;
+      const data = JSON.parse(fs.readFileSync(file, 'utf8')) as Electron.Rectangle;
+      if (
+        typeof data?.x === 'number' && typeof data?.y === 'number' &&
+        typeof data?.width === 'number' && typeof data?.height === 'number'
+      ) {
+        // Só reaproveita se ainda couber numa tela conectada (evita janela sumida).
+        const fits = screen.getAllDisplays().some(
+          (display) => data.x >= display.bounds.x && data.y >= display.bounds.y
+            && data.x < display.bounds.x + display.bounds.width
+            && data.y < display.bounds.y + display.bounds.height
+        );
+        if (fits) return data;
+      }
+    } catch { /* ignora */ }
+    return undefined;
+  }
+
+  /** Salva a posição/tamanho da janela principal (arrastar/redimensionar). */
+  private saveWindowBounds(bounds: Electron.Rectangle): void {
+    try {
+      const file = this.windowBoundsPath();
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify({
+        x: Math.round(bounds.x),
+        y: Math.round(bounds.y),
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height),
+      }), 'utf8');
+    } catch { /* ignora */ }
+  }
+
   private createWindow(): void {
+    const saved = this.loadWindowBounds();
     this.window = new BrowserWindow({
-      width: 1400,
-      height: 900,
+      x: saved?.x,
+      y: saved?.y,
+      width: saved?.width ?? 1400,
+      height: saved?.height ?? 900,
       minWidth: 1200,
       minHeight: 700,
       backgroundColor: '#111827',
@@ -235,6 +278,15 @@ class MainWindow {
     const startUrl =
       process.env.ELECTRON_START_URL ||
       `file://${path.join(__dirname, '../renderer/index.html')}`;
+
+    // Persistir posição e tamanho quando arrastado/redimensionado
+    const saveOnMoveResize = () => {
+      if (!this.window || this.window.isDestroyed()) return;
+      const bounds = this.window.getBounds();
+      this.saveWindowBounds(bounds);
+    };
+    this.window.on('resize', saveOnMoveResize);
+    this.window.on('move', saveOnMoveResize);
 
     this.window.loadURL(startUrl);
 
