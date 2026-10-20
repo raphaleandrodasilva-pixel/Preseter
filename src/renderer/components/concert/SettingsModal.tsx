@@ -12,7 +12,7 @@ interface SettingsModalProps {
 /** Modal central de configurações em estilo hardware navy — MIDI/VST moram aqui. */
 export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClose }) => {
   const {
-    midiDevices, midiError, midiLastMessage, listMidiDevices, openMidiPort,
+    midiDevices, midiError, midiLastMessage, openMidiInputs, selectedMidiOutputId, listMidiDevices, openMidiPort,
     scannedPlugins, loadedPlugins, scanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
@@ -372,37 +372,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 <h4 className="hw-label mb-2">Entradas ({inputs.length})</h4>
                 <div className="space-y-1.5">
                   {inputs.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhuma entrada encontrada. Clique em atualizar.</p>}
-                  {inputs.map((d) => (
-                    <div key={d.id} className="hw-inset flex items-center gap-2 px-3 py-2">
-                      <span className="min-w-0 flex-1 truncate text-xs" style={{ color: '#EDEDEF' }} title={d.name}>{d.name}</span>
-                      <button
-                        onClick={() => void openMidiPort(d.id, 'input')}
-                        className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110"
-                        style={accentBtn}
-                      >
-                        Conectar
-                      </button>
-                    </div>
-                  ))}
+                  {inputs.map((d) => {
+                    const connected = openMidiInputs.has(d.id);
+                    return (
+                      <div key={d.id} className="hw-inset flex items-center gap-2 px-3 py-2">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: connected ? '#30D158' : '#636366' }} />
+                        <span className="min-w-0 flex-1 truncate text-xs" style={{ color: '#EDEDEF' }} title={d.name}>{d.name}</span>
+                        <button
+                          onClick={() => void openMidiPort(d.id, 'input')}
+                          disabled={connected}
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110 disabled:cursor-default"
+                          style={connected
+                            ? { background: 'rgba(48,209,88,0.14)', color: '#30D158', border: '1px solid rgba(48,209,88,0.45)' }
+                            : accentBtn}
+                        >
+                          {connected ? 'Conectado' : 'Conectar'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
+                <p className="mt-2 text-[10px]" style={{ color: '#8E8E93' }}>
+                  As entradas são abertas automaticamente para tocar e usar o MIDI Learn.
+                </p>
               </section>
               <section>
                 <h4 className="hw-label mb-2">Saídas ({outputs.length})</h4>
                 <div className="space-y-1.5">
                   {outputs.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhuma saída encontrada.</p>}
-                  {outputs.map((d) => (
-                    <div key={d.id} className="hw-inset flex items-center gap-2 px-3 py-2">
-                      <span className="min-w-0 flex-1 truncate text-xs" style={{ color: '#EDEDEF' }} title={d.name}>{d.name}</span>
-                      <button
-                        onClick={() => void openMidiPort(d.id, 'output')}
-                        className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110"
-                        style={accentBtn}
-                      >
-                        Conectar
-                      </button>
-                    </div>
-                  ))}
+                  {outputs.map((d) => {
+                    const selected = selectedMidiOutputId === d.id;
+                    return (
+                      <div key={d.id} className="hw-inset flex items-center gap-2 px-3 py-2">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: selected ? '#30D158' : '#636366' }} />
+                        <span className="min-w-0 flex-1 truncate text-xs" style={{ color: '#EDEDEF' }} title={d.name}>{d.name}</span>
+                        <button
+                          onClick={() => void openMidiPort(d.id, 'output')}
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110"
+                          style={selected
+                            ? { background: 'rgba(48,209,88,0.14)', color: '#30D158', border: '1px solid rgba(48,209,88,0.45)' }
+                            : accentBtn}
+                        >
+                          {selected ? 'Selecionado' : 'Conectar'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
+                <p className="mt-2 text-[10px]" style={{ color: '#8E8E93' }}>
+                  A saída serve para enviar Program Change ao controlador.
+                </p>
               </section>
               <section>
                 <h4 className="hw-label mb-2">Monitor</h4>

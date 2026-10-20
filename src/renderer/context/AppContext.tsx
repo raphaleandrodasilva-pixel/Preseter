@@ -93,6 +93,10 @@ export interface AppContextType {
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
+  /** Entradas MIDI que abertas com sucesso nesta sessão. */
+  openMidiInputs: Set<string>;
+  /** Saída MIDI atualmente selecionada para envio. */
+  selectedMidiOutputId: string | null;
   /** Notas com note-on aberto vindas da entrada MIDI (Fase C) */
   activeNotes: Set<number>;
   layout: LayoutConfig | null;
@@ -198,6 +202,32 @@ export const useAppContext = (): AppContextType => {
   return context;
 };
 
+const MIDI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+function midiNoteLabel(note: number): string {
+  return `${MIDI_NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
+}
+
+function formatMidiEvent(event: RawMidiEvent): string {
+  const channel = event.channel + 1;
+  switch (event.kind) {
+    case 'note':
+      return event.value === 0
+        ? `Note Off ${midiNoteLabel(event.number)} · canal ${channel}`
+        : `Note On ${midiNoteLabel(event.number)} · vel ${event.value} · canal ${channel}`;
+    case 'cc':
+      return `CC ${event.number} = ${event.value} · canal ${channel}`;
+    case 'pitch':
+      return `Pitch Bend ${event.value} · canal ${channel}`;
+    case 'aftertouch':
+      return `Aftertouch ${event.number} = ${event.value} · canal ${channel}`;
+    case 'pc':
+      return `Program Change ${event.number} · banco ${event.value} · canal ${channel}`;
+    default:
+      return 'Mensagem MIDI';
+  }
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiLastMessage, setMidiLastMessage] = useState<string | null>(null);
@@ -247,6 +277,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [preferences, setPreferences] = useState<AppPreferences | null>(null);
   const [engineError, setEngineError] = useState<string | null>(null);
   const [midiDevices, setMidiDevices] = useState<MidiDeviceInfo[]>([]);
+  const [openMidiInputs, setOpenMidiInputs] = useState<Set<string>>(() => new Set());
+  const [selectedMidiOutputId, setSelectedMidiOutputId] = useState<string | null>(null);
   const [layout, setLayoutState] = useState<LayoutConfig | null>(null);
   const [appStatus, setAppStatus] = useState<AppStatus>({
     isPlaying: false,
@@ -863,11 +895,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const listMidiDevices = useCallback(async () => {
     try {
       const devices = await webMidi.current!.listDevices();
-      // As entradas ficam abertas para o MIDI Learn e os assignments (Fase 4.2).
+      // As entradas ficam abertas para tocar, o MIDI Learn e os assignments (Fase 4.2).
+      const opened: string[] = [];
       await Promise.all(
         devices
           .filter((device) => device.type === 'input')
-          .map((device) => webMidi.current!.openPort(device.id, 'input').catch(() => false))
+          .map(async (device) => {
+            const ok = await webMidi.current!.openPort(device.id, 'input').catch(() => false);
+            if (ok) opened.push(device.id);
+          })
+      );
+      setOpenMidiInputs(new Set(opened));
+      setSelectedMidiOutputId((previous) =>
+        previous && devices.some((device) => device.type === 'output' && device.id === previous)
+          ? previous
+          : null
       );
       setMidiDevices(devices);
       setMidiError(null);
@@ -875,6 +917,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao acessar MIDI.';
       setMidiError(message);
+      setOpenMidiInputs(new Set());
+      setSelectedMidiOutputId(null);
       return [];
     }
   }, []);
@@ -883,9 +927,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     void listMidiDevices();
   }, [listMidiDevices]);
 
+  // Monitor MIDI: mostra notas/CC/pitch/aftertouch no rodapé e na aba MIDI.
+  useEffect(() => {
+    const service = webMidi.current;
+    if (!service) return;
+    let lastUpdate = 0;
+    return service.onRawMessage((event) => {
+      if (event.kind === 'pc') return; // Program Change já é formatado pelo callback principal.
+      const now = performance.now();
+      if (now - lastUpdate < 30) return;
+      lastUpdate = now;
+      setMidiLastMessage(formatMidiEvent(event));
+    });
+  }, []);
+
   const openMidiPort = useCallback(async (deviceId: string, type: 'input' | 'output'): Promise<boolean> => {
     try {
       const connected = await webMidi.current!.openPort(deviceId, type);
+      if (connected) {
+        if (type === 'input') {
+          setOpenMidiInputs((previous) => {
+            const next = new Set(previous);
+            next.add(deviceId);
+            return next;
+          });
+          setMidiLastMessage('Entrada MIDI conectada.');
+        } else {
+          setSelectedMidiOutputId(deviceId);
+          setMidiLastMessage('Saída MIDI selecionada.');
+        }
+      }
       setMidiError(null);
       return connected;
     } catch (error) {
@@ -1451,6 +1522,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     midiDevices,
     midiError,
     midiLastMessage,
+    openMidiInputs,
+    selectedMidiOutputId,
     activeNotes,
     layout,
     updateConcertLayout,
