@@ -647,7 +647,7 @@ export interface LayoutConfig {
 }
 
 // Elementos de interface
-export type ElementType = 'button' | 'fader' | 'knob' | 'pedal' | 'toggle' | 'slider' | 'label' | 'pad' | 'meter-vertical' | 'midi-activity' | 'keyboard' | 'drawbar' | 'playback';
+export type ElementType = 'button' | 'fader' | 'knob' | 'pedal' | 'toggle' | 'slider' | 'label' | 'pad' | 'meter-vertical' | 'midi-activity' | 'keyboard' | 'drawbar' | 'playback' | 'audio-input';
 
 export interface UiElement {
   id: string;
@@ -658,6 +658,8 @@ export interface UiElement {
   width: number;
   height: number;
   color: string;
+  /** Elementos com o mesmo groupId se deslocam juntos no canvas. */
+  groupId?: string;
   // Seção do palco MainStage (undefined = canvas livre)
   section?: 'instrument' | 'effects' | 'tone' | 'output';
   // Para faders, sliders

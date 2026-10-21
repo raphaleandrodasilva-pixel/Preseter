@@ -105,6 +105,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
     color: '#C6A15B',
   },
   { key: 'playback', type: 'playback', label: 'Playback', hint: 'Player opcional do Layout', category: 'concert' },
+  { key: 'audio-input', type: 'audio-input', label: 'Audio Input', hint: 'Guitarra/microfone opcional', category: 'concert' },
 ];
 
 export function findPaletteItem(key: string | null): PaletteItem | null {
@@ -126,6 +127,7 @@ const DEFAULT_SIZES: Record<ElementType, { width: number; height: number }> = {
   'midi-activity': { width: 128, height: 56 },
   drawbar: { width: 36, height: 190 },
   playback: { width: 196, height: 118 },
+  'audio-input': { width: 190, height: 300 },
 };
 
 export function makeElement(
@@ -146,7 +148,7 @@ export function makeElement(
     y: Math.max(0, y),
     width: size.width,
     height: size.height,
-    color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : type === 'drawbar' ? '#C6A15B' : '#9A9AA0'),
+    color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : type === 'drawbar' ? '#C6A15B' : type === 'audio-input' ? '#FF9F0A' : '#9A9AA0'),
     minValue: 0,
     maxValue: isDrawbar ? 8 : 1,
     orientation: orientation ?? (type === 'slider' ? 'horizontal' : 'vertical'),

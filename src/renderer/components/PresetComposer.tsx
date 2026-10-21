@@ -5,6 +5,7 @@ import {
   UiElement,
   VstPluginInfo,
 } from '@shared/types';
+import { buildDuplicatedElements, moveElementWithGroup, newGroupId } from '@shared/element-groups';
 import { ControlPalette } from './composer/ControlPalette';
 import { ComposerCanvas } from './composer/ComposerCanvas';
 import { ControlInspector } from './composer/ControlInspector';
@@ -88,6 +89,16 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
     });
   };
 
+  const moveElement = (id: string, x: number, y: number) => {
+    if (!draft) return;
+    updateDraft({
+      layout: {
+        ...draft.layout,
+        elements: moveElementWithGroup(draft.layout.elements, id, x, y),
+      },
+    });
+  };
+
   const removeElement = (id: string) => {
     if (!draft) return;
     updateDraft({
@@ -96,19 +107,28 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
     setSelectedId((current) => (current === id ? null : current));
   };
 
+  const removeGroup = (groupId: string) => {
+    if (!draft) return;
+    const elements = draft.layout.elements.filter((element) => element.groupId !== groupId);
+    updateDraft({ layout: { ...draft.layout, elements } });
+    setSelectedId((current) => (current && elements.some((element) => element.id === current) ? current : null));
+  };
+
   const duplicateElement = (id: string) => {
     if (!draft) return;
     const source = draft.layout.elements.find((element) => element.id === id);
     if (!source) return;
-    const copy: UiElement = {
-      ...source,
-      id: `element_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      x: source.x + 16,
-      y: source.y + 16,
-    };
-    updateDraft({ layout: { ...draft.layout, elements: [...draft.layout.elements, copy] } });
-    setSelectedId(copy.id);
-    showToast(`${copy.label} duplicado.`);
+    if (source.type === 'audio-input') {
+      showToast('Já existe uma Entrada de áudio no layout.');
+      return;
+    }
+    const result = buildDuplicatedElements(draft.layout.elements, id);
+    if (!result) return;
+    updateDraft({
+      layout: { ...draft.layout, elements: [...draft.layout.elements, ...result.copies] },
+    });
+    setSelectedId(result.selectedId);
+    showToast(source.groupId ? 'Grupo duplicado.' : `${source.label} duplicado.`);
   };
 
   const bringFront = (id: string) => {
@@ -129,9 +149,11 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
     if (!draft) return;
     const created: UiElement[] = [];
     if (item.group) {
+      const groupId = newGroupId();
       for (const member of item.group) {
         created.push({
           ...makeElement(member.type, snap8(x + member.dx), snap8(y + member.dy), member.label),
+          groupId,
         });
       }
     } else {
@@ -162,7 +184,9 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
       if (mode === 'perform') return;
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
         event.preventDefault();
-        removeElement(selectedId);
+        const current = draft?.layout.elements.find((element) => element.id === selectedId);
+        if (event.shiftKey && current?.groupId) removeGroup(current.groupId);
+        else removeElement(selectedId);
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd' && selectedId) {
         event.preventDefault();
         duplicateElement(selectedId);
@@ -341,6 +365,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
                   scannedPlugins={scannedPlugins}
                   onUpdate={updateElement}
                   onRemove={removeElement}
+                  onRemoveGroup={removeGroup}
                   onDuplicate={duplicateElement}
                   onBringFront={bringFront}
                   onSendBack={sendBack}
@@ -379,7 +404,7 @@ export const PresetComposer: React.FC<PresetComposerProps> = ({
                     if (item) placeItems(item, x, y);
                   }}
                   onSelect={(id) => setSelectedId(id)}
-                  onMove={(id, x, y) => updateElement(id, { x, y })}
+                  onMove={moveElement}
                   onResize={(id, width, height) => updateElement(id, { width, height })}
                   onMidiMessage={() => undefined}
                   onSetVstParameter={() => undefined}

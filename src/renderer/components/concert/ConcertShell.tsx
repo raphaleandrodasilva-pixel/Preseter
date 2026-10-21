@@ -23,6 +23,7 @@ import type {
 } from '@shared/types';
 import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
 import { defaultAudioInput } from '@shared/audio-input';
+import { buildDuplicatedElements, moveElementWithGroup, newGroupId } from '@shared/element-groups';
 import {
   clearOverride,
   isMasked,
@@ -1860,11 +1861,36 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       });
     }
   };
-  const removeElement = (id: string) => {
+  const moveElement = (id: string, x: number, y: number) => {
     if (!draft) return;
     onDraftChange({
       ...draft,
-      layout: { ...draft.layout, elements: draft.layout.elements.filter((el) => el.id !== id) },
+      layout: {
+        ...draft.layout,
+        elements: moveElementWithGroup(draft.layout.elements, id, x, y),
+      },
+      updatedAt: Date.now(),
+    });
+    if (layout) {
+      updateConcertLayout({
+        ...layout,
+        elements: moveElementWithGroup(layout.elements, id, x, y),
+      });
+    }
+  };
+  const removeElement = (id: string) => {
+    if (!draft) return;
+    const removed = draft.layout.elements.find((el) => el.id === id);
+    const elements = draft.layout.elements.filter((el) => el.id !== id);
+    const stillHasAudioInput = elements.some((el) => el.type === 'audio-input');
+    const nextAudioInput =
+      removed?.type === 'audio-input' && !stillHasAudioInput && draft.audioInput?.enabled
+        ? { ...draft.audioInput, enabled: false }
+        : draft.audioInput;
+    onDraftChange({
+      ...draft,
+      layout: { ...draft.layout, elements },
+      ...(nextAudioInput !== draft.audioInput ? { audioInput: nextAudioInput } : {}),
       updatedAt: Date.now(),
     });
     if (layout) {
@@ -1873,20 +1899,65 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         elements: layout.elements.filter((el) => el.id !== id),
       });
     }
+    if (nextAudioInput !== draft.audioInput && nextAudioInput) {
+      setAudioInputState(null);
+      void applyAudioInput(nextAudioInput);
+    }
     if (selectedId === id) onSelectedId(null);
+  };
+  const removeGroup = (groupId: string) => {
+    if (!draft) return;
+    const removed = draft.layout.elements.filter((el) => el.groupId === groupId);
+    const elements = draft.layout.elements.filter((el) => el.groupId !== groupId);
+    const stillHasAudioInput = elements.some((el) => el.type === 'audio-input');
+    const nextAudioInput =
+      removed.some((el) => el.type === 'audio-input') &&
+      !stillHasAudioInput &&
+      draft.audioInput?.enabled
+        ? { ...draft.audioInput, enabled: false }
+        : draft.audioInput;
+    onDraftChange({
+      ...draft,
+      layout: { ...draft.layout, elements },
+      ...(nextAudioInput !== draft.audioInput ? { audioInput: nextAudioInput } : {}),
+      updatedAt: Date.now(),
+    });
+    if (layout) {
+      updateConcertLayout({
+        ...layout,
+        elements: layout.elements.filter((el) => el.groupId !== groupId),
+      });
+    }
+    if (nextAudioInput !== draft.audioInput && nextAudioInput) {
+      setAudioInputState(null);
+      void applyAudioInput(nextAudioInput);
+    }
+    if (selectedId && !elements.some((el) => el.id === selectedId)) onSelectedId(null);
   };
   const duplicateElement = (id: string) => {
     if (!draft) return;
     const src = draft.layout.elements.find((el) => el.id === id);
     if (!src) return;
-    const copy: UiElement = { ...src, id: `element_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, x: src.x + 16, y: src.y + 16 };
-    onDraftChange({ ...draft, layout: { ...draft.layout, elements: [...draft.layout.elements, copy] }, updatedAt: Date.now() });
-    if (layout) {
-      const layoutCopy = { ...copy };
-      for (const key of MAPPING_FIELDS) delete (layoutCopy as Record<string, unknown>)[key as string];
-      updateConcertLayout({ ...layout, elements: [...layout.elements, layoutCopy] });
+    if (src.type === 'audio-input') {
+      onError('Já existe uma Entrada de áudio no layout.');
+      return;
     }
-    onSelectedId(copy.id);
+    const result = buildDuplicatedElements(draft.layout.elements, id);
+    if (!result) return;
+    onDraftChange({
+      ...draft,
+      layout: { ...draft.layout, elements: [...draft.layout.elements, ...result.copies] },
+      updatedAt: Date.now(),
+    });
+    if (layout) {
+      const layoutCopies = result.copies.map((copy) => {
+        const layoutCopy = { ...copy };
+        for (const key of MAPPING_FIELDS) delete (layoutCopy as Record<string, unknown>)[key as string];
+        return layoutCopy;
+      });
+      updateConcertLayout({ ...layout, elements: [...layout.elements, ...layoutCopies] });
+    }
+    onSelectedId(result.selectedId);
   };
   const bringFront = (id: string) => {
     if (!draft) return;
@@ -1912,20 +1983,45 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
   const placeItems = (item: PaletteItem, x: number, y: number) => {
     if (!draft) return;
+    if (item.type === 'audio-input') {
+      const existing = draft.layout.elements.find((el) => el.type === 'audio-input');
+      if (existing) {
+        onSelectedId(existing.id);
+        onArmedKey(null);
+        onError('Já existe uma Entrada de áudio no layout.');
+        return;
+      }
+    }
     const created: UiElement[] = [];
     if (item.group) {
-      for (const m of item.group) created.push({ ...makeElement(m.type, snap8(x + m.dx), snap8(y + m.dy), m.label) });
+      const groupId = newGroupId();
+      for (const m of item.group) {
+        created.push({
+          ...makeElement(m.type, snap8(x + m.dx), snap8(y + m.dy), m.label),
+          groupId,
+        });
+      }
     } else {
       const el = makeElement(item.type, 0, 0, item.label, item.orientation, item);
       el.x = snap8(Math.max(0, x - el.width / 2));
       el.y = snap8(Math.max(0, y - el.height / 2));
       created.push(el);
     }
-    onDraftChange({ ...draft, layout: { ...draft.layout, elements: [...draft.layout.elements, ...created] }, updatedAt: Date.now() });
+    const enablesAudio = created.some((el) => el.type === 'audio-input') && !draft.audioInput?.enabled;
+    const nextAudioInput = enablesAudio
+      ? { ...defaultAudioInput(), ...(draft.audioInput ?? {}), enabled: true }
+      : draft.audioInput;
+    onDraftChange({
+      ...draft,
+      layout: { ...draft.layout, elements: [...draft.layout.elements, ...created] },
+      ...(enablesAudio ? { audioInput: nextAudioInput } : {}),
+      updatedAt: Date.now(),
+    });
     if (layout) {
       updateConcertLayout({ ...layout, elements: [...layout.elements, ...created] });
     }
-    onSelectedId(created[0].id);
+    if (enablesAudio && nextAudioInput) void applyAudioInput(nextAudioInput);
+    onSelectedId(created[0]?.id ?? null);
     onArmedKey(null);
   };
   const armItem = (item: PaletteItem) => {
@@ -2166,7 +2262,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         }
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) { e.preventDefault(); removeElement(selectedId); }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        e.preventDefault();
+        const current = draft?.layout.elements.find((el) => el.id === selectedId);
+        if (e.shiftKey && current?.groupId) removeGroup(current.groupId);
+        else removeElement(selectedId);
+      }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedId) { e.preventDefault(); duplicateElement(selectedId); }
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'v' && selectedLayerId) {
         e.preventDefault();
@@ -2352,6 +2453,16 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onLoadPlayback={() => void handleLoadPlayback()}
                     onPlayPlayback={() => void handlePlayPlayback()}
                     onStopPlayback={() => void handleStopPlayback()}
+                    audioInput={currentPreset.audioInput}
+                    audioInputState={audioInputState}
+                    audioInputChannels={ctx.audioDevices?.current?.inputChannels ?? 0}
+                    audioInputEditable={!!draft}
+                    onAudioInputChange={changeAudioInput}
+                    onEnableAudioInput={addAudioInput}
+                    onDisableAudioInput={removeAudioInput}
+                    onResetAudioFeedback={resetAudioFeedback}
+                    onKeepAudioInputMuted={keepAudioInputMuted}
+                    onDisableAudioFeedbackProtection={disableAudioFeedbackProtection}
                   />
                 ))}
               </FitToView>
@@ -2419,6 +2530,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onPatchChange={updateDraft}
             onUpdateElement={updateElement}
             onRemoveElement={removeElement}
+            onRemoveGroup={removeGroup}
             onDuplicateElement={duplicateElement}
             onBringFront={bringFront}
             onSendBack={sendBack}
@@ -2538,7 +2650,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                         if (item) placeItems(item, x, y);
                       }}
                       onSelect={(id) => onSelectedId(id)}
-                      onMove={(id, x, y) => updateElement(id, { x, y })}
+                      onMove={moveElement}
                       onResize={(id, width, height) => updateElement(id, { width, height })}
                       onMidiMessage={onMidiMessage}
                       onSetVstParameter={onSetVstParameter}
@@ -2549,6 +2661,16 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       onLoadPlayback={() => void handleLoadPlayback()}
                       onPlayPlayback={() => void handlePlayPlayback()}
                       onStopPlayback={() => void handleStopPlayback()}
+                      audioInput={(draft ?? currentPreset)?.audioInput}
+                      audioInputState={audioInputState}
+                      audioInputChannels={ctx.audioDevices?.current?.inputChannels ?? 0}
+                      audioInputEditable={!!draft}
+                      onAudioInputChange={changeAudioInput}
+                      onEnableAudioInput={addAudioInput}
+                      onDisableAudioInput={removeAudioInput}
+                      onResetAudioFeedback={resetAudioFeedback}
+                      onKeepAudioInputMuted={keepAudioInputMuted}
+                      onDisableAudioFeedbackProtection={disableAudioFeedbackProtection}
                       scale={scale}
                       canvasWidth={canvasW}
                       canvasHeight={canvasH}
@@ -2603,6 +2725,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               onPatchChange={updateDraft}
               onUpdateElement={updateElement}
               onRemoveElement={removeElement}
+              onRemoveGroup={removeGroup}
               onDuplicateElement={duplicateElement}
               onBringFront={bringFront}
               onSendBack={sendBack}
@@ -2631,20 +2754,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             setStrips={currentSet?.strips ?? []}
             setName={currentSet?.name ?? null}
             setOverrides={currentSet?.stripOverrides}
-            audioInput={activePreset?.audioInput}
-            audioInputState={audioInputState}
-            audioInputChannels={ctx.audioDevices?.current?.inputChannels ?? 0}
             availableOutputPairs={availableOutputPairs}
-            onAddAudioInput={addAudioInput}
-            onRemoveAudioInput={removeAudioInput}
-            onAudioInputChange={changeAudioInput}
-            onResetAudioFeedback={resetAudioFeedback}
-            onKeepAudioMuted={keepAudioInputMuted}
-            onDisableAudioFeedbackProtection={disableAudioFeedbackProtection}
-            playbackState={playbackState}
-            onLoadPlayback={() => void handleLoadPlayback()}
-            onPlayPlayback={() => void handlePlayPlayback()}
-            onStopPlayback={() => void handleStopPlayback()}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onAddSplit={addSplitLayer}

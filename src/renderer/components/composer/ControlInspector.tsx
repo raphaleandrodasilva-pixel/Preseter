@@ -13,6 +13,8 @@ interface ControlInspectorProps {
   scannedPlugins: VstPluginInfo[];
   onUpdate: (id: string, patch: Partial<UiElement>) => void;
   onRemove: (id: string) => void;
+  /** Remove todos os elementos do grupo (quando o controle pertence a um). */
+  onRemoveGroup?: (groupId: string) => void;
   onDuplicate: (id: string) => void;
   onBringFront: (id: string) => void;
   onSendBack: (id: string) => void;
@@ -39,6 +41,7 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   scannedPlugins,
   onUpdate,
   onRemove,
+  onRemoveGroup,
   onDuplicate,
   onBringFront,
   onSendBack,
@@ -114,7 +117,10 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   }
 
   const showLayout = mode !== 'edit';
-  const showMapping = mode !== 'layout' && element.type !== 'playback';
+  const showMapping = mode !== 'layout' && element.type !== 'playback' && element.type !== 'audio-input';
+  const groupSize = element.groupId
+    ? (draft?.layout?.elements ?? []).filter((candidate) => candidate.groupId === element.groupId).length
+    : 0;
   const bindingType = currentBindingType(element);
   const inputs = midiDevices.filter((d) => d.type === 'input');
   const bindingNumber =
@@ -192,9 +198,24 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
           )}
         </div>
         {mode !== 'edit' && (
-          <button className="text-[11px] text-red-300 hover:text-red-200" onClick={() => onRemove(element.id)}>
-            Remover
-          </button>
+          <div className="flex items-center gap-2">
+            {groupSize > 1 && onRemoveGroup && element.groupId && (
+              <button
+                className="text-[11px] text-amber-300 hover:text-amber-200"
+                title="Remover todos os controles deste grupo (Shift+Delete)"
+                onClick={() => {
+                  if (confirm(`Remover o grupo com ${groupSize} controles?`)) {
+                    onRemoveGroup(element.groupId as string);
+                  }
+                }}
+              >
+                Remover grupo ({groupSize})
+              </button>
+            )}
+            <button className="text-[11px] text-red-300 hover:text-red-200" onClick={() => onRemove(element.id)}>
+              {groupSize > 1 ? 'Remover elemento' : 'Remover'}
+            </button>
+          </div>
         )}
       </div>
 

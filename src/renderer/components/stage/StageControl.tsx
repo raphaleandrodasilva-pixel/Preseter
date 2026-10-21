@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { PlaybackState, UiElement } from '@shared/types';
+import type { AudioInputSettings, AudioInputState, PlaybackState, UiElement } from '@shared/types';
+import { AudioInputControl } from './AudioInputControl';
 import { KeyboardControl } from './KeyboardControl';
 import type { KeyboardZone } from './KeyboardControl';
 import {
@@ -34,6 +35,17 @@ interface StageControlProps {
   onLoadPlayback?: () => void;
   onPlayPlayback?: () => void;
   onStopPlayback?: () => void;
+  /** Entrada de áudio opcional no Layout. */
+  audioInput?: AudioInputSettings;
+  audioInputState?: AudioInputState | null;
+  audioInputChannels?: number;
+  audioInputEditable?: boolean;
+  onAudioInputChange?: (update: Partial<AudioInputSettings>) => void;
+  onEnableAudioInput?: () => void;
+  onDisableAudioInput?: () => void;
+  onResetAudioFeedback?: () => void;
+  onKeepAudioInputMuted?: () => void;
+  onDisableAudioFeedbackProtection?: () => void;
 }
 
 function normOf(value: number, min: number, max: number): number {
@@ -55,6 +67,16 @@ export const StageControl: React.FC<StageControlProps> = ({
   onLoadPlayback,
   onPlayPlayback,
   onStopPlayback,
+  audioInput,
+  audioInputState,
+  audioInputChannels = 0,
+  audioInputEditable = true,
+  onAudioInputChange,
+  onEnableAudioInput,
+  onDisableAudioInput,
+  onResetAudioFeedback,
+  onKeepAudioInputMuted,
+  onDisableAudioFeedbackProtection,
 }) => {
   const [value, setValue] = useState(element.value ?? 0.5);
   const min = element.minValue ?? 0;
@@ -274,6 +296,20 @@ export const StageControl: React.FC<StageControlProps> = ({
           onLoad={onLoadPlayback}
           onPlay={onPlayPlayback}
           onStop={onStopPlayback}
+        />
+      )}
+      {element.type === 'audio-input' && (
+        <AudioInputControl
+          settings={audioInput}
+          state={audioInputState}
+          channels={audioInputChannels}
+          editable={audioInputEditable}
+          onChange={onAudioInputChange}
+          onEnable={onEnableAudioInput}
+          onDisable={onDisableAudioInput}
+          onResetFeedback={onResetAudioFeedback}
+          onKeepMuted={onKeepAudioInputMuted}
+          onDisableProtection={onDisableAudioFeedbackProtection}
         />
       )}
       {element.type === 'meter-vertical' && (

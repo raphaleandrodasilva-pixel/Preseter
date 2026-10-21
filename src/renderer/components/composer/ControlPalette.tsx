@@ -79,6 +79,12 @@ function PaletteIcon({ type, orientation }: { type: ElementType; orientation?: '
           <span className="text-[9px] font-bold" style={{ color: '#C7C6FF' }}>PB</span>
         </span>
       );
+    case 'audio-input':
+      return (
+        <span className="flex h-7 w-12 items-center justify-center rounded" style={{ border: '1px solid #FF9F0A', background: 'rgba(255,159,10,0.16)' }}>
+          <span className="text-[9px] font-bold" style={{ color: '#FFC46B' }}>IN</span>
+        </span>
+      );
     default:
       return <span className="h-6 w-6 rounded" style={{ background: '#303032' }} />;
   }

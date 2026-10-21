@@ -7,6 +7,7 @@
  */
 
 import type { ConcertMapping, LayoutConfig, PatchMapping, Preset, PresetSet, UiElement } from './types';
+import { assignMissingGroupIds } from './element-groups';
 
 /** Campos de um elemento de tela que são mapping (por patch), não layout. */
 const MAPPING_KEYS = [
@@ -123,7 +124,7 @@ export function migrateConcertLayout(
   const hasConcertLayout = (layout?.elements.length ?? 0) > 0;
   if (hasConcertLayout) {
     return {
-      layout: layout as LayoutConfig,
+      layout: assignMissingGroupIds(layout as LayoutConfig),
       patches: patches.map((patch) => ({
         ...patch,
         mappings: patch.mappings ?? extractMappings(patch.layout),
@@ -143,7 +144,7 @@ export function migrateConcertLayout(
     : { elements: [], background: null, tempo: 120 };
 
   return {
-    layout: concertLayout,
+    layout: assignMissingGroupIds(concertLayout),
     patches: patches.map((patch) => ({
       ...patch,
       mappings: patch.mappings ?? extractMappings(patch.layout),

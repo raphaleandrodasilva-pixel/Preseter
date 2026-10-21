@@ -1,8 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
-  AudioInputSettings,
-  AudioInputState,
-  PlaybackState,
   BusMixUpdate,
   BusSettings,
   ConcertStrip,
@@ -43,23 +40,8 @@ interface ChannelStripsProps {
   setStrips: ConcertStrip[];
   setName: string | null;
   setOverrides: Record<string, StripOverride> | undefined;
-  /** Strip de entrada de áudio do patch (Fase 3.5). */
-  audioInput?: AudioInputSettings;
-  audioInputState?: AudioInputState | null;
-  audioInputChannels: number;
   /** Pares estéreo de saída disponíveis na interface de áudio (1 a 4). */
   availableOutputPairs: number;
-  onAddAudioInput: () => void;
-  onRemoveAudioInput: () => void;
-  onAudioInputChange: (update: Partial<AudioInputSettings>) => void;
-  onResetAudioFeedback: () => void;
-  onKeepAudioMuted: () => void;
-  onDisableAudioFeedbackProtection: () => void;
-  /** Plugin Playback (Fase 6.4). */
-  playbackState?: PlaybackState | null;
-  onLoadPlayback: () => void;
-  onPlayPlayback: () => void;
-  onStopPlayback: () => void;
   onRequestScan: () => Promise<unknown>;
   onAdd: (plugin: VstPluginInfo) => Promise<boolean>;
   /** Cria um layer novo dividindo o range do layer base (split). */
@@ -194,20 +176,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   setStrips,
   setName,
   setOverrides,
-  audioInput,
-  audioInputState,
-  audioInputChannels,
   availableOutputPairs,
-  onAddAudioInput,
-  onRemoveAudioInput,
-  onAudioInputChange,
-  onResetAudioFeedback,
-  onKeepAudioMuted,
-  onDisableAudioFeedbackProtection,
-  playbackState,
-  onLoadPlayback,
-  onPlayPlayback,
-  onStopPlayback,
   onRequestScan,
   onAdd,
   onAddSplit,
@@ -534,160 +503,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           )}
         </div>
       </>
-    );
-  };
-
-  /** Plugin Playback do concert (Fase 6.4). */
-  const renderPlayback = () => {
-    const fileName = playbackState?.path ? playbackState.path.split(/[\\/]/).pop() : '';
-    return (
-      <section
-        className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
-        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #232326, #2C2C2E)' }}
-      >
-        <div className="flex items-center gap-1 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
-          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#BF5AF2', color: '#fff' }}>PB</span>
-          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">Playback</span>
-          {playbackState?.playing && <span className="text-[9px]" style={{ color: '#30D158' }}>▶</span>}
-        </div>
-        <div className="hw-inset mt-2 truncate px-1.5 py-1 text-[8px]" title={playbackState?.path ?? ''} style={{ color: '#9A9AA0' }}>
-          {fileName || 'Nenhum arquivo'}
-        </div>
-        <button
-          className="hw-squarebtn mt-2 w-full px-1 py-1 text-[9px]"
-          onClick={onLoadPlayback}
-        >
-          Carregar áudio…
-        </button>
-        <div className="mt-1 flex gap-1">
-          <button
-            className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
-            disabled={!playbackState?.loaded}
-            onClick={onPlayPlayback}
-          >
-            Play
-          </button>
-          <button
-            className="hw-squarebtn flex-1 px-1 py-1 text-[9px] disabled:opacity-40"
-            disabled={!playbackState?.playing}
-            onClick={onStopPlayback}
-          >
-            Stop
-          </button>
-        </div>
-      </section>
-    );
-  };
-
-  /** Strip de entrada de áudio do patch (Fase 3.5). */
-  const renderAudioInput = () => {
-    if (!audioInput?.enabled) {
-      return (
-        <section
-          className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
-          style={{ border: '1px dashed #3A3A3C', background: 'rgba(35,35,38,0.6)' }}
-        >
-          <div className="text-[9px] font-bold" style={{ color: '#CFE5FF' }}>AUDIO IN</div>
-          <button
-            className="hw-squarebtn mt-2 w-full px-1 py-1 text-[9px] disabled:opacity-40"
-            disabled={!editable}
-            onClick={onAddAudioInput}
-            title="Adicionar strip de entrada para guitarra/microfone"
-          >
-            + Entrada de áudio
-          </button>
-          <p className="mt-2 text-[8px] leading-relaxed" style={{ color: '#8E8E93' }}>
-            Guitarra ou microfone. O volume começa em 0 dB para evitar feedback.
-          </p>
-        </section>
-      );
-    }
-
-    return (
-      <section
-        className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
-        style={{ border: '1px solid #3A3A3C', background: 'linear-gradient(to bottom, #232326, #2C2C2E)' }}
-      >
-        <div className="flex items-center gap-1 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
-          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: '#FF9F0A', color: '#1A1A1A' }}>IN</span>
-          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">Entrada de áudio</span>
-          <button
-            className="rounded px-1 text-[10px] text-slate-500 hover:text-red-300"
-            disabled={!editable}
-            title="Remover entrada de áudio"
-            onClick={onRemoveAudioInput}
-          >
-            ×
-          </button>
-        </div>
-        <label className="mt-1.5 block text-[8px]" style={{ color: '#9A9AA0' }}>
-          ENTRADA
-          <select
-            className="mt-0.5 w-full rounded px-1 py-0.5 text-[8px] outline-none disabled:opacity-60"
-            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
-            value={audioInput.inputChannel}
-            disabled={!editable}
-            onChange={(event) => onAudioInputChange({ inputChannel: Number(event.target.value) })}
-            title="Canal de entrada do dispositivo de áudio"
-          >
-            {Array.from({ length: Math.max(1, audioInputChannels) }, (_, index) => (
-              <option key={index} value={index}>In {index + 1}</option>
-            ))}
-          </select>
-        </label>
-        <label className="mt-1 block text-[8px]" style={{ color: '#9A9AA0' }}>
-          FORMATO
-          <select
-            className="mt-0.5 w-full rounded px-1 py-0.5 text-[8px] outline-none disabled:opacity-60"
-            style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
-            value={audioInput.mode}
-            disabled={!editable}
-            onChange={(event) => onAudioInputChange({ mode: event.target.value === 'stereo' ? 'stereo' : 'mono' })}
-          >
-            <option value="mono">Mono</option>
-            <option value="stereo">Estéreo</option>
-          </select>
-        </label>
-        {renderFader({
-          label: 'Entrada de áudio',
-          peakDb: audioInputState?.peakDb ?? -100,
-          volumeDb: audioInput.volumeDb,
-          pan: audioInput.pan,
-          muted: audioInput.muted,
-          solo: false,
-          showSolo: false,
-          disabled: !editable,
-          onMix: (update) => onAudioInputChange(update),
-        })}
-        <label className="mt-1 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
-          <input
-            type="checkbox"
-            checked={audioInput.feedbackProtection}
-            disabled={!editable}
-            onChange={(event) => onAudioInputChange({ feedbackProtection: event.target.checked })}
-            style={{ accentColor: '#FF9F0A' }}
-          />
-          Feedback Protection
-        </label>
-        <p className="mt-1 text-[8px] leading-relaxed" style={{ color: '#FFB340' }}>
-          ⚠ Guitarra/microfone pode gerar feedback. Aumente o volume devagar.
-        </p>
-        {audioInputChannels === 0 && (
-          <p className="mt-1 text-[8px]" style={{ color: '#FF8A80' }}>
-            Inicie o áudio nas Configurações para liberar as entradas.
-          </p>
-        )}
-        {audioInputState?.feedback && (
-          <div className="mt-1 rounded border px-1 py-1 text-[8px]" style={{ borderColor: '#FF554D', background: 'rgba(255,85,77,0.15)', color: '#FFD1CF' }}>
-            <div className="font-semibold">Feedback detectado — canal silenciado.</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              <button className="hw-squarebtn px-1 py-0.5 text-[8px]" onClick={onResetAudioFeedback}>Continuar</button>
-              <button className="hw-squarebtn px-1 py-0.5 text-[8px]" onClick={onKeepAudioMuted}>Manter mudo</button>
-              <button className="hw-squarebtn px-1 py-0.5 text-[8px]" onClick={onDisableAudioFeedbackProtection}>Desativar</button>
-            </div>
-          </div>
-        )}
-      </section>
     );
   };
 
@@ -1477,8 +1292,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </section>
             );
           })}
-          {renderPlayback()}
-          {renderAudioInput()}
         </div>
       </div>
       {insertPicker && (

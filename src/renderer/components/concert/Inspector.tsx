@@ -29,6 +29,7 @@ interface InspectorProps {
   onPatchChange: (patch: Partial<Preset>) => void;
   onUpdateElement: (id: string, patch: Partial<UiElement>) => void;
   onRemoveElement: (id: string) => void;
+  onRemoveGroup: (groupId: string) => void;
   onDuplicateElement: (id: string) => void;
   onBringFront: (id: string) => void;
   onSendBack: (id: string) => void;
@@ -63,6 +64,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   onPatchChange,
   onUpdateElement,
   onRemoveElement,
+  onRemoveGroup,
   onDuplicateElement,
   onBringFront,
   onSendBack,
@@ -239,6 +241,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               scannedPlugins={scannedPlugins}
               onUpdate={onUpdateElement}
               onRemove={onRemoveElement}
+              onRemoveGroup={onRemoveGroup}
               onDuplicate={onDuplicateElement}
               onBringFront={onBringFront}
               onSendBack={onSendBack}
@@ -357,6 +360,7 @@ export const Inspector: React.FC<InspectorProps> = ({
                 scannedPlugins={scannedPlugins}
                 onUpdate={onUpdateElement}
                 onRemove={onRemoveElement}
+                onRemoveGroup={onRemoveGroup}
                 onDuplicate={onDuplicateElement}
                 onBringFront={onBringFront}
                 onSendBack={onSendBack}
@@ -547,6 +551,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               scannedPlugins={scannedPlugins}
               onUpdate={onUpdateElement}
               onRemove={onRemoveElement}
+              onRemoveGroup={onRemoveGroup}
               onDuplicate={onDuplicateElement}
               onBringFront={onBringFront}
               onSendBack={onSendBack}

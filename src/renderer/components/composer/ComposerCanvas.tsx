@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
-import type { PlaybackState, UiElement } from '@shared/types';
+import type { AudioInputSettings, AudioInputState, PlaybackState, UiElement } from '@shared/types';
 import { StageControl } from '../stage/StageControl';
+import { AudioInputControl } from '../stage/AudioInputControl';
 import { KeyboardControl } from '../stage/KeyboardControl';
 import type { KeyboardZone } from '../stage/KeyboardControl';
 import { ActivityFace, ButtonFace, DrawbarFace, FaderFace, KnobFace, LabelFace, MeterFace, PadFace, PedalFace, PlaybackFace, SliderFace, ToggleFace } from '../stage/faces';
@@ -39,9 +40,45 @@ interface ComposerCanvasProps {
   onLoadPlayback?: () => void;
   onPlayPlayback?: () => void;
   onStopPlayback?: () => void;
+  audioInput?: AudioInputSettings;
+  audioInputState?: AudioInputState | null;
+  audioInputChannels?: number;
+  audioInputEditable?: boolean;
+  onAudioInputChange?: (update: Partial<AudioInputSettings>) => void;
+  onEnableAudioInput?: () => void;
+  onDisableAudioInput?: () => void;
+  onResetAudioFeedback?: () => void;
+  onKeepAudioInputMuted?: () => void;
+  onDisableAudioFeedbackProtection?: () => void;
 }
 
-function PreviewShape({ element, playbackState }: { element: UiElement; playbackState?: PlaybackState | null }) {
+function PreviewShape({
+  element,
+  playbackState,
+  audioInput,
+  audioInputState,
+  audioInputChannels = 0,
+  audioInputEditable = true,
+  onAudioInputChange,
+  onEnableAudioInput,
+  onDisableAudioInput,
+  onResetAudioFeedback,
+  onKeepAudioInputMuted,
+  onDisableAudioFeedbackProtection,
+}: {
+  element: UiElement;
+  playbackState?: PlaybackState | null;
+  audioInput?: AudioInputSettings;
+  audioInputState?: AudioInputState | null;
+  audioInputChannels?: number;
+  audioInputEditable?: boolean;
+  onAudioInputChange?: (update: Partial<AudioInputSettings>) => void;
+  onEnableAudioInput?: () => void;
+  onDisableAudioInput?: () => void;
+  onResetAudioFeedback?: () => void;
+  onKeepAudioInputMuted?: () => void;
+  onDisableAudioFeedbackProtection?: () => void;
+}) {
   const min = element.minValue ?? 0;
   const max = element.maxValue ?? 1;
   const value = element.value ?? 0.5;
@@ -67,6 +104,22 @@ function PreviewShape({ element, playbackState }: { element: UiElement; playback
       return <DrawbarFace label={element.label} value={value} max={max} />;
     case 'playback':
       return <PlaybackFace state={playbackState} />;
+    case 'audio-input':
+      return (
+        <AudioInputControl
+          settings={audioInput}
+          state={audioInputState}
+          channels={audioInputChannels}
+          interactive={!!onAudioInputChange}
+          editable={audioInputEditable}
+          onChange={onAudioInputChange}
+          onEnable={onEnableAudioInput}
+          onDisable={onDisableAudioInput}
+          onResetFeedback={onResetAudioFeedback}
+          onKeepMuted={onKeepAudioInputMuted}
+          onDisableProtection={onDisableAudioFeedbackProtection}
+        />
+      );
     case 'meter-vertical':
       return <MeterFace label={element.label} norm={norm} horizontal={element.orientation === 'horizontal'} />;
     case 'midi-activity':
@@ -105,6 +158,16 @@ interface CanvasElementProps {
   onResize: (id: string, width: number, height: number) => void;
   onInteractionChange?: (active: boolean) => void;
   playbackState?: PlaybackState | null;
+  audioInput?: AudioInputSettings;
+  audioInputState?: AudioInputState | null;
+  audioInputChannels?: number;
+  audioInputEditable?: boolean;
+  onAudioInputChange?: (update: Partial<AudioInputSettings>) => void;
+  onEnableAudioInput?: () => void;
+  onDisableAudioInput?: () => void;
+  onResetAudioFeedback?: () => void;
+  onKeepAudioInputMuted?: () => void;
+  onDisableAudioFeedbackProtection?: () => void;
 }
 
 const CanvasElement: React.FC<CanvasElementProps> = ({
@@ -118,6 +181,16 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   onResize,
   onInteractionChange,
   playbackState,
+  audioInput,
+  audioInputState,
+  audioInputChannels,
+  audioInputEditable,
+  onAudioInputChange,
+  onEnableAudioInput,
+  onDisableAudioInput,
+  onResetAudioFeedback,
+  onKeepAudioInputMuted,
+  onDisableAudioFeedbackProtection,
 }) => {
   const drag = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const resizing = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
@@ -127,7 +200,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
     <div
       onPointerDown={(event) => {
         if (locked) return;
-        if ((event.target as HTMLElement).closest('input,button,[data-resize]')) return;
+        if ((event.target as HTMLElement).closest('input,button,select,textarea,[data-resize]')) return;
         onSelect(element.id);
         if (!movable) return;
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -168,7 +241,20 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
         ...(selected ? { boxShadow: '0 0 0 2px #0A84FF' } : {}),
       }}
     >
-      <PreviewShape element={element} playbackState={playbackState} />
+      <PreviewShape
+        element={element}
+        playbackState={playbackState}
+        audioInput={audioInput}
+        audioInputState={audioInputState}
+        audioInputChannels={audioInputChannels}
+        audioInputEditable={audioInputEditable}
+        onAudioInputChange={onAudioInputChange}
+        onEnableAudioInput={onEnableAudioInput}
+        onDisableAudioInput={onDisableAudioInput}
+        onResetAudioFeedback={onResetAudioFeedback}
+        onKeepAudioInputMuted={onKeepAudioInputMuted}
+        onDisableAudioFeedbackProtection={onDisableAudioFeedbackProtection}
+      />
       {selected && !locked && movable && (
         <span
           data-resize
@@ -232,8 +318,35 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   onLoadPlayback,
   onPlayPlayback,
   onStopPlayback,
+  audioInput,
+  audioInputState,
+  audioInputChannels,
+  audioInputEditable,
+  onAudioInputChange,
+  onEnableAudioInput,
+  onDisableAudioInput,
+  onResetAudioFeedback,
+  onKeepAudioInputMuted,
+  onDisableAudioFeedbackProtection,
 }) => {
   const safeScale = Math.max(0.01, scale);
+  const selectedElement = elements.find((element) => element.id === selectedId) ?? null;
+  const groupMembers = selectedElement?.groupId
+    ? elements.filter((element) => element.groupId === selectedElement.groupId)
+    : [];
+  const groupBounds =
+    movable && groupMembers.length > 1
+      ? {
+          left: Math.min(...groupMembers.map((element) => element.x)),
+          top: Math.min(...groupMembers.map((element) => element.y)),
+          width:
+            Math.max(...groupMembers.map((element) => element.x + element.width)) -
+            Math.min(...groupMembers.map((element) => element.x)),
+          height:
+            Math.max(...groupMembers.map((element) => element.y + element.height)) -
+            Math.min(...groupMembers.map((element) => element.y)),
+        }
+      : null;
   const coordsOf = (clientX: number, clientY: number, currentTarget: HTMLDivElement) => {
     const rect = currentTarget.getBoundingClientRect();
     return { x: (clientX - rect.left) / safeScale, y: (clientY - rect.top) / safeScale };
@@ -268,6 +381,18 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
          backgroundSize: '28px 28px',
        }}
     >
+      {groupBounds && (
+        <div
+          className="pointer-events-none absolute rounded-lg"
+          style={{
+            left: groupBounds.left - 4,
+            top: groupBounds.top - 4,
+            width: groupBounds.width + 8,
+            height: groupBounds.height + 8,
+            border: '1px dashed rgba(10,132,255,0.7)',
+          }}
+        />
+      )}
       {interactivePreview
         ? elements.map((element) => (
             <StageControl
@@ -284,6 +409,16 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               onLoadPlayback={onLoadPlayback}
               onPlayPlayback={onPlayPlayback}
               onStopPlayback={onStopPlayback}
+              audioInput={audioInput}
+              audioInputState={audioInputState}
+              audioInputChannels={audioInputChannels}
+              audioInputEditable={audioInputEditable}
+              onAudioInputChange={onAudioInputChange}
+              onEnableAudioInput={onEnableAudioInput}
+              onDisableAudioInput={onDisableAudioInput}
+              onResetAudioFeedback={onResetAudioFeedback}
+              onKeepAudioInputMuted={onKeepAudioInputMuted}
+              onDisableAudioFeedbackProtection={onDisableAudioFeedbackProtection}
             />
           ))
         : elements.map((element) =>
@@ -302,6 +437,16 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   onLoadPlayback={onLoadPlayback}
                   onPlayPlayback={onPlayPlayback}
                   onStopPlayback={onStopPlayback}
+                  audioInput={audioInput}
+                  audioInputState={audioInputState}
+                  audioInputChannels={audioInputChannels}
+                  audioInputEditable={audioInputEditable}
+                  onAudioInputChange={onAudioInputChange}
+                  onEnableAudioInput={onEnableAudioInput}
+                  onDisableAudioInput={onDisableAudioInput}
+                  onResetAudioFeedback={onResetAudioFeedback}
+                  onKeepAudioInputMuted={onKeepAudioInputMuted}
+                  onDisableAudioFeedbackProtection={onDisableAudioFeedbackProtection}
                 />
                 {element.id === selectedId && (
                   <div
@@ -343,6 +488,16 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                 onResize={onResize}
                 onInteractionChange={onInteractionChange}
                 playbackState={playbackState}
+                audioInput={audioInput}
+                audioInputState={audioInputState}
+                audioInputChannels={audioInputChannels}
+                audioInputEditable={audioInputEditable}
+                onAudioInputChange={onAudioInputChange}
+                onEnableAudioInput={onEnableAudioInput}
+                onDisableAudioInput={onDisableAudioInput}
+                onResetAudioFeedback={onResetAudioFeedback}
+                onKeepAudioInputMuted={onKeepAudioInputMuted}
+                onDisableAudioFeedbackProtection={onDisableAudioFeedbackProtection}
               />
             )
           )}
