@@ -101,7 +101,7 @@ let quitting = false;
 async function main() {
   const hello = await Promise.race([ready, sleep(10000).then(() => null)]);
   if (!hello) throw new Error('O motor não ficou pronto em 10 s.');
-  console.log(`Motor pronto: v${hello.version} em ${hello.os} (formatos: ${hello.formats})`);
+  console.log(`Motor pronto: v${hello.version} (${hello.build ?? '?'}) em ${hello.os} (formatos: ${hello.formats})`);
 
   await request('ping');
   console.log('ping: ok');

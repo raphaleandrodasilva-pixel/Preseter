@@ -9,6 +9,12 @@
 #include <string>
 #include <thread>
 
+#ifdef NDEBUG
+static constexpr const char* kBuildType = "release";
+#else
+static constexpr const char* kBuildType = "debug";
+#endif
+
 namespace
 {
 constexpr const char* kEngineVersion = "0.1.0";
@@ -36,6 +42,7 @@ public:
         preseter::emit (preseter::Obj()
                             .set ("event", "ready")
                             .set ("version", kEngineVersion)
+                            .set ("build", kBuildType)
                             .set ("os", juce::SystemStats::getOperatingSystemName())
                             .set ("formats", juce::var (engine->getFormatNames().joinIntoString (","))));
     }
