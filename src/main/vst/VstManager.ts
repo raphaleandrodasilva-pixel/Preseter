@@ -24,7 +24,7 @@ import type {
 import { EngineProcess } from './EngineProcess';
 
 export class VstManager extends EventEmitter {
-  private readonly engine = new EngineProcess();
+  private readonly engine: EngineProcess;
   private scannedPlugins: VstPluginInfo[] = [];
   private loadedPlugins = new Map<string, VstPluginInfo>();
   /** Fila para serializar cargas concorrentes de plugins. */
@@ -32,8 +32,9 @@ export class VstManager extends EventEmitter {
   /** Serializa varreduras de VST3 (startup, watcher e botão manual). */
   private scanPromise: Promise<VstPluginInfo[]> | null = null;
 
-  constructor() {
+  constructor(engine: EngineProcess = new EngineProcess()) {
     super();
+    this.engine = engine;
     this.engine.on('crashed', (error: Error) => {
       // O motor reinicia vazio: o que estava carregado deixou de existir.
       this.loadedPlugins.clear();

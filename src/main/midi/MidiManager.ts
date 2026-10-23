@@ -38,19 +38,24 @@ export class MidiManager extends EventEmitter {
   private outputDevices: MidiDevice[] = [];
   private activeInputs: Map<string, MidiInputLike> = new Map();
   private midiAvailable = false;
+  private readonly midiModule: MidiModuleLike | null;
 
-  constructor() {
+  /**
+   * O módulo é injetável para testes. Em produção, `undefined` carrega o
+   * pacote opcional `midi`; `null` força o modo sem dispositivo físico.
+   */
+  constructor(midiModule?: MidiModuleLike | null) {
     super();
-    const midiModule = this.loadMidiModule();
-    if (!midiModule) {
+    this.midiModule = midiModule === undefined ? this.loadMidiModule() : midiModule;
+    if (!this.midiModule) {
       console.warn('[MIDI] Biblioteca MIDI não disponível. O app continuará em modo sem dispositivo físico.');
       this.setupListeners();
       return;
     }
 
     this.midiAvailable = true;
-    this.input = new midiModule.Input();
-    this.output = new midiModule.Output();
+    this.input = new this.midiModule.Input();
+    this.output = new this.midiModule.Output();
     this.setupListeners();
   }
 
@@ -121,12 +126,11 @@ export class MidiManager extends EventEmitter {
         return false;
       }
 
-      const midiModule = this.loadMidiModule();
-      if (!midiModule) {
+      if (!this.midiModule) {
         return false;
       }
 
-      const inputInstance = new midiModule.Input();
+      const inputInstance = new this.midiModule.Input();
       inputInstance.openPort(portIndex);
       inputInstance.on('message', (deltaTime, message) => {
         this.handleMidiMessage(message);
