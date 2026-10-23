@@ -14,6 +14,7 @@
  *   node scripts/gerar-colecao.js --sfz=sfizz          # usa sfizz no lugar do sforzando
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
+ *   node scripts/gerar-colecao.js --listar=helm        # mostra o que o motor enxerga (diagnóstico)
  *
  * Patches cujo plugin não foi encontrado são PULADOS e listados no final.
  */
@@ -123,6 +124,7 @@ function findEngine() {
   return ['Release', 'Debug', 'RelWithDebInfo', '.'].map((d) => path.join(base, d, exe)).find((c) => fs.existsSync(c));
 }
 
+let scanFailed = [];
 async function scanPlugins() {
   const enginePath = findEngine();
   if (!enginePath || !fs.existsSync(enginePath)) {
@@ -156,6 +158,7 @@ async function scanPlugins() {
     if (!hello) throw new Error('O motor não ficou pronto em 10 s.');
     console.log('Varrendo plugins instalados (pode demorar na primeira vez)...');
     const scan = await request('scan', { rescan: flag('rescan'), paths: values('path') }, 10 * 60 * 1000);
+    scanFailed = scan.failed || [];
     return scan.plugins;
   } finally {
     try { await request('quit', {}, 3000); } catch { /* já encerrou */ }
@@ -285,6 +288,17 @@ function build(plugins) {
 async function main() {
   const plugins = await scanPlugins();
   console.log(`Plugins conhecidos: ${plugins.length}`);
+  const listar = first('listar');
+  if (listar !== undefined) {
+    const re = new RegExp(listar, 'i');
+    console.log(`\nPlugins que combinam com "${listar}":`);
+    plugins
+      .filter((p) => re.test(p.name) || re.test(p.id || '') || re.test(p.manufacturer || ''))
+      .forEach((p) => console.log(`  - ${p.name} | fabricante: ${p.manufacturer} | instrumento: ${p.isInstrument} | ${p.id}`));
+    console.log(`\nPlugins que FALHARAM na varredura (${scanFailed.length}):`);
+    scanFailed.filter((f) => re.test(String(f))).forEach((f) => console.log(`  - ${f}`));
+    return;
+  }
   if (flag('test') && !plugins.some((p) => /test synth/i.test(p.name))) {
     throw new Error('Modo --test: "Preseter Test Synth" não apareceu na varredura.');
   }
