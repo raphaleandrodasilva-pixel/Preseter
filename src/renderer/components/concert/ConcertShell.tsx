@@ -156,12 +156,23 @@ const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: 
 /** Canvas fixo (MainStage): tamanho lógico constante, escalado para caber no workspace. */
 const CANVAS_LOGICAL_W = 1000;
 const CANVAS_LOGICAL_H = 625;
+const EDIT_ZOOM_KEY = 'preseter.editZoom.v1';
+const EDIT_ZOOM_MIN = 0.5;
+const EDIT_ZOOM_MAX = 1.5;
+const EDIT_ZOOM_STEP = 0.1;
+
+type CanvasZoom = 'fit' | 'fit-width' | number;
 
 const FixedCanvas: React.FC<{
   children: (scale: number, canvasW: number, canvasH: number) => React.ReactNode;
-}> = ({ children }) => {
+  zoom?: CanvasZoom;
+  scrollable?: boolean;
+  onScaleChange?: (scale: number) => void;
+}> = ({ children, zoom = 'fit', scrollable = false, onScaleChange }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ scale: 1, left: 0, top: 0 });
+  const onScaleChangeRef = useRef(onScaleChange);
+  onScaleChangeRef.current = onScaleChange;
+  const [fit, setFit] = useState({ scale: 1, left: 8, top: 8, contentW: 0, contentH: 0 });
 
   useEffect(() => {
     const el = ref.current;
@@ -169,33 +180,49 @@ const FixedCanvas: React.FC<{
     const calc = () => {
       const availW = Math.max(200, el.clientWidth - 16);
       const availH = Math.max(150, el.clientHeight - 16);
-      const s = Math.max(0.3, Math.min(2.5, availW / CANVAS_LOGICAL_W, availH / CANVAS_LOGICAL_H));
+      const fitted = Math.max(0.3, Math.min(2.5, availW / CANVAS_LOGICAL_W, availH / CANVAS_LOGICAL_H));
+      const scale = zoom === 'fit'
+        ? fitted
+        : zoom === 'fit-width'
+          ? Math.max(0.3, Math.min(2.5, availW / CANVAS_LOGICAL_W))
+          : Math.max(EDIT_ZOOM_MIN, Math.min(EDIT_ZOOM_MAX, zoom));
+      const scaledW = CANVAS_LOGICAL_W * scale;
+      const scaledH = CANVAS_LOGICAL_H * scale;
       setFit({
-        scale: s,
-        left: 8 + Math.max(0, (availW - CANVAS_LOGICAL_W * s) / 2),
-        top: 8 + Math.max(0, (availH - CANVAS_LOGICAL_H * s) / 2),
+        scale,
+        left: 8 + Math.max(0, (availW - scaledW) / 2),
+        top: 8 + Math.max(0, (availH - scaledH) / 2),
+        contentW: Math.max(availW + 16, scaledW + 16),
+        contentH: Math.max(availH + 16, scaledH + 16),
       });
+      onScaleChangeRef.current?.(scale);
     };
     calc();
     const ro = new ResizeObserver(calc);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [zoom]);
 
   return (
-    <div ref={ref} className="relative h-full w-full overflow-hidden">
-      <div
-        style={{
-          position: 'absolute',
-          width: CANVAS_LOGICAL_W,
-          height: CANVAS_LOGICAL_H,
-          left: fit.left,
-          top: fit.top,
-          transform: `scale(${fit.scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        {children(fit.scale, CANVAS_LOGICAL_W, CANVAS_LOGICAL_H)}
+    <div
+      ref={ref}
+      className="relative h-full w-full"
+      style={{ overflow: scrollable ? 'auto' : 'hidden' }}
+    >
+      <div style={{ position: 'relative', width: fit.contentW, height: fit.contentH }}>
+        <div
+          style={{
+            position: 'absolute',
+            width: CANVAS_LOGICAL_W,
+            height: CANVAS_LOGICAL_H,
+            left: fit.left,
+            top: fit.top,
+            transform: `scale(${fit.scale})`,
+            transformOrigin: 'top left',
+          }}
+        >
+          {children(fit.scale, CANVAS_LOGICAL_W, CANVAS_LOGICAL_H)}
+        </div>
       </div>
     </div>
   );
@@ -271,6 +298,29 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [focusLayerId, setFocusLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
+  const [editZoom, setEditZoom] = useState<CanvasZoom>(() => {
+    try {
+      const raw = localStorage.getItem(EDIT_ZOOM_KEY);
+      if (raw === 'fit-width') return 'fit-width';
+      const parsed = raw ? Number(raw) : NaN;
+      if (Number.isFinite(parsed)) return Math.max(EDIT_ZOOM_MIN, Math.min(EDIT_ZOOM_MAX, parsed));
+    } catch { /* ignora */ }
+    return 'fit-width';
+  });
+  const [editScale, setEditScale] = useState(0.9);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EDIT_ZOOM_KEY, typeof editZoom === 'number' ? String(editZoom) : editZoom);
+    } catch { /* ignora */ }
+  }, [editZoom]);
+
+  const setManualEditZoom = (value: number) => {
+    setEditZoom(Math.max(EDIT_ZOOM_MIN, Math.min(EDIT_ZOOM_MAX, Math.round(value * 100) / 100)));
+  };
+  const zoomEditOut = () => setManualEditZoom((typeof editZoom === 'number' ? editZoom : editScale) - EDIT_ZOOM_STEP);
+  const zoomEditIn = () => setManualEditZoom((typeof editZoom === 'number' ? editZoom : editScale) + EDIT_ZOOM_STEP);
+
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   /** Abre/fecha a janela nativa do plugin do layer (tecla V ou botão do channel strip). */
@@ -854,6 +904,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       ),
     [currentPreset, liveValues]
   );
+  const performResetValues = useMemo(() => {
+    const values = new Map<string, number>();
+    for (const element of currentPreset?.layout.elements ?? []) {
+      values.set(element.id, element.value ?? 0.5);
+    }
+    return values;
+  }, [currentPreset]);
 
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
@@ -2350,7 +2407,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           <button
             className="hw-squarebtn px-3 py-1.5 text-xs"
             onClick={() => setTunerOpen(true)}
-            title="Afinador (Cmd+T / Ctrl+Shift+T)"
+            title="Afinador (Ctrl+Shift+T)"
           >
             Afinador
           </button>
@@ -2449,6 +2506,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     keyboardZones={keyboardZones}
                     selectedZoneId={selectedLayerId}
                     onZoneClick={selectZone}
+                    resetValue={performResetValues.get(el.id)}
                     playbackState={playbackState}
                     onLoadPlayback={() => void handleLoadPlayback()}
                     onPlayPlayback={() => void handlePlayPlayback()}
@@ -2575,18 +2633,55 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           />
         )}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b px-4 py-1.5 text-xs" style={{ borderColor: '#303032' }}>
-            <span className="font-medium text-white">
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-1.5 text-xs" style={{ borderColor: '#303032' }}>
+            <span className="shrink-0 font-medium text-white">
               {mode === 'layout' ? 'Layout' : 'Workspace — Edit + Mapping'}
             </span>
-            <span style={{ color: '#9A9AA0' }}>
-              {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
-            </span>
-            {masterMuted && (
-              <span className="ml-2 rounded px-2 py-0.5 text-[10px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
-                MASTER MUDO
+            <div className="ml-auto flex min-w-0 items-center gap-3">
+              {mode === 'edit' && (draft ?? currentPreset) && (
+                <div className="flex shrink-0 items-center gap-1" aria-label="Zoom do workspace">
+                  <button
+                    type="button"
+                    className="rounded px-2 py-0.5 text-[10px] font-semibold"
+                    style={editZoom === 'fit-width'
+                      ? { background: '#0A84FF', color: '#FFFFFF' }
+                      : { background: '#3A3A3C', color: '#E5E5EA' }}
+                    aria-pressed={editZoom === 'fit-width'}
+                    title="Ajustar o canvas à largura disponível"
+                    onClick={() => setEditZoom('fit-width')}
+                  >
+                    Ajustar
+                  </button>
+                  <button
+                    type="button"
+                    className="hw-squarebtn px-2 py-0.5 text-[10px]"
+                    title="Diminuir zoom"
+                    onClick={zoomEditOut}
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center text-[10px] tabular-nums" style={{ color: '#C6C6CB' }}>
+                    {Math.round(editScale * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    className="hw-squarebtn px-2 py-0.5 text-[10px]"
+                    title="Aumentar zoom"
+                    onClick={zoomEditIn}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              <span className="truncate" style={{ color: '#9A9AA0' }}>
+                {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
               </span>
-            )}
+              {masterMuted && (
+                <span className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
+                  MASTER MUDO
+                </span>
+              )}
+            </div>
           </div>
           {error && <div className="border-b border-red-900 bg-red-950/40 px-4 py-1 text-[11px] text-red-300">{error}</div>}
           <div data-workspace-region className="min-h-0 flex-1 overflow-hidden p-2">
@@ -2630,6 +2725,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <div className="min-h-0 flex-1 overflow-hidden p-2">
             {(draft ?? currentPreset) ? (
               <FixedCanvas
+                zoom={mode === 'edit' ? editZoom : 'fit'}
+                scrollable={mode === 'edit'}
+                onScaleChange={mode === 'edit' ? setEditScale : undefined}
                 children={(scale, canvasW, canvasH) => (
                   <>
                     <ComposerCanvas

@@ -308,15 +308,115 @@ private:
     /** Janela nativa de edição de um plugin. Fecha via botão e avisa o Engine. */
     struct PluginEditorWindow final : juce::DocumentWindow
     {
+        /** Contém o editor no tamanho nativo e o centraliza quando a janela é maior. */
+        struct EditorContent final : juce::Component
+        {
+            explicit EditorContent (juce::AudioProcessorEditor* editorToUse)
+                : editor (editorToUse)
+            {
+                if (editor != nullptr)
+                {
+                    addAndMakeVisible (editor);
+                    setSize (juce::jmax (1, editor->getWidth()),
+                             juce::jmax (1, editor->getHeight()));
+                }
+            }
+
+            ~EditorContent() override
+            {
+                delete editor;
+            }
+
+            void resized() override
+            {
+                if (editor == nullptr)
+                    return;
+
+                const int editorW = editor->getWidth();
+                const int editorH = editor->getHeight();
+                editor->setBounds ((getWidth() - editorW) / 2,
+                                   (getHeight() - editorH) / 2,
+                                   editorW, editorH);
+            }
+
+            juce::AudioProcessorEditor* editor = nullptr;
+        };
+
+        /** Dá rolagem ao editor quando ele é maior que a janela. */
+        struct EditorViewport final : juce::Viewport,
+                                      private juce::Timer
+        {
+            explicit EditorViewport (juce::AudioProcessorEditor* editor)
+                : content (new EditorContent (editor))
+            {
+                setViewedComponent (content, true);
+                setScrollBarsShown (true, true);
+                startTimerHz (4);
+            }
+
+            ~EditorViewport() override
+            {
+                stopTimer();
+            }
+
+            void resized() override
+            {
+                juce::Viewport::resized();
+                updateContentSize();
+            }
+
+            void timerCallback() override
+            {
+                updateContentSize();
+            }
+
+            void updateContentSize()
+            {
+                if (content == nullptr || content->editor == nullptr)
+                    return;
+
+                const int width = juce::jmax (getMaximumVisibleWidth(),
+                                              content->editor->getWidth());
+                const int height = juce::jmax (getMaximumVisibleHeight(),
+                                               content->editor->getHeight());
+                if (content->getWidth() != width || content->getHeight() != height)
+                    content->setSize (width, height);
+            }
+
+            EditorContent* content = nullptr;
+        };
+
         PluginEditorWindow (const juce::String& title, juce::AudioProcessorEditor* editor,
                             std::function<void()> onCloseCallback)
             : juce::DocumentWindow (title, juce::Colours::black, juce::DocumentWindow::closeButton),
               onClose (std::move (onCloseCallback))
         {
             setUsingNativeTitleBar (true);
-            setContentOwned (editor, true);
+
+            if (editor->getWidth() <= 0 || editor->getHeight() <= 0)
+                editor->setSize (800, 600);
+
+            const int editorW = juce::jmax (320, editor->getWidth());
+            const int editorH = juce::jmax (200, editor->getHeight());
+
+            setContentOwned (new EditorViewport (editor), false);
             setResizable (true, false);
-            centreWithSize (getWidth(), getHeight());
+
+            auto& displays = juce::Desktop::getInstance().getDisplays();
+            const auto* display = displays.getDisplayForPoint (juce::Desktop::getInstance().getMousePosition());
+            if (display == nullptr)
+                display = displays.getPrimaryDisplay();
+
+            const auto workArea = display != nullptr
+                ? display->userArea
+                : juce::Rectangle<int> (0, 0, 1280, 800);
+            const int maxW = juce::jmax (320, workArea.getWidth() - 48);
+            const int maxH = juce::jmax (240, workArea.getHeight() - 96);
+            const int windowW = juce::jmin (editorW, maxW);
+            const int windowH = juce::jmin (editorH, maxH);
+
+            setBounds (juce::Rectangle<int> (windowW, windowH)
+                           .withCentre (workArea.getCentre()));
             setVisible (true);
         }
 

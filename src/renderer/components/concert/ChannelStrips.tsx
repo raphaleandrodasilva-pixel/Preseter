@@ -13,6 +13,7 @@ import type {
   StripAttribute,
   StripLevel,
   StripOverride,
+  VstParameter,
   VstPluginInfo,
 } from '@shared/types';
 import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
@@ -107,6 +108,20 @@ const clampNote = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.
 
 /** Velocity MIDI válida (1 a 127). */
 const clampVelocity = (value: number) => (Number.isFinite(value) ? Math.max(1, Math.min(127, Math.round(value))) : 1);
+
+/** Executa o reset sem deixar o duplo clique disparar outras ações do strip. */
+const resetOnDoubleClick = (reset: () => void) => (event: React.MouseEvent<HTMLInputElement>) => {
+  event.preventDefault();
+  event.stopPropagation();
+  reset();
+};
+
+/** Valor padrão do parâmetro; se o plugin não informar, usa o meio da faixa. */
+const resetParameterValue = (parameter: VstParameter) => {
+  const fallback = (parameter.minValue + parameter.maxValue) / 2;
+  const value = Number.isFinite(parameter.defaultValue) ? parameter.defaultValue : fallback;
+  return Math.max(parameter.minValue, Math.min(parameter.maxValue, value));
+};
 
 /** Nome do atributo na UI (Fase 3.3). */
 const STRIP_ATTRIBUTE_LABELS: Record<StripAttribute, string> = {
@@ -461,7 +476,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               value={options.volumeDb}
               disabled={disabled}
               onClick={(event) => event.stopPropagation()}
+              onDoubleClick={resetOnDoubleClick(() => options.onMix({ volumeDb: 0 }))}
               onChange={(event) => options.onMix({ volumeDb: Number(event.target.value) })}
+              title="Duplo clique para voltar a 0 dB"
               className="h-20 w-4"
               style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
             />
@@ -479,7 +496,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             value={options.pan}
             disabled={disabled}
             onClick={(event) => event.stopPropagation()}
+            onDoubleClick={resetOnDoubleClick(() => options.onMix({ pan: 0 }))}
             onChange={(event) => options.onMix({ pan: Number(event.target.value) })}
+            title="Duplo clique para voltar ao centro"
             className="w-full"
             style={{ accentColor: '#0A84FF' }}
           />
@@ -590,7 +609,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               step={0.1}
               value={mix.volumeDb}
               onClick={(event) => event.stopPropagation()}
+              onDoubleClick={resetOnDoubleClick(() => onSetBusMix(ownerId, { volumeDb: 0 }))}
               onChange={(event) => onSetBusMix(ownerId, { volumeDb: Number(event.target.value) })}
+              title="Duplo clique para voltar a 0 dB"
               className="h-16 w-4"
               style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
             />
@@ -607,7 +628,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             step={0.01}
             value={mix.pan}
             onClick={(event) => event.stopPropagation()}
+            onDoubleClick={resetOnDoubleClick(() => onSetBusMix(ownerId, { pan: 0 }))}
             onChange={(event) => onSetBusMix(ownerId, { pan: Number(event.target.value) })}
+            title="Duplo clique para voltar ao centro"
             className="w-full"
             style={{ accentColor: '#0A84FF' }}
           />
@@ -1246,7 +1269,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                         step={(parameter.maxValue - parameter.minValue) / 100}
                         value={parameter.value}
                         onClick={(event) => event.stopPropagation()}
+                        onDoubleClick={resetOnDoubleClick(() => onSetParameter(layerId, parameter.id, resetParameterValue(parameter)))}
                         onChange={(event) => onSetParameter(layerId, parameter.id, Number(event.target.value))}
+                        title="Duplo clique para voltar ao padrão do plugin"
                         className="w-full"
                         style={{ accentColor: '#0A84FF' }}
                       />

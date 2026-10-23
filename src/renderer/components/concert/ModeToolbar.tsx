@@ -23,9 +23,9 @@ interface ModeToolbarProps {
 }
 
 const MODES: { id: ConcertMode; label: string; hint: string }[] = [
-  { id: 'layout', label: 'Layout', hint: 'Organizar controles e assignments (Cmd+1)' },
-  { id: 'edit', label: 'Edit', hint: 'Editar sons, channel strips e mappings (Cmd+2)' },
-  { id: 'perform', label: 'Perform', hint: 'Tocar em tela cheia (Cmd+3/4)' },
+  { id: 'layout', label: 'Layout', hint: 'Organizar controles e assignments (Ctrl+1)' },
+  { id: 'edit', label: 'Edit', hint: 'Editar sons, channel strips e mappings (Ctrl+2)' },
+  { id: 'perform', label: 'Perform', hint: 'Tocar em tela cheia (Ctrl+3/4)' },
 ];
 
 export const ModeToolbar: React.FC<ModeToolbarProps> = ({

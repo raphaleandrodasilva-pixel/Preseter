@@ -671,8 +671,8 @@ export const PatchList: React.FC<PatchListProps> = ({
       <div className="flex items-center gap-2 border-t px-2 py-1.5 text-[10px]" style={{ borderColor: '#303032', color: '#636366' }}>
         <span>Set</span>
         <span>Patch</span>
-        <span className="ml-auto truncate" title="Ctrl+C copia · Ctrl+V cola · Ctrl+D duplica · Option-arrastar copia · Shift+Alt+M move novamente">
-          F busca · Ctrl+C/V/D · ⌥arrasta copia · ⇧⌥M move de novo
+        <span className="ml-auto truncate" title="Ctrl+C copia · Ctrl+V cola · Ctrl+D duplica · Alt-arrastar copia · Shift+Alt+M move novamente">
+          F busca · Ctrl+C/V/D · Alt+arrasta copia · Shift+Alt+M move de novo
         </span>
       </div>
     </aside>

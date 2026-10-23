@@ -334,8 +334,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   {layout?.elements.length ?? 0} controle(s) no workspace. O layout é compartilhado por todos os patches.
                 </p>
                 <p className="text-[11px]" style={{ color: '#8E8E93' }}>
-                  Cmd/Ctrl+1 Layout · 2 Edit · 3 Perform · 4 Perform em tela cheia.
-                  Cmd/Ctrl+F abre a Patch Library; Shift+Cmd/Ctrl+M abre Assignments &amp; Mappings.
+                  Ctrl+1 Layout · 2 Edit · 3 Perform · 4 Perform em tela cheia.
+                  Ctrl+F abre a Patch Library; Ctrl+Shift+M abre Assignments &amp; Mappings.
                 </p>
                 <button
                   className="hw-squarebtn px-3 py-1.5 text-xs"

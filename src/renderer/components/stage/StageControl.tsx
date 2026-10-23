@@ -30,6 +30,8 @@ interface StageControlProps {
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
+  /** Valor salvo usado pelo duplo clique para voltar à posição inicial. */
+  resetValue?: number;
   /** Playback opcional no Layout. */
   playbackState?: PlaybackState | null;
   onLoadPlayback?: () => void;
@@ -63,6 +65,7 @@ export const StageControl: React.FC<StageControlProps> = ({
   keyboardZones,
   selectedZoneId,
   onZoneClick,
+  resetValue,
   playbackState,
   onLoadPlayback,
   onPlayPlayback,
@@ -170,6 +173,12 @@ export const StageControl: React.FC<StageControlProps> = ({
   const endDrag = () => {
     drag.current = null;
   };
+  const resetToInitial = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    drag.current = null;
+    sendValue(resetValue ?? element.value ?? 0.5);
+  };
 
   const style: React.CSSProperties =
     layoutMode === 'absolute'
@@ -197,11 +206,12 @@ export const StageControl: React.FC<StageControlProps> = ({
           label={element.label}
           norm={norm}
           bodyProps={{
-            title: `${element.label} — arrastar para girar`,
+            title: `${element.label} — arrastar para girar · duplo clique volta ao inicial`,
             onPointerDown: beginKnobDrag,
             onPointerMove: moveKnobDrag,
             onPointerUp: endDrag,
             onPointerCancel: endDrag,
+            onDoubleClick: resetToInitial,
           }}
         />
       )}
@@ -210,11 +220,12 @@ export const StageControl: React.FC<StageControlProps> = ({
           label={element.label}
           norm={norm}
           trackProps={{
-            title: `${element.label} — arrastar`,
+            title: `${element.label} — arrastar · duplo clique volta ao inicial`,
             onPointerDown: (e) => beginTrackDrag(e, true),
             onPointerMove: moveTrackDrag(true),
             onPointerUp: endDrag,
             onPointerCancel: endDrag,
+            onDoubleClick: resetToInitial,
           }}
         />
       )}
@@ -223,11 +234,12 @@ export const StageControl: React.FC<StageControlProps> = ({
           label={element.label}
           norm={norm}
           trackProps={{
-            title: `${element.label} — arrastar`,
+            title: `${element.label} — arrastar · duplo clique volta ao inicial`,
             onPointerDown: (e) => beginTrackDrag(e, false),
             onPointerMove: moveTrackDrag(false),
             onPointerUp: endDrag,
             onPointerCancel: endDrag,
+            onDoubleClick: resetToInitial,
           }}
         />
       )}
@@ -264,12 +276,13 @@ export const StageControl: React.FC<StageControlProps> = ({
         ) : (
           <div
             className="hw-facebutton flex touch-none select-none flex-col items-center justify-center"
-            title={`${element.label} — arraste para cima/baixo`}
+            title={`${element.label} — arraste para cima/baixo · duplo clique volta ao inicial`}
             style={{ padding: 4 }}
             onPointerDown={(event) => beginTrackDrag(event, true)}
             onPointerMove={moveTrackDrag(true)}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
+            onDoubleClick={resetToInitial}
           >
             <PedalFace label={element.label} active={isOn} value={norm} />
             <span className="hw-badge mt-1" style={{ fontSize: 9 }}>{Math.round(norm * 127)}</span>
@@ -282,11 +295,12 @@ export const StageControl: React.FC<StageControlProps> = ({
           value={value}
           max={max}
           trackProps={{
-            title: `${element.label} — arrastar (0–${Math.round(max)})`,
+            title: `${element.label} — arrastar (0–${Math.round(max)}) · duplo clique volta ao inicial`,
             onPointerDown: beginDrawbarDrag,
             onPointerMove: moveDrawbarDrag,
             onPointerUp: endDrag,
             onPointerCancel: endDrag,
+            onDoubleClick: resetToInitial,
           }}
         />
       )}
