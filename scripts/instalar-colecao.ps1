@@ -65,7 +65,7 @@ $plugins = @(
   @{ Nome='Surge XT';   Padroes=@('Surge XT.vst3','Surge XT*.vst3'); Repo='surge-synthesizer/releases-xt'; Asset='(?i)windows.*setup.*\.exe$|surge.*win.*\.exe$'; Pagina='https://surge-synthesizer.github.io/' }
   @{ Nome='Dexed';      Padroes=@('Dexed.vst3','Dexed.dll');       Repo='asb2m10/dexed';               Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://github.com/asb2m10/dexed/releases' }
   @{ Nome='Odin 2';     Padroes=@('Odin2.vst3','Odin 2.vst3');     Repo='TheWaveWarden/odin2';         Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://thewavewarden.com/pages/odin-2' }
-  @{ Nome='Helm';       Padroes=@('Helm.vst3','helm.dll','Helm.dll'); Repo='mtytel/helm';              Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://tytel.org/helm/' }
+  @{ Nome='Helm';       Padroes=@('Helm.vst3','helm.dll','Helm.dll'); Repo='mtytel/helm';              Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://tytel.org/helm/downloads' }
   @{ Nome='MDA';        Padroes=@('mda*.vst3');                    Repo='sudara/mda-vst3';             Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://github.com/sudara/mda-vst3/releases' }
   @{ Nome='sfizz (SFZ)';Padroes=@('sfizz.vst3','sforzando.vst3','sforzando*.vst3'); Repo='sfztools/sfizz'; Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://sfz.tools/sfizz/downloads' }
   @{ Nome='SF2 Player (Bertom)'; Padroes=@('SF2 Player.vst3','SF2Player.vst3','*SF2*.vst3'); Repo=$null; Asset=$null; Pagina='https://www.bertom.com/sf2-player' }
