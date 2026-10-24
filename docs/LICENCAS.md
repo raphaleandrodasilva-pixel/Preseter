@@ -8,9 +8,8 @@ Motivo: o motor usa o **JUCE**, que é AGPLv3 ou comercial. Sem licença comerci
 o programa que o inclui precisa ser distribuído sob AGPLv3. O **ASIO SDK** da Steinberg
 também tem opção GPLv3, compatível com a AGPLv3.
 
-> Pendente: colocar o texto oficial da AGPL-3.0 no arquivo `LICENSE` na raiz
-> (no GitHub: *Add file → Create new file → LICENSE → Choose a license template → GNU AGPLv3*).
-> Isto não é aconselhamento jurídico; confirme os termos nos sites oficiais.
+> O texto oficial da AGPL-3.0 está no arquivo `LICENSE` na raiz. Isto não é aconselhamento
+> jurídico; confirme os termos nos sites oficiais.
 
 ## Dependências
 
