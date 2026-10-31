@@ -4,17 +4,16 @@
  *
  * O script monta a ESTRUTURA (sets, patches, camadas, faixas de teclas, volumes,
  * números de programa, teclado na tela). Ele NÃO escolhe o som dentro de cada
- * plugin (preset do Surge, arquivo SFZ etc.): isso você faz abrindo o plugin
+ * plugin (preset do juicysfplugin/Surge etc.): isso você faz abrindo o plugin
  * no patch (tecla V) e salvando o concert.
  *
  * Uso (precisa do motor compilado e de `npm run build:main`):
  *   node scripts/gerar-colecao.js                      # procura os plugins instalados
  *   node scripts/gerar-colecao.js --out=Colecao.preseter
  *   node scripts/gerar-colecao.js --test               # tudo vira "Preseter Test Synth" (teste sem plugins)
- *   node scripts/gerar-colecao.js --sfz=sfizz          # usa sfizz no lugar do sforzando
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
- *   node scripts/gerar-colecao.js --listar=helm        # mostra o que o motor enxerga (diagnóstico)
+ *   node scripts/gerar-colecao.js --listar=juicy       # mostra o que o motor enxerga (diagnóstico)
  *
  * Patches cujo plugin não foi encontrado são PULADOS e listados no final.
  */
@@ -41,10 +40,10 @@ const { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION } = require(path.join(__dirnam
 
 // ---------------------------------------------------------------- instrumentos
 // Cada sigla tem expressões para achar o plugin pelo nome na lista do motor.
-const SFZ_NAME = first('sfz', 'sforzando');
+// juicysfplugin (GPLv3) substitui o SF2 Player da Bertom e o sforzando nos
+// patches de piano, órgão, cordas e baixo: um plugin livre para o MuseScore_General.
 const INSTRUMENTS = {
-  SFZ: { label: 'sforzando/sfizz (Salamander)', match: [new RegExp(SFZ_NAME, 'i'), /sfizz/i, /sforzando/i] },
-  SF2: { label: 'SF2 Player (Bertom)', match: [/sf2 player/i, /sf2/i] },
+  JUICY: { label: 'juicysfplugin', match: [/juicy|juicysf/i] },
   SURGE: { label: 'Surge XT', match: [/surge/i] },
   DEXED: { label: 'Dexed', match: [/dexed/i] },
   ODIN: { label: 'Odin 2', match: [/odin/i] },
@@ -58,11 +57,11 @@ const INSTRUMENTS = {
 const L = (inst, db = 0, min = 0, max = 127, label = '') => ({ inst, db, min, max, label });
 const SETS = [
   ['Pianos', [
-    ['Piano de Cauda', [L('SFZ', 0, 0, 127, 'Salamander')]],
-    ['Piano de Cauda Brilhante', [L('SFZ', 0, 0, 127, 'Salamander + brilho')]],
-    ['Piano Suave', [L('SFZ', 0, 0, 127, 'Salamander suave')]],
-    ['Piano Vertical', [L('SF2', 0, 0, 127, 'Piano vertical')]],
-    ['Piano + Pad', [L('SFZ', -6, 0, 127, 'Salamander'), L('SURGE', -12, 0, 127, 'Pad quente')]],
+    ['Piano de Cauda', [L('JUICY', 0, 0, 127, 'Piano')]],
+    ['Piano de Cauda Brilhante', [L('JUICY', 0, 0, 127, 'Piano + brilho')]],
+    ['Piano Suave', [L('JUICY', 0, 0, 127, 'Piano suave')]],
+    ['Piano Vertical', [L('JUICY', 0, 0, 127, 'Piano vertical')]],
+    ['Piano + Pad', [L('JUICY', -6, 0, 127, 'Piano'), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],
   ['Teclas elétricas', [
     ['Elétrico Clássico', [L('MDA', -6, 0, 127, 'ePiano')]],
@@ -74,16 +73,16 @@ const SETS = [
   ['Órgãos', [
     ['Órgão Tonewheel', [L('ORG', -6, 0, 127, 'Tonewheel')]],
     ['Órgão Rock', [L('ORG', -6, 0, 127, 'Leslie rápido')]],
-    ['Órgão de Igreja', [L('SF2', -6, 0, 127, 'Órgão de tubos')]],
+    ['Órgão de Igreja', [L('JUICY', -6, 0, 127, 'Órgão de tubos')]],
     ['Órgão Suave', [L('SURGE', -6, 0, 127, 'Órgão')]],
   ]],
   ['Cordas e orquestra', [
-    ['Cordas Legato', [L('SF2', -6, 0, 127, 'Cordas sustain')]],
-    ['Cordas Staccato', [L('SF2', -6, 0, 127, 'Cordas staccato')]],
+    ['Cordas Legato', [L('JUICY', -6, 0, 127, 'Cordas sustain')]],
+    ['Cordas Staccato', [L('JUICY', -6, 0, 127, 'Cordas staccato')]],
     ['Cordas Sintéticas', [L('SURGE', -6, 0, 127, 'String ensemble')]],
-    ['Metais', [L('SF2', -6, 0, 127, 'Metais')]],
-    ['Flauta', [L('SF2', -6, 0, 127, 'Flauta')]],
-    ['Coral', [L('SF2', -6, 0, 127, 'Coral')]],
+    ['Metais', [L('JUICY', -6, 0, 127, 'Metais')]],
+    ['Flauta', [L('JUICY', -6, 0, 127, 'Flauta')]],
+    ['Coral', [L('JUICY', -6, 0, 127, 'Coral')]],
   ]],
   ['Pads', [
     ['Pad Quente', [L('SURGE', -6, 0, 127, 'Pad')]],
@@ -101,17 +100,17 @@ const SETS = [
   ]],
   ['Baixos', [
     ['Baixo Sintético', [L('SURGE', -6, 0, 127, 'Sub bass')]],
-    ['Baixo Elétrico', [L('SF2', -6, 0, 127, 'Baixo elétrico')]],
-    ['Baixo Acústico', [L('SF2', -6, 0, 127, 'Contrabaixo')]],
+    ['Baixo Elétrico', [L('JUICY', -6, 0, 127, 'Baixo elétrico')]],
+    ['Baixo Acústico', [L('JUICY', -6, 0, 127, 'Contrabaixo')]],
   ]],
   ['Layers e splits', [
-    ['Split Baixo + Piano', [L('SF2', -6, 0, 59, 'Baixo'), L('SFZ', -6, 60, 127, 'Salamander')]],
+    ['Split Baixo + Piano', [L('JUICY', -6, 0, 59, 'Baixo'), L('JUICY', -6, 60, 127, 'Piano')]],
     ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('DEXED', -6, 54, 127, 'E.Piano')]],
-    ['Piano + Cordas', [L('SFZ', -6, 0, 127, 'Salamander'), L('SF2', -9, 0, 127, 'Cordas legato')]],
-    ['Piano + Pad (worship)', [L('SFZ', -6, 0, 127, 'Salamander'), L('SURGE', -12, 0, 127, 'Pad quente')]],
+    ['Piano + Cordas', [L('JUICY', -6, 0, 127, 'Piano'), L('JUICY', -9, 0, 127, 'Cordas legato')]],
+    ['Piano + Pad (worship)', [L('JUICY', -6, 0, 127, 'Piano'), L('SURGE', -12, 0, 127, 'Pad quente')]],
     ['Elétrico + Pad', [L('DEXED', -6, 0, 127, 'E.Piano'), L('SURGE', -12, 0, 127, 'Pad')]],
-    ['Split Cordas / Piano', [L('SF2', -6, 0, 59, 'Cordas'), L('SFZ', -6, 60, 127, 'Piano')]],
-    ['Tripla: Piano + Cordas + Pad', [L('SFZ', -6, 0, 127, 'Salamander'), L('SF2', -9, 0, 127, 'Cordas'), L('SURGE', -12, 0, 127, 'Pad quente')]],
+    ['Split Cordas / Piano', [L('JUICY', -6, 0, 59, 'Cordas'), L('JUICY', -6, 60, 127, 'Piano')]],
+    ['Tripla: Piano + Cordas + Pad', [L('JUICY', -6, 0, 127, 'Piano'), L('JUICY', -9, 0, 127, 'Cordas'), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],
 ];
 
@@ -318,7 +317,7 @@ async function main() {
   }
   if (missing.length) console.log(`\nInstale para completar: ${missing.join(', ')} (veja docs/PATCHES.md)`);
   console.log('\nPróximo passo: abra o arquivo no Preseter, entre em cada patch, abra o plugin (tecla V),');
-  console.log('escolha o preset/SFZ do som e salve o concert (o estado do plugin fica gravado no patch).');
+  console.log('escolha o preset do plugin (juicysfplugin carrega um SF2) e salve o concert (o estado do plugin fica gravado no patch).');
 }
 
 main().catch((e) => {
