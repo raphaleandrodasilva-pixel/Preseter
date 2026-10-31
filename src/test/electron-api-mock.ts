@@ -163,6 +163,8 @@ export function createElectronApiMock(): ElectronApiMock {
     vstBuses: vi.fn(async () => []),
     vstSetBusMix: vi.fn(async () => []),
     vstSetSend: vi.fn(async () => createEngineMixState()),
+    vstSetPatchSend: vi.fn(async () => createEngineMixState()),
+    vstSetLayerPatchSend: vi.fn(async () => createEngineMixState()),
     vstSetLayerOutput: vi.fn(async () => createEngineMixState()),
     audioSettingsGet: vi.fn(async () => createAudioSettingsSnapshot()),
     preferencesGet: vi.fn(async () => createPreferences()),

@@ -3,22 +3,51 @@ import { createDefaultKeyboardLayout, ensureDefaultPedals } from './default-layo
 import { createElement, createLayout } from '../test/fixtures';
 
 describe('createDefaultKeyboardLayout', () => {
-  it('creates a keyboard and the three default pedals', () => {
+  it('creates a keyboard, the three default pedals and four patch sends', () => {
     const layout = createDefaultKeyboardLayout(140);
     expect(layout.tempo).toBe(140);
     expect(layout.background).toBeNull();
     expect(layout.elements.map((element) => element.type)).toEqual([
       'keyboard',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'pedal',
       'pedal',
       'pedal',
     ]);
     expect(layout.elements.map((element) => element.label)).toEqual([
       'Teclado',
+      'Aux 1',
+      'Aux 2',
+      'Aux 3',
+      'Aux 4',
       'Sustain',
       'Expression',
       'Volume',
     ]);
+  });
+
+  it('places the four patch sends above and to the right of the keyboard', () => {
+    const layout = createDefaultKeyboardLayout();
+    const keyboard = layout.elements.find((element) => element.type === 'keyboard')!;
+    const sends = layout.elements.filter((element) => element.patchSendAux !== undefined);
+    expect(sends).toHaveLength(4);
+    expect(sends.map((element) => element.patchSendAux)).toEqual([1, 2, 3, 4]);
+    expect(sends.map((element) => element.minValue)).toEqual([-60, -60, -60, -60]);
+    expect(sends.map((element) => element.maxValue)).toEqual([6, 6, 6, 6]);
+    for (const send of sends) {
+      expect(send.y + send.height).toBeLessThanOrEqual(keyboard.y);
+      expect(send.x).toBeGreaterThan(keyboard.x + keyboard.width / 2);
+    }
+    for (let a = 0; a < sends.length; a += 1) {
+      for (let b = a + 1; b < sends.length; b += 1) {
+        const overlapX = sends[a].x < sends[b].x + sends[b].width && sends[b].x < sends[a].x + sends[a].width;
+        const overlapY = sends[a].y < sends[b].y + sends[b].height && sends[b].y < sends[a].y + sends[a].height;
+        expect(overlapX && overlapY).toBe(false);
+      }
+    }
   });
 
   it('uses safe defaults and valid keyboard ranges', () => {
@@ -36,6 +65,15 @@ describe('createDefaultKeyboardLayout', () => {
     expect(pedals.map((pedal) => pedal.midiCommand?.controllerNumber)).toEqual([64, 11, 7]);
     expect(pedals.map((pedal) => pedal.pedalKind)).toEqual(['sustain', 'expression', 'volume']);
     expect(pedals.map((pedal) => pedal.isMomentary)).toEqual([true, false, false]);
+  });
+
+  it('lets a single send knob be removed without touching the others', () => {
+    const layout = createDefaultKeyboardLayout();
+    const removed = layout.elements.find((element) => element.patchSendAux === 2)!;
+    const remaining = layout.elements.filter((element) => element.id !== removed.id);
+    expect(remaining.some((element) => element.id === removed.id)).toBe(false);
+    expect(remaining.filter((element) => element.patchSendAux !== undefined).map((element) => element.patchSendAux))
+      .toEqual([1, 3, 4]);
   });
 
   it('generates fresh element ids per layout', () => {

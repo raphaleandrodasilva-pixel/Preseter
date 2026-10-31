@@ -560,6 +560,38 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setPatchSend")
+    {
+        const int aux = intArg (message, "aux", -1);
+        if (! message.hasProperty ("levelDb"))
+        {
+            fail (id, utf8 ("Informe \"levelDb\" (nível do send do patch em dB)."));
+            return;
+        }
+        const double level = (double) message["levelDb"];
+        if (auto error = engine.setPatchSend (aux, level); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, engine.describeMixState());
+        return;
+    }
+
+    if (cmd == "setLayerPatchSend")
+    {
+        const auto layerId = message["layerId"].toString();
+        if (! message.hasProperty ("levelDb"))
+        {
+            fail (id, utf8 ("Informe \"levelDb\" (nível do send do layer para o patch em dB)."));
+            return;
+        }
+        const double level = (double) message["levelDb"];
+        if (auto error = engine.setLayerPatchSend (layerId, level); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, engine.describeMixState());
+        return;
+    }
+
     if (cmd == "setLayerOutput")
     {
         const auto layerId = message["layerId"].toString();

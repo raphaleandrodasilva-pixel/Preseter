@@ -25,6 +25,8 @@ import {
   ConcertMapping,
   ConcertTemplateSummary,
   MenuAction,
+  MAX_AUX_BUSES,
+  SEND_OFF_DB,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
@@ -178,6 +180,10 @@ export interface AppContextType {
   setVstBusMix: (bus: string, update: BusMixUpdate) => Promise<boolean>;
   /** Nível (dB) do send de um layer para um Aux (Fase 3.2). */
   setVstSend: (layerId: string, aux: number, levelDb: number) => Promise<boolean>;
+  /** Nível (dB) do send do bus do patch para um Aux (Fase 7). */
+  setVstPatchSend: (aux: number, levelDb: number) => Promise<boolean>;
+  /** Nível (dB) do send do layer para o bus do patch (Fase 7). */
+  setVstLayerPatchSend: (layerId: string, levelDb: number) => Promise<boolean>;
   /** Saída (Output 1..4) do channel strip de um layer (Fase 3.2). */
   setVstLayerOutput: (layerId: string, output: number) => Promise<boolean>;
   refreshAudioSettings: () => Promise<void>;
@@ -618,7 +624,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programNumber,
         midiChannel: 0,
         plugins: [],
-        master: { volumeDb: 0, pan: 0, muted: false, inserts: [] },
+        master: {
+          volumeDb: 0,
+          pan: 0,
+          muted: false,
+          inserts: [],
+          sends: Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
+        },
         vstStates: {},
         layout: { elements: [], background: null, tempo: 120 },
         createdAt: Date.now(),
@@ -1423,6 +1435,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setVstPatchSend = useCallback(async (aux: number, levelDb: number) => {
+    try {
+      setMixState(await window.electronAPI.vstSetPatchSend(aux, levelDb));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o send do Master do Patch.');
+      return false;
+    }
+  }, []);
+
+  const setVstLayerPatchSend = useCallback(async (layerId: string, levelDb: number) => {
+    try {
+      setMixState(await window.electronAPI.vstSetLayerPatchSend(layerId, levelDb));
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o send do layer para o patch.');
+      return false;
+    }
+  }, []);
+
   const setVstLayerOutput = useCallback(async (layerId: string, output: number) => {
     try {
       setMixState(await window.electronAPI.vstSetLayerOutput(layerId, output));
@@ -1671,6 +1705,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVstMasterMix,
     setVstBusMix,
     setVstSend,
+    setVstPatchSend,
+    setVstLayerPatchSend,
     setVstLayerOutput,
     refreshAudioSettings,
     startAudio,

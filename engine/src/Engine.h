@@ -186,6 +186,10 @@ public:
     juce::String setBusMix (const juce::String& bus, const juce::var& options, juce::var& result);
     /** Nível (dB) do send post-fader do layer para o Aux `aux` (1..4); -60 ou menos desliga. */
     juce::String setSend (const juce::String& layerId, int aux, double levelDb);
+    /** Nível (dB) do send do bus do patch para o Aux `aux` (1..4); -60 ou menos desliga. */
+    juce::String setPatchSend (int aux, double levelDb);
+    /** Nível (dB) do send do layer para o bus do patch; 0 dB é o padrão. */
+    juce::String setLayerPatchSend (const juce::String& layerId, double levelDb);
     /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
     juce::String setLayerOutput (const juce::String& layerId, int output);
 
@@ -281,6 +285,10 @@ private:
         std::array<float, kAuxBuses> sendLevelDb = sendLevelsOff();
         /** Nós de ganho dos sends, criados quando o send é ligado. */
         std::array<Graph::Node::Ptr, kAuxBuses> sendNodes;
+        /** Nível (dB) do send post-fader para o bus do patch (0 dB = padrão). */
+        float patchSendDb = 0.0f;
+        /** Nó de ganho do send para o bus do patch, criado quando o nível muda. */
+        Graph::Node::Ptr patchSendNode;
         /** Saída (Output 1..4) para onde o channel strip manda o áudio. */
         int output = 1;
     };
@@ -289,7 +297,7 @@ private:
     /** Barramentos Aux/Output do concert; criados no construtor (Fase 3.2). */
     struct Bus
     {
-        enum class Kind { aux, output };
+        enum class Kind { aux, output, patch };
         juce::String id;
         Kind kind = Kind::aux;
         /** Índice 0..3 (aux1 = 0, output1 = 0). */
@@ -299,6 +307,9 @@ private:
         Graph::Node::Ptr stripNode;
         std::array<Graph::Node::Ptr, kMaxInserts> insertNodes;
         std::array<bool, kMaxInserts> insertBypass {};
+        /** Sends do bus do patch para os Aux (usados só quando kind = patch). */
+        std::array<float, kAuxBuses> sendLevelDb = sendLevelsOff();
+        std::array<Graph::Node::Ptr, kAuxBuses> sendNodes;
     };
     std::vector<Bus> buses;
     juce::StringArray loadingLayerIds;

@@ -33,6 +33,7 @@ interface ComposerCanvasProps {
   onResize: (id: string, width: number, height: number) => void;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  onSetPatchSend?: (aux: number, levelDb: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
@@ -311,6 +312,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   onResize,
   onMidiMessage,
   onSetVstParameter,
+  onSetPatchSend,
   keyboardZones,
   selectedZoneId,
   onZoneClick,
@@ -402,6 +404,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               layoutMode="absolute"
               onMidiMessage={onMidiMessage}
               onSetVstParameter={onSetVstParameter}
+              onSetPatchSend={onSetPatchSend}
               keyboardZones={keyboardZones}
               selectedZoneId={selectedZoneId}
               onZoneClick={onZoneClick}
@@ -430,6 +433,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   layoutMode="absolute"
                   onMidiMessage={onMidiMessage}
                   onSetVstParameter={onSetVstParameter}
+                  onSetPatchSend={onSetPatchSend}
                   keyboardZones={keyboardZones}
                   selectedZoneId={selectedZoneId}
                   onZoneClick={onZoneClick}

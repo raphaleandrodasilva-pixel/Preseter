@@ -397,6 +397,8 @@ export interface PresetPluginAssignment {
    * `SEND_OFF_DB` (-60) desliga o send. Ausente = todos desligados.
    */
   sends?: number[];
+  /** Nível (dB) do send deste layer para o bus do patch (Master do Patch). */
+  patchSendDb?: number;
 }
 
 /** Quantidade de slots de insert por channel strip (Fase 3.1). */
@@ -461,6 +463,8 @@ export interface PatchMasterSettings {
   pan: number;
   muted: boolean;
   inserts: Insert[];
+  /** Níveis dos sends do bus do patch para os Aux 1..`MAX_AUX_BUSES`, em dB. */
+  sends?: number[];
 }
 
 export interface LayerMixState extends LayerMixSettings {
@@ -470,6 +474,8 @@ export interface LayerMixState extends LayerMixSettings {
   output: number;
   /** Níveis dos sends para os Aux 1..`MAX_AUX_BUSES`, em dB (Fase 3.2). */
   sends: number[];
+  /** Nível (dB) do send do layer para o bus do patch. */
+  patchSendDb?: number;
 }
 
 /** Estado ao vivo de um barramento Aux/Output (Fase 3.2). */
@@ -483,17 +489,29 @@ export interface BusMixState {
   output?: number;
 }
 
+/**
+ * Estado do bus do patch (Master do Patch) e dos seus sends para os Aux
+ * (Fase 7). Todos os layers do patch passam por este barramento antes da
+ * Output 1.
+ */
+export interface PatchBusMixState extends BusMixState {
+  /** Níveis dos sends do bus do patch para os Aux 1..`MAX_AUX_BUSES`, em dB. */
+  sends: number[];
+}
+
 export interface EngineMixState {
   layers: LayerMixState[];
   aux: BusMixState[];
   outputs: BusMixState[];
+  /** Bus interno do Master do Patch (Fase 7). */
+  patch: PatchBusMixState;
   master: MasterMixSettings & { peakDb: number };
 }
 
 /** Estado de um barramento (comando `buses`, Fase 3.2). */
 export interface EngineBusState {
   bus: string;
-  kind: 'aux' | 'output';
+  kind: 'aux' | 'output' | 'patch';
   /** 1 a `MAX_AUX_BUSES` / `MAX_OUTPUT_BUSES`. */
   index: number;
   volumeDb: number;
@@ -701,6 +719,8 @@ export interface UiElement {
   keyboardChannel?: number;
   /** Tipo de pedal contínuo/momentâneo (Sustain, Expression, Volume). */
   pedalKind?: 'sustain' | 'expression' | 'volume';
+  /** Knob de send do bus do patch: 1 a `MAX_AUX_BUSES` (Fase 7). */
+  patchSendAux?: number;
 }
 
 export interface MidiBinding {

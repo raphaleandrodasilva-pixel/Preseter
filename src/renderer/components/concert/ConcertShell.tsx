@@ -124,6 +124,9 @@ interface ConcertShellProps {  mode: ConcertMode;
 }
 
 
+/** Sends do Master do Patch sem valor salvo: todos desligados. */
+const defaultPatchSends = (): number[] => Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB);
+
 /** Escala o workspace do Perform para preencher a tela, como no MainStage. */
 const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: React.ReactNode }> = ({ elements, topInset = 0, children }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -257,6 +260,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
+    setVstPatchSend, setVstLayerPatchSend,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     setHostClock, setMetronome,
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
@@ -890,24 +894,37 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   }, [playbackState?.playing, getPlaybackState]);
 
   const baseElements = useMemo(() => (draft ?? currentPreset)?.layout.elements ?? [], [draft, currentPreset]);
+  const draftPatchSends = useMemo(
+    () => (draft ?? currentPreset)?.master?.sends ?? defaultPatchSends(),
+    [draft, currentPreset]
+  );
   const displayElements = useMemo(
     () =>
-      baseElements.map((element) =>
-        liveValues[element.id] !== undefined ? { ...element, value: liveValues[element.id] } : element
-      ),
-    [baseElements, liveValues]
+      baseElements.map((element) => {
+        const live = liveValues[element.id];
+        const value = element.patchSendAux
+          ? draftPatchSends[element.patchSendAux - 1] ?? SEND_OFF_DB
+          : live;
+        return value !== undefined ? { ...element, value } : element;
+      }),
+    [baseElements, draftPatchSends, liveValues]
   );
-  const performElements = useMemo(
-    () =>
-      (currentPreset?.layout.elements ?? []).map((element) =>
-        liveValues[element.id] !== undefined ? { ...element, value: liveValues[element.id] } : element
-      ),
-    [currentPreset, liveValues]
-  );
+  const performElements = useMemo(() => {
+    const sends = currentPreset?.master?.sends ?? defaultPatchSends();
+    return (currentPreset?.layout.elements ?? []).map((element) => {
+      const live = liveValues[element.id];
+      const value = element.patchSendAux ? sends[element.patchSendAux - 1] ?? SEND_OFF_DB : live;
+      return value !== undefined ? { ...element, value } : element;
+    });
+  }, [currentPreset, liveValues]);
   const performResetValues = useMemo(() => {
     const values = new Map<string, number>();
+    const sends = currentPreset?.master?.sends ?? defaultPatchSends();
     for (const element of currentPreset?.layout.elements ?? []) {
-      values.set(element.id, element.value ?? 0.5);
+      values.set(
+        element.id,
+        element.patchSendAux ? sends[element.patchSendAux - 1] ?? SEND_OFF_DB : element.value ?? 0.5
+      );
     }
     return values;
   }, [currentPreset]);
@@ -930,6 +947,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       role: 'instrument',
       minNote: 0,
       maxNote: 127,
+      patchSendDb: 0,
     };
     onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), assignment], updatedAt: Date.now() });
     setFocusLayerId(layerId);
@@ -988,6 +1006,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       role: 'instrument',
       minNote: newMin,
       maxNote: newMax,
+      patchSendDb: 0,
     };
     onDraftChange({
       ...draft,
@@ -1077,6 +1096,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       role: 'instrument',
       minNote: 0,
       maxNote: 127,
+      patchSendDb: 0,
     };
     onDraftChange({
       ...patch,
@@ -1213,6 +1233,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
       if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
       await setVstLayerOutput(layerId, assignment.output ?? 1);
+      await setVstLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
       await window.electronAPI.vstSetLayerVelocity(
         layerId,
         assignment.velocityMin ?? 1,
@@ -1266,6 +1287,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
       await setVstLayerMix(layerId, assignment.mix ?? {});
       await setVstLayerOutput(layerId, assignment.output ?? 1);
+      await setVstLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
       await window.electronAPI.vstSetLayerVelocity(
         layerId,
         assignment.velocityMin ?? 1,
@@ -1488,6 +1510,41 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onDraftChange(next);
   };
 
+  /** Nível do send do Master do Patch (bus do patch) para um Aux. */
+  const changePatchSend = async (aux: number, levelDb: number) => {
+    if (!await setVstPatchSend(aux, levelDb)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const base = current.master ?? fallbackPatchMaster();
+    const sends = [...(base.sends ?? Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB))];
+    sends[aux - 1] = levelDb;
+    const next: Preset = {
+      ...current,
+      master: { ...base, sends },
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
+  /** Nível do send de um layer para o bus do patch. */
+  const changeLayerPatchSend = async (layerId: string, levelDb: number) => {
+    if (!await setVstLayerPatchSend(layerId, levelDb)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) =>
+        (assignment.layerId ?? `${current.id}:layer:${index}`) === layerId
+          ? { ...assignment, patchSendDb: levelDb }
+          : assignment
+      ),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
   /** Saída (Output 1..4) do channel strip de um layer. */
   const changeLayerOutput = async (layerId: string, output: number) => {
     if (!await setVstLayerOutput(layerId, output)) return;
@@ -1516,13 +1573,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       pan: output1?.pan ?? 0,
       muted: output1?.muted ?? false,
       inserts: output1?.inserts ?? [],
+      sends: Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
     };
   };
 
   /** Aplica uma alteração à lista de inserts de um barramento do concert. */
   const mutateBusInserts = (busId: string, update: (inserts: Insert[]) => Insert[]) => {
-    // O Output 1 é o Master do Patch: os inserts moram no patch, não no concert.
-    if (busId === 'output1') {
+    // O bus do patch é o Master do Patch: os inserts moram no patch, não no concert.
+    if (busId === 'patch' || busId === 'output1') {
       const current = draftRef.current;
       if (!current) return;
       const base = current.master ?? fallbackPatchMaster();
@@ -1556,7 +1614,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const changeBusMix = async (busId: string, update: BusMixUpdate) => {
     if (!await setVstBusMix(busId, update)) return;
-    if (busId === 'output1') {
+    if (busId === 'patch' || busId === 'output1') {
       const current = draftRef.current;
       if (!current) return;
       const base = current.master ?? fallbackPatchMaster();
@@ -2503,6 +2561,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     activeNotes={activeNotes}
                     onMidiMessage={onMidiMessage}
                     onSetVstParameter={onSetVstParameter}
+                    onSetPatchSend={changePatchSend}
                     keyboardZones={keyboardZones}
                     selectedZoneId={selectedLayerId}
                     onZoneClick={selectZone}
@@ -2752,6 +2811,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       onResize={(id, width, height) => updateElement(id, { width, height })}
                       onMidiMessage={onMidiMessage}
                       onSetVstParameter={onSetVstParameter}
+                      onSetPatchSend={changePatchSend}
                       keyboardZones={keyboardZones}
                       selectedZoneId={selectedLayerId}
                       onZoneClick={selectZone}
@@ -2866,6 +2926,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onToggleInsertBypass={toggleInsertBypass}
             onOpenInsertEditor={openInsertEditor}
             onSetSend={(layerId, aux, levelDb) => void changeLayerSend(layerId, aux, levelDb)}
+            onSetLayerPatchSend={(layerId, levelDb) => void changeLayerPatchSend(layerId, levelDb)}
             onSetLayerOutput={(layerId, output) => void changeLayerOutput(layerId, output)}
             onSetBusMix={(bus, update) => void changeBusMix(bus, update)}
             onAddBusInsert={addBusInsert}

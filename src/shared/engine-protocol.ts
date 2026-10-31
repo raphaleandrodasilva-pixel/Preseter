@@ -267,6 +267,10 @@ export interface EngineCommands {
   setBusMix: { args: { bus: string } & BusMixUpdate; result: EngineBusState[] };
   /** Nível (dB) do send post-fader de um layer para o Aux `aux` (1..4). */
   setSend: { args: { layerId: string; aux: number; levelDb: number }; result: EngineMixState };
+  /** Nível (dB) do send do bus do patch (Master do Patch) para o Aux `aux` (1..4). */
+  setPatchSend: { args: { aux: number; levelDb: number }; result: EngineMixState };
+  /** Nível (dB) do send do layer para o bus do patch; 0 dB é o padrão. */
+  setLayerPatchSend: { args: { layerId: string; levelDb: number }; result: EngineMixState };
   /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
   setLayerOutput: { args: { layerId: string; output: number }; result: EngineMixState };
   noteOn: { args: { note: number; velocity?: number; channel?: number }; result: null };

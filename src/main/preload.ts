@@ -96,6 +96,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstSetBusMix: (bus: string, update: unknown) => ipcRenderer.invoke('vst-set-bus-mix', bus, update),
   vstSetSend: (layerId: string, aux: number, levelDb: number) =>
     ipcRenderer.invoke('vst-set-send', layerId, aux, levelDb),
+  vstSetPatchSend: (aux: number, levelDb: number) =>
+    ipcRenderer.invoke('vst-set-patch-send', aux, levelDb),
+  vstSetLayerPatchSend: (layerId: string, levelDb: number) =>
+    ipcRenderer.invoke('vst-set-layer-patch-send', layerId, levelDb),
   vstSetLayerOutput: (layerId: string, output: number) =>
     ipcRenderer.invoke('vst-set-layer-output', layerId, output),
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),

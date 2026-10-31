@@ -102,6 +102,18 @@ describe('makeElement', () => {
     });
   });
 
+  it('creates patch send knobs from the palette', () => {
+    const item = findPaletteItem('patch-send-2')!;
+    expect(item).toMatchObject({ label: 'Aux 2', patchSendAux: 2, minValue: -60, maxValue: 6 });
+    const element = makeElement('knob', 0, 0, item.label, undefined, item);
+    expect(element).toMatchObject({
+      patchSendAux: 2,
+      minValue: -60,
+      maxValue: 6,
+      value: -60,
+    });
+  });
+
   it('allows orientation and palette color overrides', () => {
     const element = makeElement('knob', 0, 0, 'K', 'horizontal', {
       key: 'custom',

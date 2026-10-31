@@ -895,6 +895,17 @@ Engine::Engine()
         buses.push_back (std::move (bus));
     }
 
+    // Bus do Master do Patch: todos os layers passam por aqui antes da Output 1.
+    // Ele tem os 4 inserts do patch e os 4 sends para os Aux do concert.
+    {
+        Bus bus;
+        bus.id = "patch";
+        bus.kind = Bus::Kind::patch;
+        bus.index = 0;
+        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        buses.push_back (std::move (bus));
+    }
+
     deviceManager.addChangeListener (this);
 }
 
@@ -1086,10 +1097,13 @@ juce::var Engine::describeMixState() const
             .set ("solo", strip->isSolo())
             .set ("peakDb", strip->getPeakDb())
             .set ("output", layer.output)
+            .set ("patchSendDb", (double) layer.patchSendDb)
             .set ("sends", juce::var (sends)));
     }
 
     juce::Array<juce::var> auxStates, outputStates;
+    juce::Array<juce::var> patchSends;
+    juce::var patchState;
     for (const auto& bus : buses)
     {
         auto* strip = bus.stripNode != nullptr
@@ -1106,8 +1120,14 @@ juce::var Engine::describeMixState() const
             .set ("peakDb", strip->getPeakDb());
         if (bus.kind == Bus::Kind::aux)
             auxStates.add (state.set ("output", bus.output));
-        else
+        else if (bus.kind == Bus::Kind::output)
             outputStates.add (state);
+        else if (bus.kind == Bus::Kind::patch)
+        {
+            for (int aux = 0; aux < kAuxBuses; ++aux)
+                patchSends.add ((double) bus.sendLevelDb[(size_t) aux]);
+            patchState = state.set ("sends", juce::var (patchSends));
+        }
     }
 
     auto* master = masterNode != nullptr
@@ -1122,6 +1142,7 @@ juce::var Engine::describeMixState() const
         .set ("layers", juce::var (layerStates))
         .set ("aux", juce::var (auxStates))
         .set ("outputs", juce::var (outputStates))
+        .set ("patch", patchState)
         .set ("master", masterState);
 }
 
@@ -2153,7 +2174,8 @@ juce::var Engine::describeBuses() const
             : nullptr;
         auto state = Obj()
             .set ("bus", bus.id)
-            .set ("kind", bus.kind == Bus::Kind::aux ? "aux" : "output")
+            .set ("kind", bus.kind == Bus::Kind::aux ? "aux"
+                            : bus.kind == Bus::Kind::patch ? "patch" : "output")
             .set ("index", bus.index + 1)
             .set ("volumeDb", strip != nullptr ? strip->getVolumeDb() : 0.0f)
             .set ("pan", strip != nullptr ? strip->getPan() : 0.0f)
@@ -2170,7 +2192,7 @@ juce::String Engine::setBusMix (const juce::String& busId, const juce::var& opti
 {
     const int index = findBus (busId);
     if (index < 0)
-        return utf8 ("Barramento não encontrado (use aux1..aux4 ou output1..output4).");
+        return utf8 ("Barramento não encontrado (use aux1..aux4, output1..output4 ou patch).");
 
     auto& bus = buses[(size_t) index];
     auto* strip = bus.stripNode != nullptr
@@ -2256,6 +2278,59 @@ juce::String Engine::setSend (const juce::String& layerId, int aux, double level
     if (auto& sendNode = layer.sendNodes[(size_t) auxIndex])
         if (auto* send = dynamic_cast<SendGainProcessor*> (sendNode->getProcessor()))
             send->setGainDb ((float) levelDb);
+
+    rebuildConnections();
+    return {};
+}
+
+juce::String Engine::setPatchSend (int aux, double levelDb)
+{
+    if (aux < 1 || aux > kAuxBuses)
+        return utf8 ("Envie o bus do patch para um Aux entre 1 e ") + juce::String (kAuxBuses) + ".";
+    if (! std::isfinite (levelDb) || levelDb < (double) kSendOffDb || levelDb > 6.0)
+        return utf8 ("O nível do send do patch deve ser um número entre -60 (desligado) e +6 dB.");
+
+    const int busIndex = findBus ("patch");
+    if (busIndex < 0)
+        return utf8 ("O bus do patch não está disponível.");
+
+    auto& bus = buses[(size_t) busIndex];
+    const int auxIndex = aux - 1;
+    bus.sendLevelDb[(size_t) auxIndex] = (float) levelDb;
+    if (levelDb > (double) kSendOffDb && bus.sendNodes[(size_t) auxIndex] == nullptr)
+    {
+        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        if (node == nullptr)
+            return utf8 ("Não foi possível criar o send do patch para o Aux.");
+        bus.sendNodes[(size_t) auxIndex] = node;
+    }
+    if (auto& sendNode = bus.sendNodes[(size_t) auxIndex])
+        if (auto* send = dynamic_cast<SendGainProcessor*> (sendNode->getProcessor()))
+            send->setGainDb ((float) levelDb);
+
+    rebuildConnections();
+    return {};
+}
+
+juce::String Engine::setLayerPatchSend (const juce::String& layerId, double levelDb)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+    if (! std::isfinite (levelDb) || levelDb < (double) kSendOffDb || levelDb > 6.0)
+        return utf8 ("O nível do send para o bus do patch deve ser um número entre -60 (desligado) e +6 dB.");
+
+    auto& layer = layers[(size_t) index];
+    layer.patchSendDb = (float) levelDb;
+    if (levelDb > (double) kSendOffDb && layer.patchSendNode == nullptr)
+    {
+        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        if (node == nullptr)
+            return utf8 ("Não foi possível criar o send do layer para o bus do patch.");
+        layer.patchSendNode = node;
+    }
+    if (auto* send = dynamic_cast<SendGainProcessor*> (layer.patchSendNode->getProcessor()))
+        send->setGainDb ((float) levelDb);
 
     rebuildConnections();
     return {};
@@ -2668,6 +2743,27 @@ void Engine::rebuildConnections()
             for (int ch = 0; ch < 2; ++ch)
                 graph.addConnection ({ { bus.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
 
+    // Bus do patch -> Output 1 (o Master do Patch continua sendo a Output 1 no
+    // palco, mas agora com um strip próprio antes dela).
+    for (const auto& bus : buses)
+    {
+        if (bus.kind != Bus::Kind::patch || bus.stripNode == nullptr)
+            continue;
+        if (const int outIndex = findBus ("output1"); outIndex >= 0)
+            connectToBus (bus.stripNode, buses[(size_t) outIndex]);
+
+        // Sends post-fader do bus do patch para os Aux (reverb/delay do concert).
+        for (int aux = 0; aux < kAuxBuses; ++aux)
+        {
+            const auto& sendNode = bus.sendNodes[(size_t) aux];
+            if (sendNode == nullptr || bus.sendLevelDb[(size_t) aux] <= kSendOffDb)
+                continue;
+            connectAudio (bus.stripNode, sendNode);
+            if (const int auxBusIndex = findBus ("aux" + juce::String (aux + 1)); auxBusIndex >= 0)
+                connectToBus (sendNode, buses[(size_t) auxBusIndex]);
+        }
+    }
+
     // Aux -> Output escolhido.
     for (const auto& bus : buses)
     {
@@ -2698,10 +2794,31 @@ void Engine::rebuildConnections()
         }
         connectAudio (previous, layer.stripNode);
 
-        // O channel strip manda o áudio para a saída (Output 1..4) escolhida.
+        // O channel strip manda o áudio para o bus do patch (Output 1) ou, em
+        // patches antigos, direto para outra Output. O send para o bus do patch
+        // aplica o ganho antes de entrar no strip do Master do Patch.
         if (audible)
-            if (const int outIndex = findBus (outputBusId (layer.output)); outIndex >= 0)
+        {
+            Graph::Node::Ptr source = layer.stripNode;
+            if (const int patchIndex = findBus ("patch");
+                layer.output == 1 && patchIndex >= 0)
+            {
+                // Send do layer para o Master do Patch; -60 dB ou menos desliga.
+                if (layer.patchSendDb > kSendOffDb)
+                {
+                    if (layer.patchSendNode != nullptr)
+                    {
+                        connectAudio (layer.stripNode, layer.patchSendNode);
+                        source = layer.patchSendNode;
+                    }
+                    connectToBus (source, buses[(size_t) patchIndex]);
+                }
+            }
+            else if (const int outIndex = findBus (outputBusId (layer.output)); outIndex >= 0)
+            {
                 connectToBus (layer.stripNode, buses[(size_t) outIndex]);
+            }
+        }
 
         // Sends post-fader para os Aux (partem do strip, depois do volume).
         for (int aux = 0; aux < kAuxBuses; ++aux)

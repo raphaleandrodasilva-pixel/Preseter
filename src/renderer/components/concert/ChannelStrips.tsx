@@ -34,7 +34,7 @@ interface ChannelStripsProps {
   scannedPlugins: VstPluginInfo[];
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
-  /** Master do patch (o Output 1 internamente). */
+  /** Master do patch (bus interno do patch, antes da Output 1). */
   masterSettings: BusSettings;
   /** Channel strips do concert e do set do patch atual (Fase 3.3). */
   concertStrips: ConcertStrip[];
@@ -64,6 +64,8 @@ interface ChannelStripsProps {
   onOpenInsertEditor: (layerId: string, slot: number) => void;
   /** Sends e saída dos channel strips (Fase 3.2). */
   onSetSend: (layerId: string, aux: number, levelDb: number) => void;
+  /** Nível do send do layer para o bus do patch (Fase 7). */
+  onSetLayerPatchSend: (layerId: string, levelDb: number) => void;
   onSetLayerOutput: (layerId: string, output: number) => void;
   /** Master do patch (Fase 3.2). */
   onSetBusMix: (bus: string, update: BusMixUpdate) => void;
@@ -205,6 +207,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onToggleInsertBypass,
   onOpenInsertEditor,
   onSetSend,
+  onSetLayerPatchSend,
   onSetLayerOutput,
   onSetBusMix,
   onAddBusInsert,
@@ -554,10 +557,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     </div>
   );
 
-  /** Strip do Master do Patch (Output 1 interno). */
+  /** Strip do Master do Patch (bus interno do patch, antes da Output 1). */
   const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output' | 'master', settings: BusSettings) => {
-    const live = mixState?.aux.find((bus) => bus.bus === ownerId)
-      ?? mixState?.outputs.find((bus) => bus.bus === ownerId);
+    const live = kind === 'master'
+      ? mixState?.patch
+      : mixState?.aux.find((bus) => bus.bus === ownerId)
+        ?? mixState?.outputs.find((bus) => bus.bus === ownerId);
     // O Master do Patch pertence ao patch, então o valor salvo manda no
     // controle; o medidor continua vindo do motor. Isso evita que um
     // mixState antigo (sem layers carregados) mostre o volume de outro patch.
@@ -1182,7 +1187,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
-          {renderBusStrip('output1', 'Master do Patch', 'master', masterSettings)}
+          {renderBusStrip('patch', 'Master do Patch', 'master', masterSettings)}
           {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
           {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
@@ -1196,6 +1201,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               peakDb: -100,
               output: assignment.output ?? 1,
               sends: assignment.sends ?? Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
+              patchSendDb: assignment.patchSendDb ?? 0,
             };
             const meterPercent = Math.max(0, Math.min(100, ((mix.peakDb + 60) / 60) * 100));
             const isSelected = selectedLayer?.layerId === layerId;
@@ -1246,6 +1252,27 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   disabled: !loaded,
                   onMix: (update) => onSetLayerMix(layerId, update),
                 })}
+                <label className="mt-1.5 block text-[8px]" style={{ color: '#9A9AA0' }}>
+                  PATCH{' '}
+                  <span className="float-right" style={{ color: '#C6C6CB' }}>
+                    {(mix.patchSendDb ?? 0) <= SEND_OFF_DB ? '−∞' : `${(mix.patchSendDb ?? 0).toFixed(1)} dB`}
+                  </span>
+                  <input
+                    aria-label={`Send de ${assignment.name} para o Master do Patch`}
+                    type="range"
+                    min={SEND_OFF_DB}
+                    max={6}
+                    step={0.5}
+                    value={mix.patchSendDb ?? 0}
+                    disabled={!editable || !loaded}
+                    onClick={(event) => event.stopPropagation()}
+                    onDoubleClick={resetOnDoubleClick(() => onSetLayerPatchSend(layerId, 0))}
+                    onChange={(event) => onSetLayerPatchSend(layerId, Number(event.target.value))}
+                    title="Send do layer para o Master do Patch (duplo clique volta a 0 dB)"
+                    className="w-full"
+                    style={{ accentColor: '#FF9F0A' }}
+                  />
+                </label>
                 {renderInserts({
                   ownerId: layerId,
                   inserts: assignment.inserts ?? [],

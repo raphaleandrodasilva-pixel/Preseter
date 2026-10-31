@@ -27,6 +27,8 @@ interface StageControlProps {
   activeNotes?: Set<number>;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  /** Knob de send do bus do patch (1..4) para um Aux. */
+  onSetPatchSend?: (aux: number, levelDb: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
@@ -62,6 +64,7 @@ export const StageControl: React.FC<StageControlProps> = ({
   activeNotes,
   onMidiMessage,
   onSetVstParameter,
+  onSetPatchSend,
   keyboardZones,
   selectedZoneId,
   onZoneClick,
@@ -102,6 +105,9 @@ export const StageControl: React.FC<StageControlProps> = ({
         element.parameterId,
         mappingMin + normalized * (mappingMax - mappingMin)
       );
+    }
+    if (element.patchSendAux) {
+      onSetPatchSend?.(element.patchSendAux, clamped);
     }
     const binding = element.midiCommand;
     if (binding?.type === 'cc' && binding.controllerNumber !== undefined) {

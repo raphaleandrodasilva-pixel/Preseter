@@ -14,6 +14,7 @@ import type {
   UiElement,
   VstPluginInfo,
 } from '@shared/types';
+import { SEND_OFF_DB } from '@shared/types';
 
 export function createInsert(overrides: Partial<Insert> = {}): Insert {
   return {
@@ -151,6 +152,7 @@ export function createEngineMixState(overrides: Partial<EngineMixState> = {}): E
     layers: [],
     aux: [],
     outputs: [],
+    patch: { bus: 'patch', volumeDb: 0, pan: 0, muted: false, peakDb: -100, sends: [SEND_OFF_DB, SEND_OFF_DB, SEND_OFF_DB, SEND_OFF_DB] },
     master: { volumeDb: 0, muted: false, peakDb: -100 },
     ...overrides,
   };

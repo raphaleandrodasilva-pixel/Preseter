@@ -1,4 +1,5 @@
 import type { LayoutConfig, UiElement } from './types';
+import { MAX_AUX_BUSES, SEND_OFF_DB } from './types';
 import { DEFAULT_TEMPO } from './constants';
 
 function elementId(prefix: string): string {
@@ -11,7 +12,8 @@ function cc(controllerNumber: number): UiElement['midiCommand'] {
 
 /**
  * Layout inicial no estilo MainStage: teclado centralizado na parte inferior,
- * sustain e expression pedals à esquerda. Usado apenas quando o concert ainda
+ * sustain e expression pedals à esquerda e os 4 sends do Master do Patch
+ * (Aux 1–4) acima do teclado, à direita. Usado apenas quando o concert ainda
  * não tem nenhum controle.
  */
 export function createDefaultKeyboardLayout(tempo: number = DEFAULT_TEMPO): LayoutConfig {
@@ -33,6 +35,25 @@ export function createDefaultKeyboardLayout(tempo: number = DEFAULT_TEMPO): Layo
     keyboardSplit: null,
     keyboardChannel: 0,
   };
+  // Sends do bus do patch (Master do Patch) para os Aux 1–4: ficam acima do
+  // teclado, à direita, em duas colunas com folga. Cada knob pode ser apagado
+  // individualmente no modo Layout.
+  const patchSends: UiElement[] = Array.from({ length: MAX_AUX_BUSES }, (_, index) => ({
+    id: elementId(`element_default_send${index + 1}`),
+    type: 'knob',
+    label: `Aux ${index + 1}`,
+    x: 776 + (index % 2) * 108,
+    y: 96 + Math.floor(index / 2) * 116,
+    width: 96,
+    height: 108,
+    color: '#FF9F0A',
+    minValue: SEND_OFF_DB,
+    maxValue: 6,
+    orientation: 'vertical',
+    isMomentary: false,
+    value: 0,
+    patchSendAux: index + 1,
+  }));
   const sustain: UiElement = {
     id: elementId('element_default_sustain'),
     type: 'pedal',
@@ -84,7 +105,7 @@ export function createDefaultKeyboardLayout(tempo: number = DEFAULT_TEMPO): Layo
     midiCommand: cc(7),
     pedalKind: 'volume',
   };
-  return { elements: [keyboard, sustain, expression, volume], background: null, tempo };
+  return { elements: [keyboard, ...patchSends, sustain, expression, volume], background: null, tempo };
 }
 
 /** Adiciona os pedais padrão a um layout que já tem teclado, se faltarem. */

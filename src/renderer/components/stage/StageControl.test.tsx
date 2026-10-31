@@ -108,6 +108,34 @@ describe('StageControl value controls', () => {
     fireEvent.pointerDown(track, { clientY: -50, pointerId: 1 });
     expect(onMidiMessage).not.toHaveBeenCalled();
   });
+
+  it('sends the patch bus level when a send knob turns', () => {
+    const onSetPatchSend = vi.fn();
+    renderControl(
+      {
+        type: 'knob',
+        label: 'Aux 2',
+        patchSendAux: 2,
+        minValue: -60,
+        maxValue: 6,
+        value: -60,
+      },
+      { onSetPatchSend }
+    );
+
+    const knob = screen.getByTitle(/arrastar para girar/);
+    fireEvent.pointerDown(knob, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(knob, { clientY: 25, pointerId: 1, buttons: 1 });
+
+    expect(onSetPatchSend).toHaveBeenCalled();
+    const [aux, levelDb] = onSetPatchSend.mock.calls[onSetPatchSend.mock.calls.length - 1];
+    expect(aux).toBe(2);
+    expect(levelDb).toBeGreaterThan(-60);
+    expect(levelDb).toBeLessThanOrEqual(6);
+
+    fireEvent.doubleClick(knob);
+    expect(onSetPatchSend).toHaveBeenLastCalledWith(2, -60);
+  });
 });
 
 describe('StageControl buttons', () => {

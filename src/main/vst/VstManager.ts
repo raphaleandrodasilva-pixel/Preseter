@@ -556,6 +556,16 @@ export class VstManager extends EventEmitter {
     return this.engine.request('setSend', { layerId, aux, levelDb });
   }
 
+  /** Nível (dB) do send do bus do patch para o Aux `aux` (1..4). */
+  async setPatchSend(aux: number, levelDb: number): Promise<EngineMixState> {
+    return this.engine.request('setPatchSend', { aux, levelDb });
+  }
+
+  /** Nível (dB) do send do layer para o bus do patch. */
+  async setLayerPatchSend(layerId: string, levelDb: number): Promise<EngineMixState> {
+    return this.engine.request('setLayerPatchSend', { layerId, levelDb });
+  }
+
   /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
   async setLayerOutput(layerId: string, output: number): Promise<EngineMixState> {
     return this.engine.request('setLayerOutput', { layerId, output });

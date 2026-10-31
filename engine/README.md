@@ -26,16 +26,22 @@ estado de cada efeito) são salvos junto ao patch.
 O concert tem **4 barramentos Aux** e **4 barramentos Output**, cada um com
 volume, pan, mute, 4 inserts e um medidor; os Aux ainda escolhem o Output de
 destino. Cada channel strip de instrumento tem **4 sends post-fader** para os Aux
-(nível em dB; -60 dB desliga) e uma saída (Output 1 a 4). Roteamento do grafo:
+(nível em dB; -60 dB desliga) e um send para o **bus do patch** (o Master do
+Patch, 0 dB por padrão). Roteamento do grafo:
 
 ```
-instrumento → inserts → strip → Output (escolhido)
+instrumento → inserts → strip → send do patch → bus do patch → Output 1
                      ↘ send 1..4 → Aux 1..4 → Output (escolhido)
+bus do patch → send 1..4 → Aux 1..4 → Output (escolhido)
 Output 1..4 → Master → hardware
 ```
 
+O bus do patch (`patch`) reúne os layers e tem os 4 inserts e os 4 sends do
+Master do Patch; ele entra na Output 1 antes do strip Master.
+
 Os comandos de insert endereçam qualquer channel strip: `layerId` aceita o id de
-um layer **ou** o id de um barramento (`aux1`..`aux4` / `output1`..`output4`).
+um layer **ou** o id de um barramento (`aux1`..`aux4` / `output1`..`output4` /
+`patch`).
 
 Um layer carregado com `pinned: true` (channel strip do concert ou do set, Fase 3.3)
 fica fora da troca de patch: `commitPatchSwap` não o promove nem o drena, e ele
@@ -179,12 +185,14 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `devices` | — | Lista tipos de áudio, dispositivo atual e entradas MIDI |
 | `audioStart` | `inputs`, `outputs`, `type`, `input`, `output`, `sampleRate`, `bufferSize`, `midi` | Abre o áudio e liga as entradas MIDI |
 | `audioStop` | — | Fecha o áudio |
-| `mix` | — | Lê volume, pan, mute, solo, sends, saída e medidores dos strips e dos barramentos |
+| `mix` | — | Lê volume, pan, mute, solo, sends, saída e medidores dos strips, dos barramentos e do bus do patch (`patch`) |
 | `setLayerMix` | `layerId`, `volumeDb?`, `pan?`, `muted?`, `solo?` | Altera o strip de um instrumento |
-| `setMasterMix` | `volumeDb?`, `muted?` | Altera o strip Master |
-| `buses` | — | Estado dos 4 Aux e dos 4 Output (volume, pan, mute, pico, saída dos Aux) |
-| `setBusMix` | `bus` (`aux1`..`aux4`/`output1`..`output4`), `volumeDb?`, `pan?`, `muted?`, `output?` | Altera um barramento (só os Aux usam `output`) |
+| `setMasterMix` | `volumeDb?`, `muted?` | Altera o strip Master (saída final) |
+| `buses` | — | Estado dos 4 Aux, dos 4 Output e do bus do patch (volume, pan, mute, pico, saída dos Aux) |
+| `setBusMix` | `bus` (`aux1`..`aux4`/`output1`..`output4`/`patch`), `volumeDb?`, `pan?`, `muted?`, `output?` | Altera um barramento (só os Aux usam `output`) |
 | `setSend` | `layerId`, `aux` (1..4), `levelDb` | Nível do send post-fader para um Aux; -60 dB desliga |
+| `setPatchSend` | `aux` (1..4), `levelDb` | Nível do send do bus do patch (Master do Patch) para um Aux; -60 dB desliga |
+| `setLayerPatchSend` | `layerId`, `levelDb` | Nível do send do layer para o bus do patch; 0 dB é o padrão |
 | `setLayerOutput` | `layerId`, `output` (1..4) | Saída do channel strip do layer |
 | `midiEnable` | `identifier?`, `enabled?` | Liga/desliga uma entrada MIDI (ou todas) |
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |

@@ -72,6 +72,10 @@ describe('default concert construction', () => {
     expect(file.layout.tempo).toBe(100);
     expect(file.layout.elements.map((element) => element.type)).toEqual([
       'keyboard',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'pedal',
       'pedal',
       'pedal',

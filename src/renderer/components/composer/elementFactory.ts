@@ -1,4 +1,5 @@
 import type { ElementType, MidiBinding, Preset, UiElement } from '@shared/types';
+import { SEND_OFF_DB } from '@shared/types';
 
 export const snap8 = (value: number): number => Math.round(value / 8) * 8;
 
@@ -30,6 +31,10 @@ export interface PaletteItem {
   isMomentary?: boolean;
   pedalKind?: UiElement['pedalKind'];
   value?: number;
+  minValue?: number;
+  maxValue?: number;
+  /** Knob de send do bus do patch (Fase 7). */
+  patchSendAux?: number;
   color?: string;
 }
 
@@ -106,6 +111,18 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   },
   { key: 'playback', type: 'playback', label: 'Playback', hint: 'Player opcional do Layout', category: 'concert' },
   { key: 'audio-input', type: 'audio-input', label: 'Audio Input', hint: 'Guitarra/microfone opcional', category: 'concert' },
+  ...[1, 2, 3, 4].map((aux) => ({
+    key: `patch-send-${aux}`,
+    type: 'knob' as const,
+    label: `Aux ${aux}`,
+    hint: `Send do Master do Patch para o Aux ${aux}`,
+    category: 'concert' as const,
+    patchSendAux: aux,
+    minValue: SEND_OFF_DB,
+    maxValue: 6,
+    value: SEND_OFF_DB,
+    color: '#FF9F0A',
+  })),
 ];
 
 export function findPaletteItem(key: string | null): PaletteItem | null {
@@ -149,13 +166,14 @@ export function makeElement(
     width: size.width,
     height: size.height,
     color: palette?.color ?? (type === 'pedal' ? '#0A84FF' : type === 'drawbar' ? '#C6A15B' : type === 'audio-input' ? '#FF9F0A' : '#9A9AA0'),
-    minValue: 0,
-    maxValue: isDrawbar ? 8 : 1,
+    minValue: palette?.minValue ?? 0,
+    maxValue: palette?.maxValue ?? (isDrawbar ? 8 : 1),
     orientation: orientation ?? (type === 'slider' ? 'horizontal' : 'vertical'),
     isMomentary: palette?.isMomentary ?? (type === 'button' || type === 'pedal' || type === 'pad'),
     value: palette?.value ?? (isDrawbar ? 0 : 0.5),
     ...(palette?.midiCommand ? { midiCommand: palette.midiCommand } : {}),
     ...(palette?.pedalKind ? { pedalKind: palette.pedalKind } : {}),
+    ...(palette?.patchSendAux !== undefined ? { patchSendAux: palette.patchSendAux } : {}),
   };
 }
 

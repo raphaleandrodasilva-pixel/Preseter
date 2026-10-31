@@ -26,6 +26,10 @@ describe('concert templates', () => {
     expect(file.patches).toEqual([]);
     expect(file.layout.elements.map((element) => element.type)).toEqual([
       'keyboard',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'pedal',
       'pedal',
       'pedal',

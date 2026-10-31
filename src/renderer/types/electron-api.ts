@@ -92,6 +92,8 @@ export interface ElectronAPI {
   vstBuses: () => Promise<EngineBusState[]>;
   vstSetBusMix: (bus: string, update: BusMixUpdate) => Promise<EngineBusState[]>;
   vstSetSend: (layerId: string, aux: number, levelDb: number) => Promise<EngineMixState>;
+  vstSetPatchSend: (aux: number, levelDb: number) => Promise<EngineMixState>;
+  vstSetLayerPatchSend: (layerId: string, levelDb: number) => Promise<EngineMixState>;
   vstSetLayerOutput: (layerId: string, output: number) => Promise<EngineMixState>;
   audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
   preferencesGet: () => Promise<AppPreferences>;

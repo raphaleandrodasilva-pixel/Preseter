@@ -596,6 +596,12 @@ class MainWindow {
     ipcMain.handle('vst-set-send', (_event, layerId: string, aux: number, levelDb: number) => {
       return this.vstManager.setSend(layerId, aux, levelDb);
     });
+    ipcMain.handle('vst-set-patch-send', (_event, aux: number, levelDb: number) => {
+      return this.vstManager.setPatchSend(aux, levelDb);
+    });
+    ipcMain.handle('vst-set-layer-patch-send', (_event, layerId: string, levelDb: number) => {
+      return this.vstManager.setLayerPatchSend(layerId, levelDb);
+    });
     ipcMain.handle('vst-set-layer-output', (_event, layerId: string, output: number) => {
       return this.vstManager.setLayerOutput(layerId, output);
     });
@@ -1021,8 +1027,9 @@ class MainWindow {
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
       try {
-        // Todos os layers vão para o Master do Patch (Output 1 internamente).
+        // Todos os layers vão para o Master do Patch (bus interno do patch).
         await this.vstManager.setLayerOutput(layerId, 1);
+        await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
         // Aux desativado: nenhum layer manda send.
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
@@ -1062,8 +1069,8 @@ class MainWindow {
       }
     }
 
-    // O Output 1 é o Master do Patch: sobrepõe o barramento do concert com a
-    // cadeia e o mix salvos neste patch (Fase 7).
+    // O bus do patch é o Master do Patch: sobrepõe o barramento do concert com
+    // a cadeia e o mix salvos neste patch (Fase 7).
     await this.applyPatchMaster(preset);
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
@@ -1120,16 +1127,17 @@ class MainWindow {
       pan: output1?.pan ?? 0,
       muted: output1?.muted ?? false,
       inserts: output1?.inserts ?? [],
+      sends: Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
     };
   }
 
-  /** Aplica no motor o Master do Patch, sempre no barramento Output 1. */
+  /** Aplica no motor o Master do Patch, sempre no bus próprio do patch. */
   private async applyPatchMaster(preset: Preset): Promise<void> {
     const master = this.patchMaster(preset);
     const inserts = [...(master.inserts ?? [])].sort((a, b) => a.slot - b.slot);
-    await this.alignInserts('output1', inserts);
+    await this.alignInserts('patch', inserts);
     try {
-      await this.vstManager.setBusMix('output1', {
+      await this.vstManager.setBusMix('patch', {
         volumeDb: master.volumeDb,
         pan: master.pan,
         muted: master.muted,
@@ -1138,11 +1146,20 @@ class MainWindow {
     } catch (error) {
       console.warn('[Preseter] Não foi possível ajustar o Master do Patch:', error);
     }
+    for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+      try {
+        await this.vstManager.setPatchSend(aux, master.sends?.[aux - 1] ?? SEND_OFF_DB);
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível ajustar o send do Master do Patch para o Aux ${aux}:`, error);
+      }
+    }
     for (const insert of inserts) {
-      const saved = preset.vstStates[`insert_output1_${insert.slot}`];
+      // Patches antigos guardavam o estado do Master como `insert_output1_*`.
+      const saved = preset.vstStates[`insert_patch_${insert.slot}`]
+        ?? preset.vstStates[`insert_output1_${insert.slot}`];
       if (typeof saved?.data !== 'string') continue;
       try {
-        await this.vstManager.setInsertState('output1', insert.slot, saved.data);
+        await this.vstManager.setInsertState('patch', insert.slot, saved.data);
       } catch (error) {
         console.warn(`[Preseter] Não foi possível restaurar o efeito do Master do Patch:`, error);
       }
@@ -1277,6 +1294,7 @@ class MainWindow {
         await this.vstManager.setLayerVelocityRange(strip.id, strip.velocityMin, strip.velocityMax);
         // Strips herdados também entram no Master do Patch.
         await this.vstManager.setLayerOutput(strip.id, 1);
+        await this.vstManager.setLayerPatchSend(strip.id, 0);
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(strip.id, aux, SEND_OFF_DB);
         }
