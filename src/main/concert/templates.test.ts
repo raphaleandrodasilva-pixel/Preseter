@@ -89,13 +89,16 @@ describe('concert templates', () => {
     expect(file.patches.every((patch) => patch.plugins?.length === 0)).toBe(true);
     expect(file.patches.every((patch) => patch.notes)).toBe(true);
     expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
-    expect(file.patches[0].notes).toContain('Salamander Grand Piano');
+    expect(file.layout.elements.filter((element) => element.patchSendAux !== undefined).map((element) => element.patchSendAux))
+      .toEqual([1, 2, 3, 4]);
+    expect(file.patches[0].notes).toContain('MuseScore_General');
     expect(file.patches[33].name).toBe('Split Baixo + Piano');
     expect(file.patches[33].notes).toContain('(0–59)');
     expect(file.patches[33].notes).toContain('(60–127)');
   });
 
-  it('falls back to the empty template for unknown ids', () => {    const file = buildTemplateConcert('unknown');
+  it('falls back to the empty template for unknown ids', () => {
+    const file = buildTemplateConcert('unknown');
     expect(file.concert.name).toBe('Meu Concert');
     expect(file.sets).toEqual([]);
     expect(file.patches).toEqual([]);

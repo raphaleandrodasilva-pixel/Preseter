@@ -37,6 +37,7 @@ const { createDefaultConcertSettings, createEmptyLayout, parseConcertFile, seria
 );
 const { migrateConcertLayout } = require(path.join(__dirname, '..', 'dist', 'shared', 'concert-layout.js'));
 const { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION } = require(path.join(__dirname, '..', 'dist', 'shared', 'constants.js'));
+const { SEND_OFF_DB } = require(path.join(__dirname, '..', 'dist', 'shared', 'types.js'));
 
 // ---------------------------------------------------------------- instrumentos
 // Cada sigla tem expressões para achar o plugin pelo nome na lista do motor.
@@ -177,19 +178,26 @@ function el(spec) {
     label: spec.label,
     x: spec.x, y: spec.y, width: spec.width, height: spec.height,
     color: '#9A9AA0',
-    minValue: 0,
-    maxValue: 1,
+    minValue: spec.minValue ?? 0,
+    maxValue: spec.maxValue ?? 1,
     orientation: 'vertical',
     isMomentary: false,
-    value: spec.type === 'keyboard' ? undefined : 0.5,
+    value: spec.type === 'keyboard' ? undefined : (spec.value ?? 0.5),
     ...(spec.color ? { color: spec.color } : {}),
     ...(spec.cc ? { midiCommand: { type: 'cc', channel: 0, controllerNumber: spec.cc } } : {}),
+    ...(spec.patchSendAux !== undefined ? { patchSendAux: spec.patchSendAux } : {}),
   };
 }
 
 function keyboardRig(notes) {
   return [
     el({ type: 'keyboard', label: 'Teclado', x: 24, y: 148, width: 720, height: 220, color: '#0A84FF' }),
+    ...[1, 2, 3, 4].map((aux) => el({
+      type: 'knob', label: `Aux ${aux}`,
+      x: 752 + ((aux - 1) % 2) * 104, y: 16 + Math.floor((aux - 1) / 2) * 116,
+      width: 96, height: 108, color: '#FF9F0A',
+      minValue: SEND_OFF_DB, maxValue: 6, value: SEND_OFF_DB, patchSendAux: aux,
+    })),
     el({ type: 'fader', label: 'Volume', x: 24, y: 24, width: 66, height: 112, cc: 7 }),
     el({ type: 'knob', label: 'Modulação', x: 104, y: 24, width: 96, height: 112, cc: 1 }),
     el({ type: 'midi-activity', label: 'MIDI', x: 216, y: 24, width: 128, height: 48 }),

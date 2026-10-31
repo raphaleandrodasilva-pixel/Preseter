@@ -3,7 +3,7 @@
  * novo; cada template monta sets e patches prontos para receber instrumentos.
  */
 
-import { ConcertTemplateSummary, Preset, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import { ConcertTemplateSummary, Preset, PresetSet, PreseterConcertFile, SEND_OFF_DB, UiElement } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
@@ -69,6 +69,9 @@ function element(spec: {
   isMomentary?: boolean;
   pedalKind?: UiElement['pedalKind'];
   value?: number;
+  minValue?: number;
+  maxValue?: number;
+  patchSendAux?: number;
 }): UiElement {
   return {
     id: nextId('element'),
@@ -79,13 +82,14 @@ function element(spec: {
     width: spec.width,
     height: spec.height,
     color: spec.color ?? '#9A9AA0',
-    minValue: 0,
-    maxValue: 1,
+    minValue: spec.minValue ?? 0,
+    maxValue: spec.maxValue ?? 1,
     orientation: spec.orientation ?? 'vertical',
     isMomentary: spec.isMomentary ?? (spec.type === 'button' || spec.type === 'pedal' || spec.type === 'pad'),
     value: spec.type === 'keyboard' ? undefined : (spec.value ?? 0.5),
     ...(spec.midiCommand ? { midiCommand: spec.midiCommand } : {}),
     ...(spec.pedalKind ? { pedalKind: spec.pedalKind } : {}),
+    ...(spec.patchSendAux !== undefined ? { patchSendAux: spec.patchSendAux } : {}),
   };
 }
 
@@ -93,10 +97,25 @@ function cc(controllerNumber: number): UiElement['midiCommand'] {
   return { type: 'cc', channel: 0, controllerNumber };
 }
 
-/** Rig padrão de um patch de teclado: teclado central, sustain, expression, volume, modulação e atividade MIDI. */
+/** Rig padrão de um patch de teclado: teclado central, sustain, expression, volume, modulação, atividade MIDI e os 4 sends do Master do Patch. */
 function keyboardRig(notes: string): UiElement[] {
   return [
     element({ type: 'keyboard', label: 'Teclado', x: 200, y: 300, width: 520, height: 200, color: '#0A84FF' }),
+    ...[1, 2, 3, 4].map((aux) =>
+      element({
+        type: 'knob',
+        label: `Aux ${aux}`,
+        x: 736 + ((aux - 1) % 2) * 104,
+        y: 64 + Math.floor((aux - 1) / 2) * 116,
+        width: 96,
+        height: 108,
+        color: '#FF9F0A',
+        minValue: SEND_OFF_DB,
+        maxValue: 6,
+        value: SEND_OFF_DB,
+        patchSendAux: aux,
+      })
+    ),
     element({
       type: 'pedal', label: 'Sustain', x: 100, y: 400, width: 72, height: 100,
       color: '#30D158', midiCommand: cc(64), isMomentary: true, pedalKind: 'sustain', value: 0,
@@ -184,7 +203,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
     ],
     patches: [
       // 1. Pianos
-      { name: 'Piano de Cauda', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Salamander Grand Piano', { programIndex: 0 })] },
+      { name: 'Piano de Cauda', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano de cauda (MuseScore_General)', { programIndex: 0 })] },
       { name: 'Piano de Cauda Brilhante', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano brilhante', { programIndex: 0 })] },
       { name: 'Piano Suave', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano suave', { programIndex: 0 })] },
       { name: 'Piano Vertical', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano vertical', { programIndex: 1 })] },
