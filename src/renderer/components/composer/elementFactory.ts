@@ -33,7 +33,7 @@ export interface PaletteItem {
   value?: number;
   minValue?: number;
   maxValue?: number;
-  /** Knob de send do bus do patch (Fase 7). */
+  /** Knob de send do bus do patch (Master do Patch como bus). */
   patchSendAux?: number;
   color?: string;
 }

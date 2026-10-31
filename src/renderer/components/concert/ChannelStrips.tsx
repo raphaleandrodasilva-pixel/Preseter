@@ -64,7 +64,7 @@ interface ChannelStripsProps {
   onOpenInsertEditor: (layerId: string, slot: number) => void;
   /** Sends e saída dos channel strips (Fase 3.2). */
   onSetSend: (layerId: string, aux: number, levelDb: number) => void;
-  /** Nível do send do layer para o bus do patch (Fase 7). */
+  /** Nível do send do layer para o bus do patch (Master do Patch como bus). */
   onSetLayerPatchSend: (layerId: string, levelDb: number) => void;
   onSetLayerOutput: (layerId: string, output: number) => void;
   /** Master do patch (Fase 3.2). */

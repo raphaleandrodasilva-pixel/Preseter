@@ -180,9 +180,9 @@ export interface AppContextType {
   setVstBusMix: (bus: string, update: BusMixUpdate) => Promise<boolean>;
   /** Nível (dB) do send de um layer para um Aux (Fase 3.2). */
   setVstSend: (layerId: string, aux: number, levelDb: number) => Promise<boolean>;
-  /** Nível (dB) do send do bus do patch para um Aux (Fase 7). */
+  /** Nível (dB) do send do bus do patch para um Aux (Master do Patch como bus). */
   setVstPatchSend: (aux: number, levelDb: number) => Promise<boolean>;
-  /** Nível (dB) do send do layer para o bus do patch (Fase 7). */
+  /** Nível (dB) do send do layer para o bus do patch (Master do Patch como bus). */
   setVstLayerPatchSend: (layerId: string, levelDb: number) => Promise<boolean>;
   /** Saída (Output 1..4) do channel strip de um layer (Fase 3.2). */
   setVstLayerOutput: (layerId: string, output: number) => Promise<boolean>;

@@ -491,7 +491,7 @@ export interface BusMixState {
 
 /**
  * Estado do bus do patch (Master do Patch) e dos seus sends para os Aux
- * (Fase 7). Todos os layers do patch passam por este barramento antes da
+ * (Master do Patch como bus). Todos os layers do patch passam por este barramento antes da
  * Output 1.
  */
 export interface PatchBusMixState extends BusMixState {
@@ -503,7 +503,7 @@ export interface EngineMixState {
   layers: LayerMixState[];
   aux: BusMixState[];
   outputs: BusMixState[];
-  /** Bus interno do Master do Patch (Fase 7). */
+  /** Bus interno do Master do Patch (Master do Patch como bus). */
   patch: PatchBusMixState;
   master: MasterMixSettings & { peakDb: number };
 }
@@ -719,7 +719,7 @@ export interface UiElement {
   keyboardChannel?: number;
   /** Tipo de pedal contínuo/momentâneo (Sustain, Expression, Volume). */
   pedalKind?: 'sustain' | 'expression' | 'volume';
-  /** Knob de send do bus do patch: 1 a `MAX_AUX_BUSES` (Fase 7). */
+  /** Knob de send do bus do patch: 1 a `MAX_AUX_BUSES` (Master do Patch como bus). */
   patchSendAux?: number;
 }
 

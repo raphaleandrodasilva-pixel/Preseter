@@ -52,8 +52,8 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Fase 2 — Concert como arquivo
 
 - [x] **2.1 Formato `.preseter`** (JSON) com: concert (nome, tempo, compasso, configurações), sets, patches, layout, mappings. Versão do formato no arquivo.
-- [x] **2.2 Arquivo > Novo / Abrir / Salvar / Salvar como / Abrir recente.** Atalhos `Cmd/Ctrl+N`, `O`, `S`. Perguntar se quer salvar ao fechar com alterações. Ao reabrir, selecionar o último patch usado.
-- [x] **2.3 Escolher template ao criar** (Teclado, Worship, Vazio). Mínimo: 3 templates.
+- [x] **2.2 Arquivo > Novo / Abrir / Salvar / Salvar como / Abrir recente.** Atalhos `Cmd/Ctrl+N`, `O`, `S`. Perguntar se quer salvar ao fechar com alterações. Ao abrir o app, **não** restaurar automaticamente o último concert nem o último patch: o usuário escolhe o que abrir (a lista de recentes continua).
+- [x] **2.3 Escolher template ao criar** (Vazio, Teclado, Worship e Full Set com 8 sets/40 patches, descritos em `docs/PATCHES.md`).
 - [ ] **2.4 Concert Settings** (inspector ao selecionar o concert na Patch List), abas **MIDI, Timing, Tuning, Channel Strips, Metronome, Notes** — **Parcial:** CC7/CC10, transpose, origem do Program Change, pan law e metrônomo já funcionam. Faltam a semântica de “MIDI não atribuído” e “Program Change não usado” nos channel strips.
   - MIDI: CC7 controla volume e CC10 controla pan; "enviar MIDI não atribuído a todos os channel strips"; Transpose do concert; origem do Program Change (dispositivo e canal); "enviar Program Change não usado aos channel strips".
   - Timing: tempo, compasso. Channel Strips: pan law (0, −3, −3 comp., −4,5, −4,5 comp., −6, −6 comp. dB).
@@ -62,7 +62,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Fase 3 — Channel strips completas
 
 - [x] **3.1 Inserts (efeitos).** Slots de insert por channel strip carregando VST3 de efeito; remover a rejeição de `role: 'effect'` em `loadPreset` e `Engine.cpp`.
-- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert.
+- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert. O **Master do Patch virou um bus próprio** (`patch`), com 4 inserts e 4 sends para os Aux 1–4; todos os layers passam por ele antes da Output 1. Cada layer tem um send para o bus do patch (0 dB por padrão) e os 4 knobs de send ficam na área gráfica, acima do teclado.
 - [x] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
 - [x] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
 - [x] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).
@@ -83,7 +83,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
 - [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
 - [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
-- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ, MDA, ZynAddSubFX, Helm, Surge, setBfree).
+- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SF2 via juicysfplugin, SFZ via sfizz, MDA, ZynAddSubFX, Helm, Surge, setBfree). **Decisão:** o player SF2 da coleção é o **juicysfplugin** (GPLv3), no lugar do SF2 Player (Bertom) e do sforzando; `sfizz` + Salamander (CC BY 3.0) ficam como alternativa para piano. O juicysfplugin roda como VST3 separado (sem linkagem com o Preseter) e deve ser creditado.
 - [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
 
 ## Fase 6 — Perform e extras
@@ -92,7 +92,22 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **6.2** Relógio do host: tempo e compasso enviados aos plugins (`AudioPlayHead`), metrônomo com click, Tap Tempo (`Ctrl+T`), tempo por patch.
 - [x] **6.3** Afinador (`Cmd/Ctrl+T` mostra/oculta, conforme o manual — no Windows use `Ctrl+Shift+T` por causa do Tap Tempo).
 - [x] **6.4** Gravação da saída do concert (`Ctrl+R`) e plugin Playback.
-- [x] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário).
+- [x] **6.5** Janela Settings (`Cmd/Ctrl+,`): General, Audio, MIDI, View. Monitor de mensagens MIDI (`Shift+Cmd/Ctrl+M` não conflita: use outro atalho se necessário). Lista de plugins sem duplicatas, botão **"Reescanear do zero"** e controle para ocultar/mostrar plugins indesejados (a ocultação fica salva nas preferências).
+
+## Licenças
+
+- **Preseter**: AGPL-3.0-or-later (`package.json` e `LICENSE`).
+- **JUCE** (motor): AGPLv3 ou licença comercial da Raw Material Software (`engine/README.md`).
+- **juicysfplugin** (player SF2 da coleção): **GPLv3**. Roda como plugin VST3
+  separado, sem linkagem com o Preseter, mas deve ser creditado na documentação
+  e no instalador.
+- **sfizz**: BSD-2. **Salamander Grand Piano V3**: CC BY 3.0 (exige atribuição).
+  **MuseScore_General**: MIT. **Sonatina Symphonic Orchestra**: CC Sampling Plus 1.0.
+- **sforzando** (Plogue) e **SF2 Player** (Bertom) saíram da coleção padrão: as
+  licenças de redistribuição não estavam claras.
+- Plugins GPLv3 usados só como VST3 externos (Surge XT, Dexed, Odin, Helm,
+  juicysfplugin, setBfree) permanecem projetos separados; o Preseter apenas os
+  carrega em tempo de execução.
 
 ## Como saber se terminou uma tarefa
 

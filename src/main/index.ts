@@ -1070,7 +1070,7 @@ class MainWindow {
     }
 
     // O bus do patch é o Master do Patch: sobrepõe o barramento do concert com
-    // a cadeia e o mix salvos neste patch (Fase 7).
+    // a cadeia e o mix salvos neste patch (Master do Patch como bus).
     await this.applyPatchMaster(preset);
 
     // Restaurar também estados de plugins carregados fora da lista de assignments.
