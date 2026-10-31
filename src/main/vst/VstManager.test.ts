@@ -136,6 +136,28 @@ describe('VstManager scanning', () => {
     expect(scanned).toHaveBeenCalledWith(plugins);
   });
 
+  it('deduplicates plugins returned by the engine', async () => {
+    const { engine } = makeEngine((command) =>
+      command === 'scan'
+        ? {
+            count: 3,
+            plugins: [
+              scannedPlugin(),
+              scannedPlugin({ name: 'Scanned (cópia)' }),
+              scannedPlugin({ id: 'scan-plugin-2', name: 'Outro', path: 'C:/plugins/outro.vst3' }),
+            ],
+            failed: [],
+            blacklisted: [],
+          }
+        : undefined
+    );
+    const manager = new VstManager(engine);
+
+    const plugins = await manager.scanDefaultDirectories();
+    expect(plugins).toHaveLength(2);
+    expect(plugins.map((plugin) => plugin.id)).toEqual(['scan-plugin-1', 'scan-plugin-2']);
+  });
+
   it('returns the same promise for concurrent default scans', async () => {
     let resolveScan: ((value: unknown) => void) | undefined;
     const { engine, request } = makeEngine((command) => {

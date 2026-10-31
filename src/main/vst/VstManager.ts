@@ -62,7 +62,10 @@ export class VstManager extends EventEmitter {
     if (this.scanPromise) return this.scanPromise;
     this.scanPromise = (async () => {
       const result = await this.engine.request('scan', args, 10 * 60 * 1000);
-      this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+      // O motor acumula entradas no known-plugins.xml; sem deduplicar, o mesmo
+      // plugin pode voltar mais de uma vez para a lista (e para a interface).
+      const unique = new Map(result.plugins.map((plugin) => [plugin.id || plugin.path, plugin]));
+      this.scannedPlugins = [...unique.values()].map((plugin) => this.toVstPlugin(plugin));
       this.emit('scanned', this.scannedPlugins);
       return this.scannedPlugins;
     })().finally(() => {
