@@ -26,6 +26,7 @@ import {
   ConcertTemplateSummary,
   MenuAction,
   MAX_AUX_BUSES,
+  PatchMasterSettings,
   SEND_OFF_DB,
 } from '@shared/types';
 import type { ElectronAPI } from '../types/electron-api';
@@ -117,6 +118,8 @@ export interface AppContextType {
   // Ações de Preset
   savePreset: (preset: Preset) => Promise<boolean>;
   loadPreset: (presetId: string) => Promise<boolean>;
+  /** Atualiza o Master do Patch de um patch e mantém o patch atual em sincronia. */
+  updatePatchMaster: (presetId: string, master: PatchMasterSettings) => void;
   deletePreset: (presetId: string) => Promise<boolean>;
   createPreset: (name: string, programNumber?: number) => Preset;
   exportPatch: (presetId: string) => Promise<boolean>;
@@ -577,6 +580,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return result;
   }, [presets, materializePatchLayout]);
+
+  /** Atualiza o Master do Patch de um patch (mix, inserts e sends) sem salvar o arquivo. */
+  const updatePatchMaster = useCallback((presetId: string, master: PatchMasterSettings) => {
+    const updatedAt = Date.now();
+    setPresets((previous) => previous.map((preset) =>
+      preset.id === presetId ? { ...preset, master, updatedAt } : preset
+    ));
+    setCurrentPreset((previous) => (
+      previous && previous.id === presetId ? { ...previous, master, updatedAt } : previous
+    ));
+  }, []);
 
   const deletePreset = useCallback(async (presetId: string): Promise<boolean> => {
     const result = await window.electronAPI.presetDelete(presetId);
@@ -1653,6 +1667,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isPanelOpen: openPanels,
     savePreset,
     loadPreset,
+    updatePatchMaster,
     deletePreset,
     createPreset,
     exportPatch,

@@ -256,7 +256,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     presets, sets, concertName, setConcertName,
     currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
-    reorderSets, togglePresetSkipped, savePreset, createPreset,
+    reorderSets, togglePresetSkipped, savePreset, createPreset, updatePatchMaster,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
@@ -928,6 +928,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
     return values;
   }, [currentPreset]);
+  const selectedElement = useMemo(
+    () => (draft ?? currentPreset)?.layout.elements.find((element) => element.id === selectedId) ?? null,
+    [draft, currentPreset, selectedId]
+  );
+  /** Aux ligado ao knob de send selecionado (abre a aba Aux do painel). */
+  const selectedSendAux = selectedElement?.patchSendAux ?? null;
 
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
@@ -1513,14 +1519,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   /** Nível do send do Master do Patch (bus do patch) para um Aux. */
   const changePatchSend = async (aux: number, levelDb: number) => {
     if (!await setVstPatchSend(aux, levelDb)) return;
-    const current = draftRef.current;
-    if (!current) return;
-    const base = current.master ?? fallbackPatchMaster();
+    const base = (draftRef.current ?? currentPreset)?.master ?? fallbackPatchMaster();
     const sends = [...(base.sends ?? Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB))];
     sends[aux - 1] = levelDb;
+    const master: PatchMasterSettings = { ...base, sends };
+    const current = draftRef.current;
+    if (!current) {
+      // Perform: grava no patch atual; o concert salva o valor junto.
+      if (currentPreset) updatePatchMaster(currentPreset.id, master);
+      return;
+    }
     const next: Preset = {
       ...current,
-      master: { ...base, sends },
+      master,
       updatedAt: Date.now(),
     };
     draftRef.current = next;
@@ -2651,6 +2662,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onDuplicateElement={duplicateElement}
             onBringFront={bringFront}
             onSendBack={sendBack}
+            patchSends={(draft ?? currentPreset)?.master?.sends ?? defaultPatchSends()}
+            onSetPatchSend={(aux, levelDb) => void changePatchSend(aux, levelDb)}
             onSelectElement={(id) => onSelectedId(id)}
             onSave={onSaveDraft}
             saving={saving}
@@ -2887,6 +2900,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               onDuplicateElement={duplicateElement}
               onBringFront={bringFront}
               onSendBack={sendBack}
+              patchSends={(draft ?? currentPreset)?.master?.sends ?? defaultPatchSends()}
+              onSetPatchSend={(aux, levelDb) => void changePatchSend(aux, levelDb)}
               onSelectElement={(id) => onSelectedId(id)}
               onSave={onSaveDraft}
               saving={saving}
@@ -2908,6 +2923,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               output: 1,
               enabled: true,
             }}
+            auxBuses={concertSettings?.buses.aux ?? []}
+            focusedSendAux={selectedSendAux}
             concertStrips={concertStrips}
             setStrips={currentSet?.strips ?? []}
             setName={currentSet?.name ?? null}

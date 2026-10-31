@@ -62,7 +62,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 ## Fase 3 — Channel strips completas
 
 - [x] **3.1 Inserts (efeitos).** Slots de insert por channel strip carregando VST3 de efeito; remover a rejeição de `role: 'effect'` em `loadPreset` e `Engine.cpp`.
-- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert. O **Master do Patch virou um bus próprio** (`patch`), com 4 inserts e 4 sends para os Aux 1–4; todos os layers passam por ele antes da Output 1. Cada layer tem um send para o bus do patch (0 dB por padrão) e os 4 knobs de send ficam na área gráfica, acima do teclado.
+- [x] **3.2 Sends e Aux/Busses** no nível do concert; strips Aux, Output e Master no concert. O **Master do Patch virou um bus próprio** (`patch`), com 4 inserts e 4 sends para os Aux 1–4; todos os layers passam por ele antes da Output 1. Cada layer tem um send para o bus do patch (0 dB por padrão). No painel Layers, a aba **Aux 1–4** mostra os 4 strips de send com 4 inserts cada; os 4 knobs da área gráfica controlam o nível do Master do Patch para cada Aux e podem ser religados no Inspector (destino Aux 1–4).
 - [x] **3.3 Channel strips no nível do set e do concert**, com key range e sobreposição (override) por set/patch.
 - [x] **3.4 Transpose** por patch, set e concert (soma dos três). Filtro MIDI por strip e gráfico de velocity.
 - [x] **3.5 Strip de entrada de áudio** (guitarra/microfone): entrada, mono/estéreo, proteção de feedback (volume inicial 0 dB e aviso).

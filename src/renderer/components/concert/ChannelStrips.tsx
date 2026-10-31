@@ -36,6 +36,10 @@ interface ChannelStripsProps {
   mixState: EngineMixState | null;
   /** Master do patch (bus interno do patch, antes da Output 1). */
   masterSettings: BusSettings;
+  /** Aux 1..4 do concert (aba Aux/FX). */
+  auxBuses?: BusSettings[];
+  /** Aux ligado ao knob de send selecionado; abre a aba Aux automaticamente. */
+  focusedSendAux?: number | null;
   /** Channel strips do concert e do set do patch atual (Fase 3.3). */
   concertStrips: ConcertStrip[];
   setStrips: ConcertStrip[];
@@ -102,6 +106,12 @@ type PickerTarget =
 
 const layerIdFor = (preset: Preset, assignment: PresetPluginAssignment, index: number) =>
   assignment.layerId ?? `${preset.id}:layer:${index}`;
+
+/** Número do Aux a partir do id do barramento (`aux2` → 2). */
+const auxNumber = (busId: string): number | null => {
+  const match = /^aux(\d+)$/.exec(busId);
+  return match ? Number(match[1]) : null;
+};
 
 const meterHeight = (peakDb: number) => Math.max(0, Math.min(100, ((peakDb + 60) / 60) * 100));
 
@@ -189,6 +199,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   loadedPlugins,
   mixState,
   masterSettings,
+  auxBuses = [],
+  focusedSendAux = null,
   concertStrips,
   setStrips,
   setName,
@@ -243,6 +255,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [view, setView] = useState<'layers' | 'aux'>('layers');
+  const [highlightedAux, setHighlightedAux] = useState<number | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [splitDraft, setSplitDraft] = useState<{
@@ -294,6 +308,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => subscribeParameterLearn(setLearningParameter), []);
+
+  // Selecionar um knob de send na área gráfica abre a aba Aux e destaca o destino.
+  useEffect(() => {
+    if (!focusedSendAux) return;
+    setView('aux');
+    setHighlightedAux(focusedSendAux);
+  }, [focusedSendAux]);
 
   useEffect(() => {
     if (selectedLayerId && !layers.some((layer) => layer.layerId === selectedLayerId)) {
@@ -558,7 +579,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   );
 
   /** Strip do Master do Patch (bus interno do patch, antes da Output 1). */
-  const renderBusStrip = (ownerId: string, label: string, kind: 'aux' | 'output' | 'master', settings: BusSettings) => {
+  const renderBusStrip = (
+    ownerId: string,
+    label: string,
+    kind: 'aux' | 'output' | 'master',
+    settings: BusSettings & { sends?: number[] },
+    highlighted = false
+  ) => {
     const live = kind === 'master'
       ? mixState?.patch
       : mixState?.aux.find((bus) => bus.bus === ownerId)
@@ -578,11 +605,14 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     return (
       <section
         key={ownerId}
+        data-testid={`bus-strip-${ownerId}`}
         className={`flex ${kind === 'master' ? 'w-[152px]' : 'w-[124px]'} shrink-0 flex-col rounded-xl p-2`}
         style={{
-          border: `1px solid ${kind === 'master' ? '#30D158' : '#3A3A3C'}`,
+          border: `1px solid ${highlighted ? '#FF9F0A' : kind === 'master' ? '#30D158' : '#3A3A3C'}`,
           background: 'linear-gradient(to bottom, #1F1F21, #26262A)',
+          ...(highlighted ? { boxShadow: '0 0 0 1px #FF9F0A' } : {}),
         }}
+        onClick={() => { if (kind === 'aux') setHighlightedAux(auxNumber(ownerId)); }}
       >
         <div className="flex items-center gap-1.5 border-b pb-1.5" style={{ borderColor: '#3A3A3C' }}>
           <span
@@ -640,6 +670,23 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             style={{ accentColor: '#0A84FF' }}
           />
         </label>
+        {kind === 'master' && (
+          <div className="mt-1 space-y-0.5 text-[8px]" style={{ color: '#9A9AA0' }}>
+            <span className="hw-label" style={{ fontSize: 8 }}>SENDS DO PATCH</span>
+            {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
+              const level = settings.sends?.[index] ?? SEND_OFF_DB;
+              const destaque = highlightedAux === index + 1;
+              return (
+                <div key={index} className="flex justify-between" style={destaque ? { color: '#FF9F0A' } : undefined}>
+                  <span>Aux {index + 1}</span>
+                  <span style={{ color: destaque ? '#FF9F0A' : '#C6C6CB' }}>
+                    {level <= SEND_OFF_DB ? '−∞' : `${level.toFixed(1)} dB`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <button
           className="hw-squarebtn mt-1 w-full px-1 py-1 text-[9px]"
           aria-pressed={mix.muted}
@@ -982,10 +1029,12 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       />
       <div className="relative flex flex-wrap items-center gap-1.5 px-3 py-2.5" style={{ borderBottom: '1px solid #3A3A3C' }}>
         <span className="hw-label mr-auto">Layers {preset ? `— ${preset.name}` : ''}</span>
-        <span className="text-[9px]" style={{ color: '#8E8E93' }}>
-          {layers.length} {layers.length === 1 ? 'instrumento' : 'instrumentos'}
-        </span>
-        {layers.length > 3 && (
+        {view === 'layers' && (
+          <span className="text-[9px]" style={{ color: '#8E8E93' }}>
+            {layers.length} {layers.length === 1 ? 'instrumento' : 'instrumentos'}
+          </span>
+        )}
+        {view === 'layers' && layers.length > 3 && (
           <span
             className="text-[9px] font-semibold"
             style={{ color: '#FFB74D' }}
@@ -995,6 +1044,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </span>
         )}
         <div className="relative">
+          {view === 'layers' && (
           <button
             type="button"
             className="rounded-lg px-2 py-1 text-[10px] font-semibold disabled:opacity-40"
@@ -1005,6 +1055,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           >
             {busy ? 'Carregando…' : '＋ Adicionar layer ▾'}
           </button>
+          )}
           {addMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
@@ -1036,6 +1087,35 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 </button>
               </div>
             </>
+          )}
+        </div>
+        <div className="flex items-center gap-1 px-3 py-1.5" style={{ borderBottom: '1px solid #3A3A3C' }}>
+          <button
+            type="button"
+            aria-pressed={view === 'layers'}
+            onClick={() => setView('layers')}
+            className="rounded px-2 py-1 text-[10px] font-semibold"
+            style={view === 'layers'
+              ? { background: '#0A84FF', color: '#FFFFFF' }
+              : { background: '#2C2C2E', color: '#C6C6CB', border: '1px solid #3A3A3C' }}
+          >
+            Layers
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'aux'}
+            onClick={() => setView('aux')}
+            className="rounded px-2 py-1 text-[10px] font-semibold"
+            style={view === 'aux'
+              ? { background: '#FF9F0A', color: '#1A1A1A' }
+              : { background: '#2C2C2E', color: '#C6C6CB', border: '1px solid #3A3A3C' }}
+          >
+            Aux 1–4
+          </button>
+          {view === 'aux' && (
+            <span className="ml-auto text-[9px]" style={{ color: '#8E8E93' }}>
+              Efeitos de send do concert
+            </span>
           )}
         </div>
         {picker && (() => {
@@ -1187,6 +1267,29 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           </div>
         )}
         <div className="flex min-h-full items-stretch gap-2">
+          {view === 'aux' ? (
+            <>
+              {renderBusStrip('patch', 'Master do Patch', 'master', masterSettings)}
+              {Array.from({ length: MAX_AUX_BUSES }, (_, index) => {
+                const bus = auxBuses[index] ?? {
+                  volumeDb: 0,
+                  pan: 0,
+                  muted: false,
+                  output: 1,
+                  inserts: [],
+                  enabled: false,
+                };
+                return renderBusStrip(
+                  `aux${index + 1}`,
+                  `Aux ${index + 1}`,
+                  'aux',
+                  bus,
+                  highlightedAux === index + 1
+                );
+              })}
+            </>
+          ) : (
+            <>
           {renderBusStrip('patch', 'Master do Patch', 'master', masterSettings)}
           {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
           {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
@@ -1344,6 +1447,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               </section>
             );
           })}
+            </>
+          )}
         </div>
       </div>
       {insertPicker && (

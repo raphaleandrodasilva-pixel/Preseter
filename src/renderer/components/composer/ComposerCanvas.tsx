@@ -85,14 +85,17 @@ function PreviewShape({
   const value = element.value ?? 0.5;
   const norm = Math.max(0, Math.min(1, (value - min) / Math.max(max - min, Number.EPSILON)));
   const isOn = value >= (min + max) / 2;
+  const sendValueText = element.patchSendAux !== undefined
+    ? (value <= min + 0.001 ? '−∞' : `${value.toFixed(1)} dB`)
+    : undefined;
 
   switch (element.type) {
     case 'knob':
-      return <KnobFace label={element.label} norm={norm} />;
+      return <KnobFace label={element.label} norm={norm} valueText={sendValueText} />;
     case 'fader':
-      return <FaderFace label={element.label} norm={norm} />;
+      return <FaderFace label={element.label} norm={norm} valueText={sendValueText} />;
     case 'slider':
-      return <SliderFace label={element.label} norm={norm} />;
+      return <SliderFace label={element.label} norm={norm} valueText={sendValueText} />;
     case 'pedal':
       return <PedalFace label={element.label} active={isOn} />;
     case 'toggle':

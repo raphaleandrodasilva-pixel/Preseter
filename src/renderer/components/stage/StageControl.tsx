@@ -131,6 +131,10 @@ export const StageControl: React.FC<StageControlProps> = ({
 
   const norm = normOf(value, min, max);
   const isOn = value >= (min + max) / 2;
+  /** Knobs de send mostram o nível em dB; o -60 dB do motor aparece como −∞. */
+  const sendValueText = element.patchSendAux !== undefined
+    ? (value <= min + 0.001 ? '−∞' : `${value.toFixed(1)} dB`)
+    : undefined;
 
   const valueOfNorm = (n: number) => min + Math.max(0, Math.min(1, n)) * (max - min);
 
@@ -211,6 +215,7 @@ export const StageControl: React.FC<StageControlProps> = ({
         <KnobFace
           label={element.label}
           norm={norm}
+          valueText={sendValueText}
           bodyProps={{
             title: `${element.label} — arrastar para girar · duplo clique volta ao inicial`,
             onPointerDown: beginKnobDrag,
@@ -225,6 +230,7 @@ export const StageControl: React.FC<StageControlProps> = ({
         <FaderFace
           label={element.label}
           norm={norm}
+          valueText={sendValueText}
           trackProps={{
             title: `${element.label} — arrastar · duplo clique volta ao inicial`,
             onPointerDown: (e) => beginTrackDrag(e, true),
@@ -239,6 +245,7 @@ export const StageControl: React.FC<StageControlProps> = ({
         <SliderFace
           label={element.label}
           norm={norm}
+          valueText={sendValueText}
           trackProps={{
             title: `${element.label} — arrastar · duplo clique volta ao inicial`,
             onPointerDown: (e) => beginTrackDrag(e, false),

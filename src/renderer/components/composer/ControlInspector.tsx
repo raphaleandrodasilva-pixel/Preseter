@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { Preset, UiElement, VstPluginInfo } from '@shared/types';
+import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import type { RawMidiEvent } from '../../services/WebMidiService';
 import { armParameterLearn } from '../../services/parameter-learn';
@@ -18,6 +19,10 @@ interface ControlInspectorProps {
   onDuplicate: (id: string) => void;
   onBringFront: (id: string) => void;
   onSendBack: (id: string) => void;
+  /** Níveis de send do Master do Patch neste patch (Aux 1..4, em dB). */
+  patchSends?: number[];
+  /** Altera o nível do send do Master do Patch para um Aux (grava no patch). */
+  onSetPatchSend?: (aux: number, levelDb: number) => void;
 }
 
 const classInput =
@@ -45,6 +50,8 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   onDuplicate,
   onBringFront,
   onSendBack,
+  patchSends,
+  onSetPatchSend,
 }) => {
   const { midiDevices, listMidiDevices, subscribeMidiLearn } = useAppContext();
   const [learning, setLearning] = useState(false);
@@ -127,6 +134,9 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     bindingType === 'pc'
       ? element.midiCommand?.programNumber ?? ''
       : element.midiCommand?.controllerNumber ?? '';
+  /** Controles contínuos podem ser ligados a um send do Master do Patch. */
+  const isSendControl = element.type === 'knob' || element.type === 'fader' || element.type === 'slider';
+  const sendLevel = patchSends?.[(element.patchSendAux ?? 1) - 1] ?? SEND_OFF_DB;
 
   const setBindingType = (next: BindingType) => {
     if (next === 'none') {
@@ -309,6 +319,54 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
             <option value="relative">Relative</option>
           </select>
         </label>
+      </section>
+      )}
+
+      {isSendControl && (
+      <section className="space-y-2">
+        <h3 className={classTitle}>Send do Master do Patch</h3>
+        <label className={classLabel}>Destino
+          <select
+            className={`${classInput} mt-1`}
+            value={element.patchSendAux ?? ''}
+            onChange={(event) => onUpdate(element.id, {
+              patchSendAux: event.target.value === '' ? undefined : Number(event.target.value),
+            })}
+          >
+            <option value="">Nenhum (não é send)</option>
+            {Array.from({ length: MAX_AUX_BUSES }, (_, index) => (
+              <option key={index + 1} value={index + 1}>Aux {index + 1}</option>
+            ))}
+          </select>
+        </label>
+        {element.patchSendAux !== undefined && (
+          <>
+            <label className={classLabel}>
+              Nível do send
+              <span className="float-right" style={{ color: '#C6C6CB' }}>
+                {sendLevel <= SEND_OFF_DB ? '−∞' : `${sendLevel.toFixed(1)} dB`}
+              </span>
+              <input
+                className="mt-1 w-full"
+                type="range"
+                min={SEND_OFF_DB}
+                max={6}
+                step={0.5}
+                value={sendLevel}
+                disabled={!onSetPatchSend}
+                onChange={(event) => onSetPatchSend?.(element.patchSendAux as number, Number(event.target.value))}
+                style={{ accentColor: '#FF9F0A' }}
+              />
+            </label>
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              Este controle envia o Master do Patch para o Aux escolhido. O efeito (reverb, delay…) fica no
+              channel strip do Aux, na aba <strong>Aux 1–4</strong> do painel Layers.
+            </p>
+            {!onSetPatchSend && (
+              <p className="text-[11px] text-slate-500">Edite um patch para alterar o nível do send.</p>
+            )}
+          </>
+        )}
       </section>
       )}
 

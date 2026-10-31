@@ -272,6 +272,23 @@ describe('AppProvider preset and concert actions', () => {
     expect(window.electronAPI.appStatusChange).toHaveBeenCalledWith({ tempo: 99 });
   });
 
+  it('updates the master sends of a patch without saving the file', async () => {
+    const preset = createPreset({
+      id: 'p1',
+      master: { volumeDb: 0, pan: 0, muted: false, inserts: [], sends: [-60, -60, -60, -60] },
+    });
+    vi.mocked(window.electronAPI.concertInit).mockResolvedValue(
+      createConcertState({ patches: [preset] })
+    );
+    await renderProvider();
+
+    act(() => {
+      latest.updatePatchMaster('p1', { ...preset.master!, sends: [-12, -60, -60, -60] });
+    });
+    await waitFor(() => expect(latest.presets[0].master?.sends?.[0]).toBe(-12));
+    expect(window.electronAPI.presetSave).not.toHaveBeenCalled();
+  });
+
   it('handles preset load failures and reports them', async () => {
     vi.mocked(window.electronAPI.presetLoad).mockRejectedValue(new Error('load failed'));
     vi.mocked(navigator.requestMIDIAccess).mockReturnValue(new Promise(() => undefined));

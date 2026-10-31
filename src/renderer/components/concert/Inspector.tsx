@@ -33,6 +33,9 @@ interface InspectorProps {
   onDuplicateElement: (id: string) => void;
   onBringFront: (id: string) => void;
   onSendBack: (id: string) => void;
+  /** Sends do Master do Patch neste patch (Aux 1..4). */
+  patchSends?: number[];
+  onSetPatchSend?: (aux: number, levelDb: number) => void;
   onSelectElement: (id: string) => void;
   onSave: () => void;
   saving: boolean;
@@ -68,6 +71,8 @@ export const Inspector: React.FC<InspectorProps> = ({
   onDuplicateElement,
   onBringFront,
   onSendBack,
+  patchSends,
+  onSetPatchSend,
   onSelectElement,
   onSave,
   saving,
@@ -245,6 +250,8 @@ export const Inspector: React.FC<InspectorProps> = ({
               onDuplicate={onDuplicateElement}
               onBringFront={onBringFront}
               onSendBack={onSendBack}
+              patchSends={patchSends}
+              onSetPatchSend={onSetPatchSend}
             />
           ) : (
             <div className="rounded-lg border border-[#303032] bg-[#141416] p-3 text-[11px] leading-relaxed text-slate-400">
@@ -364,6 +371,8 @@ export const Inspector: React.FC<InspectorProps> = ({
                 onDuplicate={onDuplicateElement}
                 onBringFront={onBringFront}
                 onSendBack={onSendBack}
+                patchSends={patchSends}
+                onSetPatchSend={onSetPatchSend}
               />
             </div>
           ) : (
@@ -555,6 +564,8 @@ export const Inspector: React.FC<InspectorProps> = ({
               onDuplicate={onDuplicateElement}
               onBringFront={onBringFront}
               onSendBack={onSendBack}
+              patchSends={patchSends}
+              onSetPatchSend={onSetPatchSend}
             />
           </div>
         )}

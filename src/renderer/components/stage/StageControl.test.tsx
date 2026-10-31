@@ -124,6 +124,7 @@ describe('StageControl value controls', () => {
     );
 
     const knob = screen.getByTitle(/arrastar para girar/);
+    expect(screen.getByText('−∞')).toBeInTheDocument();
     fireEvent.pointerDown(knob, { clientY: 100, pointerId: 1 });
     fireEvent.pointerMove(knob, { clientY: 25, pointerId: 1, buttons: 1 });
 
@@ -132,9 +133,11 @@ describe('StageControl value controls', () => {
     expect(aux).toBe(2);
     expect(levelDb).toBeGreaterThan(-60);
     expect(levelDb).toBeLessThanOrEqual(6);
+    expect(screen.getByText(`${levelDb.toFixed(1)} dB`)).toBeInTheDocument();
 
     fireEvent.doubleClick(knob);
     expect(onSetPatchSend).toHaveBeenLastCalledWith(2, -60);
+    expect(screen.getByText('−∞')).toBeInTheDocument();
   });
 });
 

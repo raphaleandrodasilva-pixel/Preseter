@@ -16,8 +16,10 @@ const TICK_COUNT = 11;
 export const KnobFace: React.FC<{
   label: string;
   norm: number;
+  /** Texto do valor (ex.: "-12,0 dB"); sem ele, mostra a porcentagem. */
+  valueText?: string;
   bodyProps?: React.HTMLAttributes<HTMLDivElement>;
-}> = ({ label, norm, bodyProps }) => (
+}> = ({ label, norm, valueText, bodyProps }) => (
   <>
     <div className="hw-knobface relative mb-1 h-14 w-14">
       {Array.from({ length: TICK_COUNT }).map((_, i) => {
@@ -70,15 +72,16 @@ export const KnobFace: React.FC<{
       </div>
     </div>
     <span className="hw-label">{label}</span>
-    <span className="hw-badge mt-1">{pct(norm)}</span>
+    <span className="hw-badge mt-1">{valueText ?? pct(norm)}</span>
   </>
 );
 
 export const FaderFace: React.FC<{
   label: string;
   norm: number;
+  valueText?: string;
   trackProps?: React.HTMLAttributes<HTMLDivElement>;
-}> = ({ label, norm, trackProps }) => {
+}> = ({ label, norm, valueText, trackProps }) => {
   const n = Math.max(0, Math.min(1, norm));
   return (
     <>
@@ -102,7 +105,7 @@ export const FaderFace: React.FC<{
         />
       </div>
       <span className="hw-label">{label}</span>
-      <span className="hw-badge mt-1">{pct(n)}</span>
+      <span className="hw-badge mt-1">{valueText ?? pct(n)}</span>
     </>
   );
 };
@@ -110,8 +113,9 @@ export const FaderFace: React.FC<{
 export const SliderFace: React.FC<{
   label: string;
   norm: number;
+  valueText?: string;
   trackProps?: React.HTMLAttributes<HTMLDivElement>;
-}> = ({ label, norm, trackProps }) => {
+}> = ({ label, norm, valueText, trackProps }) => {
   const n = Math.max(0, Math.min(1, norm));
   return (
     <>
@@ -135,7 +139,7 @@ export const SliderFace: React.FC<{
         />
       </div>
       <span className="hw-label">{label}</span>
-      <span className="hw-badge mt-1">{pct(n)}</span>
+      <span className="hw-badge mt-1">{valueText ?? pct(n)}</span>
     </>
   );
 };

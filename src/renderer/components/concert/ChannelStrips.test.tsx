@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { PresetPluginAssignment } from '@shared/types';
 import { ChannelStrips } from './ChannelStrips';
@@ -81,5 +81,32 @@ describe('ChannelStrips — send do layer para o bus do patch', () => {
     const volume = screen.getByLabelText('Volume de Master do Patch') as HTMLInputElement;
     fireEvent.change(volume, { target: { value: '-3' } });
     expect(props.onSetBusMix).toHaveBeenCalledWith('patch', { volumeDb: -3 });
+  });
+});
+
+describe('ChannelStrips — aba Aux', () => {
+  const auxBuses = Array.from({ length: 4 }, () => createBus());
+
+  it('lists Aux 1–4 and opens the effect picker in an Aux slot', () => {
+    renderStrips({
+      auxBuses,
+      scannedPlugins: [
+        createPluginInfo({ id: 'reverb', name: 'Reverb', path: 'C:/plugins/reverb.vst3', isInstrument: false }),
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aux 1–4' }));
+    expect(screen.getByTestId('bus-strip-aux1')).toBeInTheDocument();
+    expect(screen.getByTestId('bus-strip-aux4')).toBeInTheDocument();
+
+    const aux1 = screen.getByTestId('bus-strip-aux1');
+    fireEvent.click(within(aux1).getAllByText('＋ vazio')[0]);
+    expect(screen.getByText('Reverb')).toBeInTheDocument();
+  });
+
+  it('opens the Aux tab when a send knob is selected', () => {
+    renderStrips({ auxBuses, focusedSendAux: 2 });
+    expect(screen.getByRole('button', { name: 'Aux 1–4' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('bus-strip-aux2')).toBeInTheDocument();
   });
 });
