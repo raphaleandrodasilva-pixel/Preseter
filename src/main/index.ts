@@ -1055,8 +1055,10 @@ class MainWindow {
     }
 
     // Barramentos Aux/Output do concert: alinha o motor com o concert e restaura
-    // o estado dos efeitos guardado neste patch (Fase 3.2).
-    await this.applyConcertBuses();
+    // o estado dos efeitos guardado neste patch (Fase 3.2). Em patches antigos,
+    // o Output 1 era o Master do Patch: os inserts dele migram para o bus do
+    // patch e o Output 1 fica em unidade para não processar o efeito duas vezes.
+    await this.applyConcertBuses(preset.master === undefined ? ['output1'] : []);
     for (const { id, bus } of this.concertBusList()) {
       for (const insert of bus.inserts ?? []) {
         const saved = preset.vstStates[`insert_${id}_${insert.slot}`];
@@ -1209,16 +1211,19 @@ class MainWindow {
   }
 
   /** Alinha os barramentos Aux/Output do concert com o motor (Fase 3.2). */
-  private async applyConcertBuses(): Promise<void> {
+  private async applyConcertBuses(legacyMasterOutputs: string[] = []): Promise<void> {
     for (const { id, bus } of this.concertBusList()) {
-      await this.alignInserts(id, bus.inserts);
+      const isLegacyMaster = legacyMasterOutputs.includes(id);
+      await this.alignInserts(id, isLegacyMaster ? [] : bus.inserts);
       try {
-        await this.vstManager.setBusMix(id, {
-          volumeDb: bus.volumeDb,
-          pan: bus.pan,
-          muted: bus.muted,
-          output: this.clampOutput(bus.output),
-        });
+        await this.vstManager.setBusMix(id, isLegacyMaster
+          ? { volumeDb: 0, pan: 0, muted: false, output: 1 }
+          : {
+              volumeDb: bus.volumeDb,
+              pan: bus.pan,
+              muted: bus.muted,
+              output: this.clampOutput(bus.output),
+            });
       } catch (error) {
         console.warn(`[Preseter] Não foi possível ajustar o barramento ${id}:`, error);
       }
