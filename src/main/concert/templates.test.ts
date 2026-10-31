@@ -5,15 +5,15 @@ import { buildTemplateConcert, CONCERT_TEMPLATES, listTemplates } from './templa
 describe('concert templates', () => {
   it('lists template summaries without implementation fields', () => {
     const templates = listTemplates();
-    expect(templates).toHaveLength(3);
-    expect(templates.map((template) => template.id)).toEqual(['vazio', 'teclado', 'worship']);
+    expect(templates).toHaveLength(4);
+    expect(templates.map((template) => template.id)).toEqual(['vazio', 'teclado', 'worship', 'fullset']);
     expect(templates[0]).toMatchObject({
       id: 'vazio',
       name: 'Vazio',
       description: expect.any(String),
     });
     expect(templates[0]).not.toHaveProperty('sets');
-    expect(CONCERT_TEMPLATES).toHaveLength(3);
+    expect(CONCERT_TEMPLATES).toHaveLength(4);
   });
 
   it('builds an empty concert with the default keyboard layout', () => {
@@ -65,8 +65,33 @@ describe('concert templates', () => {
     expect(file.patches[0].notes).toBe('Pad de fundo');
   });
 
-  it('falls back to the empty template for unknown ids', () => {
-    const file = buildTemplateConcert('unknown');
+  it('builds the full set template with 8 sets and 40 patches', () => {
+    const file = buildTemplateConcert('fullset');
+    expect(file.concert.name).toBe('Full Set — 40 Patches');
+    expect(file.sets.map((set) => set.name)).toEqual([
+      'Pianos',
+      'Teclas elétricas',
+      'Órgãos',
+      'Cordas e orquestra',
+      'Pads',
+      'Leads e sintetizadores',
+      'Baixos',
+      'Layers e splits',
+    ]);
+    expect(file.patches).toHaveLength(40);
+    expect(file.patches.map((patch) => patch.programNumber)).toEqual(
+      Array.from({ length: 40 }, (_, index) => index)
+    );
+    expect(file.patches.every((patch) => patch.plugins?.length === 0)).toBe(true);
+    expect(file.patches.every((patch) => patch.notes)).toBe(true);
+    expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
+    expect(file.patches[0].notes).toContain('Salamander Grand Piano');
+    expect(file.patches[33].name).toBe('Split Baixo + Piano');
+    expect(file.patches[33].notes).toContain('(0–59)');
+    expect(file.patches[33].notes).toContain('(60–127)');
+  });
+
+  it('falls back to the empty template for unknown ids', () => {    const file = buildTemplateConcert('unknown');
     expect(file.concert.name).toBe('Meu Concert');
     expect(file.sets).toEqual([]);
     expect(file.patches).toEqual([]);
