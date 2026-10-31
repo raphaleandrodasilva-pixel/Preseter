@@ -29,6 +29,8 @@ interface StageControlProps {
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
   /** Knob de send do bus do patch (1..4) para um Aux. */
   onSetPatchSend?: (aux: number, levelDb: number) => void;
+  /** Parâmetro mapeado por owner/slot (inserts e layers). */
+  onSetMappedParameter?: (element: UiElement, value: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
@@ -65,6 +67,7 @@ export const StageControl: React.FC<StageControlProps> = ({
   onMidiMessage,
   onSetVstParameter,
   onSetPatchSend,
+  onSetMappedParameter,
   keyboardZones,
   selectedZoneId,
   onZoneClick,
@@ -96,7 +99,15 @@ export const StageControl: React.FC<StageControlProps> = ({
   const sendValue = (next: number) => {
     const clamped = Math.min(max, Math.max(min, next));
     setValue(clamped);
-    if (element.pluginPath && element.parameterId) {
+    if (element.patchSendAux) {
+      onSetPatchSend?.(element.patchSendAux, clamped);
+    }
+    if (element.paramOwner && element.parameterId) {
+      const normalized = normOf(clamped, min, max);
+      const mappingMin = element.mappingMin ?? 0;
+      const mappingMax = element.mappingMax ?? 1;
+      onSetMappedParameter?.(element, mappingMin + normalized * (mappingMax - mappingMin));
+    } else if (element.pluginPath && element.parameterId) {
       const normalized = normOf(clamped, min, max);
       const mappingMin = element.mappingMin ?? 0;
       const mappingMax = element.mappingMax ?? 1;
@@ -105,9 +116,6 @@ export const StageControl: React.FC<StageControlProps> = ({
         element.parameterId,
         mappingMin + normalized * (mappingMax - mappingMin)
       );
-    }
-    if (element.patchSendAux) {
-      onSetPatchSend?.(element.patchSendAux, clamped);
     }
     const binding = element.midiCommand;
     if (binding?.type === 'cc' && binding.controllerNumber !== undefined) {
@@ -131,8 +139,9 @@ export const StageControl: React.FC<StageControlProps> = ({
 
   const norm = normOf(value, min, max);
   const isOn = value >= (min + max) / 2;
-  /** Knobs de send mostram o nível em dB; o -60 dB do motor aparece como −∞. */
-  const sendValueText = element.patchSendAux !== undefined
+  /** Knobs de send mostram o nível em dB; com parâmetro mapeado, mostram %. */
+  const hasPluginMapping = !!(element.parameterId && (element.paramOwner || element.pluginPath));
+  const sendValueText = element.patchSendAux !== undefined && !hasPluginMapping
     ? (value <= min + 0.001 ? '−∞' : `${value.toFixed(1)} dB`)
     : undefined;
 

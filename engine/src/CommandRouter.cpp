@@ -377,19 +377,22 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (cmd == "params")
     {
-        ok (id, engine.listParameters (message["layerId"].toString(), boolArg (message, "all", false)));
+        ok (id, engine.listParameters (message["layerId"].toString(),
+                                       boolArg (message, "all", false),
+                                       intArg (message, "slot", -1)));
         return;
     }
 
     if (cmd == "getParam" || cmd == "setParam")
     {
         const int index = intArg (message, "index", -1);
+        const int slot = intArg (message, "slot", -1);
         const auto layerId = message["layerId"].toString();
         juce::var result;
 
         const auto error = (cmd == "setParam")
-            ? engine.setParameter (layerId, index, (float) (double) message["value"], result)
-            : engine.getParameter (layerId, index, result);
+            ? engine.setParameter (layerId, index, (float) (double) message["value"], result, slot)
+            : engine.getParameter (layerId, index, result, slot);
 
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import type { Preset, UiElement, VstPluginInfo } from '@shared/types';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { BusSettings, Preset, UiElement, VstPluginInfo } from '@shared/types';
 import { MAX_AUX_BUSES, SEND_OFF_DB } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import type { RawMidiEvent } from '../../services/WebMidiService';
@@ -23,6 +23,8 @@ interface ControlInspectorProps {
   patchSends?: number[];
   /** Altera o nível do send do Master do Patch para um Aux (grava no patch). */
   onSetPatchSend?: (aux: number, levelDb: number) => void;
+  /** Aux do concert, para listar os efeitos dos sends como alvos de parâmetro. */
+  auxBuses?: BusSettings[];
 }
 
 const classInput =
@@ -52,8 +54,9 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
   onSendBack,
   patchSends,
   onSetPatchSend,
+  auxBuses = [],
 }) => {
-  const { midiDevices, listMidiDevices, subscribeMidiLearn } = useAppContext();
+  const { midiDevices, listMidiDevices, subscribeMidiLearn, getVstParameters } = useAppContext();
   const [learning, setLearning] = useState(false);
 
   useEffect(() => {
@@ -112,6 +115,57 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mode, element?.id]);
+
+  /** Alvos de parâmetro disponíveis: Master do Patch, Aux e layers (instrumento e inserts). */
+  const paramTargets = useMemo(() => {
+    const targets: Array<{ key: string; label: string; owner: string; slot?: number; path: string }> = [];
+    const push = (owner: string, slot: number | undefined, path: string, label: string) => {
+      targets.push({ key: `${owner}|${slot ?? ''}`, label, owner, slot, path });
+    };
+    for (const insert of [...(draft.master?.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+      push('patch', insert.slot, insert.path, `Master do Patch — ${insert.name}`);
+    }
+    auxBuses.forEach((bus, index) => {
+      for (const insert of [...(bus.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+        push(`aux${index + 1}`, insert.slot, insert.path, `Aux ${index + 1} — ${insert.name}`);
+      }
+    });
+    (draft.plugins ?? []).forEach((assignment, index) => {
+      const layerId = assignment.layerId ?? `${draft.id}:layer:${index}`;
+      push(layerId, undefined, assignment.path, `${assignment.name} (instrumento)`);
+      for (const insert of [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+        push(layerId, insert.slot, insert.path, `${assignment.name} — ${insert.name}`);
+      }
+    });
+    return targets;
+  }, [draft, auxBuses]);
+
+  const legacyTarget = paramTargets.find((target) => target.path === element?.pluginPath);
+  const effectiveOwner = element?.paramOwner ?? legacyTarget?.owner;
+  const effectiveSlot = element?.paramOwner ? element?.paramSlot : legacyTarget?.slot;
+  const currentTargetKey = effectiveOwner !== undefined
+    ? `${effectiveOwner}|${effectiveSlot ?? ''}`
+    : '';
+  const [parameters, setParameters] = useState<{ id: string; name: string }[]>([]);
+  const [loadingParameters, setLoadingParameters] = useState(false);
+
+  useEffect(() => {
+    if (!effectiveOwner) {
+      setParameters([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingParameters(true);
+    void getVstParameters(effectiveOwner, effectiveSlot)
+      .then((list) => {
+        if (cancelled) return;
+        setParameters(list.map((parameter) => ({ id: String(parameter.index), name: parameter.name })));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingParameters(false);
+      });
+    return () => { cancelled = true; };
+  }, [effectiveOwner, effectiveSlot, getVstParameters]);
 
   if (!element) {
     return (
@@ -372,45 +426,67 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
 
       {showMapping && (
       <section className="space-y-2">
-        <h3 className={classTitle}>Send Value to (plugin)</h3>
-        <button
-          className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs font-semibold text-slate-200 hover:border-amber-300"
-          onClick={() => armParameterLearn(element.id)}
-          title="Depois clique no parâmetro do plugin no channel strip"
-        >
-          Aprender parâmetro (clique no channel strip)
-        </button>
-        <label className={classLabel}>Plugin
+        <h3 className={classTitle}>Parâmetro de plugin</h3>
+        <label className={classLabel}>Plugin / efeito
           <select
             className={`${classInput} mt-1`}
-            value={element.pluginPath ?? ''}
-            onChange={(event) =>
-              onUpdate(element.id, { pluginPath: event.target.value || undefined, pluginId: undefined, parameterId: undefined })
-            }
+            value={currentTargetKey}
+            onChange={(event) => {
+              const key = event.target.value;
+              if (!key) {
+                onUpdate(element.id, {
+                  paramOwner: undefined,
+                  paramSlot: undefined,
+                  pluginPath: undefined,
+                  pluginId: undefined,
+                  parameterId: undefined,
+                });
+                return;
+              }
+              const target = paramTargets.find((item) => item.key === key);
+              if (!target) return;
+              onUpdate(element.id, {
+                paramOwner: target.owner,
+                paramSlot: target.slot,
+                pluginPath: target.path,
+                pluginId: undefined,
+                parameterId: undefined,
+              });
+            }}
           >
             <option value="">Nenhum</option>
-            {(draft.plugins ?? []).map((plugin) => (
-              <option key={plugin.path} value={plugin.path}>{plugin.name}</option>
+            {paramTargets.length === 0 && (
+              <option value="" disabled>Carregue um instrumento ou efeito primeiro</option>
+            )}
+            {paramTargets.map((target) => (
+              <option key={target.key} value={target.key}>{target.label}</option>
             ))}
           </select>
         </label>
-        {element.pluginPath && (
+        {effectiveOwner && (
           <label className={classLabel}>Parâmetro
             <select
               className={`${classInput} mt-1`}
               value={element.parameterId ?? ''}
-              onChange={(event) => onUpdate(element.id, { parameterId: event.target.value || undefined })}
+              onChange={(event) => onUpdate(element.id, {
+                parameterId: event.target.value || undefined,
+                ...(element.paramOwner ? {} : { paramOwner: effectiveOwner, paramSlot: effectiveSlot }),
+              })}
             >
-              <option value="">Selecione parâmetro</option>
-              {scannedPlugins
-                .find((plugin) => plugin.path === element.pluginPath)
-                ?.parameters.map((parameter) => (
-                  <option key={parameter.id} value={parameter.id}>{parameter.name}</option>
-                ))}
+              <option value="">
+                {loadingParameters
+                  ? 'Carregando…'
+                  : parameters.length === 0
+                    ? 'Nenhum parâmetro (plugin carregado?)'
+                    : 'Selecione parâmetro'}
+              </option>
+              {parameters.map((parameter) => (
+                <option key={parameter.id} value={parameter.id}>{parameter.name}</option>
+              ))}
             </select>
           </label>
         )}
-        {element.pluginPath && element.parameterId && (
+        {effectiveOwner && element.parameterId && (
           <div className="grid grid-cols-2 gap-2">
             <label className={classLabel}>Mínimo (%)
               <input
@@ -438,6 +514,18 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
             </label>
           </div>
         )}
+        {!element.paramOwner && (
+          <button
+            className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs font-semibold text-slate-200 hover:border-amber-300"
+            onClick={() => armParameterLearn(element.id)}
+            title="Depois clique no parâmetro do instrumento no channel strip"
+          >
+            Aprender parâmetro (clique no channel strip)
+          </button>
+        )}
+        <p className="text-[11px] leading-relaxed text-slate-500">
+          O knob envia o valor para este parâmetro. O alvo fica salvo por patch.
+        </p>
       </section>
       )}
 

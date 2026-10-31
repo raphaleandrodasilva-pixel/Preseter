@@ -100,7 +100,7 @@ describe('ChannelStrips — aba Aux', () => {
     expect(screen.getByTestId('bus-strip-aux4')).toBeInTheDocument();
 
     const aux1 = screen.getByTestId('bus-strip-aux1');
-    fireEvent.click(within(aux1).getAllByText('＋ vazio')[0]);
+    fireEvent.click(within(aux1).getByText('＋ Adicionar efeito'));
     expect(screen.getByText('Reverb')).toBeInTheDocument();
   });
 

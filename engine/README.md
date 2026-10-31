@@ -214,8 +214,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `playbackLoad` / `playbackPlay` / `playbackStop` | `path` / — / — | Plugin Playback: carrega e toca um arquivo de áudio |
 | `setPanLaw` | `db`, `compensated` | Pan law dos channel strips do concert |
 | `plugin` | `layerId?` | Dados de um layer carregado |
-| `params` | `layerId?`, `all?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3) |
-| `getParam` / `setParam` | `layerId?`, `index` / `index`, `value` | Lê / altera um parâmetro no layer indicado |
+| `params` | `layerId?`, `all?`, `slot?` | Parâmetros reais automatizáveis, valores normalizados 0..1 (`all: true` inclui os ~2000 "MIDI CC" do wrapper VST3); `slot` lê um insert |
+| `getParam` / `setParam` | `layerId?`, `index`, `slot?` / `index`, `value`, `slot?` | Lê / altera um parâmetro no plugin do layer ou no insert `slot` |
 | `getState` | `layerId?`, `slot?` | Estado completo do plugin (`getStateInformation`) codificado em base64; `slot` escolhe um insert |
 | `setState` | `layerId?`, `data`, `slot?` | Aplica um estado completo (base64) via `setStateInformation` |
 | `openEditor` | `layerId?`, `slot?` | Abre (ou traz para a frente) a janela de edição nativa do plugin |

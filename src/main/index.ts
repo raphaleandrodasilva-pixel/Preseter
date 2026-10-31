@@ -451,8 +451,11 @@ class MainWindow {
       return this.vstManager.unloadPlugin(pluginId);
     });
 
-    ipcMain.handle('vst-set-param', (_event, pluginId: string, paramId: string, value: number) => {
-      return this.vstManager.setParameter(pluginId, paramId, value);
+    ipcMain.handle('vst-set-param', (_event, pluginId: string, paramId: string, value: number, slot?: number) => {
+      return this.vstManager.setParameter(pluginId, paramId, value, slot);
+    });
+    ipcMain.handle('vst-params', (_event, ownerId: string, slot?: number) => {
+      return this.vstManager.getParameters(ownerId, slot);
     });
 
     ipcMain.handle('vst-get-state', (_event, pluginId: string) => {

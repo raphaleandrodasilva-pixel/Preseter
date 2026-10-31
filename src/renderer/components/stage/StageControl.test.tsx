@@ -109,6 +109,36 @@ describe('StageControl value controls', () => {
     expect(onMidiMessage).not.toHaveBeenCalled();
   });
 
+  it('maps a knob to an insert parameter by owner and slot', () => {
+    const onSetMappedParameter = vi.fn();
+    const onSetVstParameter = vi.fn();
+    renderControl(
+      {
+        type: 'knob',
+        label: 'Mix',
+        value: 0,
+        minValue: 0,
+        maxValue: 1,
+        paramOwner: 'patch',
+        paramSlot: 1,
+        parameterId: '3',
+        mappingMin: 0,
+        mappingMax: 1,
+      },
+      { onSetMappedParameter, onSetVstParameter }
+    );
+
+    const knob = screen.getByTitle(/arrastar para girar/);
+    fireEvent.pointerDown(knob, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(knob, { clientY: 25, pointerId: 1, buttons: 1 });
+
+    expect(onSetMappedParameter).toHaveBeenCalled();
+    const [target, value] = onSetMappedParameter.mock.calls[0];
+    expect(target).toMatchObject({ paramOwner: 'patch', paramSlot: 1, parameterId: '3' });
+    expect(value).toBeCloseTo(0.5, 5);
+    expect(onSetVstParameter).not.toHaveBeenCalled();
+  });
+
   it('sends the patch bus level when a send knob turns', () => {
     const onSetPatchSend = vi.fn();
     renderControl(

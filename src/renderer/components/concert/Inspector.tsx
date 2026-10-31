@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Preset, PresetPluginAssignment, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
+import type { BusSettings, Preset, PresetPluginAssignment, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 import { ChannelStripLibrary } from './ChannelStripLibrary';
@@ -36,6 +36,8 @@ interface InspectorProps {
   /** Sends do Master do Patch neste patch (Aux 1..4). */
   patchSends?: number[];
   onSetPatchSend?: (aux: number, levelDb: number) => void;
+  /** Aux do concert, para listar efeitos dos sends como alvos de parâmetro. */
+  auxBuses?: BusSettings[];
   onSelectElement: (id: string) => void;
   onSave: () => void;
   saving: boolean;
@@ -73,6 +75,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   onSendBack,
   patchSends,
   onSetPatchSend,
+  auxBuses,
   onSelectElement,
   onSave,
   saving,
@@ -252,6 +255,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               onSendBack={onSendBack}
               patchSends={patchSends}
               onSetPatchSend={onSetPatchSend}
+              auxBuses={auxBuses}
             />
           ) : (
             <div className="rounded-lg border border-[#303032] bg-[#141416] p-3 text-[11px] leading-relaxed text-slate-400">
@@ -373,6 +377,7 @@ export const Inspector: React.FC<InspectorProps> = ({
                 onSendBack={onSendBack}
                 patchSends={patchSends}
                 onSetPatchSend={onSetPatchSend}
+                auxBuses={auxBuses}
               />
             </div>
           ) : (
@@ -566,6 +571,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               onSendBack={onSendBack}
               patchSends={patchSends}
               onSetPatchSend={onSetPatchSend}
+              auxBuses={auxBuses}
             />
           </div>
         )}

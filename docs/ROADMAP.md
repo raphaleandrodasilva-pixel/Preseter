@@ -71,7 +71,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 
 - [x] **4.1 Layout por concert** (como no MainStage): mover `layout` do patch para o concert; mappings continuam por patch. Migrar patches antigos.
 - [x] **4.2 Assignments (hardware → controle de tela)** com **Learn** (`Cmd/Ctrl+L`): mexer no controle do teclado atribui ao controle de tela. Opções de dispositivo e canal por controle.
-- [x] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`).
+- [x] **4.3 Mappings (controle de tela → parâmetro)** com faixa mínima/máxima, escolha por navegador de parâmetros ou clicando no parâmetro (`Cmd/Ctrl+L`). Inclui parâmetros de **instrumentos e inserts** (Master do Patch, Aux e layers), endereçados por `owner` + `slot`; o alvo fica salvo por patch.
 - [x] **4.4 Respond to Hardware Move**: Jump, Pickup, Relative.
 - [x] **4.5 MIDI Thru** em wheels e pedais (mod/pitch/aftertouch/expressão/volume passam direto; "Don't pass thru" para usar o controle em outra coisa).
 - [x] **4.6 Mappings no nível do concert** e override por set/patch. Tabela **Assignments & Mappings** (`Shift+Cmd/Ctrl+M`).

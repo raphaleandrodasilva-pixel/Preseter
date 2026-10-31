@@ -439,6 +439,25 @@ describe('VstManager plugin operations', () => {
     expect(await manager.setParameter('missing', '0', 0.1)).toBe(false);
   });
 
+  it('updates parameters of an insert by owner and slot', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'setParam') return engineParameter({ value: 0.4 });
+      if (command === 'params') return [engineParameter({ name: 'Mix' })];
+      return undefined;
+    });
+    expect(await manager.setParameter('patch', '0', 0.4, 1)).toBe(true);
+    expect(request).toHaveBeenCalledWith('setParam', {
+      layerId: 'patch',
+      index: 0,
+      value: 0.4,
+      slot: 1,
+    });
+
+    const parameters = await manager.getParameters('aux1', 2);
+    expect(request).toHaveBeenCalledWith('params', { layerId: 'aux1', slot: 2 });
+    expect(parameters).toHaveLength(1);
+  });
+
   it('accepts param_ prefixes for parameter ids', async () => {
     const { manager } = await loadedManager((command) =>
       command === 'setParam' ? engineParameter({ value: 0.2 }) : undefined

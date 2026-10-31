@@ -230,9 +230,9 @@ export interface EngineCommands {
   layers: { args: {}; result: EngineLoadedPlugin[] };
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */
-  params: { args: { all?: boolean; layerId?: string }; result: EngineParameter[] };
-  getParam: { args: { index: number; layerId?: string }; result: EngineParameter };
-  setParam: { args: { index: number; value: number; layerId?: string }; result: EngineParameter };
+  params: { args: { all?: boolean; layerId?: string; slot?: number }; result: EngineParameter[] };
+  getParam: { args: { index: number; layerId?: string; slot?: number }; result: EngineParameter };
+  setParam: { args: { index: number; value: number; layerId?: string; slot?: number }; result: EngineParameter };
   /** Estado completo do plugin (chunk) em base64. `slot` busca um insert; sem ele, o instrumento. */
   getState: { args: { layerId?: string; slot?: number }; result: EnginePluginStateChunk };
   /** Aplica um estado completo (chunk) em base64. */

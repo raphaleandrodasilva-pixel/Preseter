@@ -29,6 +29,7 @@ import {
   PatchMasterSettings,
   SEND_OFF_DB,
 } from '@shared/types';
+import type { EngineParameter } from '@shared/engine-protocol';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
 import { ConcertHistory } from '@shared/concert-history';
@@ -160,7 +161,9 @@ export interface AppContextType {
   removeVstPluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
-  setVstParameter: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
+  setVstParameter: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
+  /** Lista os parâmetros de um layer/barrramento ou de um insert. */
+  getVstParameters: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
   openVstEditor: (pluginId: string) => Promise<boolean>;
   closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
@@ -1203,10 +1206,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const setVstParameter = useCallback(
-    async (pluginId: string, paramId: string, value: number): Promise<boolean> => {
+    async (pluginId: string, paramId: string, value: number, slot?: number): Promise<boolean> => {
       try {
-        const result = await window.electronAPI.vstSetParam(pluginId, paramId, value);
-        if (result) {
+        const result = slot === undefined
+          ? await window.electronAPI.vstSetParam(pluginId, paramId, value)
+          : await window.electronAPI.vstSetParam(pluginId, paramId, value, slot);
+        if (result && slot === undefined) {
           setLoadedPlugins((previous) =>
             previous.map((plugin) =>
               plugin.layerId === pluginId
@@ -1229,6 +1234,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     []
   );
+
+  const getVstParameters = useCallback(async (ownerId: string, slot?: number): Promise<EngineParameter[]> => {
+    try {
+      return await window.electronAPI.vstParams(ownerId, slot);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao listar os parâmetros do plugin.');
+      return [];
+    }
+  }, []);
 
   const openVstEditor = useCallback(async (pluginId: string): Promise<boolean> => {
     try {
@@ -1700,6 +1714,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadVstPlugin,
     unloadVstPlugin,
     setVstParameter,
+    getVstParameters,
     openVstEditor,
     closeVstEditor,
     setVstLayerRange,

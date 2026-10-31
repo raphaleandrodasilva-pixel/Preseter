@@ -17,6 +17,8 @@ const MAPPING_KEYS = [
   'pluginId',
   'pluginPath',
   'parameterId',
+  'paramOwner',
+  'paramSlot',
   'noteNumber',
   'velocity',
   'mappingMin',

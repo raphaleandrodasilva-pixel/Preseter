@@ -35,8 +35,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) =>
     ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
-  vstSetParam: (pluginId: string, paramId: string, value: number) =>
-    ipcRenderer.invoke('vst-set-param', pluginId, paramId, value),
+  vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) =>
+    ipcRenderer.invoke('vst-set-param', pluginId, paramId, value, slot),
+  vstParams: (ownerId: string, slot?: number) =>
+    ipcRenderer.invoke('vst-params', ownerId, slot),
   vstGetState: (pluginId: string) => ipcRenderer.invoke('vst-get-state', pluginId),
   vstSetState: (pluginId: string, state: any) =>
     ipcRenderer.invoke('vst-set-state', pluginId, state),

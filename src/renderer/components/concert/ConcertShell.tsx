@@ -259,6 +259,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     reorderSets, togglePresetSkipped, savePreset, createPreset, updatePatchMaster,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
+    getVstParameters,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     setVstPatchSend, setVstLayerPatchSend,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
@@ -854,6 +855,35 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     setLiveValues({});
     hardwareStateRef.current.clear();
   }, [currentPreset?.id, draft?.id]);
+
+  // Ao carregar um patch, posiciona os knobs mapeados no valor real do parâmetro.
+  useEffect(() => {
+    const preset = currentPreset;
+    if (!preset) return;
+    const mapped = preset.layout.elements.filter((element) => element.paramOwner && element.parameterId);
+    if (mapped.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const updates: Record<string, number> = {};
+      for (const element of mapped) {
+        const parameters = await getVstParameters(element.paramOwner as string, element.paramSlot);
+        if (cancelled) return;
+        const parameter = parameters.find((item) => String(item.index) === element.parameterId);
+        if (!parameter) continue;
+        const mappingMin = element.mappingMin ?? 0;
+        const mappingMax = element.mappingMax ?? 1;
+        const span = Math.max(mappingMax - mappingMin, Number.EPSILON);
+        const norm = Math.max(0, Math.min(1, (parameter.value - mappingMin) / span));
+        const min = element.minValue ?? 0;
+        const max = element.maxValue ?? 1;
+        updates[element.id] = min + norm * (max - min);
+      }
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setLiveValues((previous) => ({ ...previous, ...updates }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentPreset?.id, currentPreset?.updatedAt, getVstParameters]);
 
   useEffect(() => {
     if (!actionNotice) return;
@@ -1554,6 +1584,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     };
     draftRef.current = next;
     onDraftChange(next);
+  };
+
+  /** Aplica um parâmetro mapeado por owner/slot (layer, Master do Patch ou Aux). */
+  const setMappedParameter = (element: UiElement, value: number) => {
+    if (!element.parameterId) return;
+    if (element.paramOwner) {
+      void setVstParameter(element.paramOwner, element.parameterId, value, element.paramSlot);
+      return;
+    }
+    if (element.pluginPath) {
+      onSetVstParameter(element.pluginPath, element.parameterId, value);
+    }
   };
 
   /** Saída (Output 1..4) do channel strip de um layer. */
@@ -2573,6 +2615,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onMidiMessage={onMidiMessage}
                     onSetVstParameter={onSetVstParameter}
                     onSetPatchSend={changePatchSend}
+                    onSetMappedParameter={setMappedParameter}
                     keyboardZones={keyboardZones}
                     selectedZoneId={selectedLayerId}
                     onZoneClick={selectZone}
@@ -2664,6 +2707,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onSendBack={sendBack}
             patchSends={(draft ?? currentPreset)?.master?.sends ?? defaultPatchSends()}
             onSetPatchSend={(aux, levelDb) => void changePatchSend(aux, levelDb)}
+            auxBuses={concertSettings?.buses.aux ?? []}
             onSelectElement={(id) => onSelectedId(id)}
             onSave={onSaveDraft}
             saving={saving}
@@ -2825,6 +2869,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       onMidiMessage={onMidiMessage}
                       onSetVstParameter={onSetVstParameter}
                       onSetPatchSend={changePatchSend}
+                      onSetMappedParameter={setMappedParameter}
                       keyboardZones={keyboardZones}
                       selectedZoneId={selectedLayerId}
                       onZoneClick={selectZone}
@@ -2902,6 +2947,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               onSendBack={sendBack}
               patchSends={(draft ?? currentPreset)?.master?.sends ?? defaultPatchSends()}
               onSetPatchSend={(aux, levelDb) => void changePatchSend(aux, levelDb)}
+              auxBuses={concertSettings?.buses.aux ?? []}
               onSelectElement={(id) => onSelectedId(id)}
               onSave={onSaveDraft}
               saving={saving}

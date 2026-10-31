@@ -65,6 +65,7 @@ export function createElectronApiMock(): ElectronApiMock {
     })),
     vstUnload: vi.fn(async () => true),
     vstSetParam: vi.fn(async () => true),
+    vstParams: vi.fn(async () => []),
     vstGetState: vi.fn(async () => null),
     vstSetState: vi.fn(async () => true),
     vstOpenEditor: vi.fn(async () => true),

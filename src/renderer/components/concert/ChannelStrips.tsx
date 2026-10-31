@@ -549,7 +549,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     );
   };
 
-  /** Os 4 slots de insert de um channel strip (layer, barramento ou herdado). */
+  /** Os slots de insert de um channel strip (layer, barramento ou herdado). */
   const renderInserts = (options: {
     ownerId: string;
     inserts: Insert[];
@@ -557,26 +557,67 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     onRemove: (ownerId: string, slot: number) => void;
     onOpenEditor: (ownerId: string, slot: number) => void;
     onRequestInsert: (slot: number) => void;
-  }) => (
-    <div className="mt-2">
-      <span className="hw-label" style={{ fontSize: 8 }}>INSERTS</span>
-      <div className="mt-1 space-y-0.5">
-        {Array.from({ length: MAX_INSERTS }, (_, slot) => (
-          <span key={slot}>
-            {renderInsertSlot({
-              ownerId: options.ownerId,
-              slot,
-              insert: options.inserts.find((item) => item.slot === slot),
-              onToggleBypass: options.onToggleBypass,
-              onRemove: options.onRemove,
-              onOpenEditor: options.onOpenEditor,
-              onRequestInsert: () => options.onRequestInsert(slot),
-            })}
-          </span>
-        ))}
+    /** Modo compacto: mostra só os efeitos carregados e um botão de adicionar. */
+    compact?: boolean;
+    title?: string;
+  }) => {
+    const loaded = [...options.inserts].sort((a, b) => a.slot - b.slot);
+    const firstFree = Array.from({ length: MAX_INSERTS }, (_, slot) => slot)
+      .find((slot) => !loaded.some((insert) => insert.slot === slot));
+    if (options.compact) {
+      return (
+        <div className="mt-2">
+          <span className="hw-label" style={{ fontSize: 8 }}>{options.title ?? 'EFEITOS'}</span>
+          <div className="mt-1 space-y-0.5">
+            {loaded.map((insert) => (
+              <span key={insert.slot}>
+                {renderInsertSlot({
+                  ownerId: options.ownerId,
+                  slot: insert.slot,
+                  insert,
+                  onToggleBypass: options.onToggleBypass,
+                  onRemove: options.onRemove,
+                  onOpenEditor: options.onOpenEditor,
+                  onRequestInsert: () => options.onRequestInsert(insert.slot),
+                })}
+              </span>
+            ))}
+            {firstFree !== undefined && (
+              <button
+                type="button"
+                className="w-full rounded px-1 py-1 text-left text-[8px] text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                disabled={!editable || busy}
+                onClick={(event) => { event.stopPropagation(); options.onRequestInsert(firstFree); }}
+                title={editable ? 'Carregar um efeito VST3 neste channel strip' : 'Edite o patch para alterar os efeitos'}
+              >
+                ＋ {loaded.length > 0 ? 'outro efeito' : 'Adicionar efeito'}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-2">
+        <span className="hw-label" style={{ fontSize: 8 }}>{options.title ?? 'INSERTS'}</span>
+        <div className="mt-1 space-y-0.5">
+          {Array.from({ length: MAX_INSERTS }, (_, slot) => (
+            <span key={slot}>
+              {renderInsertSlot({
+                ownerId: options.ownerId,
+                slot,
+                insert: options.inserts.find((item) => item.slot === slot),
+                onToggleBypass: options.onToggleBypass,
+                onRemove: options.onRemove,
+                onOpenEditor: options.onOpenEditor,
+                onRequestInsert: () => options.onRequestInsert(slot),
+              })}
+            </span>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   /** Strip do Master do Patch (bus interno do patch, antes da Output 1). */
   const renderBusStrip = (
@@ -723,6 +764,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         {renderInserts({
           ownerId,
           inserts,
+          compact: true,
+          title: kind === 'master' ? 'EFEITOS DO MASTER' : kind === 'aux' ? 'EFEITOS DO SEND' : 'EFEITOS',
           onToggleBypass: (id, targetSlot, bypass) => void onToggleBusInsertBypass(id, targetSlot, bypass),
           onRemove: (id, targetSlot) => void onRemoveBusInsert(id, targetSlot),
           onOpenEditor: onOpenBusInsertEditor,
@@ -939,6 +982,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         {renderInserts({
           ownerId: strip.id,
           inserts: view.inserts,
+          compact: true,
+          title: 'EFEITOS',
           onToggleBypass: (ownerId, slot, bypass) => void onSetStripInserts(
             target,
             ownerId,
@@ -1379,6 +1424,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 {renderInserts({
                   ownerId: layerId,
                   inserts: assignment.inserts ?? [],
+                  compact: true,
+                  title: 'EFEITOS',
                   onToggleBypass: (id, targetSlot, bypass) => void onToggleInsertBypass(id, targetSlot, bypass),
                   onRemove: (id, targetSlot) => void onRemoveInsert(id, targetSlot),
                   onOpenEditor: onOpenInsertEditor,

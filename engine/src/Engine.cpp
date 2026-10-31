@@ -2392,10 +2392,10 @@ juce::var Engine::describeLoadedPlugins() const
     return juce::var (list);
 }
 
-juce::var Engine::listParameters (const juce::String& requestedLayerId, bool includeNonAutomatable) const
+juce::var Engine::listParameters (const juce::String& requestedLayerId, bool includeNonAutomatable, int slot) const
 {
     juce::Array<juce::var> list;
-    if (auto* plugin = getPlugin (requestedLayerId))
+    if (auto* plugin = getPlugin (requestedLayerId, slot))
     {
         const auto& params = plugin->getParameters();
         for (int i = 0; i < params.size(); ++i)
@@ -2405,10 +2405,10 @@ juce::var Engine::listParameters (const juce::String& requestedLayerId, bool inc
     return juce::var (list);
 }
 
-juce::String Engine::setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result)
+juce::String Engine::setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result, int slot)
 {
-    auto* plugin = getPlugin (layerId);
-    if (plugin == nullptr) return "Nenhum instrumento carregado neste layer.";
+    auto* plugin = getPlugin (layerId, slot);
+    if (plugin == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
@@ -2418,10 +2418,10 @@ juce::String Engine::setParameter (const juce::String& layerId, int index, float
     return {};
 }
 
-juce::String Engine::getParameter (const juce::String& layerId, int index, juce::var& result) const
+juce::String Engine::getParameter (const juce::String& layerId, int index, juce::var& result, int slot) const
 {
-    auto* plugin = getPlugin (layerId);
-    if (plugin == nullptr) return "Nenhum instrumento carregado neste layer.";
+    auto* plugin = getPlugin (layerId, slot);
+    if (plugin == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
     const auto& params = plugin->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);

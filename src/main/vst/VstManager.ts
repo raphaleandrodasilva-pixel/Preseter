@@ -198,11 +198,35 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
-  async setParameter(layerOrPluginId: string, paramId: string, value: number): Promise<boolean> {
-    const plugin = this.findLoadedPlugin(layerOrPluginId);
-    if (!plugin?.layerId) return false;
+  async setParameter(
+    layerOrPluginId: string,
+    paramId: string,
+    value: number,
+    slot?: number
+  ): Promise<boolean> {
     const index = this.parameterIndex(paramId);
     if (index === null) return false;
+
+    // Inserts são endereçados pelo dono (layer/barramento) + slot.
+    if (slot !== undefined) {
+      const parameter = await this.engine.request('setParam', {
+        layerId: layerOrPluginId,
+        index,
+        value,
+        slot,
+      });
+      this.emit('parameter-changed', {
+        pluginId: layerOrPluginId,
+        layerId: layerOrPluginId,
+        slot,
+        paramId,
+        value: parameter.value,
+      });
+      return true;
+    }
+
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
     const parameter = await this.engine.request('setParam', {
       layerId: plugin.layerId,
       index,
@@ -211,6 +235,11 @@ export class VstManager extends EventEmitter {
     this.loadedPlugins.set(plugin.layerId, this.withParameter(plugin, parameter));
     this.emit('parameter-changed', { pluginId: plugin.id, layerId: plugin.layerId, paramId, value: parameter.value });
     return true;
+  }
+
+  /** Lista os parâmetros de um layer/barrramento ou de um insert (`slot`). */
+  async getParameters(ownerId: string, slot?: number): Promise<EngineParameter[]> {
+    return this.engine.request('params', { layerId: ownerId, slot });
   }
 
   async setLayerRange(layerId: string, minNote: number, maxNote: number): Promise<VstPluginInfo> {

@@ -24,6 +24,7 @@ import type {
   VstPreset,
   VstPresetListResult,
 } from '@shared/types';
+import type { EngineParameter } from '@shared/engine-protocol';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
 export interface ElectronAPI {
@@ -49,7 +50,8 @@ export interface ElectronAPI {
   vstRemovePluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo>;
   vstUnload: (pluginId: string) => Promise<boolean>;
-  vstSetParam: (pluginId: string, paramId: string, value: number) => Promise<boolean>;
+  vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
+  vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
   vstGetState: (pluginId: string) => Promise<any>;
   vstSetState: (pluginId: string, state: any) => Promise<boolean>;
   vstOpenEditor: (pluginId: string) => Promise<boolean>;

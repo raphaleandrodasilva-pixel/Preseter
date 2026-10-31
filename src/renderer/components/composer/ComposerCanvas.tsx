@@ -33,6 +33,8 @@ interface ComposerCanvasProps {
   onResize: (id: string, width: number, height: number) => void;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  /** Parâmetro mapeado por owner/slot (layers e inserts). */
+  onSetMappedParameter?: (element: UiElement, value: number) => void;
   onSetPatchSend?: (aux: number, levelDb: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
@@ -85,7 +87,8 @@ function PreviewShape({
   const value = element.value ?? 0.5;
   const norm = Math.max(0, Math.min(1, (value - min) / Math.max(max - min, Number.EPSILON)));
   const isOn = value >= (min + max) / 2;
-  const sendValueText = element.patchSendAux !== undefined
+  const hasPluginMapping = !!(element.parameterId && (element.paramOwner || element.pluginPath));
+  const sendValueText = element.patchSendAux !== undefined && !hasPluginMapping
     ? (value <= min + 0.001 ? '−∞' : `${value.toFixed(1)} dB`)
     : undefined;
 
@@ -315,6 +318,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   onResize,
   onMidiMessage,
   onSetVstParameter,
+  onSetMappedParameter,
   onSetPatchSend,
   keyboardZones,
   selectedZoneId,
@@ -407,6 +411,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               layoutMode="absolute"
               onMidiMessage={onMidiMessage}
               onSetVstParameter={onSetVstParameter}
+              onSetMappedParameter={onSetMappedParameter}
               onSetPatchSend={onSetPatchSend}
               keyboardZones={keyboardZones}
               selectedZoneId={selectedZoneId}
@@ -436,6 +441,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   layoutMode="absolute"
                   onMidiMessage={onMidiMessage}
                   onSetVstParameter={onSetVstParameter}
+                  onSetMappedParameter={onSetMappedParameter}
                   onSetPatchSend={onSetPatchSend}
                   keyboardZones={keyboardZones}
                   selectedZoneId={selectedZoneId}

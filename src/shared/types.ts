@@ -132,6 +132,10 @@ export interface PatchMapping {
   pluginId?: string;
   pluginPath?: string;
   parameterId?: string;
+  /** Dono do plugin mapeado: layerId, "patch" ou "aux1".."aux4". */
+  paramOwner?: string;
+  /** Slot de insert (0..3); ausente = instrumento do layer. */
+  paramSlot?: number;
   noteNumber?: number;
   velocity?: number;
   /** Faixa do parâmetro de destino para este mapping (0..1). */
@@ -273,6 +277,10 @@ export interface ConcertMapping {
   pluginPath?: string;
   pluginId?: string;
   parameterId?: string;
+  /** Dono do plugin mapeado: layerId, "patch" ou "aux1".."aux4". */
+  paramOwner?: string;
+  /** Slot de insert (0..3); ausente = instrumento do layer. */
+  paramSlot?: number;
   /** Faixa do parâmetro de destino (0..1). */
   mappingMin?: number;
   mappingMax?: number;
@@ -692,6 +700,10 @@ export interface UiElement {
   pluginId?: string;
   pluginPath?: string;
   parameterId?: string;
+  /** Dono do plugin mapeado: layerId, "patch" ou "aux1".."aux4". */
+  paramOwner?: string;
+  /** Slot de insert (0..3); ausente = instrumento do layer. */
+  paramSlot?: number;
   midiCommand?: MidiBinding;
   // Para pads de notas MIDI
   noteNumber?: number;
