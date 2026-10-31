@@ -50,6 +50,7 @@ export function createElectronApiMock(): ElectronApiMock {
     midiInputProgramChange: vi.fn(async () => true),
 
     vstScan: vi.fn(async () => []),
+    vstRescan: vi.fn(async () => []),
     vstAddPluginFolder: vi.fn(async () => ({ canceled: true, plugins: [] })),
     vstRemovePluginFolder: vi.fn(async () => ({ folders: [], plugins: [] })),
     vstLoad: vi.fn(async () => ({

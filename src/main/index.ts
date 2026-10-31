@@ -351,6 +351,13 @@ class MainWindow {
       return plugins;
     });
 
+    // Descarta a lista acumulada no motor e escaneia tudo de novo.
+    ipcMain.handle('vst-rescan', async () => {
+      const plugins = await this.scanWithPreferences(true);
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      return plugins;
+    });
+
     ipcMain.handle('vst-add-plugin-folder', async () => {
       if (!this.window) return { canceled: true, plugins: this.vstManager.getScannedPlugins() };
       const result = await dialog.showOpenDialog(this.window, {
@@ -1439,8 +1446,9 @@ class MainWindow {
     this.window?.setTitle(`${state.name}${marker} — Preseter`);
   }
 
-  private async scanWithPreferences(): Promise<VstPluginInfo[]> {
+  private async scanWithPreferences(rescan = false): Promise<VstPluginInfo[]> {
     const folders = this.readPreferences().pluginFolders;
+    if (rescan) return this.vstManager.rescan(folders);
     return folders.length > 0
       ? this.vstManager.scanDirectories(folders)
       : this.vstManager.scanDefaultDirectories();

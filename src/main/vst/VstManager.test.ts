@@ -200,6 +200,23 @@ describe('VstManager scanning', () => {
     expect(scanRequests).toHaveLength(2);
     expect(scanRequests[1][1]).toMatchObject({ paths: ['C:/custom'], rescan: false });
   });
+
+  it('rescans from scratch with the given directories', async () => {
+    const { engine, request } = makeEngine((command) =>
+      command === 'scan' ? { count: 0, plugins: [], failed: [], blacklisted: [] } : undefined
+    );
+    const manager = new VstManager(engine);
+
+    await manager.rescan(['C:/plugins']);
+    expect(request).toHaveBeenCalledWith(
+      'scan',
+      { paths: ['C:/plugins'], rescan: true },
+      10 * 60 * 1000
+    );
+
+    await manager.rescan();
+    expect(request).toHaveBeenLastCalledWith('scan', { rescan: true }, 10 * 60 * 1000);
+  });
 });
 
 describe('VstManager loading', () => {

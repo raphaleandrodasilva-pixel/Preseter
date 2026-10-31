@@ -58,6 +58,18 @@ export class VstManager extends EventEmitter {
     return this.runScan({ paths: directories, rescan: false });
   }
 
+  /**
+   * Refaz o scan do zero: o motor descarta a lista acumulada antes de procurar.
+   * Sem `directories`, usa os diretórios padrão de VST2/VST3.
+   */
+  async rescan(directories: string[] = []): Promise<VstPluginInfo[]> {
+    if (this.scanPromise) await this.scanPromise.catch(() => undefined);
+    return this.runScan({
+      ...(directories.length > 0 ? { paths: directories } : {}),
+      rescan: true,
+    });
+  }
+
   private runScan(args: { paths?: string[]; rescan?: boolean }): Promise<VstPluginInfo[]> {
     if (this.scanPromise) return this.scanPromise;
     this.scanPromise = (async () => {

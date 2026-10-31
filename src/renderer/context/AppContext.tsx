@@ -147,6 +147,7 @@ export interface AppContextType {
 
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
+  rescanVstPlugins: () => Promise<any[]>;
   addVstPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
   removeVstPluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
@@ -1069,6 +1070,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const rescanVstPlugins = useCallback(async () => {
+    try {
+      const plugins = await window.electronAPI.vstRescan();
+      setScannedPlugins(plugins);
+      setMidiError(null);
+      return plugins;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao reescanear plugins VST.');
+      return [];
+    }
+  }, []);
+
   const addVstPluginFolder = useCallback(async () => {
     try {
       const result = await window.electronAPI.vstAddPluginFolder();
@@ -1600,6 +1613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     enginePanic,
     subscribeMidiLearn,
     scanVstPlugins,
+    rescanVstPlugins,
     addVstPluginFolder,
     removeVstPluginFolder,
     loadVstPlugin,

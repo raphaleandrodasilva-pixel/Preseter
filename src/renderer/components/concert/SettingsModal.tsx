@@ -13,7 +13,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClose }) => {
   const {
     midiDevices, midiError, midiLastMessage, openMidiInputs, selectedMidiOutputId, listMidiDevices, openMidiPort,
-    scannedPlugins, loadedPlugins, scanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
+    scannedPlugins, loadedPlugins, scanVstPlugins, rescanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
     preferences, updatePreferences, layout,
@@ -463,6 +463,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   Adicionar pasta de plugins
                 </button>
               </div>
+              <button
+                onClick={() => {
+                  if (!window.confirm('Reescanear do zero? O motor vai descartar a lista atual e procurar todos os plugins de novo; isso pode demorar.')) return;
+                  setScanning(true);
+                  void rescanVstPlugins().finally(() => setScanning(false));
+                }}
+                disabled={scanning}
+                className="hw-squarebtn w-full rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
+                title="Descarta a lista acumulada no motor e escaneia tudo de novo"
+              >
+                {scanning ? 'Escaneando…' : 'Reescanear do zero'}
+              </button>
               <section>
                 <h4 className="hw-label mb-2">Pastas de plugins</h4>
                 <div className="space-y-1.5">

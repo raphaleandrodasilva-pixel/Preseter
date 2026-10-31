@@ -381,6 +381,18 @@ describe('AppProvider MIDI and VST actions', () => {
     expect(latest.loadedPlugins).toHaveLength(0);
   });
 
+  it('rescans VST plugins from scratch', async () => {
+    const plugin = createPluginInfo();
+    vi.mocked(window.electronAPI.vstRescan).mockResolvedValue([plugin]);
+    await renderProvider();
+
+    await act(async () => {
+      expect(await latest.rescanVstPlugins()).toHaveLength(1);
+    });
+    expect(window.electronAPI.vstRescan).toHaveBeenCalled();
+    expect(latest.scannedPlugins).toHaveLength(1);
+  });
+
   it('reports scan and VST failures without throwing', async () => {
     vi.mocked(window.electronAPI.vstScan).mockRejectedValue(new Error('scan failed'));
     vi.mocked(window.electronAPI.vstLoad).mockRejectedValue(new Error('load failed'));
