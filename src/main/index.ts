@@ -1281,19 +1281,11 @@ class MainWindow {
   // === Concert (Arquivo) ===
 
   /**
-   * Prepara o concert inicial: reabre o último usado, migra os dados do modelo
-   * antigo na primeira execução da Fase 2, ou começa vazio.
+   * Prepara o concert inicial: migra os dados do modelo antigo na primeira
+   * execução da Fase 2, ou começa vazio.
+   * Não reabre o último concert para oferecer o seletor de templates.
    */
   private initConcert(legacy: LegacyConcertPayload): ConcertState {
-    const sessionPath = this.concertManager.getSessionConcertPath();
-    if (sessionPath && fs.existsSync(sessionPath)) {
-      try {
-        return this.concertManager.openFromPath(sessionPath);
-      } catch (error) {
-        console.warn('[Preseter] Não foi possível reabrir o último concert:', error);
-      }
-    }
-
     const legacyPresets = this.presetManager.loadPresets();
     const hasLegacyData = legacyPresets.length > 0 || (legacy?.sets?.length ?? 0) > 0;
     if (hasLegacyData) {
@@ -1307,7 +1299,9 @@ class MainWindow {
       }
     }
 
-    return this.concertManager.newConcert();
+    // Usa o template vazio como padrão inicial. O usuário pode escolher outro
+    // ao criar um novo concert pelo seletor de templates.
+    return this.concertManager.newConcert('vazio');
   }
 
   private defaultConcertPath(name: string): string {

@@ -289,8 +289,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const concertReady = useRef(false);
   /** Garante que o concert inicial seja carregado uma única vez. */
   const concertInitialized = useRef(false);
-  /** Patch a reabrir depois que a lista de patches estiver pronta. */
-  const pendingPatchRef = useRef<string | null>(null);
   /** Última ação do menu nativo, lida pelo listener (sem closure velha). */
   const menuHandlerRef = useRef<(action: MenuAction) => void>(() => undefined);
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
@@ -379,7 +377,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           window.electronAPI.preferencesGet(),
         ]);
         applyConcertState(concert);
-        pendingPatchRef.current = concert.lastPatchId;
         setLoadedPlugins(loaded);
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
@@ -570,16 +567,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return result;
   }, [presets, materializePatchLayout]);
-
-  // Reabre o último patch usado, após a lista de patches ter chegado do main.
-  useEffect(() => {
-    const id = pendingPatchRef.current;
-    if (!id || presets.length === 0) return;
-    pendingPatchRef.current = null;
-    if (presets.some((preset) => preset.id === id)) {
-      void loadPreset(id).catch(() => undefined);
-    }
-  }, [presets, loadPreset]);
 
   const deletePreset = useCallback(async (presetId: string): Promise<boolean> => {
     const result = await window.electronAPI.presetDelete(presetId);
