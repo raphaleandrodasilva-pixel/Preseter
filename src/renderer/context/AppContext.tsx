@@ -148,6 +148,9 @@ export interface AppContextType {
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
   rescanVstPlugins: () => Promise<any[]>;
+  hideVstPlugin: (idOrPath: string) => Promise<boolean>;
+  showVstPlugin: (idOrPath: string) => Promise<boolean>;
+  hiddenPluginIds: string[];
   addVstPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
   removeVstPluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
@@ -1082,6 +1085,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const showVstPlugin = useCallback(async (idOrPath: string) => {
+    try {
+      const result = await window.electronAPI.vstShowPlugin(idOrPath);
+      setScannedPlugins(result.plugins);
+      setPreferences(await window.electronAPI.preferencesGet());
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao mostrar o plugin.');
+      return false;
+    }
+  }, []);
+
+  const hideVstPlugin = useCallback(async (idOrPath: string) => {
+    try {
+      const result = await window.electronAPI.vstHidePlugin(idOrPath);
+      setScannedPlugins(result.plugins);
+      setPreferences(await window.electronAPI.preferencesGet());
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao ocultar o plugin.');
+      return false;
+    }
+  }, []);
+
   const addVstPluginFolder = useCallback(async () => {
     try {
       const result = await window.electronAPI.vstAddPluginFolder();
@@ -1554,6 +1583,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadedPlugins,
     mixState,
     scannedPlugins,
+    hiddenPluginIds: preferences?.hiddenPluginIds ?? [],
     audioDevices,
     audioSettings,
     preferences,
@@ -1614,6 +1644,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     subscribeMidiLearn,
     scanVstPlugins,
     rescanVstPlugins,
+    hideVstPlugin,
+    showVstPlugin,
     addVstPluginFolder,
     removeVstPluginFolder,
     loadVstPlugin,

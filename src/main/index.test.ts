@@ -28,11 +28,14 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(84);
+    expect(handlers.size).toBe(87);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
       'vst-scan',
+      'vst-rescan',
+      'vst-hide-plugin',
+      'vst-show-plugin',
       'vst-presets-list',
       'engine-midi',
       'audio-settings-get',
@@ -76,8 +79,15 @@ describe('main process IPC wiring', () => {
     await expect(call('midi-program-change', 0, 16)).rejects.toThrow(/entre 0 e 15/);
   });
 
-  it('merges app status changes and reports them back', () => {
-    expect(call('app-status-change', { tempo: 140, isMetronomeOn: true })).toMatchObject({
+  it('persists hidden VST plugins in preferences', () => {
+    expect(call('preferences-get')).toMatchObject({ hiddenPluginIds: [] });
+    expect(call('preferences-set', { hiddenPluginIds: ['plugin-1'] })).toMatchObject({
+      hiddenPluginIds: ['plugin-1'],
+    });
+    expect(call('vst-show-plugin', 'plugin-1')).toMatchObject({ hiddenPluginIds: [] });
+  });
+
+  it('merges app status changes and reports them back', () => {    expect(call('app-status-change', { tempo: 140, isMetronomeOn: true })).toMatchObject({
       tempo: 140,
       isMetronomeOn: true,
     });

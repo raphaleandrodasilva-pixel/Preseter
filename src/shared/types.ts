@@ -635,6 +635,8 @@ export interface AppPreferences {
   silencePreviousPatch: boolean;
   /** Pastas extras de plugins VST2/VST3/LV2 escolhidas pelo usuário. */
   pluginFolders: string[];
+  /** Plugins ocultados pelo usuário (ids ou caminhos); continuam carregáveis por patches salvos. */
+  hiddenPluginIds: string[];
   /** Velocidade do scroll; padrão 'slow' (0,5×). */
   scrollSpeed: ScrollSpeed;
 }

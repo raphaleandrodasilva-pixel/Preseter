@@ -43,6 +43,8 @@ export interface ElectronAPI {
   // VST
   vstScan: () => Promise<VstPluginInfo[]>;
   vstRescan: () => Promise<VstPluginInfo[]>;
+  vstHidePlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
+  vstShowPlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstAddPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
   vstRemovePluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo>;

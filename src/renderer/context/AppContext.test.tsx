@@ -393,6 +393,24 @@ describe('AppProvider MIDI and VST actions', () => {
     expect(latest.scannedPlugins).toHaveLength(1);
   });
 
+  it('hides and shows VST plugins', async () => {
+    const plugin = createPluginInfo();
+    vi.mocked(window.electronAPI.vstHidePlugin).mockResolvedValue({ hiddenPluginIds: [plugin.id], plugins: [] });
+    vi.mocked(window.electronAPI.vstShowPlugin).mockResolvedValue({ hiddenPluginIds: [], plugins: [plugin] });
+    await renderProvider();
+
+    await act(async () => {
+      expect(await latest.hideVstPlugin(plugin.id)).toBe(true);
+    });
+    expect(window.electronAPI.vstHidePlugin).toHaveBeenCalledWith(plugin.id);
+    expect(latest.scannedPlugins).toHaveLength(0);
+
+    await act(async () => {
+      expect(await latest.showVstPlugin(plugin.id)).toBe(true);
+    });
+    expect(latest.scannedPlugins).toHaveLength(1);
+  });
+
   it('reports scan and VST failures without throwing', async () => {
     vi.mocked(window.electronAPI.vstScan).mockRejectedValue(new Error('scan failed'));
     vi.mocked(window.electronAPI.vstLoad).mockRejectedValue(new Error('load failed'));

@@ -348,24 +348,38 @@ class MainWindow {
     ipcMain.handle('vst-scan', async () => {
       const plugins = await this.scanWithPreferences();
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
-      return plugins;
+      return this.visiblePlugins(plugins);
     });
 
     // Descarta a lista acumulada no motor e escaneia tudo de novo.
     ipcMain.handle('vst-rescan', async () => {
       const plugins = await this.scanWithPreferences(true);
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
-      return plugins;
+      return this.visiblePlugins(plugins);
+    });
+
+    ipcMain.handle('vst-hide-plugin', (_event, idOrPath: string) => {
+      const preferences = this.readPreferences();
+      const hiddenPluginIds = Array.from(new Set([...preferences.hiddenPluginIds, String(idOrPath)]));
+      this.writePreferences({ ...preferences, hiddenPluginIds });
+      return { hiddenPluginIds, plugins: this.visiblePlugins(this.vstManager.getScannedPlugins()) };
+    });
+
+    ipcMain.handle('vst-show-plugin', (_event, idOrPath: string) => {
+      const preferences = this.readPreferences();
+      const hiddenPluginIds = preferences.hiddenPluginIds.filter((item) => item !== idOrPath);
+      this.writePreferences({ ...preferences, hiddenPluginIds });
+      return { hiddenPluginIds, plugins: this.visiblePlugins(this.vstManager.getScannedPlugins()) };
     });
 
     ipcMain.handle('vst-add-plugin-folder', async () => {
-      if (!this.window) return { canceled: true, plugins: this.vstManager.getScannedPlugins() };
+      if (!this.window) return { canceled: true, plugins: this.visiblePlugins(this.vstManager.getScannedPlugins()) };
       const result = await dialog.showOpenDialog(this.window, {
         title: 'Adicionar pasta de plugins (VST2/VST3)',
         properties: ['openDirectory'],
       });
       if (result.canceled || !result.filePaths[0]) {
-        return { canceled: true, plugins: this.vstManager.getScannedPlugins() };
+        return { canceled: true, plugins: this.visiblePlugins(this.vstManager.getScannedPlugins()) };
       }
       const folder = result.filePaths[0];
       const preferences = this.readPreferences();
@@ -373,7 +387,7 @@ class MainWindow {
       this.writePreferences({ ...preferences, pluginFolders: folders });
       const plugins = await this.vstManager.scanDirectories(folders);
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
-      return { canceled: false, folder, folders, plugins };
+      return { canceled: false, folder, folders, plugins: this.visiblePlugins(plugins) };
     });
 
     ipcMain.handle('vst-remove-plugin-folder', async (_event, folder: string) => {
@@ -382,7 +396,7 @@ class MainWindow {
       this.writePreferences({ ...preferences, pluginFolders: folders });
       const plugins = await this.scanWithPreferences();
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
-      return { folders, plugins };
+      return { folders, plugins: this.visiblePlugins(plugins) };
     });
 
 
@@ -463,7 +477,7 @@ class MainWindow {
     });
 
     ipcMain.handle('vst-list', () => {
-      return this.vstManager.getScannedPlugins();
+      return this.visiblePlugins(this.vstManager.getScannedPlugins());
     });
 
     ipcMain.handle('vst-loaded', () => {
@@ -1454,6 +1468,13 @@ class MainWindow {
       : this.vstManager.scanDefaultDirectories();
   }
 
+  /** Remove da lista os plugins ocultados pelo usuário (id ou caminho). */
+  private visiblePlugins(plugins: VstPluginInfo[]): VstPluginInfo[] {
+    const hidden = new Set(this.readPreferences().hiddenPluginIds);
+    if (hidden.size === 0) return plugins;
+    return plugins.filter((plugin) => !hidden.has(plugin.id) && !hidden.has(plugin.path));
+  }
+
   private async initializeEngine(): Promise<void> {
     const saved = this.readAudioSettings();
     if (saved.enabled) {
@@ -1576,7 +1597,12 @@ class MainWindow {
   }
 
   private readPreferences(): AppPreferences {
-    const defaults: AppPreferences = { silencePreviousPatch: false, pluginFolders: [], scrollSpeed: 'slow' };
+    const defaults: AppPreferences = {
+      silencePreviousPatch: false,
+      pluginFolders: [],
+      hiddenPluginIds: [],
+      scrollSpeed: 'slow',
+    };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
       const data: unknown = JSON.parse(fs.readFileSync(this.preferencesPath, 'utf8'));
@@ -1588,6 +1614,9 @@ class MainWindow {
         silencePreviousPatch: saved.silencePreviousPatch === true,
         pluginFolders: Array.isArray(saved.pluginFolders)
           ? saved.pluginFolders.filter((folder): folder is string => typeof folder === 'string' && folder.trim() !== '')
+          : [],
+        hiddenPluginIds: Array.isArray(saved.hiddenPluginIds)
+          ? saved.hiddenPluginIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
           : [],
         scrollSpeed: saved.scrollSpeed === 'normal' || saved.scrollSpeed === 'slower'
           ? saved.scrollSpeed

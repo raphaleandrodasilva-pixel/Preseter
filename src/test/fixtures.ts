@@ -196,6 +196,7 @@ export function createPreferences(overrides: Partial<AppPreferences> = {}): AppP
   return {
     silencePreviousPatch: false,
     pluginFolders: [],
+    hiddenPluginIds: [],
     scrollSpeed: 'slow',
     ...overrides,
   };

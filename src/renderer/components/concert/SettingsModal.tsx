@@ -14,6 +14,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const {
     midiDevices, midiError, midiLastMessage, openMidiInputs, selectedMidiOutputId, listMidiDevices, openMidiPort,
     scannedPlugins, loadedPlugins, scanVstPlugins, rescanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
+    hideVstPlugin, showVstPlugin, hiddenPluginIds,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
     preferences, updatePreferences, layout,
@@ -522,10 +523,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                               style={accentBtn}
                               title={p.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : undefined}
                             >Carregar</button>}
+                        <button
+                          onClick={() => void hideVstPlugin(p.id)}
+                          className="rounded px-1.5 text-xs hover:text-amber-300"
+                          style={{ color: '#9A9AA0' }}
+                          title="Ocultar plugin da lista"
+                        >
+                          ⊘
+                        </button>
                       </div>
                     );
                   })}
                 </div>
+                {hiddenPluginIds.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <h4 className="hw-label mb-2">Ocultos ({hiddenPluginIds.length})</h4>
+                    {hiddenPluginIds.map((id) => (
+                      <div key={id} className="hw-inset flex items-center gap-2 px-3 py-2">
+                        <span className="min-w-0 flex-1 truncate text-[11px]" style={{ color: '#8E8E93' }} title={id}>
+                          {id.split(/[\\/]/).pop() || id}
+                        </span>
+                        <button
+                          onClick={() => void showVstPlugin(id)}
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-semibold hover:brightness-110"
+                          style={accentBtn}
+                          title="Mostrar plugin na lista"
+                        >
+                          Mostrar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
               <section>
                 <h4 className="hw-label mb-2">Carregados ({loadedPlugins.length})</h4>
