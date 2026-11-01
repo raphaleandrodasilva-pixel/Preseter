@@ -3,6 +3,17 @@
  */
 
 // Tipo de plugin VST
+/** Progresso global de carregamento de arquivo/patch mostrado no overlay. */
+export interface AppLoadProgress {
+  active: boolean;
+  title: string;
+  detail?: string;
+  current?: number;
+  total?: number;
+  percent?: number;
+  error?: string;
+}
+
 /** Resultado detalhado da última varredura de plugins. */
 export interface VstScanReport {
   count: number;
@@ -712,8 +723,7 @@ export type RecordingFormat = 'wav' | 'mp3' | 'flac';
 export type RecordingBitrate = 128 | 192 | 320;
 
 /** Resultado de iniciar/parar uma gravação. */
-export interface RecordingResult {
-  ok: boolean;
+export interface RecordingResult {  ok: boolean;
   /** Caminho final (ou o WAV temporário, quando a conversão falha). */
   path?: string;
   error?: string;
@@ -788,6 +798,8 @@ export interface UiElement {
   respondToHardwareMove?: 'jump' | 'pickup' | 'relative';
   // Exibição do rótulo (Text Labels do inspector)
   labelDisplay?: 'name' | 'value' | 'both';
+  /** Label dinâmico: quando `patch-name`, mostra o nome do patch atual. */
+  labelBinding?: 'patch-name';
   // Porta MIDI de entrada vinculada (usada pelo motor na Fase E)
   midiPort?: string;
   // Repassa evento adiante sem processar (consumido pelo motor na Fase E)

@@ -227,7 +227,8 @@ describe('parseConcertFile', () => {
     expect(parsed.layout.elements.map((element) => element.id)).toEqual(['x']);
     expect(parsed.layout.tempo).toBe(90);
     expect(parsed.patches[0].mappings).toEqual({ x: { pluginId: 'plugin' } });
-    expect(parsed.patches[0].layout).toEqual({ elements: [], background: null, tempo: 90 });
+    expect(parsed.patches[0].layout.elements).toEqual([expect.objectContaining({ id: 'x' })]);
+    expect(parsed.patches[0].layout.tempo).toBe(90);
   });
 
   it('discards concert and set strips as documented', () => {

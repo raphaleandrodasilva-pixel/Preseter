@@ -79,6 +79,7 @@ export function createDefaultKeyboardLayout(
     id: elementId('element_default_title'),
     type: 'label',
     label: options.title?.trim() || 'Novo patch',
+    labelBinding: 'patch-name',
     x: 330,
     y: 96,
     width: 170,

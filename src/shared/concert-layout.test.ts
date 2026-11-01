@@ -155,6 +155,22 @@ describe('materializeLayout', () => {
     expect(result.background).toBe('bg.png');
   });
 
+  it('uses the patch layout when it has geometry', () => {
+    const patch = createPreset({
+      name: 'Órgão Tonewheel',
+      layout: createLayout({
+        elements: [
+          createElement({ id: 'own', label: 'Own', x: 10, y: 20 }),
+          createElement({ id: 'title', type: 'label', label: 'Piano', labelBinding: 'patch-name' }),
+        ],
+        tempo: 120,
+      }),
+    });
+    const result = materializeLayout(base, patch);
+    expect(result.elements.map((element) => element.id)).toEqual(['own', 'title']);
+    expect(result.elements[1].label).toBe('Órgão Tonewheel');
+  });
+
   it('keeps concert tempo when there is no patch tempo and uses a fallback layout', () => {
     expect(materializeLayout(base, null).tempo).toBe(100);
     const fallback = materializeLayout(null, createPreset({ layout: createLayout({ tempo: 90 }) }));
@@ -173,7 +189,7 @@ describe('materializeLayout', () => {
 });
 
 describe('withoutLayoutGeometry', () => {
-  it('stores mappings and strips element geometry from the patch layout', () => {
+  it('mantém a geometria própria do patch e extrai os mappings', () => {
     const preset = createPreset({
       layout: createLayout({
         elements: [createElement({ id: 'x', pluginId: 'p', label: 'Control' })],
@@ -183,8 +199,10 @@ describe('withoutLayoutGeometry', () => {
     });
     const result = withoutLayoutGeometry(preset);
     expect(result.mappings).toEqual({ x: { pluginId: 'p' } });
-    expect(result.layout).toEqual({ elements: [], background: null, tempo: 77 });
-    expect(preset.layout.elements).toHaveLength(1);
+    expect(result.layout.elements).toHaveLength(1);
+    expect(result.layout.elements[0]).toMatchObject({ id: 'x', label: 'Control', pluginId: 'p' });
+    expect(result.layout.tempo).toBe(77);
+    expect(result.layout.background).toBe('bg');
   });
 });
 
@@ -209,7 +227,7 @@ describe('migrateConcertLayout', () => {
     expect(result.patches[0].mappings).toEqual({ existing: { pluginId: 'old' } });
   });
 
-  it('migrates the old per-patch layout into the largest patch layout', () => {
+  it('mantém o layout de cada patch e usa o primeiro como fallback do concert', () => {
     const small = createPreset({
       id: 'small',
       layout: createLayout({ elements: [createElement({ id: 'small' })], tempo: 111 }),
@@ -223,10 +241,10 @@ describe('migrateConcertLayout', () => {
     });
 
     const result = migrateConcertLayout(null, [small, large]);
-    expect(result.layout.elements.map((element) => element.id)).toEqual(['large-1', 'large-2']);
-    expect(result.layout.tempo).toBe(133);
-    expect(result.patches.map((patch) => patch.layout.elements)).toEqual([[], []]);
-    expect(result.patches[0].layout.tempo).toBe(111);
+    expect(result.layout.elements.map((element) => element.id)).toEqual(['small']);
+    expect(result.layout.tempo).toBe(111);
+    expect(result.patches[0].layout.elements.map((element) => element.id)).toEqual(['small']);
+    expect(result.patches[1].layout.elements.map((element) => element.id)).toEqual(['large-1', 'large-2']);
     expect(result.patches[1].layout.tempo).toBe(133);
     expect(result.patches[1].mappings).toEqual({ 'large-2': { pluginId: 'p' } });
   });

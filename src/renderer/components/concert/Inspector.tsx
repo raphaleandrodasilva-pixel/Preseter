@@ -332,9 +332,17 @@ export const Inspector: React.FC<InspectorProps> = ({
         {mode === 'layout' ? (
           <>
             <span className="px-1 py-2 text-[11px] font-semibold text-white">Layout</span>
-            <span className="ml-auto px-1 py-2 text-[10px]" style={{ color: '#8E8E93' }}>
-              Layout salvo com o concert (Ctrl+S)
+            <span className="ml-2 px-1 py-2 text-[10px]" style={{ color: '#8E8E93' }}>
+              Layout deste patch · Ctrl+S salva o concert
             </span>
+            <button
+              onClick={onSave}
+              disabled={!draft || saving}
+              className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
+              style={{ background: '#0A84FF', color: '#FFFFFF' }}
+            >
+              {saving ? 'Salvando…' : 'Salvar patch'}
+            </button>
           </>
         ) : (
           <>

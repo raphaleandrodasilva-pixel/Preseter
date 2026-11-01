@@ -82,34 +82,40 @@ export function resolveMappingsForPatch(
   return resolved;
 }
 
-/** Aplica os mappings do patch sobre a geometria do layout do concert. */
+/** Aplica os mappings do patch sobre a geometria do layout do patch (ou do concert, como fallback). */
 export function materializeLayout(
   concertLayout: LayoutConfig | null | undefined,
   patch: Preset | null | undefined,
   mappings?: ConcertMapping[] | null,
   set?: PresetSet | null
 ): LayoutConfig {
-  const base = concertLayout ?? { elements: [], background: null, tempo: patch?.layout.tempo ?? 120 };
+  const patchLayout = patch?.layout && patch.layout.elements.length > 0 ? patch.layout : null;
+  const base = patchLayout
+    ?? concertLayout
+    ?? { elements: [], background: null, tempo: patch?.layout.tempo ?? 120 };
   const effective = resolveMappingsForPatch(mappings, set, patch);
   return {
     ...base,
     tempo: patch?.layout.tempo ?? base.tempo,
     elements: base.elements.map((element) => {
       const mapping = effective[element.id];
-      return mapping ? { ...element, ...mapping } : element;
+      const resolved = mapping ? { ...element, ...mapping } : element;
+      if (resolved.labelBinding === 'patch-name') {
+        return { ...resolved, label: patch?.name?.trim() || resolved.label };
+      }
+      return resolved;
     }),
   };
 }
 
-/** O patch é salvo sem geometria: o layout fica no concert e aqui só os mappings. */
+/** Prepara o patch para salvar mantendo a geometria própria e extraindo os mappings. */
 export function withoutLayoutGeometry(preset: Preset): Preset {
   return {
     ...preset,
     mappings: extractMappings(preset.layout),
     layout: {
-      elements: [],
-      background: null,
-      tempo: preset.layout.tempo,
+      ...preset.layout,
+      elements: preset.layout.elements.map((element) => ({ ...element })),
     },
   };
 }
@@ -130,17 +136,14 @@ export function migrateConcertLayout(
       patches: patches.map((patch) => ({
         ...patch,
         mappings: patch.mappings ?? extractMappings(patch.layout),
+        layout: assignMissingGroupIds(patch.layout),
       })),
     };
   }
 
-  // Formato antigo: usa como layout do concert o patch com mais controles.
-  let source: Preset | null = null;
-  for (const patch of patches) {
-    if (!source || (patch.layout?.elements.length ?? 0) > (source.layout?.elements.length ?? 0)) {
-      source = patch;
-    }
-  }
+  // Formato por patch: mantém a geometria de cada patch. O layout do primeiro
+  // patch vira fallback para patches antigos que ainda não têm geometria.
+  const source = patches.find((patch) => (patch.layout?.elements.length ?? 0) > 0) ?? null;
   const concertLayout: LayoutConfig = source
     ? { ...source.layout, elements: source.layout.elements.map((element) => ({ ...element })) }
     : { elements: [], background: null, tempo: 120 };
@@ -150,11 +153,9 @@ export function migrateConcertLayout(
     patches: patches.map((patch) => ({
       ...patch,
       mappings: patch.mappings ?? extractMappings(patch.layout),
-      layout: {
-        elements: [],
-        background: null,
-        tempo: patch.layout?.tempo ?? concertLayout.tempo,
-      },
+      layout: patch.layout?.elements.length
+        ? assignMissingGroupIds(patch.layout)
+        : { elements: [], background: null, tempo: patch.layout?.tempo ?? concertLayout.tempo },
     })),
   };
 }
