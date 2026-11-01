@@ -1,8 +1,8 @@
 import type { Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
-import { SEND_OFF_DB } from '../../shared/types';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
+import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { COLLECTION_SETS, type CollectionLayerSpec } from '../../shared/collection-presets';
@@ -43,65 +43,8 @@ export interface BuildCollectionResult {
 let counter = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${++counter}`;
 
-function element(spec: {
-  type: UiElement['type'];
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  color?: string;
-  cc?: number;
-  minValue?: number;
-  maxValue?: number;
-  value?: number;
-  patchSendAux?: number;
-}): UiElement {
-  return {
-    id: nextId('element'),
-    type: spec.type,
-    label: spec.label,
-    x: spec.x,
-    y: spec.y,
-    width: spec.width,
-    height: spec.height,
-    color: spec.color ?? '#9A9AA0',
-    minValue: spec.minValue ?? 0,
-    maxValue: spec.maxValue ?? 1,
-    orientation: 'vertical',
-    isMomentary: false,
-    value: spec.type === 'keyboard' ? undefined : (spec.value ?? 0.5),
-    ...(spec.cc ? { midiCommand: { type: 'cc', channel: 0, controllerNumber: spec.cc } } : {}),
-    ...(spec.patchSendAux !== undefined ? { patchSendAux: spec.patchSendAux } : {}),
-  };
-}
-
-function keyboardRig(notes: string): UiElement[] {
-  return [
-    element({ type: 'keyboard', label: 'Teclado', x: 24, y: 148, width: 720, height: 220, color: '#0A84FF' }),
-    ...[1, 2, 3, 4].map((aux) =>
-      element({
-        type: 'knob',
-        label: `Aux ${aux}`,
-        x: 752 + ((aux - 1) % 2) * 104,
-        y: 16 + Math.floor((aux - 1) / 2) * 116,
-        width: 96,
-        height: 108,
-        color: '#FF9F0A',
-        minValue: SEND_OFF_DB,
-        maxValue: 6,
-        value: SEND_OFF_DB,
-        patchSendAux: aux,
-      })
-    ),
-    element({ type: 'fader', label: 'Volume', x: 24, y: 24, width: 66, height: 112, cc: 7 }),
-    element({ type: 'knob', label: 'Modulação', x: 104, y: 24, width: 96, height: 112, cc: 1 }),
-    element({ type: 'midi-activity', label: 'MIDI', x: 216, y: 24, width: 128, height: 48 }),
-    element({ type: 'label', label: notes, x: 216, y: 80, width: 260, height: 40 }),
-    element({ type: 'pedal', label: 'Sustain', x: 100, y: 400, width: 72, height: 100, color: '#30D158', cc: 64, value: 0 }),
-    element({ type: 'pedal', label: 'Expression', x: 16, y: 400, width: 72, height: 100, color: '#0A84FF', cc: 11, value: 0.5 }),
-    element({ type: 'pedal', label: 'Volume', x: 16, y: 280, width: 72, height: 100, color: '#FF9F0A', cc: 7, value: 0.5 }),
-  ];
+function keyboardRig(notes: string, tempo: number): UiElement[] {
+  return createDefaultKeyboardLayout(tempo, { title: notes }).elements;
 }
 
 function resolvePlugin(
@@ -186,7 +129,7 @@ export function buildCollectionConcert(
         midiChannel: 0,
         plugins: assignments,
         vstStates: {},
-        layout: { elements: keyboardRig(notes), background: null, tempo },
+        layout: { elements: keyboardRig(notes, tempo), background: null, tempo },
         createdAt: now,
         updatedAt: now,
       });

@@ -3,30 +3,57 @@ import { createDefaultKeyboardLayout, ensureDefaultPedals } from './default-layo
 import { createElement, createLayout } from '../test/fixtures';
 
 describe('createDefaultKeyboardLayout', () => {
-  it('creates a keyboard, the three default pedals and four patch sends', () => {
+  it('creates the fader, modulation, MIDI, title, four patch sends, keyboard and two pedals', () => {
     const layout = createDefaultKeyboardLayout(140);
     expect(layout.tempo).toBe(140);
     expect(layout.background).toBeNull();
     expect(layout.elements.map((element) => element.type)).toEqual([
+      'fader',
+      'knob',
+      'midi-activity',
+      'label',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'keyboard',
-      'knob',
-      'knob',
-      'knob',
-      'knob',
-      'pedal',
       'pedal',
       'pedal',
     ]);
     expect(layout.elements.map((element) => element.label)).toEqual([
-      'Teclado',
+      'Volume',
+      'Modulação',
+      'MIDI',
+      'Novo patch',
       'Aux 1',
       'Aux 2',
       'Aux 3',
       'Aux 4',
-      'Sustain',
+      'Teclado',
       'Expression',
-      'Volume',
+      'Sustain',
     ]);
+  });
+
+  it('não cria pedal de Volume; o volume principal é o fader', () => {
+    const layout = createDefaultKeyboardLayout();
+    expect(layout.elements.filter((element) => element.type === 'fader')).toHaveLength(1);
+    expect(layout.elements.some((element) => element.pedalKind === 'volume')).toBe(false);
+    expect(layout.elements.filter((element) => element.type === 'pedal')).toHaveLength(2);
+  });
+
+  it('usa o nome do patch no label central', () => {
+    const layout = createDefaultKeyboardLayout(120, { title: 'Piano de Cauda' });
+    expect(layout.elements.find((element) => element.type === 'label')?.label).toBe('Piano de Cauda');
+  });
+
+  it('mantém todos os controles dentro do canvas 1000×625', () => {
+    for (const element of createDefaultKeyboardLayout().elements) {
+      expect(element.x).toBeGreaterThanOrEqual(0);
+      expect(element.y).toBeGreaterThanOrEqual(0);
+      expect(element.x + element.width).toBeLessThanOrEqual(1000);
+      expect(element.y + element.height).toBeLessThanOrEqual(625);
+    }
   });
 
   it('places the four patch sends above and to the right of the keyboard', () => {
@@ -54,7 +81,7 @@ describe('createDefaultKeyboardLayout', () => {
     const layout = createDefaultKeyboardLayout();
     const keyboard = layout.elements.find((element) => element.type === 'keyboard')!;
     expect(layout.tempo).toBe(120);
-    expect(keyboard.keyboardLow).toBe(36);
+    expect(keyboard.keyboardLow).toBe(24);
     expect(keyboard.keyboardHigh).toBe(84);
     expect(keyboard.keyboardSplit).toBeNull();
     expect(keyboard.keyboardChannel).toBe(0);
@@ -62,9 +89,9 @@ describe('createDefaultKeyboardLayout', () => {
 
   it('uses the expected MIDI controllers for the pedals', () => {
     const pedals = createDefaultKeyboardLayout().elements.filter((element) => element.type === 'pedal');
-    expect(pedals.map((pedal) => pedal.midiCommand?.controllerNumber)).toEqual([64, 11, 7]);
-    expect(pedals.map((pedal) => pedal.pedalKind)).toEqual(['sustain', 'expression', 'volume']);
-    expect(pedals.map((pedal) => pedal.isMomentary)).toEqual([true, false, false]);
+    expect(pedals.map((pedal) => pedal.midiCommand?.controllerNumber)).toEqual([11, 64]);
+    expect(pedals.map((pedal) => pedal.pedalKind)).toEqual(['expression', 'sustain']);
+    expect(pedals.map((pedal) => pedal.isMomentary)).toEqual([false, true]);
   });
 
   it('lets a single send knob be removed without touching the others', () => {
@@ -100,6 +127,6 @@ describe('ensureDefaultPedals', () => {
     expect(result).not.toBe(layout);
     expect(result.tempo).toBe(88);
     expect(result.elements[0]).toBe(layout.elements[0]);
-    expect(result.elements.filter((element) => element.type === 'pedal')).toHaveLength(3);
+    expect(result.elements.filter((element) => element.type === 'pedal')).toHaveLength(2);
   });
 });

@@ -10,75 +10,127 @@ function cc(controllerNumber: number): UiElement['midiCommand'] {
   return { type: 'cc', channel: 0, controllerNumber };
 }
 
+export interface DefaultKeyboardLayoutOptions {
+  /** Texto do label central (normalmente o nome do patch). */
+  title?: string;
+  /** Primeira nota do teclado; padrão C1. */
+  keyboardLow?: number;
+  /** Última nota do teclado; padrão C6. */
+  keyboardHigh?: number;
+}
+
 /**
- * Layout inicial no estilo MainStage: teclado centralizado na parte inferior,
- * sustain e expression pedals à esquerda e os 4 sends do Master do Patch
- * (Aux 1–4) acima do teclado, à direita. Usado apenas quando o concert ainda
- * não tem nenhum controle.
+ * Layout padrão no estilo MainStage, na disposição usada pelo app:
+ * Volume + Modulação + MIDI + nome do patch no topo esquerdo, Aux 1–4 à
+ * direita, teclado centralizado embaixo e só Expression/Sustain como pedais.
+ * O Volume é um fader; não existe pedal de volume duplicado.
  */
-export function createDefaultKeyboardLayout(tempo: number = DEFAULT_TEMPO): LayoutConfig {
-  const keyboard: UiElement = {
-    id: elementId('element_default_keyboard'),
-    type: 'keyboard',
-    label: 'Teclado',
-    x: 220,
-    y: 330,
-    width: 560,
-    height: 200,
+export function createDefaultKeyboardLayout(
+  tempo: number = DEFAULT_TEMPO,
+  options: DefaultKeyboardLayoutOptions = {}
+): LayoutConfig {
+  const volume: UiElement = {
+    id: elementId('element_default_volume'),
+    type: 'fader',
+    label: 'Volume',
+    x: 40,
+    y: 28,
+    width: 56,
+    height: 112,
     color: '#0A84FF',
     minValue: 0,
     maxValue: 1,
     orientation: 'vertical',
     isMomentary: false,
-    keyboardLow: 36,
-    keyboardHigh: 84,
-    keyboardSplit: null,
-    keyboardChannel: 0,
+    value: 0.5,
+    midiCommand: cc(7),
   };
-  // Sends do bus do patch (Master do Patch) para os Aux 1–4: ficam acima do
-  // teclado, à direita, em duas colunas com folga. Cada knob pode ser apagado
-  // individualmente no modo Layout.
+  const modulation: UiElement = {
+    id: elementId('element_default_modulation'),
+    type: 'knob',
+    label: 'Modulação',
+    x: 120,
+    y: 28,
+    width: 68,
+    height: 112,
+    color: '#0A84FF',
+    minValue: 0,
+    maxValue: 1,
+    orientation: 'vertical',
+    isMomentary: false,
+    value: 0.5,
+    midiCommand: cc(1),
+  };
+  const midiActivity: UiElement = {
+    id: elementId('element_default_midi'),
+    type: 'midi-activity',
+    label: 'MIDI',
+    x: 224,
+    y: 28,
+    width: 100,
+    height: 56,
+    color: '#0A84FF',
+    minValue: 0,
+    maxValue: 1,
+    orientation: 'vertical',
+    isMomentary: false,
+  };
+  const title: UiElement = {
+    id: elementId('element_default_title'),
+    type: 'label',
+    label: options.title?.trim() || 'Novo patch',
+    x: 330,
+    y: 96,
+    width: 170,
+    height: 32,
+    color: '#F2F2F2',
+    minValue: 0,
+    maxValue: 1,
+    orientation: 'vertical',
+    isMomentary: false,
+  };
   const patchSends: UiElement[] = Array.from({ length: MAX_AUX_BUSES }, (_, index) => ({
     id: elementId(`element_default_send${index + 1}`),
     type: 'knob',
     label: `Aux ${index + 1}`,
-    x: 776 + (index % 2) * 108,
-    y: 96 + Math.floor(index / 2) * 116,
-    width: 96,
-    height: 108,
-    color: '#FF9F0A',
+    x: 744 + (index % 2) * 98,
+    y: 24 + Math.floor(index / 2) * 104,
+    width: 78,
+    height: 100,
+    color: '#0A84FF',
     minValue: SEND_OFF_DB,
     maxValue: 6,
     orientation: 'vertical',
     isMomentary: false,
-    value: 0,
+    value: SEND_OFF_DB,
     patchSendAux: index + 1,
   }));
-  const sustain: UiElement = {
-    id: elementId('element_default_sustain'),
-    type: 'pedal',
-    label: 'Sustain',
-    x: 100,
-    y: 430,
-    width: 72,
-    height: 100,
-    color: '#30D158',
+  const keyboard: UiElement = {
+    id: elementId('element_default_keyboard'),
+    type: 'keyboard',
+    label: 'Teclado',
+    x: 208,
+    y: 393,
+    width: 695,
+    height: 172,
+    color: '#0A84FF',
     minValue: 0,
     maxValue: 1,
     orientation: 'vertical',
-    isMomentary: true,
-    value: 0,
-    midiCommand: cc(64),
-    pedalKind: 'sustain',
+    isMomentary: false,
+    keyboardLow: options.keyboardLow ?? 24,
+    keyboardHigh: options.keyboardHigh ?? 84,
+    keyboardSplit: null,
+    keyboardChannel: 0,
   };
   const expression: UiElement = {
     id: elementId('element_default_expression'),
     type: 'pedal',
     label: 'Expression',
-    x: 16,
-    y: 430,
-    width: 72,
-    height: 100,
+    x: 40,
+    y: 512,
+    width: 58,
+    height: 90,
     color: '#0A84FF',
     minValue: 0,
     maxValue: 1,
@@ -88,24 +140,28 @@ export function createDefaultKeyboardLayout(tempo: number = DEFAULT_TEMPO): Layo
     midiCommand: cc(11),
     pedalKind: 'expression',
   };
-  const volume: UiElement = {
-    id: elementId('element_default_volume'),
+  const sustain: UiElement = {
+    id: elementId('element_default_sustain'),
     type: 'pedal',
-    label: 'Volume',
-    x: 16,
-    y: 310,
-    width: 72,
-    height: 100,
-    color: '#FF9F0A',
+    label: 'Sustain',
+    x: 118,
+    y: 512,
+    width: 58,
+    height: 90,
+    color: '#8E8E93',
     minValue: 0,
     maxValue: 1,
     orientation: 'vertical',
-    isMomentary: false,
-    value: 0.5,
-    midiCommand: cc(7),
-    pedalKind: 'volume',
+    isMomentary: true,
+    value: 0,
+    midiCommand: cc(64),
+    pedalKind: 'sustain',
   };
-  return { elements: [keyboard, ...patchSends, sustain, expression, volume], background: null, tempo };
+  return {
+    elements: [volume, modulation, midiActivity, title, ...patchSends, keyboard, expression, sustain],
+    background: null,
+    tempo,
+  };
 }
 
 /** Adiciona os pedais padrão a um layout que já tem teclado, se faltarem. */

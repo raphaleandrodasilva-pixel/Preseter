@@ -71,12 +71,15 @@ describe('default concert construction', () => {
     expect(file.concert.name).toBe('Novo');
     expect(file.layout.tempo).toBe(100);
     expect(file.layout.elements.map((element) => element.type)).toEqual([
+      'fader',
+      'knob',
+      'midi-activity',
+      'label',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'keyboard',
-      'knob',
-      'knob',
-      'knob',
-      'knob',
-      'pedal',
       'pedal',
       'pedal',
     ]);

@@ -74,7 +74,7 @@ const AppContent: React.FC = () => {
     );
     const nextLayout = layout && layout.elements.length > 0
       ? layout
-      : createDefaultKeyboardLayout(layout?.tempo ?? 120);
+      : createDefaultKeyboardLayout(layout?.tempo ?? 120, { title: base.name });
     if (!layout || layout.elements.length === 0) updateConcertLayout(nextLayout);
     const siblings = presets.filter((p) => (p.setId ?? undefined) === setId);
     const nextOrder = siblings.reduce((max, p) => Math.max(max, p.setOrder ?? 0), -1) + 1;

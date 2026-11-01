@@ -25,12 +25,15 @@ describe('concert templates', () => {
     expect(file.sets).toEqual([]);
     expect(file.patches).toEqual([]);
     expect(file.layout.elements.map((element) => element.type)).toEqual([
+      'fader',
+      'knob',
+      'midi-activity',
+      'label',
+      'knob',
+      'knob',
+      'knob',
+      'knob',
       'keyboard',
-      'knob',
-      'knob',
-      'knob',
-      'knob',
-      'pedal',
       'pedal',
       'pedal',
     ]);
@@ -53,7 +56,7 @@ describe('concert templates', () => {
     expect(file.patches.every((patch) => patch.setId === file.sets[0].id)).toBe(true);
     expect(file.layout.elements.length).toBeGreaterThan(0);
     expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
-    expect(file.layout.elements.filter((element) => element.type === 'pedal').length).toBeGreaterThanOrEqual(3);
+    expect(file.layout.elements.filter((element) => element.type === 'pedal').length).toBeGreaterThanOrEqual(2);
   });
 
   it('builds the worship template at 72 BPM', () => {
