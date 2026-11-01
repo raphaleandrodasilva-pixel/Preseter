@@ -2217,6 +2217,16 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const masterMuted = mixState?.master?.muted ?? false;
   const panic = () => { void enginePanic(); };
   const toggleMasterMute = () => { void setVstMasterMix({ muted: !masterMuted }); };
+  const metronomeOn = concertSettings?.metronome.enabled ?? appStatus.isMetronomeOn;
+  const toggleMetronome = () => {
+    const enabled = !metronomeOn;
+    if (concertSettings) {
+      updateConcertSettings({ metronome: { ...concertSettings.metronome, enabled } });
+    } else {
+      void setAppStatus({ isMetronomeOn: enabled });
+    }
+    setActionNotice(enabled ? 'Metrônomo ligado' : 'Metrônomo desligado');
+  };
 
   /** Gravação da saída (Fase 6.4). */
   const toggleRecording = async () => {
@@ -2311,16 +2321,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         void setAppStatus({ isPlaying: !appStatus.isPlaying });
         setActionNotice(appStatus.isPlaying ? 'Stop' : 'Play');
         break;
-      case 'metronome': {
-        const enabled = !(concertSettings?.metronome.enabled ?? appStatus.isMetronomeOn);
-        if (concertSettings) {
-          updateConcertSettings({ metronome: { ...concertSettings.metronome, enabled } });
-        } else {
-          void setAppStatus({ isMetronomeOn: enabled });
-        }
-        setActionNotice(enabled ? 'Metrônomo ligado' : 'Metrônomo desligado');
+      case 'metronome':
+        toggleMetronome();
         break;
-      }
       case 'current-notes':
         setActionNotice(
           activeNotes.size > 0
@@ -2560,6 +2563,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             Afinador
           </button>
           <button
+            className={`hw-squarebtn px-3 py-1.5 text-xs${metronomeOn ? ' on' : ''}`}
+            onClick={toggleMetronome}
+            title={metronomeOn ? 'Metrônomo ligado — clique para parar' : 'Metrônomo desligado — clique para começar'}
+            style={metronomeOn ? { color: '#30D158', borderColor: '#30D158' } : undefined}
+          >
+            Metrônomo
+          </button>
+          <button
             className="hw-squarebtn px-3 py-1.5 text-xs"
             onClick={() => setSettingsTab('general')}
             title="Configurações"
@@ -2707,14 +2718,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         presetCount={presets.length}
         currentPresetName={currentPreset?.name ?? null}
         midiLastMessage={midiLastMessage}
-        isMetronomeOn={concertSettings?.metronome.enabled ?? appStatus.isMetronomeOn}
-        onToggleMetronome={() => {
-          if (concertSettings) {
-            updateConcertSettings({ metronome: { ...concertSettings.metronome, enabled: !concertSettings.metronome.enabled } });
-          } else {
-            void setAppStatus({ isMetronomeOn: !appStatus.isMetronomeOn });
-          }
-        }}
+        isMetronomeOn={metronomeOn}
+        onToggleMetronome={toggleMetronome}
         onPanic={panic}
         onOpenSettings={(tab) => setSettingsTab(tab)}
       />

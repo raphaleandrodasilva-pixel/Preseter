@@ -549,9 +549,11 @@ public:
         const int channels = audio.getNumChannels();
         if (samples <= 0 || channels <= 0) return;
 
-        const bool on = enabled.load() && playing.load();
+        const bool on = enabled.load();
         const double bpm = tempo.load();
         const int beatsPerBar = juce::jmax (1, numerator.load());
+        const int denominator = juce::jmax (1, denominatorValue.load());
+        const double beatLengthPpq = 4.0 / (double) denominator;
         const float gain = juce::Decibels::decibelsToGain (volumeDb.load());
         const double ppqPerSample = bpm / 60.0 / sampleRate;
 
@@ -560,7 +562,7 @@ public:
             if (on)
             {
                 const double ppq = ppqPosition;
-                const int beat = (int) std::floor (ppq);
+                const int beat = (int) std::floor (ppq / beatLengthPpq);
                 if (beat != lastBeat)
                 {
                     lastBeat = beat;
@@ -604,24 +606,26 @@ public:
     void getStateInformation (juce::MemoryBlock&) override {}
     void setStateInformation (const void*, int) override {}
 
-    void configure (bool shouldBeEnabled, double volume, bool accent, double bpmIn, int numeratorIn, bool playingIn)
+    void configure (bool shouldBeEnabled, double volume, bool accent, double bpmIn,
+                    int numeratorIn, int denominatorIn, bool playingIn)
     {
-        enabled.store (shouldBeEnabled);
+        const bool wasEnabled = enabled.exchange (shouldBeEnabled);
         volumeDb.store (juce::jlimit (-60.0, 6.0, volume));
         accentFirstBeat.store (accent);
-        setClock (bpmIn, numeratorIn, playingIn);
-    }
-
-    void setClock (double bpmIn, int numeratorIn, bool playingIn)
-    {
-        tempo.store (juce::jlimit (20.0, 300.0, bpmIn));
-        numerator.store (juce::jmax (1, numeratorIn));
-        if (! playingIn)
+        setClock (bpmIn, numeratorIn, denominatorIn, playingIn);
+        if (wasEnabled != shouldBeEnabled)
         {
             ppqPosition = 0.0;
             lastBeat = -1;
         }
-        playing.store (playingIn);
+    }
+
+    void setClock (double bpmIn, int numeratorIn, int denominatorIn, bool playingIn)
+    {
+        juce::ignoreUnused (playingIn);
+        tempo.store (juce::jlimit (20.0, 300.0, bpmIn));
+        numerator.store (juce::jmax (1, numeratorIn));
+        denominatorValue.store (juce::jmax (1, denominatorIn));
     }
 
     bool isEnabled() const { return enabled.load(); }
@@ -635,6 +639,7 @@ private:
     std::atomic<double> volumeDb { -12.0 };
     std::atomic<double> tempo { 120.0 };
     std::atomic<int> numerator { 4 };
+    std::atomic<int> denominatorValue { 4 };
     double sampleRate = 44100.0;
     int samplesForClick = 2048;
     double ppqPosition = 0.0;
@@ -2397,7 +2402,7 @@ juce::String Engine::setHostClock (double bpm, int numerator, int denominator, b
     if (auto* metronome = metronomeNode != nullptr
             ? dynamic_cast<MetronomeProcessor*> (metronomeNode->getProcessor())
             : nullptr)
-        metronome->setClock (bpm, numerator, playing);
+        metronome->setClock (bpm, numerator, denominator, playing);
     return {};
 }
 
@@ -2414,6 +2419,7 @@ juce::String Engine::setMetronome (bool enabled, double volumeDb, bool accentFir
         accentFirstBeat,
         playHead.getTempo(),
         playHead.getNumerator(),
+        playHead.getDenominator(),
         playHead.isPlaying());
     return {};
 }

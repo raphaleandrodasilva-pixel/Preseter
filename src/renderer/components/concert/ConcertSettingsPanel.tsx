@@ -269,17 +269,79 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
               />
               Metrônomo ligado
             </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className={classLabel}>
+                Tempo (BPM)
+                <input
+                  className={classInput}
+                  type="number"
+                  min={20}
+                  max={300}
+                  value={tempo}
+                  onChange={(e) => onTempoChange(Math.max(20, Math.min(300, Number(e.target.value) || 120)))}
+                />
+              </label>
+              <label className={classLabel}>
+                Compasso — numerador
+                <input
+                  className={classInput}
+                  type="number"
+                  min={1}
+                  max={32}
+                  value={settings.timeSignature.numerator}
+                  onChange={(e) => onChange({
+                    timeSignature: {
+                      ...settings.timeSignature,
+                      numerator: Math.max(1, Math.min(32, Number(e.target.value) || 4)),
+                    },
+                  })}
+                />
+              </label>
+              <label className={classLabel}>
+                Compasso — denominador
+                <select
+                  className={classInput}
+                  value={settings.timeSignature.denominator}
+                  onChange={(e) => onChange({
+                    timeSignature: { ...settings.timeSignature, denominator: Number(e.target.value) },
+                  })}
+                >
+                  {[1, 2, 4, 8, 16, 32].map((value) => (
+                    <option key={value} value={value}>1/{value}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <label className={classLabel}>
-              Volume do clique (dB)
+              Volume do clique: <span style={{ color: '#C6C6CB' }}>{settings.metronome.volumeDb} dB</span>
+              <input
+                type="range"
+                min={-60}
+                max={0}
+                step={1}
+                value={settings.metronome.volumeDb}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? -12 : Number(e.target.value);
+                  onChange({
+                    metronome: { ...settings.metronome, volumeDb: Math.max(-60, Math.min(0, value || 0)) },
+                  });
+                }}
+                className="w-full"
+                style={{ accentColor: '#FF9F0A' }}
+              />
+            </label>
+            <label className={classLabel}>
+              Valor do volume (dB)
               <input
                 className={classInput}
                 type="number"
                 min={-60}
                 max={0}
                 value={settings.metronome.volumeDb}
-                onChange={(e) =>
-                  onChange({ metronome: { ...settings.metronome, volumeDb: Math.max(-60, Math.min(0, Number(e.target.value) || -12)) } })
-                }
+                onChange={(e) => {
+                  const value = e.target.value === '' ? -12 : Number(e.target.value);
+                  onChange({ metronome: { ...settings.metronome, volumeDb: Math.max(-60, Math.min(0, value || 0)) } });
+                }}
               />
             </label>
             <label className={classCheck}>
@@ -291,6 +353,10 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
               />
               Acentuar o primeiro tempo do compasso
             </label>
+            <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+              O clique usa o tempo/compasso acima. Em 6/8 ele clica na colcheia; em 2/2, na mínima.
+              O botão do metrônomo no Perform liga e desliga o clique.
+            </p>
           </div>
         )}
 
