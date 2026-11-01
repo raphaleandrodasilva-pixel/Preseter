@@ -2,7 +2,7 @@
 
 export interface CollectionLayerSpec {
   /** Instrumento sugerido (sigla do catálogo). */
-  inst: 'JUICY' | 'SURGE' | 'DEXED' | 'ODIN' | 'HELM' | 'MDA' | 'ORG' | 'SFIZZ';
+  inst: 'JUICY' | 'SURGE' | 'DEXED' | 'ODIN' | 'HELM' | 'MDA' | 'MDA_EP' | 'MDA_JX' | 'ORG' | 'SFIZZ';
   db: number;
   min: number;
   max: number;
@@ -30,11 +30,11 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Piano + Pad', [L('JUICY', -6, 0, 127, 'Piano', 0), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],
   ['Teclas elétricas', [
-    ['Elétrico Clássico', [L('MDA', -6, 0, 127, 'ePiano')]],
-    ['Elétrico Suave', [L('DEXED', -6, 0, 127, 'E.Piano')]],
-    ['Elétrico com Tremolo', [L('MDA', -6, 0, 127, 'ePiano + tremolo')]],
+    ['Elétrico Clássico', [L('MDA_EP', -6, 0, 127, 'ePiano', 1)]],
+    ['Elétrico Suave', [L('MDA_EP', -6, 0, 127, 'E.Piano mellow', 2)]],
+    ['Elétrico com Tremolo', [L('MDA_EP', -6, 0, 127, 'ePiano + tremolo', 4)]],
     ['Clavinet', [L('SURGE', -6, 0, 127, 'Clav')]],
-    ['Sinos Elétricos', [L('DEXED', -6, 0, 127, 'Bell')]],
+    ['Sinos Elétricos', [L('MDA_JX', -6, 0, 127, 'Space Chimes', 2)]],
   ]],
   ['Órgãos', [
     ['Órgão Tonewheel', [L('ORG', -6, 0, 127, 'Tonewheel', 16)]],
@@ -53,7 +53,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
   ['Pads', [
     ['Pad Quente', [L('SURGE', -6, 0, 127, 'Pad')]],
     ['Pad Ambiente', [L('ODIN', -6, 0, 127, 'Ataque longo')]],
-    ['Pad de Cordas', [L('HELM', -6, 0, 127, 'Pad de cordas')]],
+    ['Pad de Cordas', [L('HELM', -6, 0, 127, 'Pad de cordas', 164)]],
     ['Pad Brilhante', [L('SURGE', -6, 0, 127, 'Filtro aberto')]],
     ['Pad Escuro', [L('ODIN', -6, 0, 127, 'Filtro baixo')]],
   ]],
@@ -61,8 +61,8 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Lead Serra', [L('SURGE', -6, 0, 127, 'Lead saw')]],
     ['Lead Suave', [L('ODIN', -6, 0, 127, 'Lead')]],
     ['Pluck', [L('SURGE', -6, 0, 127, 'Pluck')]],
-    ['Arpejo Brilhante', [L('SURGE', -6, 0, 127, 'Arp')]],
-    ['Brass Sintético', [L('MDA', -6, 0, 127, 'JX10')]],
+    ['Arpejo Brilhante', [L('DEXED', -6, 0, 127, 'ARP 2600', 16)]],
+    ['Brass Sintético', [L('MDA_JX', -6, 0, 127, 'JX10 brass', 37)]],
   ]],
   ['Baixos', [
     ['Baixo Sintético', [L('SURGE', -6, 0, 127, 'Sub bass')]],
@@ -71,10 +71,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
   ]],
   ['Layers e splits', [
     ['Split Baixo + Piano', [L('JUICY', -6, 0, 59, 'Baixo', 33), L('JUICY', -6, 60, 127, 'Piano', 0)]],
-    ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('DEXED', -6, 54, 127, 'E.Piano')]],
+    ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('MDA_EP', -6, 54, 127, 'E.Piano', 2)]],
     ['Piano + Cordas', [L('JUICY', -6, 0, 127, 'Piano', 0), L('JUICY', -9, 0, 127, 'Cordas legato', 48)]],
     ['Piano + Pad (worship)', [L('JUICY', -6, 0, 127, 'Piano', 0), L('SURGE', -12, 0, 127, 'Pad quente')]],
-    ['Elétrico + Pad', [L('DEXED', -6, 0, 127, 'E.Piano'), L('SURGE', -12, 0, 127, 'Pad')]],
+    ['Elétrico + Pad', [L('MDA_EP', -6, 0, 127, 'E.Piano', 2), L('SURGE', -12, 0, 127, 'Pad')]],
     ['Split Cordas / Piano', [L('JUICY', -6, 0, 59, 'Cordas', 48), L('JUICY', -6, 60, 127, 'Piano', 0)]],
     ['Tripla: Piano + Cordas + Pad', [L('JUICY', -6, 0, 127, 'Piano', 0), L('JUICY', -9, 0, 127, 'Cordas', 48), L('SURGE', -12, 0, 127, 'Pad quente')]],
   ]],

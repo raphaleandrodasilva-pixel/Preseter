@@ -72,6 +72,32 @@ function samePluginPath(a: unknown, b: unknown): boolean {
   );
 }
 
+/** Pastas VST3 padrão do sistema, incluindo a pasta sem administrador da coleção. */
+function standardVst3Folders(): string[] {
+  if (process.platform === 'win32') {
+    const local = process.env.LOCALAPPDATA
+      ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Local');
+    const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
+    return [
+      path.join(local, 'Programs', 'Common', 'VST3'),
+      path.join(programFiles, 'Common Files', 'VST3'),
+      path.join(programFilesX86, 'Common Files', 'VST3'),
+    ];
+  }
+  if (process.platform === 'darwin') {
+    return [
+      path.join(process.env.HOME ?? '', 'Library', 'Audio', 'Plug-Ins', 'VST3'),
+      '/Library/Audio/Plug-Ins/VST3',
+    ];
+  }
+  return [
+    path.join(process.env.HOME ?? '', '.vst3'),
+    '/usr/lib/vst3',
+    '/usr/local/lib/vst3',
+  ];
+}
+
 class MainWindow {
   private window: BrowserWindow | null = null;
   private splash: BrowserWindow | null = null;
@@ -122,7 +148,7 @@ class MainWindow {
       getSoundsFolder: () => this.soundsFolder(),
       onProgress: (progress) => this.sendToRenderer('collection-progress', progress),
       onPluginsInstalled: async () => {
-        await this.vstManager.scanDefaultDirectories();
+        await this.scanWithPreferences(true);
       },
     });
     this.concertManager.on('changed', () => this.updateTitle());
@@ -381,6 +407,8 @@ class MainWindow {
       return this.visiblePlugins(plugins);
     });
 
+    ipcMain.handle('vst-scan-report', () => this.vstManager.getScanReport());
+
     // Descarta a lista acumulada no motor e escaneia tudo de novo.
     ipcMain.handle('vst-rescan', async () => {
       const plugins = await this.scanWithPreferences(true);
@@ -535,6 +563,7 @@ class MainWindow {
       }
       const { file, skipped, missing } = buildCollectionConcert(plugins, {
         tempo: 100,
+        soundsFolder: this.soundsFolder(),
       });
       const result = await dialog.showSaveDialog({
         title: 'Salvar concert da coleção',
@@ -850,7 +879,20 @@ class MainWindow {
 
     ipcMain.handle('concert-get', () => this.concertManager.getState());
 
-    ipcMain.handle('concert-new', (_event, templateId?: string) => this.concertManager.newConcert(templateId));
+    ipcMain.handle('concert-new', async (_event, templateId?: string) => {
+      let plugins = this.vstManager.getScannedPlugins();
+      if (templateId === 'fullset' && plugins.length === 0) {
+        try {
+          plugins = await this.scanWithPreferences();
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível escanear os plugins do Full Set:', error);
+        }
+      }
+      return this.concertManager.newConcert(templateId, {
+        plugins,
+        soundsFolder: this.soundsFolder(),
+      });
+    });
 
     ipcMain.handle('concert-templates', () => listTemplates());
 
@@ -1157,6 +1199,25 @@ class MainWindow {
       if (savedStateKey) {
         await this.vstManager.setPluginState(layerId, preset.vstStates[savedStateKey]);
         restoredStateKeys.add(savedStateKey);
+      } else {
+        // Sonoplastia inicial do fullset/coleção: SoundFont + programa do layer.
+        if (assignment.samplePath) {
+          try {
+            const samplePath = path.isAbsolute(assignment.samplePath)
+              ? assignment.samplePath
+              : path.join(this.soundsFolder(), assignment.samplePath);
+            await this.vstManager.loadSoundFont(layerId, samplePath, assignment.programIndex);
+          } catch (error) {
+            console.warn(`[Preseter] Não foi possível carregar o SoundFont do layer "${layerId}":`, error);
+          }
+        }
+        if (!assignment.samplePath && assignment.programIndex !== undefined) {
+          try {
+            await this.vstManager.setPluginProgram(layerId, assignment.programIndex);
+          } catch (error) {
+            console.warn(`[Preseter] Não foi possível aplicar o programa do layer "${layerId}":`, error);
+          }
+        }
       }
     }
 
@@ -1658,12 +1719,24 @@ class MainWindow {
     this.window?.setTitle(`${state.name}${marker} — Preseter`);
   }
 
+  /** Pastas que o app sempre varre: padrões do sistema + extras do usuário. */
+  private pluginScanFolders(): string[] {
+    const seen = new Set<string>();
+    return [...standardVst3Folders(), ...this.readPreferences().pluginFolders]
+      .map((folder) => folder.trim())
+      .filter((folder) => {
+        if (!folder) return false;
+        const key = folder.toLowerCase().replace(/[\\/]+$/, '');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
   private async scanWithPreferences(rescan = false): Promise<VstPluginInfo[]> {
-    const folders = this.readPreferences().pluginFolders;
+    const folders = this.pluginScanFolders();
     if (rescan) return this.vstManager.rescan(folders);
-    return folders.length > 0
-      ? this.vstManager.scanDirectories(folders)
-      : this.vstManager.scanDefaultDirectories();
+    return this.vstManager.scanDirectories(folders);
   }
 
   /** Remove da lista os plugins ocultados pelo usuário (id ou caminho). */
@@ -1696,9 +1769,7 @@ class MainWindow {
   private watchVstFolders(): void {
     if (this.vstWatchers.length > 0) return;
     const candidates = [
-      path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Common Files', 'VST3'),
-      path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Common Files', 'VST3'),
-      path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Common', 'VST3'),
+      ...standardVst3Folders(),
       path.join(app.getPath('documents'), 'VST3 Presets'),
       path.join(app.getPath('documents'), 'Vital'),
       ...this.readPreferences().pluginFolders,
@@ -1724,7 +1795,7 @@ class MainWindow {
       this.vstRefreshPending = false;
       void (async () => {
         try {
-          const plugins = await this.vstManager.scanDefaultDirectories();
+          const plugins = await this.scanWithPreferences();
           await this.vstPresetLibrary.scan(plugins, this.vstManager);
         } catch (error) {
           console.warn('[Preseter] Falha ao reindexar VSTs após mudança nas pastas:', error);

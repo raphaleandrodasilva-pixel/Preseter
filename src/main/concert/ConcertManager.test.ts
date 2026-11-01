@@ -81,6 +81,26 @@ describe('ConcertManager lifecycle', () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
+  it('cria o Full Set já com instrumentos nos 40 patches', () => {
+    const concert = manager();
+    const state = concert.newConcert('fullset', {
+      plugins: [
+        { id: 'juicy', name: 'juicysfplugin', isInstrument: true },
+        { id: 'surge', name: 'Surge XT', isInstrument: true },
+        { id: 'dexed', name: 'Dexed', isInstrument: true },
+        { id: 'helm', name: 'Helm', isInstrument: true },
+        { id: 'odin', name: 'Odin 2', isInstrument: true },
+        { id: 'mda-ep', name: 'mdaEPiano', isInstrument: true },
+        { id: 'mda-jx', name: 'mdaJX10', isInstrument: true },
+        { id: 'org', name: 'setBfree DSP Tonewheel Organ', isInstrument: true },
+      ],
+      soundsFolder: tempRoot,
+    });
+    expect(state.patches).toHaveLength(40);
+    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'juicy', programIndex: 0 });
+    expect(state.patches.every((patch) => (patch.plugins?.length ?? 0) > 0)).toBe(true);
+  });
+
   it('opens a concert from disk, remembers it and marks it clean', () => {
     const filePath = path.join(tempRoot, 'show.preseter');
     fs.writeFileSync(filePath, serializeConcertFile(createEmptyConcertFile('Show')), 'utf8');

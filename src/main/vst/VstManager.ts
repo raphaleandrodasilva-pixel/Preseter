@@ -22,6 +22,7 @@ import type {
   PlaybackState,
   VstParameter,
   VstPluginInfo,
+  VstScanReport,
 } from '../../shared/types';
 import { EngineProcess } from './EngineProcess';
 
@@ -33,6 +34,13 @@ export class VstManager extends EventEmitter {
   private loadQueue: Promise<unknown> = Promise.resolve();
   /** Serializa varreduras de VST3 (startup, watcher e botão manual). */
   private scanPromise: Promise<VstPluginInfo[]> | null = null;
+  private scanReport: VstScanReport = {
+    count: 0,
+    failed: [],
+    blacklisted: [],
+    paths: [],
+    scannedAt: 0,
+  };
 
   constructor(engine: EngineProcess = new EngineProcess()) {
     super();
@@ -75,13 +83,34 @@ export class VstManager extends EventEmitter {
   private runScan(args: { paths?: string[]; rescan?: boolean }): Promise<VstPluginInfo[]> {
     if (this.scanPromise) return this.scanPromise;
     this.scanPromise = (async () => {
-      const result = await this.engine.request('scan', args, 10 * 60 * 1000);
-      // O motor acumula entradas no known-plugins.xml; sem deduplicar, o mesmo
-      // plugin pode voltar mais de uma vez para a lista (e para a interface).
-      const unique = new Map(result.plugins.map((plugin) => [plugin.id || plugin.path, plugin]));
-      this.scannedPlugins = [...unique.values()].map((plugin) => this.toVstPlugin(plugin));
-      this.emit('scanned', this.scannedPlugins);
-      return this.scannedPlugins;
+      this.scanReport = {
+        ...this.scanReport,
+        paths: args.paths ?? [],
+        error: undefined,
+      };
+      try {
+        const result = await this.engine.request('scan', args, 10 * 60 * 1000);
+        // O motor acumula entradas no known-plugins.xml; sem deduplicar, o mesmo
+        // plugin pode voltar mais de uma vez para a lista (e para a interface).
+        const unique = new Map(result.plugins.map((plugin) => [plugin.id || plugin.path, plugin]));
+        this.scannedPlugins = [...unique.values()].map((plugin) => this.toVstPlugin(plugin));
+        this.scanReport = {
+          count: this.scannedPlugins.length,
+          failed: result.failed ?? [],
+          blacklisted: result.blacklisted ?? [],
+          paths: args.paths ?? [],
+          scannedAt: Date.now(),
+        };
+        this.emit('scanned', this.scannedPlugins);
+        return this.scannedPlugins;
+      } catch (error) {
+        this.scanReport = {
+          ...this.scanReport,
+          error: error instanceof Error ? error.message : String(error),
+          scannedAt: Date.now(),
+        };
+        throw error;
+      }
     })().finally(() => {
       this.scanPromise = null;
     });
@@ -380,6 +409,19 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Carrega um SoundFont no juicysfplugin de um layer e atualiza o cache. */
+  async loadSoundFont(layerId: string, filePath: string, programIndex?: number): Promise<boolean> {
+    const plugin = this.loadedPlugins.get(layerId);
+    if (!plugin) throw new Error('O layer do SoundFont não está carregado.');
+    const result = await this.engine.request('loadSoundFont', {
+      layerId,
+      path: filePath,
+      ...(programIndex !== undefined ? { programIndex } : {}),
+    });
+    await this.refreshLoadedPlugin(layerId, result);
+    return true;
+  }
+
   /** Aplica um arquivo `.vstpreset` num layer carregado. */
   async setPluginPresetFile(layerOrPluginId: string, filePath: string): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
@@ -545,6 +587,11 @@ export class VstManager extends EventEmitter {
 
   getScannedPlugins(): VstPluginInfo[] {
     return this.scannedPlugins;
+  }
+
+  /** Último relatório de varredura (pastas, falhas e blacklist). */
+  getScanReport(): VstScanReport {
+    return this.scanReport;
   }
 
   getLoadedPlugins(): VstPluginInfo[] {

@@ -48,9 +48,10 @@ node scripts/gerar-colecao.js --out=Colecao.preseter
 ```
 
 O script varre os plugins instalados e cria sets, patches, camadas, splits, volumes e
-teclado na tela. Patches cujo plugin não existe são pulados (e listados). O **som**
-(preset do Surge/Dexed/Odin, arquivo SF2 do juicysfplugin ou SFZ do sfizz) você
-escolhe em cada patch (tecla V) e salva.
+teclado na tela. Patches cujo plugin não existe são pulados (e listados). O app também
+anexa o programa interno de cada layer e carrega automaticamente o MuseScore_General
+nos patches que usam juicysfplugin. Você ainda pode trocar o som em cada patch (tecla V)
+e salvar no patch; o estado salvo passa a ter prioridade.
 Use `--test` para validar o fluxo sem plugins reais.
 
 ---

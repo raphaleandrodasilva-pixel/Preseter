@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { buildCollectionConcert } from './generateCollection';
+import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
 const plugins = [
   { id: 'juicy', name: 'juicysfplugin', isInstrument: true },
@@ -45,8 +48,31 @@ describe('buildCollectionConcert', () => {
     expect(file.patches.find((patch) => patch.name === 'Pad Ambiente')?.plugins?.[0]?.name).toMatch(/Surge/i);
   });
 
-  it('skips patches when a required instrument is missing', () => {
-    const { file, skipped, missing } = buildCollectionConcert(
+  it('anexa programa e SoundFont nos layers da coleção', () => {
+    const sounds = makeTempDir();
+    try {
+      fs.mkdirSync(path.join(sounds, 'MuseScore_General'), { recursive: true });
+      fs.writeFileSync(path.join(sounds, 'MuseScore_General', 'MuseScore_General.sf2'), 'fake');
+      const allPlugins = [
+        ...plugins,
+        { id: 'mda-ep', name: 'mdaEPiano', isInstrument: true },
+        { id: 'mda-jx', name: 'mdaJX10', isInstrument: true },
+      ];
+      const { file } = buildCollectionConcert(allPlugins, { soundsFolder: sounds });
+      const piano = file.patches.find((patch) => patch.name === 'Piano de Cauda');
+      expect(piano?.plugins?.[0]).toMatchObject({
+        programIndex: 0,
+        samplePath: path.join('MuseScore_General', 'MuseScore_General.sf2'),
+      });
+      const electric = file.patches.find((patch) => patch.name === 'Elétrico Clássico');
+      expect(electric?.plugins?.[0].programIndex).toBe(1);
+      expect(electric?.plugins?.[0].samplePath).toBeUndefined();
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('skips patches when a required instrument is missing', () => {    const { file, skipped, missing } = buildCollectionConcert(
       [{ id: 'juicy', name: 'juicysfplugin', isInstrument: true }],
       { tempo: 100 }
     );

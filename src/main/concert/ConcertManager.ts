@@ -26,6 +26,7 @@ import {
   serializeConcertFile,
 } from './ConcertFile';
 import { buildTemplateConcert } from './templates';
+import { buildCollectionConcert, type CollectionPlugin } from '../collection/generateCollection';
 
 const MAX_RECENT = 10;
 
@@ -152,8 +153,21 @@ export class ConcertManager extends EventEmitter {
 
   // === Ciclo de vida do concert ===
 
-  newConcert(templateId = 'vazio'): ConcertState {
-    this.file = buildTemplateConcert(templateId);
+  newConcert(
+    templateId = 'vazio',
+    options: { plugins?: CollectionPlugin[]; soundsFolder?: string } = {}
+  ): ConcertState {
+    if (templateId === 'fullset' && options.plugins && options.plugins.length > 0) {
+      // O Full Set usa a mesma montagem da coleção para já vir com instrumentos,
+      // programas e SoundFont por layer.
+      this.file = buildCollectionConcert(options.plugins, {
+        tempo: 100,
+        name: 'Full Set — 40 Patches',
+        soundsFolder: options.soundsFolder,
+      }).file;
+    } else {
+      this.file = buildTemplateConcert(templateId);
+    }
     this.filePath = null;
     this.savedSignature = signature(this.file);
     this.writeSession({ concertPath: null });

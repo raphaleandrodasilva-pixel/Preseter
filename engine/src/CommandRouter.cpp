@@ -463,6 +463,18 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "loadSoundFont")
+    {
+        juce::var result;
+        const auto error = engine.loadSoundFont (message["layerId"].toString(),
+                                                 message["path"].toString(),
+                                                 intArg (message, "programIndex", -1),
+                                                 result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "setPresetFile")
     {
         juce::var result;

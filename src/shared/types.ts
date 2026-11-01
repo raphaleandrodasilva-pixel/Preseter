@@ -3,9 +3,20 @@
  */
 
 // Tipo de plugin VST
+/** Resultado detalhado da última varredura de plugins. */
+export interface VstScanReport {
+  count: number;
+  failed: string[];
+  blacklisted: string[];
+  /** Pastas solicitadas na varredura. */
+  paths: string[];
+  /** Erro que impediu a varredura, quando houver. */
+  error?: string;
+  scannedAt: number;
+}
+
 export interface VstPluginInfo {
-  id: string;
-  /** Identidade da instância no patch; diferentes layers podem usar o mesmo VST. */
+  id: string;  /** Identidade da instância no patch; diferentes layers podem usar o mesmo VST. */
   layerId?: string;
   /** Strip do concert/set, carregado fora da troca de patch (Fase 3.3). */
   pinned?: boolean;
@@ -409,6 +420,12 @@ export interface PresetPluginAssignment {
   patchSendDb?: number;
   /** Arpejador MIDI do layer (Fase 7.2). Ausente = desligado. */
   arp?: ArpSettings;
+  /** Programa interno do plugin a aplicar ao carregar (ex.: GM/SF2). */
+  programIndex?: number;
+  /** SoundFont (.sf2) que o juicysfplugin deve carregar automaticamente. */
+  samplePath?: string;
+  /** Preset nomeado do acervo de VST presets a aplicar ao carregar. */
+  presetId?: string;
 }
 
 export type ArpMode = 'up' | 'down' | 'updown' | 'random' | 'played';

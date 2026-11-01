@@ -249,6 +249,11 @@ export interface EngineCommands {
   };
   /** Troca o programa interno de um layer carregado. */
   setProgram: { args: { layerId?: string; index: number }; result: EngineLoadedPlugin };
+  /** Carrega um SF2 num juicysfplugin e opcionalmente seleciona o programa. */
+  loadSoundFont: {
+    args: { layerId: string; path: string; programIndex?: number };
+    result: EngineLoadedPlugin;
+  };
   /** Aplica um arquivo `.vstpreset` num layer VST3 carregado. */
   setPresetFile: { args: { layerId?: string; path: string }; result: EngineLoadedPlugin };
   /** Abre (ou traz para a frente) a janela de edição do plugin. */

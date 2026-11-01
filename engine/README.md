@@ -206,6 +206,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setLayerVelocityRange` | `layerId`, `minVelocity`, `maxVelocity` | Altera a faixa de velocity (1..127) aceita pelo layer |
 | `setArp` | `layerId`, `enabled?`, `mode?`, `rate?`, `octaves?`, `gate?`, `swing?`, `hold?` | Configura o arpejador MIDI do layer (Fase 7.2); `mode` = `up`/`down`/`updown`/`random`/`played`, `rate` = `1/4`..`1/32` |
 | `arp` | `layerId` | Estado atual do arpejador do layer |
+| `loadSoundFont` | `layerId`, `path`, `programIndex?` | Carrega um SF2 num layer com juicysfplugin e opcionalmente seleciona o programa GM |
 | `setTranspose` | `semitones` (-72..72) | Transpose global (patch + set + concert) aplicado a todas as notas |
 | `setAudioInput` | `enabled`, `inputChannel`, `mode` (`mono`/`stereo`), `volumeDb`, `pan`, `muted`, `feedbackProtection`, `output`, `resetFeedback?` | Configura o strip de entrada de áudio (Fase 3.5) |
 | `audioInput` | — | Estado do strip de entrada (configuração + `peakDb`/`feedback`) |

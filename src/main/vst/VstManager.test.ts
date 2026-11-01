@@ -136,8 +136,28 @@ describe('VstManager scanning', () => {
     expect(scanned).toHaveBeenCalledWith(plugins);
   });
 
-  it('deduplicates plugins returned by the engine', async () => {
+  it('guarda o relatório da varredura com pastas e falhas', async () => {
     const { engine } = makeEngine((command) =>
+      command === 'scan'
+        ? {
+            count: 1,
+            plugins: [scannedPlugin()],
+            failed: ['C:/plugins/quebrado.vst3'],
+            blacklisted: ['C:/plugins/travado.vst3'],
+          }
+        : undefined
+    );
+    const manager = new VstManager(engine);
+    await manager.scanDirectories(['C:/plugins']);
+    expect(manager.getScanReport()).toMatchObject({
+      count: 1,
+      failed: ['C:/plugins/quebrado.vst3'],
+      blacklisted: ['C:/plugins/travado.vst3'],
+      paths: ['C:/plugins'],
+    });
+  });
+
+  it('deduplicates plugins returned by the engine', async () => {    const { engine } = makeEngine((command) =>
       command === 'scan'
         ? {
             count: 3,
@@ -545,19 +565,26 @@ describe('VstManager plugin operations', () => {
     const { manager, request } = await loadedManager((command) => {
       if (command === 'setProgram') return enginePlugin({ program: 3 });
       if (command === 'setPresetFile') return enginePlugin({ program: 4 });
+      if (command === 'loadSoundFont') return enginePlugin({ program: 5 });
       return undefined;
     });
     const loaded = vi.fn();
     manager.on('plugin-loaded', loaded);
     expect(await manager.setPluginProgram('layer-1', 3)).toBe(true);
     expect(await manager.setPluginPresetFile('layer-1', 'C:/preset.vstpreset')).toBe(true);
+    expect(await manager.loadSoundFont('layer-1', 'C:/MuseScore.sf2', 5)).toBe(true);
     expect(request).toHaveBeenCalledWith('setProgram', { layerId: 'layer-1', index: 3 });
     expect(request).toHaveBeenCalledWith('setPresetFile', {
       layerId: 'layer-1',
       path: 'C:/preset.vstpreset',
     });
-    expect(manager.getLoadedPlugins()[0].program).toBe(4);
-    expect(loaded).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledWith('loadSoundFont', {
+      layerId: 'layer-1',
+      path: 'C:/MuseScore.sf2',
+      programIndex: 5,
+    });
+    expect(manager.getLoadedPlugins()[0].program).toBe(5);
+    expect(loaded).toHaveBeenCalledTimes(3);
     expect(await manager.setPluginProgram('missing', 1)).toBe(false);
     expect(await manager.setPluginPresetFile('missing', 'x')).toBe(false);
   });

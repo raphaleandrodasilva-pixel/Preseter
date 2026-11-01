@@ -1,5 +1,7 @@
 import type { Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
 import { SEND_OFF_DB } from '../../shared/types';
+import { existsSync } from 'fs';
+import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
@@ -26,6 +28,8 @@ export const COLLECTION_INSTRUMENTS: Record<CollectionLayerSpec['inst'], Instrum
   ODIN: { label: 'Odin 2', match: [/odin/i], fallback: 'SURGE' },
   HELM: { label: 'Helm', match: [/helm/i], fallback: 'SURGE' },
   MDA: { label: 'MDA', match: [/mda/i], fallback: 'DEXED' },
+  MDA_EP: { label: 'MDA ePiano', match: [/mda\s*epiano|mdaepiano/i], fallback: 'MDA' },
+  MDA_JX: { label: 'MDA JX10', match: [/mda\s*jx\s*10|mdajx10/i], fallback: 'MDA' },
   ORG: { label: 'setBfree', match: [/setbfree/i], fallback: 'JUICY' },
   SFIZZ: { label: 'sfizz', match: [/sfizz/i], fallback: 'JUICY' },
 };
@@ -121,7 +125,7 @@ function resolvePlugin(
  */
 export function buildCollectionConcert(
   plugins: CollectionPlugin[],
-  options: { tempo?: number; test?: boolean; name?: string } = {}
+  options: { tempo?: number; test?: boolean; name?: string; soundsFolder?: string } = {}
 ): BuildCollectionResult {
   const tempo = options.tempo ?? DEFAULT_TEMPO;
   const now = Date.now();
@@ -155,6 +159,15 @@ export function buildCollectionConcert(
           minNote: layer.min,
           maxNote: layer.max,
           mix: { volumeDb: layer.db, pan: 0, muted: false, solo: false },
+          ...(layer.programIndex !== undefined ? { programIndex: layer.programIndex } : {}),
+          ...(layer.inst === 'JUICY' && options.soundsFolder
+            ? (() => {
+                const samplePath = path.join('MuseScore_General', 'MuseScore_General.sf2');
+                const fullPath = path.join(options.soundsFolder!, samplePath);
+                if (!existsSync(fullPath)) missing.add('MuseScore_General.sf2');
+                return existsSync(fullPath) ? { samplePath } : {};
+              })()
+            : {}),
         });
       });
       if (blocked || !assignments || assignments.length === 0) {

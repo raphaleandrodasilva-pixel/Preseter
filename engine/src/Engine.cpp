@@ -1793,7 +1793,11 @@ void Engine::scan (const juce::StringArray& extraPaths, bool rescan, Progress pr
     }
 
     if (rescan)
+    {
         knownPlugins.clear();
+        // Plugins que travaram numa varredura anterior devem ser tentados de novo.
+        deadMansFile.deleteFile();
+    }
 
     scanState = {};
     scanState.active     = true;
@@ -3035,9 +3039,58 @@ juce::String Engine::setPluginProgram (const juce::String& layerId, int programI
     return {};
 }
 
-juce::String Engine::setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
-                                          juce::var& result)
+juce::String Engine::loadSoundFont (const juce::String& layerId, const juce::String& filePath,
+                                    int programIndex, juce::var& result)
 {
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    const auto description = plugin->getPluginDescription();
+    const bool isJuicy = description.name.containsIgnoreCase ("juicysf")
+                      || description.manufacturerName.containsIgnoreCase ("Birch");
+    if (! isJuicy)
+        return utf8 ("Este plugin não é um player de SoundFont (juicysfplugin).");
+
+    const juce::File file (filePath);
+    if (! file.existsAsFile())
+        return utf8 ("SoundFont não encontrado: ") + filePath;
+
+    if (description.pluginFormatName != "VST3")
+        return utf8 ("O carregamento automático de SoundFont requer o juicysfplugin VST3.");
+
+    // O juicysfplugin guarda o caminho do SF2 numa ValueTree serializada em XML.
+    // Montamos o estado interno do plugin e o envelopamos no formato de estado
+    // do host VST3 (VST3PluginState -> IComponent), que é o que o wrapper espera.
+    juce::XmlElement pluginState ("MYPLUGINSETTINGS");
+    pluginState.createNewChildElement ("params");
+    auto* soundFont = pluginState.createNewChildElement ("soundFont");
+    soundFont->setAttribute ("path", file.getFullPathName());
+
+    juce::MemoryBlock componentState;
+    juce::AudioProcessor::copyXmlToBinary (pluginState, componentState);
+
+    juce::XmlElement vst3State ("VST3PluginState");
+    vst3State.createNewChildElement ("IComponent")
+        ->addTextElement (componentState.toBase64Encoding());
+
+    juce::MemoryBlock state;
+    juce::AudioProcessor::copyXmlToBinary (vst3State, state);
+    plugin->setStateInformation (state.getData(), (int) state.getSize());
+
+    if (programIndex >= 0)
+    {
+        const int count = plugin->getNumPrograms();
+        if (juce::isPositiveAndBelow (programIndex, count))
+            plugin->setCurrentProgram (programIndex);
+    }
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+}
+
+juce::String Engine::setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
+                                          juce::var& result){
     auto* plugin = getPlugin (layerId);
     if (plugin == nullptr)
         return utf8 ("Nenhum instrumento carregado neste layer.");

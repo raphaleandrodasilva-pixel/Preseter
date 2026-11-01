@@ -159,6 +159,9 @@ public:
     void scanPluginPrograms (const juce::String& idOrPath, Done done);
     /** Troca o programa interno de um layer já carregado. */
     juce::String setPluginProgram (const juce::String& layerId, int programIndex, juce::var& result);
+    /** Carrega um SoundFont num player juicysfplugin já carregado (e opcionalmente o programa). */
+    juce::String loadSoundFont (const juce::String& layerId, const juce::String& filePath,
+                                int programIndex, juce::var& result);
     /** Aplica um arquivo `.vstpreset` (formato VST3) num layer carregado. */
     juce::String setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
                                       juce::var& result);

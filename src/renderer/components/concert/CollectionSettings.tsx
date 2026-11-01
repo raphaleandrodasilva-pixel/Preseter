@@ -409,8 +409,9 @@ export const CollectionSettings: React.FC = () => {
       <section className="hw-inset space-y-2 p-3">
         <h4 className="hw-label">Concert da coleção</h4>
         <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-          Depois de instalar, gere o concert com os 40 patches. O som de cada patch continua
-          sendo escolhido dentro do plugin (tecla V) e salvo no patch.
+          Depois de instalar, gere o concert com os 40 patches. O Full Set e o concert da
+          coleção já carregam os instrumentos, os programas e o MuseScore_General nos
+          patches de sample. Você ainda pode trocar o preset e salvar no patch.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
