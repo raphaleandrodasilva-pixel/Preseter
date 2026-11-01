@@ -1195,7 +1195,7 @@ class MainWindow {
         // Todos os layers vão para o Master do Patch (bus interno do patch).
         await this.vstManager.setLayerOutput(layerId, 1);
         await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
-        await this.vstManager.setArp(layerId, assignment.arp ?? DEFAULT_ARP);
+        await this.vstManager.setArp(layerId, { ...DEFAULT_ARP, ...assignment.arp });
         // Aux desativado: nenhum layer manda send.
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
