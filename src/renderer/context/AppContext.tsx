@@ -3,6 +3,7 @@ import {
   Preset,
   PresetSet,
   VstPluginInfo,
+  VstScanReport,
   UiElement,
   LayoutConfig,
   AppStatus,
@@ -67,6 +68,9 @@ export interface AppContextType {
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
   scannedPlugins: VstPluginInfo[];
+  /** Diagnóstico da última varredura de plugins. */
+  vstScanReport: VstScanReport | null;
+  refreshVstScanReport: () => Promise<void>;
   audioDevices: AudioDeviceSnapshot | null;
   audioSettings: SavedAudioSettings | null;
   preferences: AppPreferences | null;
@@ -334,6 +338,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
   const [mixState, setMixState] = useState<EngineMixState | null>(null);
   const [scannedPlugins, setScannedPlugins] = useState<VstPluginInfo[]>([]);
+  const [vstScanReport, setVstScanReport] = useState<VstScanReport | null>(null);
   const [collectionStatus, setCollectionStatus] = useState<CollectionItemStatus[]>([]);
   const [collectionProgress, setCollectionProgress] = useState<CollectionProgress | null>(null);
   const [audioDevices, setAudioDevices] = useState<AudioDeviceSnapshot | null>(null);
@@ -487,6 +492,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // inicial e acompanhamos o resultado do scan em andamento.
     window.electronAPI.onVstScanned((plugins) => {
       if (Array.isArray(plugins)) setScannedPlugins(plugins);
+      void window.electronAPI.vstScanReport().then(setVstScanReport).catch(() => undefined);
     });
     void window.electronAPI.vstList()
       .then((plugins) => {
@@ -495,6 +501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch(() => {
         // O evento vst-scanned continua sendo a fonte quando o scan terminar.
       });
+    void window.electronAPI.vstScanReport().then(setVstScanReport).catch(() => undefined);
 
     window.electronAPI.onParameterChanged((data) => {
       // Atualizar parâmetro visual
@@ -1126,29 +1133,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // === VST Actions ===
+  const refreshVstScanReport = useCallback(async (): Promise<void> => {
+    try {
+      setVstScanReport(await window.electronAPI.vstScanReport());
+    } catch {
+      /* o relatório é opcional; a lista de plugins continua funcionando */
+    }
+  }, []);
+
   const scanVstPlugins = useCallback(async () => {
     try {
       const plugins = await window.electronAPI.vstScan();
       setScannedPlugins(plugins);
+      await refreshVstScanReport();
       setMidiError(null);
       return plugins;
     } catch (error) {
       setMidiError(error instanceof Error ? error.message : 'Falha ao escanear plugins VST3.');
       return [];
     }
-  }, []);
+  }, [refreshVstScanReport]);
 
   const rescanVstPlugins = useCallback(async () => {
     try {
       const plugins = await window.electronAPI.vstRescan();
       setScannedPlugins(plugins);
+      await refreshVstScanReport();
       setMidiError(null);
       return plugins;
     } catch (error) {
       setMidiError(error instanceof Error ? error.message : 'Falha ao reescanear plugins VST.');
       return [];
     }
-  }, []);
+  }, [refreshVstScanReport]);
 
   const showVstPlugin = useCallback(async (idOrPath: string) => {
     try {
@@ -1760,6 +1777,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadedPlugins,
     mixState,
     scannedPlugins,
+    vstScanReport,
+    refreshVstScanReport,
     hiddenPluginIds: preferences?.hiddenPluginIds ?? [],
     audioDevices,
     audioSettings,

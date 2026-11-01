@@ -51,6 +51,13 @@ export function createElectronApiMock(): ElectronApiMock {
 
     vstScan: vi.fn(async () => []),
     vstRescan: vi.fn(async () => []),
+    vstScanReport: vi.fn(async () => ({
+      count: 0,
+      failed: [],
+      blacklisted: [],
+      paths: [],
+      scannedAt: 0,
+    })),
     vstHidePlugin: vi.fn(async () => ({ hiddenPluginIds: [], plugins: [] })),
     vstShowPlugin: vi.fn(async () => ({ hiddenPluginIds: [], plugins: [] })),
     vstAddPluginFolder: vi.fn(async () => ({ canceled: true, plugins: [] })),

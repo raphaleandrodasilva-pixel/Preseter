@@ -24,6 +24,7 @@ import type {
   VstPluginInfo,
   VstPreset,
   VstPresetListResult,
+  VstScanReport,
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
 import type {
@@ -52,6 +53,7 @@ export interface ElectronAPI {
   // VST
   vstScan: () => Promise<VstPluginInfo[]>;
   vstRescan: () => Promise<VstPluginInfo[]>;
+  vstScanReport: () => Promise<VstScanReport>;
   vstHidePlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstShowPlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstAddPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;

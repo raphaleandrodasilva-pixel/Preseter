@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === VST ===
   vstScan: () => ipcRenderer.invoke('vst-scan'),
   vstRescan: () => ipcRenderer.invoke('vst-rescan'),
+  vstScanReport: () => ipcRenderer.invoke('vst-scan-report'),
   vstHidePlugin: (idOrPath: string) => ipcRenderer.invoke('vst-hide-plugin', idOrPath),
   vstShowPlugin: (idOrPath: string) => ipcRenderer.invoke('vst-show-plugin', idOrPath),
   vstAddPluginFolder: () => ipcRenderer.invoke('vst-add-plugin-folder'),

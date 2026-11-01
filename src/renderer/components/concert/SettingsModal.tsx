@@ -18,7 +18,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     hideVstPlugin, showVstPlugin, hiddenPluginIds,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
-    preferences, updatePreferences, layout,
+    preferences, updatePreferences, layout, vstScanReport, refreshVstScanReport,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
@@ -559,6 +559,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     </div>
                   ))}
                 </div>
+              </section>
+              <section>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="hw-label">Diagnóstico da varredura</h4>
+                  <button
+                    type="button"
+                    className="hw-squarebtn px-2 py-1 text-[10px]"
+                    onClick={() => void refreshVstScanReport()}
+                  >
+                    Atualizar
+                  </button>
+                </div>
+                {vstScanReport ? (
+                  <div className="hw-inset space-y-1 p-2 text-[10px]" style={{ color: '#9A9AA0' }}>
+                    <p>
+                      {vstScanReport.count} plugin(s) encontrados
+                      {vstScanReport.scannedAt > 0
+                        ? ` · ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}`
+                        : ''}
+                    </p>
+                    <div>
+                      <span className="font-semibold" style={{ color: '#C6C6CB' }}>Pastas varridas:</span>
+                      <ul className="mt-0.5 space-y-0.5">
+                        {vstScanReport.paths.length === 0 && <li>(caminhos padrão do motor)</li>}
+                        {vstScanReport.paths.map((folder) => (
+                          <li key={folder} className="break-all">{folder}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    {vstScanReport.failed.length > 0 && (
+                      <div>
+                        <span className="font-semibold" style={{ color: '#FFB74D' }}>
+                          Falharam ({vstScanReport.failed.length}):
+                        </span>
+                        <ul className="mt-0.5 space-y-0.5">
+                          {vstScanReport.failed.slice(0, 6).map((file) => (
+                            <li key={file} className="break-all" title={file}>{file}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {vstScanReport.blacklisted.length > 0 && (
+                      <p style={{ color: '#FF8A80' }}>
+                        Bloqueados: {vstScanReport.blacklisted.length}
+                      </p>
+                    )}
+                    {vstScanReport.error && (
+                      <p style={{ color: '#FF8A80' }}>Erro: {vstScanReport.error}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+                    Nenhuma varredura registrada ainda.
+                  </p>
+                )}
               </section>
               <section>
                 <h4 className="hw-label mb-2">Disponíveis ({scannedPlugins.length})</h4>
