@@ -136,8 +136,8 @@ export function createElectronApiMock(): ElectronApiMock {
     midiThruSet: vi.fn(async () => true),
     hostClockSet: vi.fn(async () => true),
     metronomeSet: vi.fn(async () => true),
-    recordStart: vi.fn(async () => null),
-    recordStop: vi.fn(async () => true),
+    recordStart: vi.fn(async () => ({ ok: true, path: 'C:/recordings/out.wav' })),
+    recordStop: vi.fn(async () => ({ ok: true, path: 'C:/recordings/out.wav' })),
     playbackLoad: vi.fn(async () => null),
     playbackPlay: vi.fn(async () => ({
       loaded: false,

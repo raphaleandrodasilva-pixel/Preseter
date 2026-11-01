@@ -28,6 +28,7 @@ import {
   MAX_AUX_BUSES,
   PatchMasterSettings,
   ArpSettings,
+  RecordingResult,
   SEND_OFF_DB,
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
@@ -193,8 +194,8 @@ export interface AppContextType {
   setMidiThruBlocked: (blocked: MidiThruBlock[]) => Promise<boolean>;
   setHostClock: (bpm: number, numerator: number, denominator: number, playing: boolean) => Promise<boolean>;
   setMetronome: (enabled: boolean, volumeDb: number, accentFirstBeat: boolean) => Promise<boolean>;
-  startRecording: () => Promise<string | null>;
-  stopRecording: () => Promise<boolean>;
+  startRecording: () => Promise<RecordingResult>;
+  stopRecording: () => Promise<RecordingResult>;
   loadPlayback: () => Promise<PlaybackState | null>;
   playPlayback: () => Promise<PlaybackState | null>;
   stopPlayback: () => Promise<PlaybackState | null>;
@@ -1462,21 +1463,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const startRecording = useCallback(async (): Promise<string | null> => {
+  const startRecording = useCallback(async (): Promise<RecordingResult> => {
     try {
       return await window.electronAPI.recordStart();
     } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar a gravação.');
-      return null;
+      const message = error instanceof Error ? error.message : 'Falha ao iniciar a gravação.';
+      setMidiError(message);
+      return { ok: false, error: message };
     }
   }, []);
 
-  const stopRecording = useCallback(async (): Promise<boolean> => {
+  const stopRecording = useCallback(async (): Promise<RecordingResult> => {
     try {
       return await window.electronAPI.recordStop();
     } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao parar a gravação.');
-      return false;
+      const message = error instanceof Error ? error.message : 'Falha ao parar a gravação.';
+      setMidiError(message);
+      return { ok: false, error: message };
     }
   }, []);
 

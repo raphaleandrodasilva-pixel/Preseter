@@ -299,6 +299,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [tunerOpen, setTunerOpen] = useState(false);
   const [recordingPath, setRecordingPath] = useState<string | null>(null);
+  const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'converting'>('idle');
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -2227,16 +2228,24 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   /** Gravação da saída (Fase 6.4). */
   const toggleRecording = async () => {
-    if (recordingPath) {
-      await stopRecording();
+    if (recordingStatus === 'converting') return;
+    if (recordingStatus === 'recording') {
+      setRecordingStatus('converting');
+      setActionNotice('Convertendo gravação…');
+      const result = await stopRecording();
+      setRecordingStatus('idle');
       setRecordingPath(null);
-      setActionNotice('Gravação salva');
+      setActionNotice(result.ok ? 'Gravação salva' : result.error ?? 'Falha ao salvar a gravação');
       return;
     }
-    const path = await startRecording();
-    if (path) {
-      setRecordingPath(path);
+    const result = await startRecording();
+    if (result.ok && result.path) {
+      setRecordingPath(result.path);
+      setRecordingStatus('recording');
       setActionNotice('Gravando…');
+    } else if (result.error) {
+      setRecordingStatus('idle');
+      setActionNotice(result.error);
     }
   };
 
@@ -2512,11 +2521,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               MASTER MUDO
             </span>
           )}
-          {recordingPath && (
-            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF453A', color: '#fff' }}>
+          {recordingStatus === 'converting' ? (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF9F0A', color: '#1A1A1A' }}>
+              CONVERTENDO
+            </span>
+          ) : recordingStatus === 'recording' ? (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: '#FF453A', color: '#fff' }} title={recordingPath ?? undefined}>
               ● GRAVANDO
             </span>
-          )}
+          ) : null}
           <select
             className="ml-2 rounded-lg px-2 py-1 text-xs outline-none"
             style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#EDEDEF' }}
@@ -2532,12 +2545,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             ))}
           </select>
           <button
-            className="hw-squarebtn px-3 py-1.5 text-xs"
+            className="hw-squarebtn px-3 py-1.5 text-xs disabled:opacity-50"
             onClick={() => void toggleRecording()}
-            title="Gravar saída do concert (Ctrl+R)"
-            style={recordingPath ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
+            disabled={recordingStatus === 'converting'}
+            title={recordingPath
+              ? `Parar e salvar em ${recordingPath}`
+              : 'Gravar saída do concert com o formato escolhido nas preferências (Ctrl+R)'}
+            style={recordingStatus !== 'idle' ? { color: '#FF8A80', borderColor: '#FF554D' } : undefined}
           >
-            {recordingPath ? 'Parar gravação' : 'Gravar'}
+            {recordingStatus === 'converting'
+              ? 'Convertendo…'
+              : recordingStatus === 'recording'
+                ? 'Parar gravação'
+                : 'Gravar'}
           </button>
           <button
             className="hw-squarebtn px-3 py-1.5 text-xs"

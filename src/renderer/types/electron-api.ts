@@ -19,6 +19,7 @@ import type {
   Preset,
   PresetSet,
   RecentConcert,
+  RecordingResult,
   SavedAudioSettings,
   VstPluginInfo,
   VstPreset,
@@ -87,8 +88,8 @@ export interface ElectronAPI {
   midiThruSet: (blocked: MidiThruBlock[]) => Promise<boolean>;
   hostClockSet: (bpm: number, numerator: number, denominator: number, playing: boolean) => Promise<boolean>;
   metronomeSet: (enabled: boolean, volumeDb: number, accentFirstBeat: boolean) => Promise<boolean>;
-  recordStart: () => Promise<string | null>;
-  recordStop: () => Promise<boolean>;
+  recordStart: () => Promise<RecordingResult>;
+  recordStop: () => Promise<RecordingResult>;
   playbackLoad: () => Promise<PlaybackState | null>;
   playbackPlay: () => Promise<PlaybackState>;
   playbackStop: () => Promise<PlaybackState>;

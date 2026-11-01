@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { ScrollSpeed } from '@shared/types';
+import type { RecordingBitrate, RecordingFormat, ScrollSpeed } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import { CollectionSettings } from './CollectionSettings';
 
@@ -186,6 +186,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     </span>
                   </span>
                 </label>
+              </section>
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Gravação</h4>
+                <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                  Formato
+                  <select
+                    aria-label="Formato de gravação"
+                    className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                    value={preferences?.recordingFormat ?? 'wav'}
+                    onChange={(event) => void updatePreferences({
+                      recordingFormat: event.target.value as RecordingFormat,
+                    })}
+                  >
+                    <option value="wav">WAV (sem conversão)</option>
+                    <option value="mp3">MP3</option>
+                    <option value="flac">FLAC</option>
+                  </select>
+                </label>
+                <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                  Bitrate do MP3
+                  <select
+                    aria-label="Bitrate do MP3"
+                    className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100 disabled:opacity-50"
+                    value={preferences?.recordingBitrate ?? 320}
+                    disabled={(preferences?.recordingFormat ?? 'wav') !== 'mp3'}
+                    onChange={(event) => void updatePreferences({
+                      recordingBitrate: Number(event.target.value) as RecordingBitrate,
+                    })}
+                  >
+                    <option value={128}>128 kbps</option>
+                    <option value={192}>192 kbps</option>
+                    <option value={320}>320 kbps</option>
+                  </select>
+                </label>
+                <label className="block text-xs" style={{ color: '#9A9AA0' }}>
+                  Pasta de gravação (opcional)
+                  <input
+                    aria-label="Pasta de gravação"
+                    className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
+                    value={preferences?.recordingFolder ?? ''}
+                    placeholder="Padrão: Música (ou Documentos)"
+                    onChange={(event) => void updatePreferences({ recordingFolder: event.target.value })}
+                  />
+                </label>
+                <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+                  MP3/FLAC convertem depois de parar; pode levar alguns segundos. Ao gravar em
+                  WAV, o arquivo é salvo direto pelo motor.
+                </p>
               </section>
             </div>
           )}

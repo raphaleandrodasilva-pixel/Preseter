@@ -12,6 +12,12 @@ import { COLLECTION_CATALOG } from '../shared/collection';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { buildCollectionConcert } from './collection/generateCollection';
 import {
+  convertRecording,
+  recordingExtension,
+  recordingFileName,
+  recordingFilter,
+} from './recording/RecordingManager';
+import {
   Preset,
   PresetSet,
   VstPluginInfo,
@@ -32,6 +38,9 @@ import {
   AppPreferences,
   ArpSettings,
   DEFAULT_ARP,
+  RecordingBitrate,
+  RecordingFormat,
+  RecordingResult,
   ConcertState,
   ConcertSyncPayload,
   MenuAction,
@@ -86,6 +95,13 @@ class MainWindow {
   private recovering: Promise<void> | null = null;
   /** true quando o usuário já confirmou o fechamento com alterações pendentes. */
   private closing = false;
+  /** Gravação em andamento; para MP3/FLAC guarda o WAV temporário a converter. */
+  private pendingRecording: {
+    format: RecordingFormat;
+    bitrate: RecordingBitrate;
+    finalPath: string;
+    tempPath?: string;
+  } | null = null;
   private appStatus: AppStatus = {
     isPlaying: false,
     currentPresetId: null,
@@ -596,18 +612,91 @@ class MainWindow {
       return this.vstManager.setMetronome(enabled, volumeDb, accentFirstBeat);
     });
 
-    ipcMain.handle('record-start', async () => {
+    ipcMain.handle('record-start', async (): Promise<RecordingResult> => {
+      if (this.pendingRecording) {
+        return { ok: false, error: 'Já existe uma gravação em andamento.' };
+      }
+      const preferences = this.readPreferences();
+      const format = preferences.recordingFormat;
+      const extension = recordingExtension(format);
+      const folder = this.defaultRecordingFolder();
+      try {
+        fs.mkdirSync(folder, { recursive: true });
+      } catch {
+        /* a pasta configurada pode ser inválida; o diálogo ainda permite escolher outra */
+      }
       const result = await dialog.showSaveDialog(this.window!, {
         title: 'Gravar saída do concert',
-        defaultPath: `Preseter ${new Date().toISOString().slice(0, 10)}.wav`,
-        filters: [{ name: 'WAV', extensions: ['wav'] }],
+        defaultPath: path.join(folder, recordingFileName(format)),
+        filters: [recordingFilter(format)],
+        properties: ['createDirectory', 'showOverwriteConfirmation'],
       });
-      if (result.canceled || !result.filePath) return null;
-      const started = await this.vstManager.startRecording(result.filePath);
-      return started ? result.filePath : null;
+      if (result.canceled || !result.filePath) return { ok: false };
+
+      const chosen = result.filePath;
+      const finalPath = chosen.toLowerCase().endsWith(`.${extension}`) ? chosen : `${chosen}.${extension}`;
+      try {
+        fs.mkdirSync(path.dirname(finalPath), { recursive: true });
+      } catch {
+        return { ok: false, error: 'Não foi possível criar a pasta da gravação.' };
+      }
+
+      const tempPath = format === 'wav'
+        ? undefined
+        : path.join(app.getPath('temp'), `preseter-recording-${Date.now()}.wav`);
+      const started = await this.vstManager.startRecording(tempPath ?? finalPath);
+      if (!started) return { ok: false, error: 'O motor não iniciou a gravação.' };
+
+      this.pendingRecording = {
+        format,
+        bitrate: preferences.recordingBitrate,
+        finalPath,
+        tempPath,
+      };
+      return { ok: true, path: finalPath };
     });
 
-    ipcMain.handle('record-stop', () => this.vstManager.stopRecording());
+    ipcMain.handle('record-stop', async (): Promise<RecordingResult> => {
+      const pending = this.pendingRecording;
+      this.pendingRecording = null;
+      if (!pending) {
+        return { ok: false, error: 'Nenhuma gravação em andamento.' };
+      }
+
+      let stopped = false;
+      try {
+        stopped = await this.vstManager.stopRecording();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Falha ao parar a gravação.';
+        return { ok: false, error: message, path: pending.tempPath ?? pending.finalPath };
+      }
+      if (!stopped) {
+        return { ok: false, error: 'O motor não finalizou a gravação.' };
+      }
+
+      // WAV: o motor já gravou direto no caminho final.
+      if (!pending.tempPath) return { ok: true, path: pending.finalPath };
+
+      const conversion = await convertRecording(
+        pending.tempPath,
+        pending.finalPath,
+        pending.format as Exclude<RecordingFormat, 'wav'>,
+        pending.bitrate
+      );
+      if (!conversion.ok) {
+        return {
+          ok: false,
+          error: `${conversion.error ?? 'Falha ao converter a gravação.'} O WAV temporário foi mantido em ${pending.tempPath}.`,
+          path: pending.tempPath,
+        };
+      }
+      try {
+        fs.rmSync(pending.tempPath, { force: true });
+      } catch {
+        /* o arquivo temporário pode já ter sido removido */
+      }
+      return { ok: true, path: pending.finalPath };
+    });
 
     ipcMain.handle('playback-load', async () => {
       const result = await dialog.showOpenDialog(this.window!, {
@@ -1702,6 +1791,17 @@ class MainWindow {
     return preferences.soundsFolder?.trim() || path.join(app.getPath('home'), 'PreseterSons');
   }
 
+  /** Pasta das gravações: preferência do usuário ou Música (fallback Documentos). */
+  private defaultRecordingFolder(): string {
+    const configured = this.readPreferences().recordingFolder?.trim();
+    if (configured) return configured;
+    try {
+      return app.getPath('music');
+    } catch {
+      return app.getPath('documents');
+    }
+  }
+
   private readPreferences(): AppPreferences {
     const defaults: AppPreferences = {
       silencePreviousPatch: false,
@@ -1709,6 +1809,9 @@ class MainWindow {
       hiddenPluginIds: [],
       scrollSpeed: 'slow',
       soundsFolder: path.join(app.getPath('home'), 'PreseterSons'),
+      recordingFormat: 'wav',
+      recordingBitrate: 320,
+      recordingFolder: '',
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -1731,6 +1834,17 @@ class MainWindow {
         soundsFolder: typeof saved.soundsFolder === 'string' && saved.soundsFolder.trim() !== ''
           ? saved.soundsFolder
           : defaults.soundsFolder,
+        recordingFormat: saved.recordingFormat === 'mp3' || saved.recordingFormat === 'flac'
+          ? saved.recordingFormat
+          : 'wav',
+        recordingBitrate: saved.recordingBitrate === 128
+          || saved.recordingBitrate === 192
+          || saved.recordingBitrate === 320
+          ? saved.recordingBitrate
+          : 320,
+        recordingFolder: typeof saved.recordingFolder === 'string' && saved.recordingFolder.trim() !== ''
+          ? saved.recordingFolder
+          : '',
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

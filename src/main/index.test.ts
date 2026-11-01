@@ -64,6 +64,8 @@ describe('main process IPC wiring', () => {
     expect(call('app-status-get')).toMatchObject({ tempo: 120 });
     expect(call('preferences-get')).toMatchObject({
       pluginFolders: expect.any(Array),
+      recordingFormat: 'wav',
+      recordingBitrate: 320,
     });
     expect(call('concert-templates').length).toBeGreaterThan(0);
   });

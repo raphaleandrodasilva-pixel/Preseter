@@ -689,6 +689,19 @@ export interface AudioSettingsSnapshot {
 /** Velocidade do scroll de listas/menus do Preseter. */
 export type ScrollSpeed = 'normal' | 'slow' | 'slower';
 
+/** Formato de gravação da saída do concert. */
+export type RecordingFormat = 'wav' | 'mp3' | 'flac';
+/** Bitrate do MP3, em kbps. */
+export type RecordingBitrate = 128 | 192 | 320;
+
+/** Resultado de iniciar/parar uma gravação. */
+export interface RecordingResult {
+  ok: boolean;
+  /** Caminho final (ou o WAV temporário, quando a conversão falha). */
+  path?: string;
+  error?: string;
+}
+
 /** Preferências gerais do app (arquivo preferences.json no userData). */
 export interface AppPreferences {
   /** Corta o patch anterior assim que troca; padrão false (deixa as caudas acabarem). */
@@ -701,6 +714,12 @@ export interface AppPreferences {
   scrollSpeed: ScrollSpeed;
   /** Pasta onde a coleção salva SF2/SFZ/SF3 (padrão ~/PreseterSons). */
   soundsFolder?: string;
+  /** Formato da gravação da saída; padrão 'wav'. */
+  recordingFormat: RecordingFormat;
+  /** Bitrate do MP3 (128/192/320); só usado quando o formato é mp3. Padrão 320. */
+  recordingBitrate: RecordingBitrate;
+  /** Pasta das gravações; vazio = pasta de Música (ou Documentos). */
+  recordingFolder?: string;
 }
 
 // Configuração de layout da interface

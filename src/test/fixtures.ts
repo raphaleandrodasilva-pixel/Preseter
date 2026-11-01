@@ -200,6 +200,8 @@ export function createPreferences(overrides: Partial<AppPreferences> = {}): AppP
     pluginFolders: [],
     hiddenPluginIds: [],
     scrollSpeed: 'slow',
+    recordingFormat: 'wav',
+    recordingBitrate: 320,
     ...overrides,
   };
 }

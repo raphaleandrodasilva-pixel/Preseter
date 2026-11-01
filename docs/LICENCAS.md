@@ -18,10 +18,19 @@ também tem opção GPLv3, compatível com a AGPLv3.
 | JUCE 8 | motor de áudio | AGPLv3 ou comercial |
 | ASIO SDK (Steinberg) | backend ASIO no Windows | GPLv3 ou licença proprietária da Steinberg |
 | VST3 SDK (via JUCE) | host de VST3 | confirmar na distribuição do JUCE |
+| FFmpeg (`ffmpeg-static`) | conversão de MP3/FLAC | LGPL 2.1+ (build estático do pacote; ver licença inclusa) |
 | Electron, React, Vite, Tailwind etc. | aplicativo | em geral MIT (ver `node_modules`) |
 
 O SDK do ASIO **não deve ser versionado** neste repositório: quem compila o motor baixa o
 SDK e informa `-DPRESETER_ASIO_SDK_DIR`. O instalador leva só o motor já compilado.
+
+## FFmpeg
+
+O Preseter distribui o FFmpeg embutido (pacote `ffmpeg-static`) apenas para converter
+gravações em MP3/FLAC. O binário é copiado para `resources/ffmpeg/` no aplicativo
+instalado; o código-fonte e a licença do FFmpeg estão em
+<https://ffmpeg.org/> e <https://github.com/eugeneware/ffmpeg-static>. Consulte também
+`node_modules/ffmpeg-static/LICENSE` e `node_modules/ffmpeg-static/ffmpeg.exe.LICENSE`.
 
 ## O que o instalador NÃO inclui
 
