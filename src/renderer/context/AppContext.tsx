@@ -27,6 +27,7 @@ import {
   MenuAction,
   MAX_AUX_BUSES,
   PatchMasterSettings,
+  ArpSettings,
   SEND_OFF_DB,
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
@@ -184,6 +185,8 @@ export interface AppContextType {
   closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
   setVstLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<boolean>;
+  /** Arpejador MIDI do layer (Fase 7.2). */
+  setVstArp: (layerId: string, settings: ArpSettings) => Promise<boolean>;
   setAudioInput: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState | null>;
   getAudioInputState: () => Promise<AudioInputState | null>;
   setMidiThruBlocked: (blocked: MidiThruBlock[]) => Promise<boolean>;
@@ -1387,6 +1390,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const setVstArp = useCallback(async (layerId: string, settings: ArpSettings) => {
+    try {
+      await window.electronAPI.vstSetArp(layerId, settings);
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao alterar o arpejador do layer.');
+      return false;
+    }
+  }, []);
+
   const setAudioInput = useCallback(async (
     settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }
   ): Promise<AudioInputState | null> => {
@@ -1823,6 +1837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     closeVstEditor,
     setVstLayerRange,
     setVstLayerVelocity,
+    setVstArp,
     setAudioInput,
     getAudioInputState,
     setMidiThruBlocked,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  ArpSettings,
   BusMixUpdate,
   BusSettings,
   ConcertStrip,
@@ -261,7 +262,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     loadedPlugins, scanVstPlugins, loadVstPlugin, unloadVstPlugin, setVstLayerRange, setVstLayerVelocity, setVstParameter,
     getVstParameters,
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
-    setVstPatchSend, setVstLayerPatchSend,
+    setVstPatchSend, setVstLayerPatchSend, setVstArp,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
     setHostClock, setMetronome,
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
@@ -1578,6 +1579,24 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       plugins: (current.plugins ?? []).map((assignment, index) =>
         (assignment.layerId ?? `${current.id}:layer:${index}`) === layerId
           ? { ...assignment, patchSendDb: levelDb }
+          : assignment
+      ),
+      updatedAt: Date.now(),
+    };
+    draftRef.current = next;
+    onDraftChange(next);
+  };
+
+  /** Configuração do arpejador MIDI de um layer (Fase 7.2). */
+  const changeLayerArp = async (layerId: string, arp: ArpSettings) => {
+    if (!await setVstArp(layerId, arp)) return;
+    const current = draftRef.current;
+    if (!current) return;
+    const next: Preset = {
+      ...current,
+      plugins: (current.plugins ?? []).map((assignment, index) =>
+        (assignment.layerId ?? `${current.id}:layer:${index}`) === layerId
+          ? { ...assignment, arp }
           : assignment
       ),
       updatedAt: Date.now(),
@@ -2990,6 +3009,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onOpenInsertEditor={openInsertEditor}
             onSetSend={(layerId, aux, levelDb) => void changeLayerSend(layerId, aux, levelDb)}
             onSetLayerPatchSend={(layerId, levelDb) => void changeLayerPatchSend(layerId, levelDb)}
+            onSetArp={(layerId, arp) => void changeLayerArp(layerId, arp)}
             onSetLayerOutput={(layerId, output) => void changeLayerOutput(layerId, output)}
             onSetBusMix={(bus, update) => void changeBusMix(bus, update)}
             onAddBusInsert={addBusInsert}

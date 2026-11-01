@@ -30,6 +30,8 @@ import {
   PatchMasterSettings,
   SavedAudioSettings,
   AppPreferences,
+  ArpSettings,
+  DEFAULT_ARP,
   ConcertState,
   ConcertSyncPayload,
   MenuAction,
@@ -570,6 +572,9 @@ class MainWindow {
     ipcMain.handle('vst-set-layer-velocity', (_event, layerId: string, minVelocity: number, maxVelocity: number) => {
       return this.vstManager.setLayerVelocityRange(layerId, minVelocity, maxVelocity);
     });
+    ipcMain.handle('vst-set-arp', (_event, layerId: string, settings: ArpSettings) => {
+      return this.vstManager.setArp(layerId, settings);
+    });
 
     ipcMain.handle('audio-input-set', (_event, settings: unknown) => {
       return this.vstManager.setAudioInput(settings as Partial<AudioInputSettings> & { resetFeedback?: boolean });
@@ -1101,6 +1106,7 @@ class MainWindow {
         // Todos os layers vão para o Master do Patch (bus interno do patch).
         await this.vstManager.setLayerOutput(layerId, 1);
         await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
+        await this.vstManager.setArp(layerId, assignment.arp ?? DEFAULT_ARP);
         // Aux desativado: nenhum layer manda send.
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
@@ -1371,6 +1377,7 @@ class MainWindow {
         // Strips herdados também entram no Master do Patch.
         await this.vstManager.setLayerOutput(strip.id, 1);
         await this.vstManager.setLayerPatchSend(strip.id, 0);
+        await this.vstManager.setArp(strip.id, DEFAULT_ARP);
         for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
           await this.vstManager.setSend(strip.id, aux, SEND_OFF_DB);
         }

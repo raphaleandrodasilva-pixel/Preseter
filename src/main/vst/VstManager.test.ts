@@ -478,8 +478,36 @@ describe('VstManager plugin operations', () => {
     await expect(manager.setLayerVelocityRange('missing', 0, 1)).rejects.toThrow(/n.*carregado/);
   });
 
-  it('gets and sets complete plugin state', async () => {
-    const { manager, request } = await loadedManager((command) => {
+  it('sends arpeggiator settings to the engine', async () => {
+    const { manager, request } = await loadedManager((command) =>
+      command === 'setArp'
+        ? {
+            layerId: 'layer-1',
+            enabled: true,
+            mode: 'updown',
+            rate: '1/16',
+            octaves: 2,
+            gate: 60,
+            swing: 0,
+            hold: false,
+          }
+        : undefined
+    );
+    const settings = {
+      enabled: true,
+      mode: 'updown' as const,
+      rate: '1/16' as const,
+      octaves: 2,
+      gate: 60,
+      swing: 0,
+      hold: false,
+    };
+    const state = await manager.setArp('layer-1', settings);
+    expect(request).toHaveBeenCalledWith('setArp', { layerId: 'layer-1', ...settings });
+    expect(state).toMatchObject({ layerId: 'layer-1', enabled: true, mode: 'updown', octaves: 2 });
+  });
+
+  it('gets and sets complete plugin state', async () => {    const { manager, request } = await loadedManager((command) => {
       if (command === 'getState') return { layerId: 'layer-1', data: 'chunk' };
       if (command === 'setState') return { layerId: 'layer-1', bytes: 5 };
       return undefined;

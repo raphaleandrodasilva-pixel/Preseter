@@ -148,8 +148,23 @@ describe('PresetManager CRUD', () => {
     expect(manager.saveVstState('missing', states)).toBe(false);
   });
 
-  it('adds elements to a preset layout', () => {
+  it('persiste a configuração do arpejador do layer', () => {
     const manager = new PresetManager();
+    const arp = { enabled: true, mode: 'updown' as const, rate: '1/8' as const, octaves: 2, gate: 70, swing: 20, hold: true };
+    const preset = createPreset({
+      id: 'arp',
+      plugins: [
+        { pluginId: 'p', name: 'Piano', path: 'C:/p.vst3', role: 'instrument', layerId: 'layer-1', arp },
+      ],
+    });
+    manager.savePreset(preset);
+
+    const reloaded = new PresetManager();
+    reloaded.loadPresets();
+    expect(reloaded.getPreset('arp')?.plugins?.[0].arp).toEqual(arp);
+  });
+
+  it('adds elements to a preset layout', () => {    const manager = new PresetManager();
     manager.savePreset(createPreset({ id: 'p1' }));
     const element = createElement({ id: 'new' });
     expect(manager.addElementToPreset('p1', element)).toBe(true);

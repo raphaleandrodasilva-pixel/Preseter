@@ -407,6 +407,40 @@ export interface PresetPluginAssignment {
   sends?: number[];
   /** Nível (dB) do send deste layer para o bus do patch (Master do Patch). */
   patchSendDb?: number;
+  /** Arpejador MIDI do layer (Fase 7.2). Ausente = desligado. */
+  arp?: ArpSettings;
+}
+
+export type ArpMode = 'up' | 'down' | 'updown' | 'random' | 'played';
+export type ArpRate = '1/4' | '1/8' | '1/8T' | '1/16' | '1/16T' | '1/32';
+
+/** Configuração do arpejador MIDI por layer. */
+export interface ArpSettings {
+  enabled: boolean;
+  mode: ArpMode;
+  rate: ArpRate;
+  /** 1 a 4 oitavas. */
+  octaves: number;
+  /** 10 a 100%. */
+  gate: number;
+  /** 0 a 75%. */
+  swing: number;
+  hold: boolean;
+}
+
+export const DEFAULT_ARP: ArpSettings = {
+  enabled: false,
+  mode: 'up',
+  rate: '1/16',
+  octaves: 1,
+  gate: 50,
+  swing: 0,
+  hold: false,
+};
+
+/** Estado do arp retornado pelo motor. */
+export interface EngineArpState extends ArpSettings {
+  layerId: string;
 }
 
 /** Quantidade de slots de insert por channel strip (Fase 3.1). */

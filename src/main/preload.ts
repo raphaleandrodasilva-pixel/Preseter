@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-layer-range', layerId, minNote, maxNote),
   vstSetLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) =>
     ipcRenderer.invoke('vst-set-layer-velocity', layerId, minVelocity, maxVelocity),
+  vstSetArp: (layerId: string, settings: unknown) =>
+    ipcRenderer.invoke('vst-set-arp', layerId, settings),
   audioInputSet: (settings: unknown) => ipcRenderer.invoke('audio-input-set', settings),
   audioInputState: () => ipcRenderer.invoke('audio-input-state'),
   midiThruSet: (blocked: unknown) => ipcRenderer.invoke('midi-thru-set', blocked),

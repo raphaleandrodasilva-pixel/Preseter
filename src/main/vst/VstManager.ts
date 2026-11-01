@@ -11,7 +11,9 @@ import type {
   AudioInputSettings,
   AudioInputState,
   AudioStartOptions,
+  ArpSettings,
   BusMixUpdate,
+  EngineArpState,
   EngineBusState,
   EngineMixState,
   LayerMixUpdate,
@@ -240,6 +242,11 @@ export class VstManager extends EventEmitter {
   /** Lista os parâmetros de um layer/barrramento ou de um insert (`slot`). */
   async getParameters(ownerId: string, slot?: number): Promise<EngineParameter[]> {
     return this.engine.request('params', { layerId: ownerId, slot });
+  }
+
+  /** Arpejador MIDI do layer (Fase 7.2). */
+  async setArp(layerId: string, settings: ArpSettings): Promise<EngineArpState> {
+    return this.engine.request('setArp', { layerId, ...settings });
   }
 
   async setLayerRange(layerId: string, minNote: number, maxNote: number): Promise<VstPluginInfo> {

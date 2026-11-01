@@ -42,6 +42,7 @@ function renderStrips(overrides: Partial<React.ComponentProps<typeof ChannelStri
     onOpenInsertEditor: vi.fn(),
     onSetSend: vi.fn(),
     onSetLayerPatchSend: vi.fn(),
+    onSetArp: vi.fn(),
     onSetLayerOutput: vi.fn(),
     onSetBusMix: vi.fn(),
     onAddBusInsert: vi.fn(async () => true),
@@ -84,8 +85,37 @@ describe('ChannelStrips — send do layer para o bus do patch', () => {
   });
 });
 
-describe('ChannelStrips — aba Aux', () => {
-  const auxBuses = Array.from({ length: 4 }, () => createBus());
+describe('ChannelStrips — arpejador', () => {
+  it('abre o arpejador do layer e liga/desliga via modal', () => {
+    const props = renderStrips();
+
+    fireEvent.click(screen.getByRole('button', { name: /ARP off/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Arpejador — Piano' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Arp desligado' }));
+    expect(props.onSetArp).toHaveBeenCalledWith(
+      'layer-1',
+      expect.objectContaining({ enabled: true, mode: 'up', rate: '1/16', octaves: 1 })
+    );
+  });
+
+  it('mostra modo e rate do arpejador ativo no botão do layer', () => {
+    renderStrips({
+      preset: createPreset({
+        plugins: [
+          {
+            ...assignment,
+            arp: { enabled: true, mode: 'updown', rate: '1/8', octaves: 1, gate: 50, swing: 0, hold: false },
+          },
+        ],
+      }),
+    });
+
+    expect(screen.getByRole('button', { name: /ARP · 1\/8 · ↕/ })).toBeInTheDocument();
+  });
+});
+
+describe('ChannelStrips — aba Aux', () => {  const auxBuses = Array.from({ length: 4 }, () => createBus());
 
   it('lists Aux 1–4 and opens the effect picker in an Aux slot', () => {
     renderStrips({

@@ -103,6 +103,10 @@ export function createElectronApiMock(): ElectronApiMock {
       isInstrument: true,
       parameters: [],
     })),
+    vstSetArp: vi.fn(async (layerId: string, settings: Record<string, unknown>) => ({
+      layerId,
+      ...settings,
+    })),
     audioInputSet: vi.fn(async () => ({
       enabled: false,
       inputChannel: 0,

@@ -8,7 +8,9 @@ import type {
   AudioDeviceSnapshot,
   AudioInputSettings,
   AudioInputState,
+  ArpSettings,
   BusMixUpdate,
+  EngineArpState,
   EngineBusState,
   EngineMixState,
   LayerMixUpdate,
@@ -204,6 +206,9 @@ export interface EngineCommands {
     args: { layerId: string; minVelocity: number; maxVelocity: number };
     result: EngineLoadedPlugin;
   };
+  /** Arpejador MIDI do layer (Fase 7.2). */
+  setArp: { args: ArpSettings & { layerId: string }; result: EngineArpState };
+  arp: { args: { layerId?: string }; result: EngineArpState };
   /** Transpose global em semitons (patch + set + concert), aplicado a todas as notas. */
   setTranspose: { args: { semitones: number }; result: null };
   /** Configura o strip de entrada de áudio (Fase 3.5). */

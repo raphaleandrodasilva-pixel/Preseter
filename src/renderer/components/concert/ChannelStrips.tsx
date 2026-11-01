@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  ArpSettings,
   BusMixUpdate,
   BusSettings,
   ConcertStrip,
@@ -16,8 +17,9 @@ import type {
   VstParameter,
   VstPluginInfo,
 } from '@shared/types';
-import { MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
+import { DEFAULT_ARP, MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
 import { noteName } from '../composer/elementFactory';
+import { ArpeggiatorModal } from './ArpeggiatorModal';
 import {
   maskedAttributes,
   stripLevelViews,
@@ -70,6 +72,8 @@ interface ChannelStripsProps {
   onSetSend: (layerId: string, aux: number, levelDb: number) => void;
   /** Nível do send do layer para o bus do patch (Master do Patch como bus). */
   onSetLayerPatchSend: (layerId: string, levelDb: number) => void;
+  /** Arpejador MIDI do layer (Fase 7.2). */
+  onSetArp: (layerId: string, settings: ArpSettings) => void;
   onSetLayerOutput: (layerId: string, output: number) => void;
   /** Master do patch (Fase 3.2). */
   onSetBusMix: (bus: string, update: BusMixUpdate) => void;
@@ -220,6 +224,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onOpenInsertEditor,
   onSetSend,
   onSetLayerPatchSend,
+  onSetArp,
   onSetLayerOutput,
   onSetBusMix,
   onAddBusInsert,
@@ -257,6 +262,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [view, setView] = useState<'layers' | 'aux'>('layers');
   const [highlightedAux, setHighlightedAux] = useState<number | null>(null);
+  const [arpLayer, setArpLayer] = useState<{ layerId: string; name: string; settings: ArpSettings } | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [splitDraft, setSplitDraft] = useState<{
@@ -1353,6 +1359,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             };
             const meterPercent = Math.max(0, Math.min(100, ((mix.peakDb + 60) / 60) * 100));
             const isSelected = selectedLayer?.layerId === layerId;
+            const arp = assignment.arp ?? DEFAULT_ARP;
+            const arpModeLabel = arp.mode === 'up' ? '↑' : arp.mode === 'down' ? '↓' : arp.mode === 'updown' ? '↕' : arp.mode === 'random' ? '⚄' : '♪';
             return (
               <section
                 key={layerId}
@@ -1421,6 +1429,19 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                     style={{ accentColor: '#FF9F0A' }}
                   />
                 </label>
+                <button
+                  type="button"
+                  className="hw-squarebtn mt-1.5 w-full px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
+                  disabled={!editable}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setArpLayer({ layerId, name: assignment.name, settings: arp });
+                  }}
+                  title="Abrir o arpejador MIDI deste layer"
+                  style={arp.enabled ? { color: '#FF9F0A', borderColor: '#FF9F0A' } : undefined}
+                >
+                  ARP {arp.enabled ? `· ${arp.rate} · ${arpModeLabel}` : 'off'}
+                </button>
                 {renderInserts({
                   ownerId: layerId,
                   inserts: assignment.inserts ?? [],
@@ -1533,6 +1554,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             </button>
           ))}
         </div>
+      )}
+      {arpLayer && (
+        <ArpeggiatorModal
+          layerName={arpLayer.name}
+          settings={arpLayer.settings}
+          onChange={(next) => {
+            setArpLayer((previous) => previous ? { ...previous, settings: next } : previous);
+            onSetArp(arpLayer.layerId, next);
+          }}
+          onClose={() => setArpLayer(null)}
+        />
       )}
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
         Nos strips do patch, use a aba Channel Strip do Inspector para as teclas (Low/High Key).
