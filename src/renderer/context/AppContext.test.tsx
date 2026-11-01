@@ -88,6 +88,23 @@ describe('AppProvider initialization', () => {
     expect(window.electronAPI.concertInit).toHaveBeenCalledWith({});
   });
 
+  it('abre um .preseter carregando o patch inicial antes de liberar a tela', async () => {
+    const patch = createPreset({ id: 'p1', name: 'Órgão', programNumber: 3 });
+    const state = createConcertState({ name: 'Show', patches: [patch] });
+    vi.mocked(window.electronAPI.concertOpenRecent).mockResolvedValue(state);
+    vi.mocked(window.electronAPI.presetLoad).mockResolvedValue(true);
+    await renderProvider();
+
+    let opened = false;
+    await act(async () => {
+      opened = await latest.openConcertPath('C:/show.preseter');
+    });
+    expect(opened).toBe(true);
+    expect(window.electronAPI.presetLoad).toHaveBeenCalledWith('p1');
+    expect(latest.currentPreset?.id).toBe('p1');
+    expect(latest.loadProgress).toBeNull();
+  });
+
   it('reports initialization failures', async () => {
     vi.mocked(window.electronAPI.concertInit).mockRejectedValue(new Error('init failed'));
     vi.mocked(navigator.requestMIDIAccess).mockReturnValue(new Promise(() => undefined));
@@ -226,7 +243,7 @@ describe('AppProvider concert editing', () => {
 });
 
 describe('AppProvider preset and concert actions', () => {
-  it('saves a preset without layout geometry and updates the list', async () => {
+  it('saves a preset with its own layout and mappings', async () => {
     const preset = createPreset({ id: 'p1' });
     vi.mocked(window.electronAPI.concertInit).mockResolvedValue(
       createConcertState({
@@ -246,7 +263,10 @@ describe('AppProvider preset and concert actions', () => {
       expect.objectContaining({
         id: 'p1',
         mappings: { x: { pluginId: 'plugin' } },
-        layout: { elements: [], background: null, tempo: 120 },
+        layout: expect.objectContaining({
+          elements: [expect.objectContaining({ id: 'x', pluginId: 'plugin' })],
+          tempo: 120,
+        }),
       })
     );
   });

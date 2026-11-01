@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstScan: () => ipcRenderer.invoke('vst-scan'),
   vstRescan: () => ipcRenderer.invoke('vst-rescan'),
   vstScanReport: () => ipcRenderer.invoke('vst-scan-report'),
+  startupProgress: (percent: number, message?: string) =>
+    ipcRenderer.send('startup-progress', { percent, message }),
+  startupReady: () => ipcRenderer.send('startup-ready'),
   vstHidePlugin: (idOrPath: string) => ipcRenderer.invoke('vst-hide-plugin', idOrPath),
   vstShowPlugin: (idOrPath: string) => ipcRenderer.invoke('vst-show-plugin', idOrPath),
   vstAddPluginFolder: () => ipcRenderer.invoke('vst-add-plugin-folder'),
@@ -169,6 +172,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('layout-change', (_event: Electron.IpcRendererEvent, layout: unknown) => callback(layout as any)),
   onVstScanned: (callback: (plugins: any[]) => void) =>
     ipcRenderer.on('vst-scanned', (_event: Electron.IpcRendererEvent, plugins: unknown) => callback(plugins as any[])),
+  onPresetLoadProgress: (callback: (progress: any) => void) =>
+    ipcRenderer.on('preset-load-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
   onVstPresetsUpdated: (callback: (result: any) => void) =>
     ipcRenderer.on('vst-presets-updated', (_event: Electron.IpcRendererEvent, result: unknown) => callback(result)),
   onPluginLoaded: (callback: (plugin: any) => void) =>

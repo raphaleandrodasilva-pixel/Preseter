@@ -7,6 +7,7 @@ import { AppProvider, useAppContext } from '../context/AppContext';
 import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
+import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
 const AppContent: React.FC = () => {
@@ -274,6 +275,7 @@ const AppContent: React.FC = () => {
           onCancel={cancelTemplatePicker}
         />
       )}
+      <AppLoadingOverlay />
     </div>
   );
 };

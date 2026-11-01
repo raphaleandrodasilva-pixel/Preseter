@@ -157,6 +157,19 @@ describe('VstManager scanning', () => {
     });
   });
 
+  it('carrega a lista de plugins do cache sem varrer as pastas', async () => {
+    const { engine, request } = makeEngine((command) =>
+      command === 'plugins'
+        ? { formats: 'VST3', plugins: [scannedPlugin()] }
+        : undefined
+    );
+    const manager = new VstManager(engine);
+    const plugins = await manager.loadKnownPlugins();
+    expect(request).toHaveBeenCalledWith('plugins', {});
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0]).toMatchObject({ id: 'scan-plugin-1', name: 'Scanned' });
+  });
+
   it('deduplicates plugins returned by the engine', async () => {    const { engine } = makeEngine((command) =>
       command === 'scan'
         ? {

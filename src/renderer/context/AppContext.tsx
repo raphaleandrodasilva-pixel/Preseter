@@ -19,6 +19,7 @@ import {
   MasterMixUpdate,
   SavedAudioSettings,
   AppPreferences,
+  AppLoadProgress,
   ConcertState,
   ConcertSyncPayload,
   ConcertSettings,
@@ -64,6 +65,9 @@ export interface AppContextType {
   concertName: string;
   /** true depois que o concert inicial terminou de carregar. */
   concertLoaded: boolean;
+  /** Overlay global de carregamento de arquivo/patch. */
+  loadProgress: AppLoadProgress | null;
+  dismissLoadProgress: () => void;
   currentPreset: Preset | null;
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
@@ -131,7 +135,12 @@ export interface AppContextType {
 
   // Ações de Preset
   savePreset: (preset: Preset) => Promise<boolean>;
-  loadPreset: (presetId: string) => Promise<boolean>;
+  loadPreset: (presetId: string, options?: {
+    preset?: Preset;
+    layout?: LayoutConfig | null;
+    mappings?: ConcertMapping[];
+    sets?: PresetSet[];
+  }) => Promise<boolean>;
   /** Atualiza o Master do Patch de um patch e mantém o patch atual em sincronia. */
   updatePatchMaster: (presetId: string, master: PatchMasterSettings) => void;
   deletePreset: (presetId: string) => Promise<boolean>;
@@ -318,6 +327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [sets, setSets] = useState<PresetSet[]>([]);
   const [concertName, setConcertNameState] = useState<string>('Meu Concert');
   const [concertLoaded, setConcertLoaded] = useState(false);
+  const [loadProgress, setLoadProgress] = useState<AppLoadProgress | null>(null);
   const [concertPath, setConcertPath] = useState<string | null>(null);
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
@@ -415,20 +425,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertInitialized.current = true;
     const loadData = async () => {
       try {
+        window.electronAPI.startupProgress(25, 'Lendo preferências e concert…');
         const [concert, loaded, audio, prefs] = await Promise.all([
           window.electronAPI.concertInit(readLegacyConcert()),
           window.electronAPI.vstLoaded(),
           window.electronAPI.audioSettingsGet(),
           window.electronAPI.preferencesGet(),
         ]);
+        window.electronAPI.startupProgress(70, 'Aplicando concert…');
         applyConcertState(concert);
         setLoadedPlugins(loaded);
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
         setPreferences(prefs);
         concertReady.current = true;
+        window.electronAPI.startupProgress(95, 'Finalizando…');
       } catch (error) {
         setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
+      } finally {
+        window.electronAPI.startupReady();
       }
     };
     void loadData();
@@ -493,6 +508,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.electronAPI.onVstScanned((plugins) => {
       if (Array.isArray(plugins)) setScannedPlugins(plugins);
       void window.electronAPI.vstScanReport().then(setVstScanReport).catch(() => undefined);
+    });
+    window.electronAPI.onPresetLoadProgress((data) => {
+      setLoadProgress((previous) => {
+        if (!previous?.active) return previous;
+        const total = data.total || previous.total || 1;
+        const current = data.current || previous.current || 0;
+        const percent = Math.min(92, 10 + Math.round((current / Math.max(1, total)) * 80));
+        const layer = data.name ? ` — ${data.name}` : '';
+        return {
+          ...previous,
+          current,
+          total,
+          percent,
+          detail: `Carregando layer ${current}/${total}${layer}`,
+        };
+      });
     });
     void window.electronAPI.vstList()
       .then((plugins) => {
@@ -584,16 +615,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return result;
   }, [materializePatchLayout]);
 
-  const loadPreset = useCallback(async (presetId: string): Promise<boolean> => {
+  const loadPreset = useCallback(async (
+    presetId: string,
+    options: { preset?: Preset; layout?: LayoutConfig | null; mappings?: ConcertMapping[]; sets?: PresetSet[] } = {}
+  ): Promise<boolean> => {
+    const targetPreset = options.preset ?? presets.find((p) => p.id === presetId);
+    setLoadProgress({
+      active: true,
+      title: 'Carregando patch',
+      detail: targetPreset?.name ?? 'Lendo instrumentos…',
+      current: 0,
+      total: targetPreset?.plugins?.length ?? 0,
+      percent: 3,
+    });
     let result: boolean;
     try {
       result = await window.electronAPI.presetLoad(presetId);
     } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao carregar o preset.');
+      const message = error instanceof Error ? error.message : 'Falha ao carregar o preset.';
+      setMidiError(message);
+      setLoadProgress({
+        active: true,
+        title: 'Falha ao carregar o patch',
+        detail: targetPreset?.name,
+        error: message,
+        percent: 0,
+      });
       // Repassa a mensagem real para a tela em vez de só "não foi possível carregar".
       throw error;
     }
     if (result) {
+      setLoadProgress((previous) => previous ? { ...previous, percent: 92, detail: 'Finalizando patch…' } : previous);
       setLoadedPlugins(await window.electronAPI.vstLoaded());
       try {
         setMixState(await window.electronAPI.vstMixGet());
@@ -607,24 +659,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (error) {
         setMidiError(error instanceof Error ? error.message : 'Falha ao atualizar o estado de áudio.');
       }
-      const preset = presets.find((p) => p.id === presetId);
-      if (preset) {
-        const materialized = { ...preset, layout: materializePatchLayout(preset) };
+      if (targetPreset) {
+        const materialized = {
+          ...targetPreset,
+          layout: materializePatchLayout(
+            targetPreset,
+            options.layout,
+            options.mappings,
+            options.sets
+          ),
+        };
         setCurrentPreset(materialized);
         setLayoutState((previous) => previous ?? materialized.layout);
-        if (preset.changeTempoOnSelect) {
-          setAppStatus((prev) => ({ ...prev, tempo: preset.layout.tempo }));
-          void window.electronAPI.appStatusChange({ tempo: preset.layout.tempo });
+        if (targetPreset.changeTempoOnSelect) {
+          setAppStatus((prev) => ({ ...prev, tempo: targetPreset.layout.tempo }));
+          void window.electronAPI.appStatusChange({ tempo: targetPreset.layout.tempo });
         }
         setAppStatus((prev) => ({
           ...prev,
           currentPresetId: presetId,
-          currentProgramNumber: preset.programNumber,
+          currentProgramNumber: targetPreset.programNumber,
         }));
       }
     }
+    setLoadProgress(null);
     return result;
   }, [presets, materializePatchLayout]);
+
+  const dismissLoadProgress = useCallback(() => setLoadProgress(null), []);
+
+  const openConcertState = useCallback(async (state: ConcertState): Promise<void> => {
+    setLoadProgress({
+      active: true,
+      title: 'Abrindo concert',
+      detail: state.name,
+      percent: 20,
+      current: 0,
+      total: Math.max(1, state.patches.length),
+    });
+    applyConcertState(state);
+    setLoadProgress((previous) => previous ? { ...previous, percent: 45, detail: 'Carregando patch inicial…' } : previous);
+    const first = [...state.patches].sort((a, b) => a.programNumber - b.programNumber)[0];
+    if (first) {
+      try {
+        await loadPreset(first.id, {
+          preset: first,
+          layout: state.layout,
+          mappings: state.mappings,
+          sets: state.sets,
+        });
+      } catch {
+        /* o overlay de erro do loadPreset já mostra a causa */
+      }
+    }
+    setLoadProgress((previous) => previous?.error ? previous : null);
+  }, [applyConcertState, loadPreset]);
 
   /** Atualiza o Master do Patch de um patch (mix, inserts e sends) sem salvar o arquivo. */
   const updatePatchMaster = useCallback((presetId: string, master: PatchMasterSettings) => {
@@ -811,9 +900,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setTemplatePickerOpen(true);
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
-          if (state) applyConcertState(state);
+          if (state) await openConcertState(state);
         } else if (action.action === 'open-recent') {
-          applyConcertState(await window.electronAPI.concertOpenRecent(action.path));
+          await openConcertState(await window.electronAPI.concertOpenRecent(action.path));
         } else if (action.action === 'save' || action.action === 'save-as') {
           const state = await window.electronAPI.concertSave(action.action === 'save-as');
           if (state) {
@@ -829,7 +918,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setConcertError(error instanceof Error ? error.message : 'Falha na operação de arquivo.');
       }
     },
-    [applyConcertState, undo, redo]
+    [applyConcertState, openConcertState, undo, redo]
   );
   menuHandlerRef.current = handleMenuAction;
 
@@ -1355,13 +1444,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const openConcertPath = useCallback(async (filePath: string): Promise<boolean> => {
     try {
-      applyConcertState(await window.electronAPI.concertOpenRecent(filePath));
+      setLoadProgress({
+        active: true,
+        title: 'Abrindo concert',
+        detail: filePath.split(/[\\/]/).pop() ?? filePath,
+        percent: 5,
+      });
+      await openConcertState(await window.electronAPI.concertOpenRecent(filePath));
       return true;
     } catch (error) {
-      setConcertError(error instanceof Error ? error.message : 'Falha ao abrir o concert.');
+      const message = error instanceof Error ? error.message : 'Falha ao abrir o concert.';
+      setConcertError(message);
+      setLoadProgress({
+        active: true,
+        title: 'Falha ao abrir o concert',
+        detail: filePath,
+        error: message,
+        percent: 0,
+      });
       return false;
     }
-  }, [applyConcertState]);
+  }, [openConcertState]);
 
   const openVstEditor = useCallback(async (pluginId: string): Promise<boolean> => {
     try {
@@ -1773,6 +1876,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sets,
     concertName,
     concertLoaded,
+    loadProgress,
+    dismissLoadProgress,
     currentPreset,
     loadedPlugins,
     mixState,

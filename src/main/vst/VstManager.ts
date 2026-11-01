@@ -117,6 +117,14 @@ export class VstManager extends EventEmitter {
     return this.scanPromise;
   }
 
+  /** Lista os plugins conhecidos no cache do motor, sem varrer as pastas. */
+  async loadKnownPlugins(): Promise<VstPluginInfo[]> {
+    const result = await this.engine.request('plugins', {});
+    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+    this.emit('scanned', this.scannedPlugins);
+    return this.scannedPlugins;
+  }
+
   async loadPlugin(
     pluginPathOrId: string,
     layerId = `layer_${randomUUID()}`,
@@ -197,6 +205,24 @@ export class VstManager extends EventEmitter {
       const devices = await this.getAudioDevices();
       if (!devices.running) {
         await this.startAudio({ outputs: 2, inputs: 0 });
+      }
+      // Troca de patch: não espera a lista completa de parâmetros (alguns
+      // plugins expõem milhares). Ela chega em segundo plano e atualiza a UI.
+      if (command === 'stageLoad') {
+        const loaded = this.toVstPlugin(enginePlugin);
+        this.loadedPlugins.set(layerId, loaded);
+        this.emit('plugin-loaded', loaded);
+        void this.getParameters(layerId)
+          .then((parameters) => {
+            if (!this.loadedPlugins.has(layerId)) return;
+            const updated = this.toVstPlugin(enginePlugin, parameters);
+            this.loadedPlugins.set(layerId, updated);
+            this.emit('plugin-loaded', updated);
+          })
+          .catch((error) => {
+            console.warn(`[Preseter] Não foi possível ler os parâmetros do layer "${layerId}":`, error);
+          });
+        return loaded;
       }
       const parameters = await this.engine.request('params', { layerId });
       const loaded = this.toVstPlugin(enginePlugin, parameters);

@@ -240,16 +240,33 @@ class MainWindow {
       .card{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
         background:linear-gradient(to bottom,#232326,#1A1A1C);border-radius:18px;border:1px solid #3A3A3C;
         box-shadow:0 24px 70px rgba(0,0,0,.7)}
-      img{width:210px;height:210px;object-fit:contain;border-radius:16px}
-      .name{margin-top:14px;color:#EDEDEF;font-size:18px;font-weight:700;letter-spacing:.08em}
-      .hint{margin-top:4px;color:#8E8E93;font-size:11px}
+      img{width:180px;height:180px;object-fit:contain;border-radius:16px}
+      .name{margin-top:10px;color:#EDEDEF;font-size:18px;font-weight:700;letter-spacing:.08em}
+      .hint{margin-top:4px;color:#8E8E93;font-size:11px;min-height:14px}
+      .bar{margin-top:14px;width:250px;height:6px;border-radius:999px;background:#303032;overflow:hidden}
+      .fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#0A6FE0,#5AA9FF);transition:width .25s ease-out}
+      .pct{margin-top:5px;color:#9A9AA0;font-size:10px;font-variant-numeric:tabular-nums}
     </style></head><body><div class="wrap"><div class="card">
       <img src="${dataUrl}" alt="Preseter"><div class="name">PRESETER</div>
-      <div class="hint">carregando…</div>
-    </div></div></body></html>`;
+      <div class="hint" id="hint">Abrindo Preseter…</div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="pct" id="pct">0%</div>
+    </div></div>
+    <script>
+      window.setSplashProgress = function (percent, message) {
+        var p = Math.max(0, Math.min(100, Number(percent) || 0));
+        var fill = document.getElementById('fill');
+        var hint = document.getElementById('hint');
+        var pct = document.getElementById('pct');
+        if (fill) fill.style.width = p + '%';
+        if (pct) pct.textContent = Math.round(p) + '%';
+        if (hint && message) hint.textContent = message;
+      };
+    </script></body></html>`;
     void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     this.splashShownAt = Date.now();
     splash.showInactive();
+    splash.webContents.on('did-finish-load', () => this.setSplashProgress(8, 'Abrindo Preseter…'));
     splash.once('ready-to-show', () => {
       if (!splash.isDestroyed()) splash.showInactive();
     });
@@ -257,13 +274,23 @@ class MainWindow {
       if (this.splash === splash) this.splash = null;
     });
     this.splash = splash;
+    setTimeout(() => {
+      if (this.splash === splash) this.closeSplash();
+    }, 25000).unref();
+  }
+
+  private setSplashProgress(percent: number, message?: string): void {
+    const splash = this.splash;
+    if (!splash || splash.isDestroyed()) return;
+    const script = `window.setSplashProgress && window.setSplashProgress(${Math.max(0, Math.min(100, percent))}, ${JSON.stringify(message ?? '')})`;
+    void splash.webContents.executeJavaScript(script).catch(() => undefined);
   }
 
   private closeSplash(): void {
     const splash = this.splash;
     if (!splash) return;
     const elapsed = Date.now() - this.splashShownAt;
-    const delay = Math.max(0, 700 - elapsed);
+    const delay = Math.max(0, 1500 - elapsed);
     setTimeout(() => {
       if (this.splash === splash && !splash.isDestroyed()) splash.close();
       if (this.splash === splash) this.splash = null;
@@ -353,7 +380,7 @@ class MainWindow {
 
     this.window.once('ready-to-show', () => {
       this.window?.show();
-      this.closeSplash();
+      this.setSplashProgress(20, 'Carregando interface…');
     });
     this.window.webContents.on('did-fail-load', () => {
       this.window?.show();
@@ -378,6 +405,14 @@ class MainWindow {
   }
 
   private registerIpcHandlers(): void {
+    ipcMain.on('startup-progress', (_event, data?: { percent?: number; message?: string }) => {
+      this.setSplashProgress(Number(data?.percent ?? 0), data?.message);
+    });
+    ipcMain.on('startup-ready', () => {
+      this.setSplashProgress(100, 'Pronto');
+      this.closeSplash();
+    });
+
     // === MIDI Handlers ===
 
     // === MIDI Program Change (pgm send) ===
@@ -1180,6 +1215,13 @@ class MainWindow {
     const restoredStateKeys = new Set<string>();
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      this.sendToRenderer('preset-load-progress', {
+        presetId: preset.id,
+        current: index + 1,
+        total: assignments.length,
+        name: assignment.name,
+        phase: 'loading',
+      });
       const plugin = await this.vstManager.stageLoad(
         assignment.path,
         layerId,
@@ -1747,6 +1789,7 @@ class MainWindow {
   }
 
   private async initializeEngine(): Promise<void> {
+    this.setSplashProgress(25, 'Iniciando motor de áudio…');
     const saved = this.readAudioSettings();
     if (saved.enabled) {
       try {
@@ -1757,8 +1800,26 @@ class MainWindow {
     }
 
     try {
-      const plugins = await this.scanWithPreferences();
-      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      // Usa a lista já salva pelo motor para abrir rápido; a varredura completa
+      // fica para segundo plano e para o botão "Reescanear".
+      const known = await this.vstManager.loadKnownPlugins();
+      if (known.length > 0) {
+        this.setSplashProgress(55, `Plugins em cache (${known.length})`);
+        void this.vstPresetLibrary.scan(known, this.vstManager);
+        setTimeout(() => {
+          void this.scanWithPreferences()
+            .then((plugins) => {
+              void this.vstPresetLibrary.scan(plugins, this.vstManager);
+            })
+            .catch((error) => {
+              console.warn('[Preseter] Falha no scan em segundo plano:', error);
+            });
+        }, 8000);
+      } else {
+        this.setSplashProgress(40, 'Escaneando plugins…');
+        const plugins = await this.scanWithPreferences();
+        void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      }
       this.watchVstFolders();
     } catch (error) {
       console.warn('[Preseter] Falha no scan inicial de VSTs:', error);

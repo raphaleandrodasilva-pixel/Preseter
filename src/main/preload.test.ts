@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 function loadPreload(): {
   api: Record<string, (...args: any[]) => any>;
   invoke: ReturnType<typeof vi.fn>;
+  send: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
   expose: ReturnType<typeof vi.fn>;
 } {
@@ -25,6 +26,7 @@ function loadPreload(): {
   }).outputText;
 
   const invoke = vi.fn(async (...args: unknown[]) => args);
+  const send = vi.fn();
   const on = vi.fn();
   const expose = vi.fn();
   const module = { exports: {} as Record<string, unknown> };
@@ -33,7 +35,7 @@ function loadPreload(): {
       if (name !== 'electron') throw new Error(`Unexpected require: ${name}`);
       return {
         contextBridge: { exposeInMainWorld: expose },
-        ipcRenderer: { invoke, on },
+        ipcRenderer: { invoke, on, send },
       };
     },
     module,
@@ -44,7 +46,7 @@ function loadPreload(): {
   vm.runInNewContext(compiled, sandbox, { filename: sourcePath });
   expect(expose).toHaveBeenCalledWith('electronAPI', expect.any(Object));
   const api = expose.mock.calls[0][1] as Record<string, (...args: any[]) => any>;
-  return { api, invoke, on, expose };
+  return { api, invoke, send, on, expose };
 }
 
 describe('preload electronAPI', () => {
@@ -88,15 +90,21 @@ describe('preload electronAPI', () => {
   });
 
   it('covers all invoke wrappers and event subscriptions', () => {
-    const { api, invoke, on } = loadPreload();
+    const { api, invoke, send, on } = loadPreload();
 
     for (const [name, method] of Object.entries(api)) {
-      if (name.startsWith('on')) continue;
+      if (name.startsWith('on') || name === 'startupProgress' || name === 'startupReady') continue;
       invoke.mockClear();
       method('a', 'b', 'c', 'd', 'e');
       expect(invoke, name).toHaveBeenCalledTimes(1);
       expect(typeof invoke.mock.calls[0][0], name).toBe('string');
     }
+
+    send.mockClear();
+    api.startupProgress(42, 'Carregando');
+    api.startupReady();
+    expect(send).toHaveBeenNthCalledWith(1, 'startup-progress', { percent: 42, message: 'Carregando' });
+    expect(send).toHaveBeenNthCalledWith(2, 'startup-ready');
 
     for (const [name, method] of Object.entries(api)) {
       if (!name.startsWith('on')) continue;

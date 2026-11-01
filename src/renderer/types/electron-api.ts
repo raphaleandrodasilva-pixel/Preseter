@@ -54,6 +54,8 @@ export interface ElectronAPI {
   vstScan: () => Promise<VstPluginInfo[]>;
   vstRescan: () => Promise<VstPluginInfo[]>;
   vstScanReport: () => Promise<VstScanReport>;
+  startupProgress: (percent: number, message?: string) => void;
+  startupReady: () => void;
   vstHidePlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstShowPlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstAddPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
@@ -163,6 +165,13 @@ export interface ElectronAPI {
   onPresetLoaded: (callback: (data: any) => void) => void;
   onLayoutChange: (callback: (layout: any) => void) => void;
   onVstScanned: (callback: (plugins: any[]) => void) => void;
+  onPresetLoadProgress: (callback: (progress: {
+    presetId: string;
+    current: number;
+    total: number;
+    name: string;
+    phase: string;
+  }) => void) => void;
   onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => void;
   onPluginLoaded: (callback: (plugin: any) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;
