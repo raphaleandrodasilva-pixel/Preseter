@@ -739,11 +739,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const importPatch = useCallback(async (): Promise<Preset | null> => {
-    const imported = await window.electronAPI.patchImport();
-    if (!imported) return null;
-    const materialized: Preset = { ...imported, layout: materializePatchLayout(imported) };
-    setPresets((prev) => [...prev.filter((preset) => preset.id !== materialized.id), materialized]);
-    return materialized;
+    setLoadProgress({ active: true, title: 'Importando patch', detail: 'Lendo arquivo…', percent: 10 });
+    try {
+      const imported = await window.electronAPI.patchImport();
+      if (!imported) {
+        setLoadProgress(null);
+        return null;
+      }
+      setLoadProgress({ active: true, title: 'Importando patch', detail: imported.name, percent: 70 });
+      const materialized: Preset = { ...imported, layout: materializePatchLayout(imported) };
+      setPresets((prev) => [...prev.filter((preset) => preset.id !== materialized.id), materialized]);
+      setLoadProgress(null);
+      return materialized;
+    } catch (error) {
+      setLoadProgress({
+        active: true,
+        title: 'Falha ao importar patch',
+        error: error instanceof Error ? error.message : 'Arquivo inválido.',
+        percent: 0,
+      });
+      return null;
+    }
   }, [materializePatchLayout]);
 
   const exportSet = useCallback(async (setId: string): Promise<boolean> => {
@@ -751,17 +767,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const importSet = useCallback(async (): Promise<{ set: PresetSet; patches: Preset[] } | null> => {
-    const imported = await window.electronAPI.setImport();
-    if (!imported) return null;
-    setSets((prev) => [...prev.filter((set) => set.id !== imported.set.id), imported.set]);
-    setPresets((prev) => {
-      const importedIds = new Set(imported.patches.map((patch) => patch.id));
-      return [
-        ...prev.filter((preset) => !importedIds.has(preset.id)),
-        ...imported.patches.map((patch) => ({ ...patch, layout: materializePatchLayout(patch) })),
-      ];
-    });
-    return imported;
+    setLoadProgress({ active: true, title: 'Importando set', detail: 'Lendo arquivo…', percent: 10 });
+    try {
+      const imported = await window.electronAPI.setImport();
+      if (!imported) {
+        setLoadProgress(null);
+        return null;
+      }
+      setLoadProgress({ active: true, title: 'Importando set', detail: imported.set.name, percent: 70 });
+      setSets((prev) => [...prev.filter((set) => set.id !== imported.set.id), imported.set]);
+      setPresets((prev) => {
+        const importedIds = new Set(imported.patches.map((patch) => patch.id));
+        return [
+          ...prev.filter((preset) => !importedIds.has(preset.id)),
+          ...imported.patches.map((patch) => ({ ...patch, layout: materializePatchLayout(patch) })),
+        ];
+      });
+      setLoadProgress(null);
+      return imported;
+    } catch (error) {
+      setLoadProgress({
+        active: true,
+        title: 'Falha ao importar set',
+        error: error instanceof Error ? error.message : 'Arquivo inválido.',
+        percent: 0,
+      });
+      return null;
+    }
   }, [materializePatchLayout]);
 
   const createPreset = useCallback(
