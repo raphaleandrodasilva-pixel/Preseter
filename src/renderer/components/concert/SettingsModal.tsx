@@ -93,7 +93,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
         <div className="flex items-center gap-3 px-5 pt-4">
           <div>
             <div className="hw-label">Configurações</div>
-            <div className="text-sm font-semibold" style={{ color: '#EDEDEF' }}>MIDI e plugins VST</div>
+            <div className="text-sm font-semibold" style={{ color: '#EDEDEF' }}>MIDI, plugins e coleção</div>
           </div>
           <div className="hw-lcd ml-auto px-3 py-1.5 font-mono text-[11px] font-semibold tracking-wide">
             {lcdText}
@@ -111,7 +111,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
         <div className="mx-5 mt-3 flex items-center gap-2">
           <button
             onClick={() => setTab('general')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'general'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
@@ -120,7 +120,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           </button>
           <button
             onClick={() => setTab('view')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'view'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
@@ -129,7 +129,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           </button>
           <button
             onClick={() => setTab('midi')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'midi'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
@@ -138,7 +138,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           </button>
           <button
             onClick={() => setTab('vst')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'vst'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
@@ -147,7 +147,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           </button>
           <button
             onClick={() => setTab('audio')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'audio'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
               : { color: '#9A9AA0' }}
@@ -156,7 +156,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           </button>
           <button
             onClick={() => setTab('collection')}
-            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'collection'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#FF9F0A' }
               : { color: '#9A9AA0' }}
