@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Preset, PresetSet } from '@shared/types';
 import { ModalShell } from '../ui/ModalShell';
+import { PatchIcon } from '../icons/PatchIcons';
 
 interface PatchLibraryModalProps {
   presets: Preset[];
@@ -85,7 +86,7 @@ export const PatchLibraryModal: React.FC<PatchLibraryModalProps> = ({
               <span className="w-8 shrink-0 text-right tabular-nums" style={{ color: '#8E8E93' }}>
                 {String(preset.programNumber + 1).padStart(3, '0')}
               </span>
-              <span className="w-5 shrink-0 text-center">{preset.icon ?? '🎹'}</span>
+              <span className="flex w-5 shrink-0 justify-center"><PatchIcon icon={preset.icon} size={15} /></span>
               <span className="min-w-0 flex-1 truncate font-medium">{preset.name}</span>
               {preset.category && <span className="shrink-0 text-[10px]" style={{ color: '#8E8E93' }}>{preset.category}</span>}
               <span className="shrink-0 text-[10px]" style={{ color: '#8E8E93' }}>

@@ -48,6 +48,7 @@ describe('concert templates', () => {
       'Pads',
     ]);
     expect(file.patches.map((patch) => patch.programNumber)).toEqual([0, 1, 2]);
+    expect(file.patches.map((patch) => patch.icon)).toEqual(['piano', 'epiano', 'pad']);
     expect(file.patches.map((patch) => patch.setOrder)).toEqual([0, 1, 2]);
     expect(file.patches.every((patch) => patch.setId === file.sets[0].id)).toBe(true);
     expect(file.layout.elements.length).toBeGreaterThan(0);
@@ -67,6 +68,7 @@ describe('concert templates', () => {
     ]);
     expect(file.patches.every((patch) => patch.layout.tempo === 72)).toBe(true);
     expect(file.patches[0].notes).toBe('Pad de fundo');
+    expect(file.patches.map((patch) => patch.icon)).toEqual(['pad', 'pad-bright', 'piano', 'generic']);
   });
 
   it('builds the full set template with 8 sets and 40 patches', () => {

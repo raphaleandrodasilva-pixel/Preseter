@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Preset, PresetSet } from '@shared/types';
+import { PatchIcon } from '../icons/PatchIcons';
 
 interface PatchListProps {
   presets: Preset[];
@@ -332,7 +333,7 @@ export const PatchList: React.FC<PatchListProps> = ({
         <span className="w-7 shrink-0 text-right tabular-nums" style={{ color: active ? 'rgba(255,255,255,0.8)' : '#8E8E93' }}>
           {String(preset.programNumber + 1).padStart(3, '0')}
         </span>
-        <span className="w-4 shrink-0 text-center">{preset.icon ?? '🎹'}</span>
+        <span className="flex w-4 shrink-0 justify-center"><PatchIcon icon={preset.icon} size={14} /></span>
         <span className="min-w-0 flex-1 truncate text-left">{preset.name}</span>
         {preset.shortcut && (
           <span

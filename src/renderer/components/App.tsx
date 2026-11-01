@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { EffectiveStrip, MAX_AUX_BUSES, Preset, SEND_OFF_DB } from '@shared/types';
 import { resolveStrips } from '@shared/concert-strips';
 import { createDefaultKeyboardLayout } from '@shared/default-layout';
+import { suggestPatchIcon } from '@shared/patch-icons';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
@@ -66,7 +67,11 @@ const AppContent: React.FC = () => {
     const usedPrograms = new Set(presets.map((p) => p.programNumber));
     const nextProgram =
       Array.from({ length: 128 }, (_, i) => i).find((pg) => !usedPrograms.has(pg)) ?? 0;
-    const base = createPreset('Novo patch', nextProgram);
+    const base = createPreset(
+      'Novo patch',
+      nextProgram,
+      suggestPatchIcon('Novo patch', sets.find((set) => set.id === setId)?.name)
+    );
     const nextLayout = layout && layout.elements.length > 0
       ? layout
       : createDefaultKeyboardLayout(layout?.tempo ?? 120);

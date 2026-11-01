@@ -31,6 +31,8 @@ describe('buildCollectionConcert', () => {
     expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
     expect(file.layout.elements.filter((element) => element.patchSendAux !== undefined)).toHaveLength(4);
     expect(file.layout.elements.filter((element) => element.type === 'pedal')).toHaveLength(3);
+    expect(file.patches.every((patch) => patch.icon)).toBe(true);
+    expect(file.patches.find((patch) => patch.name === 'Pad Ambiente')?.icon).toBe('pad');
   });
 
   it('uses fallbacks when an optional instrument is missing', () => {

@@ -3,6 +3,7 @@ import type { BusSettings, Preset, PresetPluginAssignment, UiElement, VstPluginI
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 import { ChannelStripLibrary } from './ChannelStripLibrary';
+import { IconPicker } from './IconPicker';
 import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
 
 interface InspectorProps {
@@ -458,7 +459,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               Mudar tempo ao selecionar
             </label>
             <label className="text-[11px] text-slate-400">Canal (1-16)<input className={`${classInput} mt-1`} type="number" min={1} max={16} value={draft.midiChannel + 1} onChange={(e) => onPatchChange({ midiChannel: Math.max(0, Math.min(15, (Number(e.target.value) || 1) - 1)) })} /></label>
-            <label className="text-[11px] text-slate-400">Ícone<input className={`${classInput} mt-1`} value={draft.icon ?? '🎹'} onChange={(e) => onPatchChange({ icon: e.target.value })} /></label>
+            <div className="text-[11px] text-slate-400">Ícone<IconPicker value={draft.icon} onChange={(icon) => onPatchChange({ icon })} /></div>
             <label className="flex items-end gap-2 pb-1 text-[11px] text-slate-400">
               <input type="checkbox" style={{ accentColor: '#0A84FF' }} checked={!!draft.skipped} onChange={(e) => onPatchChange({ skipped: e.target.checked })} />
               Skip (pular em Program Change)

@@ -4,6 +4,7 @@ import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { COLLECTION_SETS, type CollectionLayerSpec } from '../../shared/collection-presets';
+import { suggestPatchIcon } from '../../shared/patch-icons';
 
 export interface CollectionPlugin {
   id: string;
@@ -164,6 +165,7 @@ export function buildCollectionConcert(
       rawPatches.push({
         id: nextId('preset'),
         name,
+        icon: suggestPatchIcon(name, setName),
         notes,
         setId,
         setOrder: setOrder++,

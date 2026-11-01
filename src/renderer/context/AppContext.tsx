@@ -40,6 +40,7 @@ import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
 import { ConcertHistory } from '@shared/concert-history';
 import { materializeLayout, withoutLayoutGeometry } from '@shared/concert-layout';
+import { suggestPatchIcon } from '@shared/patch-icons';
 
 /** Instantâneo do concert para o desfazer/refazer (Fase 2.5). */
 interface ConcertSnapshot {
@@ -128,7 +129,7 @@ export interface AppContextType {
   /** Atualiza o Master do Patch de um patch e mantém o patch atual em sincronia. */
   updatePatchMaster: (presetId: string, master: PatchMasterSettings) => void;
   deletePreset: (presetId: string) => Promise<boolean>;
-  createPreset: (name: string, programNumber?: number) => Preset;
+  createPreset: (name: string, programNumber?: number, icon?: string) => Preset;
   exportPatch: (presetId: string) => Promise<boolean>;
   importPatch: () => Promise<Preset | null>;
   exportSet: (setId: string) => Promise<boolean>;
@@ -666,10 +667,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [materializePatchLayout]);
 
   const createPreset = useCallback(
-    (name: string, programNumber: number = 0): Preset => {
+    (name: string, programNumber: number = 0, icon?: string): Preset => {
       const newPreset: Preset = {
         id: `preset_${Date.now()}`,
         name,
+        icon: icon ?? suggestPatchIcon(name),
         programNumber,
         midiChannel: 0,
         plugins: [],

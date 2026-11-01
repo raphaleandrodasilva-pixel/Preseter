@@ -37,6 +37,7 @@ import {
   type StripValue,
 } from '@shared/strip-levels';
 import { defaultSends } from '@shared/concert-strips';
+import { suggestPatchIcon } from '@shared/patch-icons';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -477,7 +478,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const program = freeProgramNumbers()[0] ?? first.programNumber;
     const base = createPreset(
       selected.length === 1 ? `${first.name} (novo)` : `${first.name} + ${selected.length - 1}`,
-      program
+      program,
+      suggestPatchIcon(
+        selected.length === 1 ? first.name : `${first.name} + ${selected.length - 1}`,
+        sets.find((set) => set.id === first.setId)?.name
+      )
     );
     const siblings = presets.filter((preset) => (preset.setId ?? undefined) === (first.setId ?? undefined));
     const setOrder = siblings.reduce((max, preset) => Math.max(max, preset.setOrder ?? 0), -1) + 1;

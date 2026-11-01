@@ -209,12 +209,14 @@ describe('AppProvider concert editing', () => {
     const preset = latest.createPreset('Lead', 12);
     expect(preset).toMatchObject({
       name: 'Lead',
+      icon: 'lead',
       programNumber: 12,
       midiChannel: 0,
       plugins: [],
       vstStates: {},
     });
     expect(preset.id).toMatch(/^preset_/);
+    expect(latest.createPreset('Bateria', 1, 'none').icon).toBe('none');
 
     act(() => latest.togglePanel('midi'));
     expect(latest.isPanelOpen.midi).toBe(true);

@@ -8,6 +8,7 @@ import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { createDefaultKeyboardLayout, ensureDefaultPedals } from '../../shared/default-layout';
+import { suggestPatchIcon } from '../../shared/patch-icons';
 
 interface PatchLayerSpec {
   /** Instrumento sugerido (nome livre; não é carregado pelo template). */
@@ -330,6 +331,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     return {
       id: nextId('preset'),
       name: spec.name,
+      icon: suggestPatchIcon(spec.name, spec.setName),
       notes,
       setId,
       setOrder,
