@@ -68,6 +68,8 @@ describe('ChannelStrips — send do layer para o bus do patch', () => {
   it('shows the layer patch send and applies changes', () => {
     const props = renderStrips();
 
+    expect(screen.queryByText(/Insert:/)).not.toBeInTheDocument();
+
     const send = screen.getByLabelText('Send de Piano para o Master do Patch') as HTMLInputElement;
     expect(send.value).toBe('0');
 

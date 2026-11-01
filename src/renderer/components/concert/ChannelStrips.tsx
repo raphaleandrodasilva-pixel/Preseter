@@ -831,9 +831,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => onRenameStrip(level, strip.id, event.target.value)}
         />
-        <div className="hw-inset mt-1 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
-          Insert: {loaded ? 'VST3' : 'Carregando…'}
-        </div>
         <button
           className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
           style={{ background: '#3A3A3C', color: '#E5E5EA' }}
@@ -1386,9 +1383,6 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">{assignment.name}</span>
                   {editable && <span style={{ color: '#9A9AA0' }}>▾</span>}
                 </button>
-                <div className="hw-inset mt-2 px-1.5 py-1 text-[9px]" style={{ color: '#9A9AA0' }}>
-                  Insert: {loaded ? 'VST3' : 'Carregando…'}
-                </div>
                 <button
                   className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
                   style={{ background: '#3A3A3C', color: '#E5E5EA' }}
