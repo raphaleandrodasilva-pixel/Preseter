@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Preset, PresetSet } from '@shared/types';
 import { PatchIcon } from '../icons/PatchIcons';
 
@@ -96,6 +97,9 @@ export const PatchList: React.FC<PatchListProps> = ({
 }) => {
   const [query, setQuery] = useState('');
   const [actionOpen, setActionOpen] = useState(false);
+  const [actionPosition, setActionPosition] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const actionButtonRef = useRef<HTMLButtonElement>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
   const [renamingSetId, setRenamingSetId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   /** Patches selecionados na lista (clique, Cmd/Ctrl-clique e Shift-clique). */
@@ -134,6 +138,52 @@ export const PatchList: React.FC<PatchListProps> = ({
   }, [currentPresetId]);
 
   const focusList = () => listRef.current?.focus({ preventScroll: true });
+
+  useEffect(() => {
+    if (!actionOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (actionMenuRef.current?.contains(target) || actionButtonRef.current?.contains(target)) return;
+      setActionOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionOpen(false);
+    };
+    const close = () => setActionOpen(false);
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [actionOpen]);
+
+  const toggleActionMenu = () => {
+    if (actionOpen) {
+      setActionOpen(false);
+      return;
+    }
+    const button = actionButtonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const width = 240;
+    const margin = 8;
+    const estimatedHeight = 420;
+    const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
+    const top = rect.bottom + 6 + estimatedHeight > window.innerHeight
+      ? Math.max(margin, rect.top - estimatedHeight - 6)
+      : rect.bottom + 6;
+    setActionPosition({
+      left,
+      top,
+      maxHeight: Math.max(160, window.innerHeight - top - margin),
+    });
+    setActionOpen(true);
+  };
 
   /** Aplica o resultado de uma operação e seleciona os patches resultantes. */
   const adopt = async (operation: Promise<string[]>) => {
@@ -403,14 +453,30 @@ export const PatchList: React.FC<PatchListProps> = ({
         </button>
         <div className="relative">
           <button
+            ref={actionButtonRef}
             className="hw-squarebtn px-1.5 py-0.5 text-xs"
-            title="Action menu — novo set, copiar, colar, mover novamente"
-            onClick={() => setActionOpen((v) => !v)}
+            title="Menu de ações — novo set, copiar, colar, mover novamente"
+            aria-haspopup="menu"
+            aria-expanded={actionOpen}
+            onClick={toggleActionMenu}
           >
             ⚙
           </button>
-          {actionOpen && (
-            <div className="absolute right-0 top-7 z-30 w-60 rounded-lg p-1 shadow-xl" style={{ border: '1px solid #3A3A3C', background: '#1F1F21' }}>
+          {actionOpen && actionPosition && createPortal(
+            <div
+              ref={actionMenuRef}
+              role="menu"
+              className="z-[1000] w-60 rounded-lg p-1 shadow-xl"
+              style={{
+                position: 'fixed',
+                left: actionPosition.left,
+                top: actionPosition.top,
+                maxHeight: actionPosition.maxHeight,
+                overflowY: 'auto',
+                border: '1px solid #3A3A3C',
+                background: '#1F1F21',
+              }}
+            >
               <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewSet(); setActionOpen(false); }}>
                 + Novo Set
               </button>
@@ -501,7 +567,8 @@ export const PatchList: React.FC<PatchListProps> = ({
               <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onResetProgramNumbers(); setActionOpen(false); }}>
                 Reset Program Change Numbers
               </button>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
