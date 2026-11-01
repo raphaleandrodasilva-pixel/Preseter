@@ -56,6 +56,7 @@ export const CollectionSettings: React.FC = () => {
   } = useAppContext();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [forceReinstall, setForceReinstall] = useState(false);
   const [soundsFolder, setSoundsFolder] = useState(preferences?.soundsFolder ?? '');
   const [generated, setGenerated] = useState<{ path: string; sets: number; patches: number; skipped: string[]; missing: string[] } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,6 +93,20 @@ export const CollectionSettings: React.FC = () => {
   const selectedItems = collectionStatus.filter((item) => selected.has(item.id));
   const totalBytes = selectedItems.reduce((sum, item) => sum + item.approxBytes, 0);
   const canDownload = selectedItems.length > 0 && !busy;
+  const installedCount = collectionStatus.filter((item) => item.status === 'installed' || item.status === 'ready').length;
+  const missingCount = collectionStatus.filter((item) => item.status === 'missing').length;
+  const overall = collectionProgress?.overall;
+  const phaseLabel = overall?.phase === 'downloading'
+    ? 'Baixando'
+    : overall?.phase === 'extracting'
+      ? 'Extraindo'
+      : overall?.phase === 'done'
+        ? 'Concluído'
+        : overall?.phase === 'error'
+          ? 'Erro'
+          : overall?.phase === 'cancelled'
+            ? 'Cancelado'
+            : 'Preparando';
 
   const toggle = (id: string) => {
     setSelected((previous) => {
@@ -111,9 +126,27 @@ export const CollectionSettings: React.FC = () => {
       if (soundsFolder.trim() !== (preferences?.soundsFolder ?? '')) {
         await updatePreferences({ soundsFolder: soundsFolder.trim() });
       }
-      const ok = await downloadCollection(Array.from(selected));
-      setNotice(ok ? 'Download concluído.' : 'Não foi possível concluir o download.');
-      await refreshCollectionStatus();
+      const result = await downloadCollection(Array.from(selected), forceReinstall);
+      if (!result) {
+        setNotice('Não foi possível concluir o download.');
+        return;
+      }
+      const { summary } = result;
+      if (summary.failed > 0 || summary.cancelled > 0) {
+        setNotice(
+          `${summary.downloaded} baixado(s), ${summary.skipped} já instalado(s), ` +
+          `${summary.failed} com erro, ${summary.cancelled} cancelado(s).`
+        );
+      } else if (summary.downloaded === 0 && summary.skipped > 0) {
+        setNotice('Todos os itens selecionados já estão instalados. Marque “Baixar novamente” para reinstalar.');
+      } else if (summary.downloaded === 0) {
+        setNotice('Nada foi baixado. Verifique os itens selecionados.');
+      } else {
+        setNotice(
+          `Download concluído: ${summary.downloaded} baixado(s)` +
+          (summary.skipped > 0 ? `, ${summary.skipped} já instalado(s).` : '.')
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -208,6 +241,7 @@ export const CollectionSettings: React.FC = () => {
                       type="checkbox"
                       className="mt-1"
                       style={{ accentColor: '#FF9F0A' }}
+                      aria-label={`Selecionar ${item.name}`}
                       checked={selected.has(item.id)}
                       disabled={isManual || busy}
                       onChange={() => toggle(item.id)}
@@ -272,6 +306,53 @@ export const CollectionSettings: React.FC = () => {
       ))}
 
       <section className="hw-inset space-y-2 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px]" style={{ color: '#9A9AA0' }}>
+            {installedCount} instalado(s) · {missingCount} faltando
+          </span>
+          <label className="flex cursor-pointer items-center gap-2 text-[11px]" style={{ color: '#9A9AA0' }}>
+            <input
+              type="checkbox"
+              style={{ accentColor: '#FF9F0A' }}
+              checked={forceReinstall}
+              disabled={busy}
+              onChange={(event) => setForceReinstall(event.target.checked)}
+            />
+            Baixar novamente os já instalados
+          </label>
+        </div>
+
+        {busy && (
+          <div className="space-y-1" data-testid="collection-overall-progress">
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="min-w-0 truncate" style={{ color: '#EDEDEF' }}>
+                {phaseLabel}
+                {overall ? ` ${overall.current} de ${overall.total}` : ''}
+                {collectionProgress?.item?.name ? ` — ${collectionProgress.item.name}` : '…'}
+              </span>
+              <span className="shrink-0 tabular-nums" style={{ color: '#9AD1FF' }}>
+                {overall?.percent !== undefined ? `${overall.percent}%` : '—'}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full" style={{ background: '#242426' }}>
+              <div
+                className={overall?.percent === undefined ? 'h-full animate-pulse rounded-full' : 'h-full rounded-full'}
+                style={{
+                  width: `${overall?.percent ?? 35}%`,
+                  background: '#0A84FF',
+                  transition: 'width 150ms ease-out',
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px]" style={{ color: '#8E8E93' }}>
+              <span>{collectionProgress?.item?.message ?? 'Iniciando…'}</span>
+              <span className="tabular-nums">
+                {overall ? `${formatBytes(overall.receivedBytes)} / ${formatBytes(overall.totalBytes)}` : ''}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -287,8 +368,11 @@ export const CollectionSettings: React.FC = () => {
             style={{ background: '#0A84FF', color: '#FFFFFF' }}
             onClick={() => void handleDownload()}
             disabled={!canDownload}
+            title={selectedItems.length === 0 ? 'Selecione ao menos um item na lista acima.' : undefined}
           >
-            {busy ? 'Baixando…' : `Baixar selecionados${selectedItems.length ? ` (${formatBytes(totalBytes)})` : ''}`}
+            {busy
+              ? 'Baixando…'
+              : `${forceReinstall ? 'Baixar novamente' : 'Baixar selecionados'}${selectedItems.length ? ` (${formatBytes(totalBytes)})` : ''}`}
           </button>
           {busy && (
             <button
@@ -307,8 +391,17 @@ export const CollectionSettings: React.FC = () => {
             Abrir pasta de plugins
           </button>
         </div>
+        {!busy && missingCount === 0 && collectionStatus.length > 0 && (
+          <p className="text-[11px]" style={{ color: '#30D158' }}>
+            Tudo já está instalado. Para baixar de novo, marque “Baixar novamente” e selecione os itens.
+          </p>
+        )}
+        {notice && (
+          <p className="text-[11px]" style={{ color: '#C6C6CB' }}>{notice}</p>
+        )}
         <p className="text-[11px]" style={{ color: '#8E8E93' }}>
-          Os plugins vão para <code>%LOCALAPPDATA%\Programs\Common\VST3</code> (sem administrador).
+          Os plugins vão para <code>%LOCALAPPDATA%\Programs\Common\VST3</code> (sem administrador)
+          e também são procurados em <code>C:\Program Files\Common Files\VST3</code>.
           O Odin é um instalador: o app só baixa e você abre.
         </p>
       </section>

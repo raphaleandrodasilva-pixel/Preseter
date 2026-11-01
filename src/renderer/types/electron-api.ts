@@ -27,6 +27,7 @@ import type {
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
 import type {
+  CollectionDownloadResult,
   CollectionGenerateResult,
   CollectionItemStatus,
   CollectionProgress,
@@ -60,7 +61,7 @@ export interface ElectronAPI {
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
   collectionStatus: () => Promise<CollectionItemStatus[]>;
-  collectionDownload: (ids: string[], force?: boolean) => Promise<CollectionItemStatus[]>;
+  collectionDownload: (ids: string[], force?: boolean) => Promise<CollectionDownloadResult>;
   collectionCancel: () => Promise<boolean>;
   collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;

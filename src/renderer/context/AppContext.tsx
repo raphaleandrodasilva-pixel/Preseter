@@ -33,6 +33,7 @@ import {
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
 import type {
+  CollectionDownloadResult,
   CollectionGenerateResult,
   CollectionItemStatus,
   CollectionProgress,
@@ -176,7 +177,7 @@ export interface AppContextType {
   collectionStatus: CollectionItemStatus[];
   collectionProgress: CollectionProgress | null;
   refreshCollectionStatus: () => Promise<CollectionItemStatus[]>;
-  downloadCollection: (ids: string[], force?: boolean) => Promise<boolean>;
+  downloadCollection: (ids: string[], force?: boolean) => Promise<CollectionDownloadResult | null>;
   cancelCollectionDownload: () => Promise<boolean>;
   openCollectionFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   openCollectionInstaller: (filePath: string) => Promise<boolean>;
@@ -1290,15 +1291,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const downloadCollection = useCallback(async (ids: string[], force = false): Promise<boolean> => {
+  const downloadCollection = useCallback(async (ids: string[], force = false): Promise<CollectionDownloadResult | null> => {
     try {
       setMidiError(null);
-      const status = await window.electronAPI.collectionDownload(ids, force);
-      setCollectionStatus(status);
-      return status.length > 0;
+      const result = await window.electronAPI.collectionDownload(ids, force);
+      setCollectionStatus(result.statuses);
+      return result;
     } catch (error) {
       setMidiError(error instanceof Error ? error.message : 'Falha ao baixar a coleção.');
-      return false;
+      return null;
     }
   }, []);
 

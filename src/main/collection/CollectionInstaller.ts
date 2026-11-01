@@ -5,9 +5,11 @@ import * as https from 'https';
 import { spawnSync } from 'child_process';
 import extractZip from 'extract-zip';
 import type {
+  CollectionDownloadSummary,
   CollectionItem,
   CollectionItemStatus,
   CollectionItemStatusValue,
+  CollectionOverallProgress,
   CollectionProgress,
 } from '../../shared/collection';
 
@@ -99,6 +101,16 @@ export class CollectionInstaller {
   private readonly options: CollectionInstallerOptions;
   private abortController: AbortController | null = null;
   private running = false;
+  /** Contexto do lote atual, usado para calcular a barra geral. */
+  private batch: {
+    current: number;
+    total: number;
+    completed: number;
+    completedBytes: number;
+    itemBytes: number;
+    totalBytes: number;
+    phase: CollectionOverallProgress['phase'];
+  } | null = null;
 
   constructor(options: CollectionInstallerOptions) {
     this.options = options;
@@ -151,10 +163,40 @@ export class CollectionInstaller {
   }
 
   private emit(status: CollectionItemStatus, done = false): void {
-    this.options.onProgress?.({ item: status, done });
+    let overall: CollectionOverallProgress | undefined;
+    if (this.batch) {
+      const itemTotal = status.totalBytes ?? this.batch.itemBytes;
+      const itemReceived = status.status === 'downloading'
+        ? Math.min(status.receivedBytes ?? 0, itemTotal)
+        : (status.status === 'extracting' || status.status === 'installed' || status.status === 'ready'
+            || status.status === 'error' || status.status === 'cancelled'
+            || status.status === 'manual' || status.status === 'unsupported')
+          ? itemTotal
+          : 0;
+      const received = Math.min(
+        this.batch.completedBytes + itemReceived,
+        this.batch.totalBytes
+      );
+      overall = {
+        current: this.batch.current,
+        total: this.batch.total,
+        completed: this.batch.completed,
+        percent: this.batch.totalBytes > 0
+          ? Math.min(100, Math.round((received / this.batch.totalBytes) * 100))
+          : undefined,
+        receivedBytes: received,
+        totalBytes: this.batch.totalBytes,
+        phase: this.batch.phase,
+      };
+    }
+    this.options.onProgress?.({ item: status, done, overall });
   }
 
-  async install(items: CollectionItem[], ids: string[], force = false): Promise<CollectionItemStatus[]> {
+  async install(
+    items: CollectionItem[],
+    ids: string[],
+    force = false
+  ): Promise<{ statuses: CollectionItemStatus[]; summary: CollectionDownloadSummary }> {
     if (this.running) throw new Error('Já existe um download da coleção em andamento.');
     this.running = true;
     this.abortController = new AbortController();
@@ -163,34 +205,92 @@ export class CollectionInstaller {
     mkdirSync(USER_VST3, { recursive: true });
     const selected = items.filter((item) => ids.includes(item.id));
     const result: CollectionItemStatus[] = [];
+    const summary: CollectionDownloadSummary = {
+      total: selected.length,
+      downloaded: 0,
+      installed: 0,
+      skipped: 0,
+      failed: 0,
+      cancelled: 0,
+      manual: 0,
+    };
     let installedPlugin = false;
+    let completed = 0;
+    let completedBytes = 0;
+    const totalBytes = selected.reduce((sum, item) => sum + Math.max(0, item.approxBytes), 0);
+    this.batch = {
+      current: 0,
+      total: selected.length,
+      completed: 0,
+      completedBytes: 0,
+      itemBytes: 0,
+      totalBytes,
+      phase: 'preparing',
+    };
 
     try {
-      for (const item of selected) {
+      for (const [index, item] of selected.entries()) {
         if (this.abortController?.signal.aborted) break;
+        this.batch.current = index + 1;
+        this.batch.completed = completed;
+        this.batch.completedBytes = completedBytes;
+        this.batch.itemBytes = Math.max(0, item.approxBytes);
+        this.batch.phase = 'preparing';
+
         const before = this.statusOf(item, soundsFolder);
         if (before.status === 'installed' && !force) {
+          this.batch.phase = 'done';
           this.emit(before);
           result.push(before);
+          summary.skipped += 1;
+          summary.installed += 1;
+          completed += 1;
+          completedBytes += Math.max(0, item.approxBytes);
           continue;
         }
         if (item.kind === 'manual') {
+          this.batch.phase = 'done';
           this.emit(before);
           result.push(before);
+          summary.manual += 1;
+          completed += 1;
+          completedBytes += Math.max(0, item.approxBytes);
           continue;
         }
+
         const updated = await this.installOne(item, soundsFolder);
-        if (updated.status === 'installed' && item.group === 'plugin') installedPlugin = true;
         result.push(updated);
-        if (updated.status === 'cancelled') break;
+        if (updated.status === 'installed' || updated.status === 'ready') {
+          summary.downloaded += 1;
+          summary.installed += 1;
+          if (updated.status === 'installed' && item.group === 'plugin') installedPlugin = true;
+        } else if (updated.status === 'cancelled') {
+          summary.cancelled += 1;
+        } else if (updated.status === 'error') {
+          summary.failed += 1;
+        }
+        completed += 1;
+        completedBytes += Math.max(0, item.approxBytes);
+        this.batch.completed = completed;
+        this.batch.completedBytes = completedBytes;
+        if (updated.status === 'cancelled') {
+          this.batch.phase = 'cancelled';
+          this.emit(updated, true);
+          break;
+        }
+        if (updated.status === 'error') this.batch.phase = 'error';
+        else this.batch.phase = 'done';
+        this.emit(updated, index === selected.length - 1);
       }
+
       if (installedPlugin && this.options.onPluginsInstalled) {
         await this.options.onPluginsInstalled();
       }
-      return result;
+      return { statuses: result, summary };
     } finally {
       this.running = false;
       this.abortController = null;
+      this.batch = null;
     }
   }
 
@@ -202,6 +302,7 @@ export class CollectionInstaller {
 
     try {
       await this.download(item, downloadPath, base);
+      if (this.batch) this.batch.phase = 'extracting';
       const extracting: CollectionItemStatus = {
         ...base,
         status: 'extracting',
@@ -292,6 +393,7 @@ export class CollectionInstaller {
   ): Promise<void> {
     if (!item.url) throw new Error('Item sem URL de download.');
     await fs.rm(dest, { force: true });
+    if (this.batch) this.batch.phase = 'downloading';
     await this.downloadUrl(item.url, dest, (received, total) => {
       const percent = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : undefined;
       this.emit({

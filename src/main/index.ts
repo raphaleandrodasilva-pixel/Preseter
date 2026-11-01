@@ -493,7 +493,15 @@ class MainWindow {
     ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
       const selected = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
       const result = await this.collectionInstaller.install(COLLECTION_CATALOG.items, selected, force === true);
-      return result.length > 0 ? result : this.collectionInstaller.status(COLLECTION_CATALOG.items);
+      const byId = new Map(result.statuses.map((item) => [item.id, item]));
+      const statuses = this.collectionInstaller
+        .status(COLLECTION_CATALOG.items)
+        .map((item) => byId.get(item.id) ?? item);
+      return {
+        ok: result.summary.failed === 0 && result.summary.cancelled === 0,
+        statuses,
+        summary: result.summary,
+      };
     });
 
     ipcMain.handle('collection-cancel', () => {

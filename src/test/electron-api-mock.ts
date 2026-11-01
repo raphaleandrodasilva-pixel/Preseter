@@ -67,7 +67,11 @@ export function createElectronApiMock(): ElectronApiMock {
     vstSetParam: vi.fn(async () => true),
     vstParams: vi.fn(async () => []),
     collectionStatus: vi.fn(async () => []),
-    collectionDownload: vi.fn(async () => []),
+    collectionDownload: vi.fn(async () => ({
+      ok: true,
+      statuses: [],
+      summary: { total: 0, downloaded: 0, installed: 0, skipped: 0, failed: 0, cancelled: 0, manual: 0 },
+    })),
     collectionCancel: vi.fn(async () => true),
     collectionOpenFolder: vi.fn(async () => true),
     collectionOpenInstaller: vi.fn(async () => true),

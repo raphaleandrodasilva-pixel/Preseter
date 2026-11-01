@@ -73,6 +73,42 @@ export interface CollectionProgress {
   item: CollectionItemStatus;
   /** true quando o lote terminou (sucesso ou erro). */
   done?: boolean;
+  /** Progresso do lote inteiro (itens e bytes). */
+  overall?: CollectionOverallProgress;
+}
+
+/** Progresso agregado do lote de download da coleção. */
+export interface CollectionOverallProgress {
+  /** Item atual, começando em 1. */
+  current: number;
+  /** Total de itens selecionados. */
+  total: number;
+  /** Itens já concluídos (baixados, pulados ou com erro). */
+  completed: number;
+  /** 0..100; ausente quando o tamanho total é desconhecido. */
+  percent?: number;
+  receivedBytes: number;
+  totalBytes: number;
+  /** Fase do item atual. */
+  phase: 'preparing' | 'downloading' | 'extracting' | 'done' | 'error' | 'cancelled';
+}
+
+/** Resumo de um lote de download da coleção. */
+export interface CollectionDownloadSummary {
+  total: number;
+  downloaded: number;
+  installed: number;
+  skipped: number;
+  failed: number;
+  cancelled: number;
+  manual: number;
+}
+
+/** Resultado do download com a lista completa de status (inclui erros). */
+export interface CollectionDownloadResult {
+  ok: boolean;
+  statuses: CollectionItemStatus[];
+  summary: CollectionDownloadSummary;
 }
 
 export interface CollectionGenerateResult {
