@@ -2,18 +2,17 @@
 /**
  * Gera um concert `.preseter` com a coleção de 40 patches de docs/PATCHES.md.
  *
- * O script monta a ESTRUTURA (sets, patches, camadas, faixas de teclas, volumes,
- * números de programa, teclado na tela). Ele NÃO escolhe o som dentro de cada
- * plugin (preset do juicysfplugin/Surge etc.): isso você faz abrindo o plugin
- * no patch (tecla V) e salvando o concert.
+ * Usa a mesma estrutura do app (Configurações → Coleção): só monta sets,
+ * patches, camadas, faixas de teclas, volumes, programa e teclado. O SOM de
+ * cada patch é escolhido dentro do plugin (tecla V) e salvo no patch.
  *
  * Uso (precisa do motor compilado e de `npm run build:main`):
- *   node scripts/gerar-colecao.js                      # procura os plugins instalados
+ *   node scripts/gerar-colecao.js
  *   node scripts/gerar-colecao.js --out=Colecao.preseter
- *   node scripts/gerar-colecao.js --test               # tudo vira "Preseter Test Synth" (teste sem plugins)
+ *   node scripts/gerar-colecao.js --test               # tudo vira "Preseter Test Synth"
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
- *   node scripts/gerar-colecao.js --listar=juicy       # mostra o que o motor enxerga (diagnóstico)
+ *   node scripts/gerar-colecao.js --listar=juicy       # mostra o que o motor enxerga
  *
  * Patches cujo plugin não foi encontrado são PULADOS e listados no final.
  */
@@ -27,95 +26,14 @@ const flag = (n) => args.includes(`--${n}`);
 const values = (n) => args.filter((a) => a.startsWith(`--${n}=`)).map((a) => a.slice(n.length + 3));
 const first = (n, d) => values(n)[0] ?? d;
 
-const dist = path.join(__dirname, '..', 'dist', 'main', 'concert');
-if (!fs.existsSync(path.join(dist, 'ConcertFile.js'))) {
+const dist = path.join(__dirname, '..', 'dist');
+if (!fs.existsSync(path.join(dist, 'main', 'collection', 'generateCollection.js'))) {
   console.error('Rode `npm run build:main` antes.');
   process.exit(2);
 }
-const { createDefaultConcertSettings, createEmptyLayout, parseConcertFile, serializeConcertFile } = require(
-  path.join(dist, 'ConcertFile.js')
-);
-const { migrateConcertLayout } = require(path.join(__dirname, '..', 'dist', 'shared', 'concert-layout.js'));
-const { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION } = require(path.join(__dirname, '..', 'dist', 'shared', 'constants.js'));
-const { SEND_OFF_DB } = require(path.join(__dirname, '..', 'dist', 'shared', 'types.js'));
+const { parseConcertFile, serializeConcertFile } = require(path.join(dist, 'main', 'concert', 'ConcertFile.js'));
+const { buildCollectionConcert } = require(path.join(dist, 'main', 'collection', 'generateCollection.js'));
 
-// ---------------------------------------------------------------- instrumentos
-// Cada sigla tem expressões para achar o plugin pelo nome na lista do motor.
-// juicysfplugin (GPLv3) substitui o SF2 Player da Bertom e o sforzando nos
-// patches de piano, órgão, cordas e baixo: um plugin livre para o MuseScore_General.
-const INSTRUMENTS = {
-  JUICY: { label: 'juicysfplugin', match: [/juicy|juicysf/i] },
-  SURGE: { label: 'Surge XT', match: [/surge/i] },
-  DEXED: { label: 'Dexed', match: [/dexed/i] },
-  ODIN: { label: 'Odin 2', match: [/odin/i] },
-  HELM: { label: 'Helm', match: [/helm/i] },
-  MDA: { label: 'MDA', match: [/mda/i] },
-  ORG: { label: 'setBfree', match: [/setbfree/i] },
-};
-
-// ---------------------------------------------------------------------- coleção
-// camada: [instrumento, dB, nota mínima, nota máxima, rótulo]
-const L = (inst, db = 0, min = 0, max = 127, label = '') => ({ inst, db, min, max, label });
-const SETS = [
-  ['Pianos', [
-    ['Piano de Cauda', [L('JUICY', 0, 0, 127, 'Piano')]],
-    ['Piano de Cauda Brilhante', [L('JUICY', 0, 0, 127, 'Piano + brilho')]],
-    ['Piano Suave', [L('JUICY', 0, 0, 127, 'Piano suave')]],
-    ['Piano Vertical', [L('JUICY', 0, 0, 127, 'Piano vertical')]],
-    ['Piano + Pad', [L('JUICY', -6, 0, 127, 'Piano'), L('SURGE', -12, 0, 127, 'Pad quente')]],
-  ]],
-  ['Teclas elétricas', [
-    ['Elétrico Clássico', [L('MDA', -6, 0, 127, 'ePiano')]],
-    ['Elétrico Suave', [L('DEXED', -6, 0, 127, 'E.Piano')]],
-    ['Elétrico com Tremolo', [L('MDA', -6, 0, 127, 'ePiano + tremolo')]],
-    ['Clavinet', [L('SURGE', -6, 0, 127, 'Clav')]],
-    ['Sinos Elétricos', [L('DEXED', -6, 0, 127, 'Bell')]],
-  ]],
-  ['Órgãos', [
-    ['Órgão Tonewheel', [L('ORG', -6, 0, 127, 'Tonewheel')]],
-    ['Órgão Rock', [L('ORG', -6, 0, 127, 'Leslie rápido')]],
-    ['Órgão de Igreja', [L('JUICY', -6, 0, 127, 'Órgão de tubos')]],
-    ['Órgão Suave', [L('SURGE', -6, 0, 127, 'Órgão')]],
-  ]],
-  ['Cordas e orquestra', [
-    ['Cordas Legato', [L('JUICY', -6, 0, 127, 'Cordas sustain')]],
-    ['Cordas Staccato', [L('JUICY', -6, 0, 127, 'Cordas staccato')]],
-    ['Cordas Sintéticas', [L('SURGE', -6, 0, 127, 'String ensemble')]],
-    ['Metais', [L('JUICY', -6, 0, 127, 'Metais')]],
-    ['Flauta', [L('JUICY', -6, 0, 127, 'Flauta')]],
-    ['Coral', [L('JUICY', -6, 0, 127, 'Coral')]],
-  ]],
-  ['Pads', [
-    ['Pad Quente', [L('SURGE', -6, 0, 127, 'Pad')]],
-    ['Pad Ambiente', [L('ODIN', -6, 0, 127, 'Ataque longo')]],
-    ['Pad de Cordas', [L('HELM', -6, 0, 127, 'Pad de cordas')]],
-    ['Pad Brilhante', [L('SURGE', -6, 0, 127, 'Filtro aberto')]],
-    ['Pad Escuro', [L('ODIN', -6, 0, 127, 'Filtro baixo')]],
-  ]],
-  ['Leads e sintetizadores', [
-    ['Lead Serra', [L('SURGE', -6, 0, 127, 'Lead saw')]],
-    ['Lead Suave', [L('ODIN', -6, 0, 127, 'Lead')]],
-    ['Pluck', [L('SURGE', -6, 0, 127, 'Pluck')]],
-    ['Arpejo Brilhante', [L('SURGE', -6, 0, 127, 'Arp')]],
-    ['Brass Sintético', [L('MDA', -6, 0, 127, 'JX10')]],
-  ]],
-  ['Baixos', [
-    ['Baixo Sintético', [L('SURGE', -6, 0, 127, 'Sub bass')]],
-    ['Baixo Elétrico', [L('JUICY', -6, 0, 127, 'Baixo elétrico')]],
-    ['Baixo Acústico', [L('JUICY', -6, 0, 127, 'Contrabaixo')]],
-  ]],
-  ['Layers e splits', [
-    ['Split Baixo + Piano', [L('JUICY', -6, 0, 59, 'Baixo'), L('JUICY', -6, 60, 127, 'Piano')]],
-    ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('DEXED', -6, 54, 127, 'E.Piano')]],
-    ['Piano + Cordas', [L('JUICY', -6, 0, 127, 'Piano'), L('JUICY', -9, 0, 127, 'Cordas legato')]],
-    ['Piano + Pad (worship)', [L('JUICY', -6, 0, 127, 'Piano'), L('SURGE', -12, 0, 127, 'Pad quente')]],
-    ['Elétrico + Pad', [L('DEXED', -6, 0, 127, 'E.Piano'), L('SURGE', -12, 0, 127, 'Pad')]],
-    ['Split Cordas / Piano', [L('JUICY', -6, 0, 59, 'Cordas'), L('JUICY', -6, 60, 127, 'Piano')]],
-    ['Tripla: Piano + Cordas + Pad', [L('JUICY', -6, 0, 127, 'Piano'), L('JUICY', -9, 0, 127, 'Cordas'), L('SURGE', -12, 0, 127, 'Pad quente')]],
-  ]],
-];
-
-// --------------------------------------------------------------- motor (JSON)
 function findEngine() {
   const explicit = first('engine', process.env.PRESETER_ENGINE);
   if (explicit) return explicit;
@@ -167,134 +85,10 @@ async function scanPlugins() {
   }
 }
 
-// ------------------------------------------------------------------ montagem
-let counter = 0;
-const nextId = (prefix) => `${prefix}_${Date.now().toString(36)}_${++counter}`;
-
-function el(spec) {
-  return {
-    id: nextId('element'),
-    type: spec.type,
-    label: spec.label,
-    x: spec.x, y: spec.y, width: spec.width, height: spec.height,
-    color: '#9A9AA0',
-    minValue: spec.minValue ?? 0,
-    maxValue: spec.maxValue ?? 1,
-    orientation: 'vertical',
-    isMomentary: false,
-    value: spec.type === 'keyboard' ? undefined : (spec.value ?? 0.5),
-    ...(spec.color ? { color: spec.color } : {}),
-    ...(spec.cc ? { midiCommand: { type: 'cc', channel: 0, controllerNumber: spec.cc } } : {}),
-    ...(spec.patchSendAux !== undefined ? { patchSendAux: spec.patchSendAux } : {}),
-  };
-}
-
-function keyboardRig(notes) {
-  return [
-    el({ type: 'keyboard', label: 'Teclado', x: 24, y: 148, width: 720, height: 220, color: '#0A84FF' }),
-    ...[1, 2, 3, 4].map((aux) => el({
-      type: 'knob', label: `Aux ${aux}`,
-      x: 752 + ((aux - 1) % 2) * 104, y: 16 + Math.floor((aux - 1) / 2) * 116,
-      width: 96, height: 108, color: '#FF9F0A',
-      minValue: SEND_OFF_DB, maxValue: 6, value: SEND_OFF_DB, patchSendAux: aux,
-    })),
-    el({ type: 'fader', label: 'Volume', x: 24, y: 24, width: 66, height: 112, cc: 7 }),
-    el({ type: 'knob', label: 'Modulação', x: 104, y: 24, width: 96, height: 112, cc: 1 }),
-    el({ type: 'midi-activity', label: 'MIDI', x: 216, y: 24, width: 128, height: 48 }),
-    el({ type: 'label', label: notes, x: 216, y: 80, width: 260, height: 40 }),
-  ];
-}
-
-function resolvePlugin(inst, plugins) {
-  if (flag('test')) return plugins.find((p) => /test synth/i.test(p.name));
-  const def = INSTRUMENTS[inst];
-  for (const re of def.match) {
-    const found = plugins.find((p) => re.test(p.name) && p.isInstrument !== false);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-function build(plugins) {
-  const tempo = 100;
-  const now = Date.now();
-  const sets = [];
-  const rawPatches = [];
-  const skipped = [];
-  const missing = new Set();
-  let program = 0;
-
-  for (const [setName, patches] of SETS) {
-    const setId = nextId('set');
-    let setOrder = 0;
-    for (const [name, layers] of patches) {
-      const assignments = [];
-      let blocked = null;
-      layers.forEach((layer, index) => {
-        const plugin = resolvePlugin(layer.inst, plugins);
-        if (!plugin) {
-          blocked ??= INSTRUMENTS[layer.inst]?.blocked ?? `plugin "${INSTRUMENTS[layer.inst]?.label}" não encontrado`;
-          if (!INSTRUMENTS[layer.inst]?.blocked) missing.add(INSTRUMENTS[layer.inst]?.label);
-          return;
-        }
-        assignments.push({
-          pluginId: plugin.id,
-          layerId: `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`,
-          name: layers.length > 1 && layer.label ? `${plugin.name} — ${layer.label}` : plugin.name,
-          path: plugin.id,
-          role: 'instrument',
-          minNote: layer.min,
-          maxNote: layer.max,
-          mix: { volumeDb: layer.db, pan: 0, muted: false, solo: false },
-        });
-      });
-      if (blocked || assignments.length === 0) {
-        skipped.push(`${name}: ${blocked ?? 'sem camadas'}`);
-        continue;
-      }
-      const notes = layers.map((l) => l.label).filter(Boolean).join(' + ') || name;
-      rawPatches.push({
-        id: nextId('preset'),
-        name,
-        notes,
-        setId,
-        setOrder: setOrder++,
-        programNumber: program++,
-        midiChannel: 0,
-        plugins: assignments,
-        vstStates: {},
-        layout: { elements: keyboardRig(notes), background: null, tempo },
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-    if (setOrder > 0) sets.push({ id: setId, name: setName, order: sets.length, expanded: true, createdAt: now, updatedAt: now });
-  }
-
-  const migrated = migrateConcertLayout(createEmptyLayout(tempo), rawPatches);
-  const file = {
-    format: CONCERT_FILE_FORMAT,
-    version: CONCERT_FILE_VERSION,
-    concert: {
-      id: nextId('concert'),
-      name: flag('test') ? 'Coleção (teste)' : 'Coleção Preseter',
-      tempo,
-      settings: createDefaultConcertSettings(),
-      strips: [],
-      createdAt: now,
-      updatedAt: now,
-    },
-    sets,
-    patches: migrated.patches,
-    layout: migrated.layout,
-    mappings: [],
-  };
-  return { file, skipped, missing: [...missing] };
-}
-
 async function main() {
   const plugins = await scanPlugins();
   console.log(`Plugins conhecidos: ${plugins.length}`);
+
   const listar = first('listar');
   if (listar !== undefined) {
     const re = new RegExp(listar, 'i');
@@ -306,12 +100,15 @@ async function main() {
     scanFailed.filter((f) => re.test(String(f))).forEach((f) => console.log(`  - ${f}`));
     return;
   }
+
   if (flag('test') && !plugins.some((p) => /test synth/i.test(p.name))) {
     throw new Error('Modo --test: "Preseter Test Synth" não apareceu na varredura.');
   }
-  const { file, skipped, missing } = build(plugins);
 
-  // Valida pelo mesmo leitor que o app usa ao abrir o arquivo.
+  const { file, skipped, missing } = buildCollectionConcert(plugins, {
+    tempo: 100,
+    test: flag('test'),
+  });
   const text = serializeConcertFile(file);
   const back = parseConcertFile(text);
   const out = path.resolve(first('out', flag('test') ? 'colecao-teste.preseter' : 'Colecao.preseter'));
@@ -323,9 +120,11 @@ async function main() {
     console.log(`\nPulados (${skipped.length}):`);
     skipped.forEach((s) => console.log(`  - ${s}`));
   }
-  if (missing.length) console.log(`\nInstale para completar: ${missing.join(', ')} (veja docs/PATCHES.md)`);
+  if (missing.length) {
+    console.log(`\nInstale para completar: ${missing.join(', ')} (veja docs/PATCHES.md)`);
+  }
   console.log('\nPróximo passo: abra o arquivo no Preseter, entre em cada patch, abra o plugin (tecla V),');
-  console.log('escolha o preset do plugin (juicysfplugin carrega um SF2) e salve o concert (o estado do plugin fica gravado no patch).');
+  console.log('escolha o preset/SF2 e salve o concert (o estado do plugin fica gravado no patch).');
 }
 
 main().catch((e) => {

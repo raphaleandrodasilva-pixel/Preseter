@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import type { ScrollSpeed } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
+import { CollectionSettings } from './CollectionSettings';
 
-export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view';
+export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'collection';
 
 interface SettingsModalProps {
   initialTab: SettingsTab;
@@ -67,7 +68,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
         ? 'Geral'
         : tab === 'view'
           ? 'Visualização'
-          : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
+          : tab === 'collection'
+            ? 'Coleção'
+            : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
   const selectedAudioType = audioDevices?.audioTypes.find((item) => item.type === audioType);
   const asioAvailable = audioDevices?.asioSupported === true;
   const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
@@ -151,9 +154,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           >
             Áudio
           </button>
+          <button
+            onClick={() => setTab('collection')}
+            className="hw-squarebtn flex-1 px-4 py-1.5 text-xs font-medium"
+            style={tab === 'collection'
+              ? { background: '#1F1F21', color: '#fff', borderColor: '#FF9F0A' }
+              : { color: '#9A9AA0' }}
+          >
+            Coleção
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {tab === 'collection' && <CollectionSettings />}
           {tab === 'general' && (
             <div className="space-y-4">
               <section className="hw-inset space-y-3 p-3">

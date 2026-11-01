@@ -38,6 +38,10 @@ Ver também: `docs/ROADMAP.md` (fase 5.5, Patch Library) e `docs/COLECAO.md`
 
 ## Gerar o concert automaticamente
 
+**Pelo app:** Configurações → Coleção → **Gerar concert da coleção** (depois de baixar).
+
+**Pelo script:**
+
 ```
 npm run build:main
 node scripts/gerar-colecao.js --out=Colecao.preseter

@@ -665,6 +665,8 @@ export interface AppPreferences {
   hiddenPluginIds: string[];
   /** Velocidade do scroll; padrão 'slow' (0,5×). */
   scrollSpeed: ScrollSpeed;
+  /** Pasta onde a coleção salva SF2/SFZ/SF3 (padrão ~/PreseterSons). */
+  soundsFolder?: string;
 }
 
 // Configuração de layout da interface

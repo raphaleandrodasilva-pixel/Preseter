@@ -85,6 +85,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
 - [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SF2 via juicysfplugin, SFZ via sfizz, MDA, ZynAddSubFX, Helm, Surge, setBfree). **Decisão:** o player SF2 da coleção é o **juicysfplugin** (GPLv3), no lugar do SF2 Player (Bertom) e do sforzando; `sfizz` + Salamander (CC BY 3.0) ficam como alternativa para piano. O juicysfplugin roda como VST3 separado (sem linkagem com o Preseter) e deve ser creditado.
 - [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
+- [x] **5.7 Coleção no app:** **Configurações → Coleção** baixa os plugins e bibliotecas oficiais (juicysfplugin, Surge, Dexed, MuseScore_General, Sonatina etc.), instala VST3 sem admin e gera o concert de 40 patches. O script `scripts/instalar-colecao.ps1` lê o mesmo catálogo (`src/shared/collection-catalog.json`).
 
 ## Fase 6 — Perform e extras
 

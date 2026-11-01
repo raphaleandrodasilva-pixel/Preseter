@@ -25,6 +25,11 @@ import type {
   VstPresetListResult,
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
+import type {
+  CollectionGenerateResult,
+  CollectionItemStatus,
+  CollectionProgress,
+} from '@shared/collection';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
 export interface ElectronAPI {
@@ -52,6 +57,13 @@ export interface ElectronAPI {
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
+  collectionStatus: () => Promise<CollectionItemStatus[]>;
+  collectionDownload: (ids: string[], force?: boolean) => Promise<CollectionItemStatus[]>;
+  collectionCancel: () => Promise<boolean>;
+  collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
+  collectionOpenInstaller: (filePath: string) => Promise<boolean>;
+  collectionGenerate: () => Promise<CollectionGenerateResult | null>;
+  onCollectionProgress: (callback: (progress: CollectionProgress) => void) => () => void;
   vstGetState: (pluginId: string) => Promise<any>;
   vstSetState: (pluginId: string, state: any) => Promise<boolean>;
   vstOpenEditor: (pluginId: string) => Promise<boolean>;

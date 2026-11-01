@@ -18,6 +18,33 @@ coleção.
   Orchestra** (CC Sampling Plus 1.0). Os arquivos SF2 não são distribuídos com o
   Preseter; o usuário baixa e carrega no juicysfplugin.
 
+## Como instalar
+
+### Pelo app (recomendado)
+
+1. Abra **Configurações → Coleção**.
+2. Marque **Plugins** e **Bibliotecas** (os essenciais já vêm marcados).
+3. Clique em **Baixar selecionados**.
+4. Depois de instalar, clique em **Gerar concert da coleção**.
+
+O app baixa das fontes oficiais, extrai os zips em
+`%LOCALAPPDATA%\Programs\Common\VST3` (sem administrador) e salva as bibliotecas
+em `~/PreseterSons` (configurável). Instaladores `.exe` (Odin) são apenas baixados
+e aparecem como **pronto** para você abrir.
+
+### Pelo script (modo avançado/CLI)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1
+# só verifica:
+powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -SemBaixar -SemGerar
+# itens específicos:
+powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens juicysfplugin,musescore-general
+```
+
+O script lê o mesmo catálogo do app (`src/shared/collection-catalog.json`) e, no
+final, roda `scripts/gerar-colecao.js`.
+
 ## Como o juicysfplugin é usado
 
 1. Instale o VST3 do juicysfplugin 3.1.0 (Windows x64).

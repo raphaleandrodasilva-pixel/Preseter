@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemConstructorOptions, nativeImage, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
@@ -7,6 +7,10 @@ import { PresetManager } from './preset/PresetManager';
 import { LayoutManager } from './layout/LayoutManager';
 import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
 import { listTemplates } from './concert/templates';
+import { serializeConcertFile } from './concert/ConcertFile';
+import { COLLECTION_CATALOG } from '../shared/collection';
+import { CollectionInstaller } from './collection/CollectionInstaller';
+import { buildCollectionConcert } from './collection/generateCollection';
 import {
   Preset,
   PresetSet,
@@ -69,6 +73,7 @@ class MainWindow {
   private presetManager: PresetManager;
   private layoutManager: LayoutManager;
   private concertManager: ConcertManager;
+  private collectionInstaller: CollectionInstaller;
   private audioSettingsPath: string;
   private preferencesPath: string;
   /** Último patch carregado, para recarregar após uma queda do motor. */
@@ -95,6 +100,13 @@ class MainWindow {
     this.concertManager = new ConcertManager();
     this.audioSettingsPath = path.join(app.getPath('userData'), 'audio-settings.json');
     this.preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
+    this.collectionInstaller = new CollectionInstaller({
+      getSoundsFolder: () => this.soundsFolder(),
+      onProgress: (progress) => this.sendToRenderer('collection-progress', progress),
+      onPluginsInstalled: async () => {
+        await this.vstManager.scanDefaultDirectories();
+      },
+    });
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
@@ -456,6 +468,62 @@ class MainWindow {
     });
     ipcMain.handle('vst-params', (_event, ownerId: string, slot?: number) => {
       return this.vstManager.getParameters(ownerId, slot);
+    });
+
+    ipcMain.handle('collection-status', () => this.collectionInstaller.status(COLLECTION_CATALOG.items));
+
+    ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
+      const selected = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+      const result = await this.collectionInstaller.install(COLLECTION_CATALOG.items, selected, force === true);
+      return result.length > 0 ? result : this.collectionInstaller.status(COLLECTION_CATALOG.items);
+    });
+
+    ipcMain.handle('collection-cancel', () => {
+      this.collectionInstaller.cancel();
+      return true;
+    });
+
+    ipcMain.handle('collection-open-folder', async (_event, kind?: 'sounds' | 'plugins') => {
+      const folder = kind === 'plugins'
+        ? path.join(process.env.LOCALAPPDATA ?? app.getPath('home'), 'Programs', 'Common', 'VST3')
+        : this.soundsFolder();
+      fs.mkdirSync(folder, { recursive: true });
+      const error = await shell.openPath(folder);
+      return error === '';
+    });
+
+    ipcMain.handle('collection-open-installer', async (_event, filePath: string) => {
+      if (typeof filePath !== 'string' || !fs.existsSync(filePath)) return false;
+      const error = await shell.openPath(filePath);
+      return error === '';
+    });
+
+    ipcMain.handle('collection-generate', async () => {
+      let plugins = this.vstManager.getScannedPlugins();
+      if (plugins.length === 0) {
+        try {
+          plugins = await this.vstManager.scanDefaultDirectories();
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível escanear os plugins da coleção:', error);
+        }
+      }
+      const { file, skipped, missing } = buildCollectionConcert(plugins, {
+        tempo: 100,
+      });
+      const result = await dialog.showSaveDialog({
+        title: 'Salvar concert da coleção',
+        defaultPath: path.join(app.getPath('documents'), 'Colecao.preseter'),
+        filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      fs.writeFileSync(result.filePath, serializeConcertFile(file), 'utf8');
+      return {
+        path: result.filePath,
+        sets: file.sets.length,
+        patches: file.patches.length,
+        skipped,
+        missing,
+      };
     });
 
     ipcMain.handle('vst-get-state', (_event, pluginId: string) => {
@@ -1622,12 +1690,18 @@ class MainWindow {
     fs.writeFileSync(this.audioSettingsPath, JSON.stringify(settings, null, 2), 'utf8');
   }
 
+  private soundsFolder(): string {
+    const preferences = this.readPreferences();
+    return preferences.soundsFolder?.trim() || path.join(app.getPath('home'), 'PreseterSons');
+  }
+
   private readPreferences(): AppPreferences {
     const defaults: AppPreferences = {
       silencePreviousPatch: false,
       pluginFolders: [],
       hiddenPluginIds: [],
       scrollSpeed: 'slow',
+      soundsFolder: path.join(app.getPath('home'), 'PreseterSons'),
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -1647,6 +1721,9 @@ class MainWindow {
         scrollSpeed: saved.scrollSpeed === 'normal' || saved.scrollSpeed === 'slower'
           ? saved.scrollSpeed
           : 'slow',
+        soundsFolder: typeof saved.soundsFolder === 'string' && saved.soundsFolder.trim() !== ''
+          ? saved.soundsFolder
+          : defaults.soundsFolder,
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

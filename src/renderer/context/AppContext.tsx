@@ -30,6 +30,11 @@ import {
   SEND_OFF_DB,
 } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
+import type {
+  CollectionGenerateResult,
+  CollectionItemStatus,
+  CollectionProgress,
+} from '@shared/collection';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
 import { ConcertHistory } from '@shared/concert-history';
@@ -164,6 +169,17 @@ export interface AppContextType {
   setVstParameter: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   /** Lista os parâmetros de um layer/barrramento ou de um insert. */
   getVstParameters: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
+  /** Status dos plugins/bibliotecas da coleção. */
+  collectionStatus: CollectionItemStatus[];
+  collectionProgress: CollectionProgress | null;
+  refreshCollectionStatus: () => Promise<CollectionItemStatus[]>;
+  downloadCollection: (ids: string[], force?: boolean) => Promise<boolean>;
+  cancelCollectionDownload: () => Promise<boolean>;
+  openCollectionFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
+  openCollectionInstaller: (filePath: string) => Promise<boolean>;
+  generateCollectionConcert: () => Promise<CollectionGenerateResult | null>;
+  /** Abre um concert pelo caminho (usado pelo concert gerado da coleção). */
+  openConcertPath: (filePath: string) => Promise<boolean>;
   openVstEditor: (pluginId: string) => Promise<boolean>;
   closeVstEditor: (pluginId: string) => Promise<boolean>;
   setVstLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<boolean>;
@@ -312,6 +328,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
   const [mixState, setMixState] = useState<EngineMixState | null>(null);
   const [scannedPlugins, setScannedPlugins] = useState<VstPluginInfo[]>([]);
+  const [collectionStatus, setCollectionStatus] = useState<CollectionItemStatus[]>([]);
+  const [collectionProgress, setCollectionProgress] = useState<CollectionProgress | null>(null);
   const [audioDevices, setAudioDevices] = useState<AudioDeviceSnapshot | null>(null);
   const [audioSettings, setAudioSettings] = useState<SavedAudioSettings | null>(null);
   const [preferences, setPreferences] = useState<AppPreferences | null>(null);
@@ -487,6 +505,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         })
       );
+    });
+
+    window.electronAPI.onCollectionProgress((progress) => {
+      if (!progress?.item?.id) return;
+      setCollectionProgress(progress);
+      setCollectionStatus((previous) => {
+        const exists = previous.some((item) => item.id === progress.item.id);
+        return exists
+          ? previous.map((item) => (item.id === progress.item.id ? progress.item : item))
+          : [...previous, progress.item];
+      });
     });
 
     window.electronAPI.onEngineCrashed((data) => {
@@ -1244,6 +1273,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const refreshCollectionStatus = useCallback(async (): Promise<CollectionItemStatus[]> => {
+    try {
+      const status = await window.electronAPI.collectionStatus();
+      setCollectionStatus(status);
+      return status;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao verificar a coleção.');
+      return [];
+    }
+  }, []);
+
+  const downloadCollection = useCallback(async (ids: string[], force = false): Promise<boolean> => {
+    try {
+      setMidiError(null);
+      const status = await window.electronAPI.collectionDownload(ids, force);
+      setCollectionStatus(status);
+      return status.length > 0;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao baixar a coleção.');
+      return false;
+    }
+  }, []);
+
+  const cancelCollectionDownload = useCallback(async (): Promise<boolean> => {
+    try {
+      return await window.electronAPI.collectionCancel();
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const openCollectionFolder = useCallback(async (kind?: 'sounds' | 'plugins'): Promise<boolean> => {
+    try {
+      return await window.electronAPI.collectionOpenFolder(kind);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const openCollectionInstaller = useCallback(async (filePath: string): Promise<boolean> => {
+    try {
+      return await window.electronAPI.collectionOpenInstaller(filePath);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const generateCollectionConcert = useCallback(async (): Promise<CollectionGenerateResult | null> => {
+    try {
+      return await window.electronAPI.collectionGenerate();
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao gerar o concert da coleção.');
+      return null;
+    }
+  }, []);
+
+  const openConcertPath = useCallback(async (filePath: string): Promise<boolean> => {
+    try {
+      applyConcertState(await window.electronAPI.concertOpenRecent(filePath));
+      return true;
+    } catch (error) {
+      setConcertError(error instanceof Error ? error.message : 'Falha ao abrir o concert.');
+      return false;
+    }
+  }, [applyConcertState]);
+
   const openVstEditor = useCallback(async (pluginId: string): Promise<boolean> => {
     try {
       const opened = await window.electronAPI.vstOpenEditor(pluginId);
@@ -1715,6 +1810,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     unloadVstPlugin,
     setVstParameter,
     getVstParameters,
+    collectionStatus,
+    collectionProgress,
+    refreshCollectionStatus,
+    downloadCollection,
+    cancelCollectionDownload,
+    openCollectionFolder,
+    openCollectionInstaller,
+    generateCollectionConcert,
+    openConcertPath,
     openVstEditor,
     closeVstEditor,
     setVstLayerRange,

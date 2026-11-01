@@ -39,6 +39,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value, slot),
   vstParams: (ownerId: string, slot?: number) =>
     ipcRenderer.invoke('vst-params', ownerId, slot),
+  collectionStatus: () => ipcRenderer.invoke('collection-status'),
+  collectionDownload: (ids: string[], force?: boolean) =>
+    ipcRenderer.invoke('collection-download', ids, force),
+  collectionCancel: () => ipcRenderer.invoke('collection-cancel'),
+  collectionOpenFolder: (kind?: 'sounds' | 'plugins') =>
+    ipcRenderer.invoke('collection-open-folder', kind),
+  collectionOpenInstaller: (filePath: string) =>
+    ipcRenderer.invoke('collection-open-installer', filePath),
+  collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
   vstGetState: (pluginId: string) => ipcRenderer.invoke('vst-get-state', pluginId),
   vstSetState: (pluginId: string, state: any) =>
     ipcRenderer.invoke('vst-set-state', pluginId, state),
@@ -169,6 +178,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('engine-crashed', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { message: string })),
   onEngineRecovered: (callback: (data: { presetId: string | null }) => void) =>
     ipcRenderer.on('engine-recovered', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { presetId: string | null })),
+  onCollectionProgress: (callback: (progress: any) => void) =>
+    ipcRenderer.on('collection-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
 
   // === Menu nativo (Arquivo) ===
   onMenuAction: (callback: (action: unknown) => void) =>

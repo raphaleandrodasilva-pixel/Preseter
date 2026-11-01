@@ -1,176 +1,241 @@
-<#
+﻿<#
 .SYNOPSIS
-  Instala (se faltar) os plugins e bibliotecas da coleção do Preseter e gera o concert.
+  Baixa (se faltar) os plugins e bibliotecas da coleção do Preseter e gera o concert.
 
 .DESCRIPTION
-  1. Procura cada plugin nas pastas conhecidas (VST3, VST2, LV2). Se achar, NÃO baixa.
-  2. Se não achar, baixa a versão mais recente do release oficial no GitHub e roda o
-     instalador (interativo) ou copia o .vst3 do .zip.
-  3. Baixa as bibliotecas de samples para a pasta do usuário (padrão: ~\PreseterSons),
-     pulando as que já existem.
+  Usa o mesmo catálogo do app (src/shared/collection-catalog.json):
+  1. Procura cada item nas pastas padrão; se já existe, não baixa.
+  2. Baixa das fontes oficiais, extrai zips (sem admin) ou baixa instaladores.
+  3. Salva as bibliotecas de som em -SonsDir (padrão ~\PreseterSons).
   4. Roda `npm run build:main` e `node scripts/gerar-colecao.js`.
 
-  Tudo o que não puder ser baixado automaticamente aparece no final com a página
-  para baixar manualmente. O SOM de cada patch (preset/SFZ/SF2) continua sendo
-  escolhido por você dentro do plugin.
+  O app faz o mesmo em Configurações → Coleção. Este script é o modo avançado/CLI.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1
   powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -SonsDir D:\Sons -SemGerar
+  powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens juicysfplugin,musescore-general
+  powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Todos
 #>
 param(
   [string]$SonsDir = (Join-Path $HOME 'PreseterSons'),
   [string]$Saida = (Join-Path $HOME 'Colecao.preseter'),
-  [switch]$SemBaixar,   # só procura e informa, não baixa nada
-  [switch]$SemGerar     # não roda o gerar-colecao.js
+  [switch]$SemBaixar,
+  [switch]$SemGerar,
+  [switch]$SemPlugins,
+  [switch]$SemBibliotecas,
+  [switch]$Todos,
+  [switch]$Forcar,
+  [string]$Itens = ''
 )
 
 $ErrorActionPreference = 'Stop'
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ProgressPreference = 'SilentlyContinue'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$userVst3 = Join-Path $env:LOCALAPPDATA 'Programs\Common\VST3'   # não exige administrador
+$catalogPath = Join-Path $repoRoot 'src\shared\collection-catalog.json'
+$catalog = Get-Content -Raw -Path $catalogPath | ConvertFrom-Json
+$userVst3 = Join-Path $env:LOCALAPPDATA 'Programs\Common\VST3'   # sem administrador
+$tempRoot = Join-Path $env:TEMP 'preseter-collection'
 
-# ---------------------------------------------------------------- pastas conhecidas
 $pastasPlugins = @(
+  $userVst3,
   "$env:CommonProgramFiles\VST3",
   "${env:CommonProgramFiles(x86)}\VST3",
-  $userVst3,
   "$env:ProgramFiles\Steinberg\VSTPlugins",
-  "$env:ProgramFiles\Steinberg\VST3",
-  "$env:ProgramFiles\Steinberg\Vstplugins",
   "${env:ProgramFiles(x86)}\Steinberg\VSTPlugins",
-  "${env:ProgramFiles(x86)}\Steinberg\VST3",
-  "$env:ProgramFiles\VSTPlugins",
-  "${env:ProgramFiles(x86)}\VSTPlugins",
-  "$env:ProgramFiles\Common Files\VST2",
   "$env:CommonProgramFiles\LV2",
   "$env:APPDATA\LV2"
 ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
-function Find-Plugin([string[]]$Padroes) {
-  foreach ($pasta in $pastasPlugins) {
-    foreach ($p in $Padroes) {
-      $achou = Get-ChildItem -Path $pasta -Recurse -Depth 3 -Filter $p -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-      if ($achou) { return $achou.FullName }
+function Or-Value($value, $fallback) {
+  if ($null -ne $value -and "$value" -ne '') { return $value }
+  return $fallback
+}
+
+function Test-Pattern([string]$root, [string]$pattern, [int]$depth = 3) {
+  if (-not (Test-Path $root)) { return $null }
+  $wildcard = New-Object System.Management.Automation.WildcardPattern($pattern, 'IgnoreCase')
+  $queue = [System.Collections.Generic.Queue[object]]::new()
+  $queue.Enqueue(@($root, 0))
+  while ($queue.Count -gt 0) {
+    $current = $queue.Dequeue()
+    $dir = [string]$current[0]
+    $level = [int]$current[1]
+    try { $entries = Get-ChildItem -LiteralPath $dir -Force -ErrorAction Stop } catch { continue }
+    foreach ($entry in $entries) {
+      if ($wildcard.IsMatch($entry.Name)) { return $entry.FullName }
+      if ($entry.PSIsContainer -and $level -lt $depth) {
+        $queue.Enqueue(@($entry.FullName, ($level + 1)))
+      }
     }
   }
   return $null
 }
 
-# ------------------------------------------------------------------------ catálogo
-# Padrao = nomes de arquivo procurados; Repo/Asset = release do GitHub; Pagina = manual.
-$plugins = @(
-  @{ Nome='Surge XT';   Padroes=@('Surge XT.vst3','Surge XT*.vst3'); Repo='surge-synthesizer/releases-xt'; Asset='(?i)windows.*setup.*\.exe$|surge.*win.*\.exe$'; Pagina='https://surge-synthesizer.github.io/' }
-  @{ Nome='Dexed';      Padroes=@('Dexed.vst3','Dexed.dll');       Repo='asb2m10/dexed';               Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://github.com/asb2m10/dexed/releases' }
-  @{ Nome='Odin 2';     Padroes=@('Odin2.vst3','Odin 2.vst3');     Repo='TheWaveWarden/odin2';         Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://thewavewarden.com/pages/odin-2' }
-  @{ Nome='Helm';       Padroes=@('Helm.vst3','helm.dll','Helm.dll'); Repo='mtytel/helm';              Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://tytel.org/helm/downloads' }
-  @{ Nome='MDA';        Padroes=@('mda*.vst3');                    Repo='sudara/mda-vst3';             Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://github.com/sudara/mda-vst3/releases' }
-  @{ Nome='sfizz (SFZ)';Padroes=@('sfizz.vst3','sforzando.vst3','sforzando*.vst3'); Repo='sfztools/sfizz'; Asset='(?i)win.*\.(zip|exe)$'; Pagina='https://sfz.tools/sfizz/downloads' }
-  @{ Nome='SF2 Player (Bertom)'; Padroes=@('SF2 Player.vst3','SF2Player.vst3','*SF2*.vst3'); Repo=$null; Asset=$null; Pagina='https://www.bertom.com/sf2-player' }
-  @{ Nome='setBfree (órgão, LV2)'; Padroes=@('setBfree*.lv2','b_synth.lv2'); Repo=$null; Asset=$null; Pagina='https://setbfree.org/' }
-)
-
-function Get-GitHubAsset([string]$Repo, [string]$Regex) {
-  $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent'='preseter-instalador' }
-  return $rel.assets | Where-Object { $_.name -match $Regex } | Select-Object -First 1
-}
-
-function Install-FromAsset($asset, [string]$nome) {
-  $tmp = Join-Path $env:TEMP "preseter-$($asset.name)"
-  Write-Host "    baixando $($asset.name) ..."
-  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmp -Headers @{ 'User-Agent'='preseter-instalador' }
-  if ($asset.name -match '\.zip$') {
-    $dest = Join-Path $env:TEMP "preseter-x-$nome" -replace ' ',''
-    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-    Expand-Archive -Path $tmp -DestinationPath $dest -Force
-    $vst3 = Get-ChildItem $dest -Recurse -Filter '*.vst3'
-    if (-not $vst3) { return $false }
-    New-Item -ItemType Directory -Force -Path $userVst3 | Out-Null
-    foreach ($v in $vst3) { Copy-Item $v.FullName -Destination $userVst3 -Recurse -Force }
-    return $true
+function Find-PluginItem($item) {
+  foreach ($pattern in @($item.vst3Patterns)) {
+    if (-not $pattern) { continue }
+    foreach ($folder in $pastasPlugins) {
+      $found = Test-Pattern $folder $pattern 3
+      if ($found) { return $found }
+    }
   }
-  Write-Host "    abrindo o instalador (siga as telas; feche-o ao terminar)..."
-  Start-Process -FilePath $tmp -Wait
-  return $true
+  return $null
 }
 
-# --------------------------------------------------------------------- 1) plugins
-Write-Host "`n== Plugins ==" -ForegroundColor Cyan
-Write-Host "Pastas verificadas:"; $pastasPlugins | ForEach-Object { Write-Host "  $_" }
+function Find-LibraryItem($item) {
+  $folder = Join-Path $SonsDir (Or-Value $item.destSubfolder '')
+  foreach ($pattern in @($item.soundfontPatterns)) {
+    if (-not $pattern) { continue }
+    $found = Test-Pattern $folder $pattern 2
+    if ($found) { return $found }
+  }
+  return $null
+}
+
+function Get-Status($item) {
+  if ($item.kind -eq 'manual') { return 'manual' }
+  if ($item.group -eq 'plugin') {
+    if (Find-PluginItem $item) { return 'installed' }
+  } else {
+    if (Find-LibraryItem $item) { return 'installed' }
+  }
+  return 'missing'
+}
+
+function Download-File([string]$url, [string]$dest) {
+  $folder = Split-Path -Parent $dest
+  New-Item -ItemType Directory -Force -Path $folder | Out-Null
+  Write-Host "    baixando $url"
+  Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -Headers @{ 'User-Agent' = 'Preseter' }
+}
+
+function Expand-Zip([string]$zip, [string]$dest) {
+  New-Item -ItemType Directory -Force -Path $dest | Out-Null
+  Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+}
+
+function Install-Vst3FromFolder([string]$folder) {
+  New-Item -ItemType Directory -Force -Path $userVst3 | Out-Null
+  $bundles = Get-ChildItem -LiteralPath $folder -Recurse -Directory -Filter '*.vst3' -ErrorAction SilentlyContinue
+  $copied = @()
+  foreach ($bundle in $bundles) {
+    $dest = Join-Path $userVst3 $bundle.Name
+    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+    Copy-Item $bundle.FullName -Destination $dest -Recurse -Force
+    $copied += $dest
+    # DLLs que ficam ao lado do bundle.
+    Get-ChildItem -LiteralPath $bundle.Parent.FullName -Filter '*.dll' -File -ErrorAction SilentlyContinue |
+      ForEach-Object { Copy-Item $_.FullName -Destination $userVst3 -Force }
+  }
+  return $copied
+}
+
+function Install-Msi([string]$msi, [string]$workDir) {
+  New-Item -ItemType Directory -Force -Path $workDir | Out-Null
+  $result = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', "`"$msi`"", '/qn', "TARGETDIR=`"$workDir`"") -Wait -PassThru -WindowStyle Hidden
+  if ($result.ExitCode -ne 0) { throw "msiexec retornou $($result.ExitCode)" }
+  return Install-Vst3FromFolder $workDir
+}
+
+function Format-Size([double]$bytes) {
+  if ($bytes -le 0) { return '—' }
+  $units = @('B', 'KB', 'MB', 'GB')
+  $index = [Math]::Min($units.Count - 1, [Math]::Floor([Math]::Log($bytes) / [Math]::Log(1024)))
+  return ('{0:N1} {1}' -f ($bytes / [Math]::Pow(1024, $index)), $units[$index])
+}
+
+# ------------------------------------------------------------------- seleção
 $manual = @()
 $resumo = @()
-foreach ($pl in $plugins) {
-  $caminho = Find-Plugin $pl.Padroes
-  if ($caminho) { Write-Host "[ok]  $($pl.Nome): $caminho" -ForegroundColor Green; $resumo += "$($pl.Nome): já instalado"; continue }
-  if ($SemBaixar -or -not $pl.Repo) {
-    Write-Host "[--]  $($pl.Nome): não encontrado" -ForegroundColor Yellow
-    $manual += "$($pl.Nome): baixe em $($pl.Pagina)"; $resumo += "$($pl.Nome): FALTA"; continue
+$desejados = @()
+if ($Itens) {
+  $desejados = $Itens.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+} else {
+  $desejados = $catalog.items | Where-Object { $_.defaultSelected -or $Todos } | ForEach-Object { $_.id }
+}
+
+Write-Host "`n== Catálogo ==" -ForegroundColor Cyan
+Write-Host "  $catalogPath"
+Write-Host "  Sons: $SonsDir"
+Write-Host "  Plugins: $userVst3"
+Write-Host "  Itens: $($desejados -join ', ')"
+
+foreach ($item in $catalog.items) {
+  $id = [string]$item.id
+  if ($desejados -notcontains $id) { continue }
+  if ($SemPlugins -and $item.group -eq 'plugin') { continue }
+  if ($SemBibliotecas -and $item.group -eq 'library') { continue }
+
+  $status = Get-Status $item
+  if ($status -eq 'manual') {
+    Write-Host "[--]  $($item.name): instalação manual" -ForegroundColor Yellow
+    $manual += "$($item.name): $($item.page)"
+    $resumo += "$($item.name): manual"
+    continue
   }
-  Write-Host "[...] $($pl.Nome): não encontrado, procurando release oficial"
+  if ($status -eq 'installed' -and -not $Forcar) {
+    Write-Host "[ok]  $($item.name): já instalado" -ForegroundColor Green
+    $resumo += "$($item.name): já instalado"
+    continue
+  }
+  if ($SemBaixar) {
+    Write-Host "[..]  $($item.name): falta ($(Format-Size $item.approxBytes))" -ForegroundColor Yellow
+    $resumo += "$($item.name): FALTA"
+    continue
+  }
+
+  Write-Host "[...] $($item.name) ($(Format-Size $item.approxBytes))"
   try {
-    $asset = Get-GitHubAsset $pl.Repo $pl.Asset
-    if (-not $asset) { throw 'nenhum arquivo de Windows no release' }
-    if (Install-FromAsset $asset $pl.Nome) { $resumo += "$($pl.Nome): instalado agora" }
-    else { throw 'o arquivo não tinha .vst3' }
+    $work = Join-Path $tempRoot $id
+    $download = Join-Path $work (Or-Value $item.fileName "$id.bin")
+    Download-File $item.url $download
+
+    switch ($item.kind) {
+      'vst3-zip' {
+        $extract = Join-Path $work 'extracted'
+        Expand-Zip $download $extract
+        $copied = Install-Vst3FromFolder $extract
+        if (-not $copied) { throw 'o pacote não continha .vst3' }
+        $resumo += "$($item.name): instalado"
+      }
+      'vst3-msi' {
+        $copied = Install-Msi $download (Join-Path $work 'extracted')
+        if (-not $copied) { throw 'o MSI não continha .vst3' }
+        $resumo += "$($item.name): instalado"
+      }
+      'vst3-exe' {
+        $dest = Join-Path $HOME 'Downloads\PreseterColecao'
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Copy-Item $download (Join-Path $dest $item.fileName) -Force
+        Write-Host "    instalador baixado: $(Join-Path $dest $item.fileName)" -ForegroundColor Yellow
+        $manual += "$($item.name): abra o instalador em $(Join-Path $dest $item.fileName)"
+        $resumo += "$($item.name): instalador baixado"
+      }
+      'soundfont' {
+        $dest = Join-Path $SonsDir (Or-Value $item.destSubfolder '')
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Copy-Item $download (Join-Path $dest $item.fileName) -Force
+        $resumo += "$($item.name): instalado"
+      }
+      'soundfont-zip' {
+        $dest = Join-Path $SonsDir (Or-Value $item.destSubfolder $id)
+        Expand-Zip $download $dest
+        $resumo += "$($item.name): instalado"
+      }
+      default { throw "tipo desconhecido: $($item.kind)" }
+    }
+    Write-Host "[ok]  $($item.name)" -ForegroundColor Green
   } catch {
-    Write-Host "      falhou: $($_.Exception.Message)" -ForegroundColor Yellow
-    $manual += "$($pl.Nome): baixe em $($pl.Pagina)"; $resumo += "$($pl.Nome): FALTA"
+    Write-Host "[erro] $($item.name): $($_.Exception.Message)" -ForegroundColor Red
+    if ($item.page) { $manual += "$($item.name): $($item.page)" }
+    $resumo += "$($item.name): ERRO"
   }
 }
 
-# ------------------------------------------------------------------ 2) bibliotecas
-Write-Host "`n== Bibliotecas em $SonsDir ==" -ForegroundColor Cyan
-New-Item -ItemType Directory -Force -Path $SonsDir | Out-Null
-
-function Test-Biblioteca([string]$sub, [string]$filtro) {
-  $d = Join-Path $SonsDir $sub
-  return (Test-Path $d) -and [bool](Get-ChildItem $d -Recurse -Filter $filtro -ErrorAction SilentlyContinue | Select-Object -First 1)
-}
-
-# Salamander Grand Piano V3 (CC BY 3.0 - atribuição a Alexander Holm)
-if (Test-Biblioteca 'Salamander' '*.sfz') { Write-Host "[ok]  Salamander já existe" -ForegroundColor Green }
-elseif ($SemBaixar) { $manual += 'Salamander: https://github.com/sfzinstruments/SalamanderGrandPiano' }
-else {
-  try {
-    Write-Host "[...] Salamander (grande, pode demorar)"
-    $zip = Join-Path $env:TEMP 'salamander.zip'
-    $info = Invoke-RestMethod 'https://api.github.com/repos/sfzinstruments/SalamanderGrandPiano' -Headers @{ 'User-Agent'='preseter-instalador' }
-    Invoke-WebRequest "https://github.com/sfzinstruments/SalamanderGrandPiano/archive/refs/heads/$($info.default_branch).zip" -OutFile $zip
-    Expand-Archive $zip -DestinationPath (Join-Path $SonsDir 'Salamander') -Force
-  } catch { $manual += "Salamander: baixe em https://github.com/sfzinstruments/SalamanderGrandPiano ($($_.Exception.Message))" }
-}
-
-# Sonatina Symphonic Orchestra (SF2) - link do manual do MuseScore
-if (Test-Biblioteca 'Sonatina' '*.sf2') { Write-Host "[ok]  Sonatina já existe" -ForegroundColor Green }
-elseif ($SemBaixar) { $manual += 'Sonatina: http://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip' }
-else {
-  try {
-    Write-Host "[...] Sonatina (~500 MB)"
-    $zip = Join-Path $env:TEMP 'sonatina.zip'
-    Invoke-WebRequest 'http://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip' -OutFile $zip
-    Expand-Archive $zip -DestinationPath (Join-Path $SonsDir 'Sonatina') -Force
-  } catch { $manual += "Sonatina: baixe em http://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip ($($_.Exception.Message))" }
-}
-
-# MuseScore_General (MIT) - preferir SF2 (SF3 pode não abrir no SF2 Player)
-if (Test-Biblioteca 'MuseScore_General' '*.sf2') { Write-Host "[ok]  MuseScore_General (sf2) já existe" -ForegroundColor Green }
-elseif ($SemBaixar) { $manual += 'MuseScore_General: https://musescore.org/en/handbook/soundfonts' }
-else {
-  try {
-    Write-Host "[...] MuseScore_General (SF2)"
-    $asset = Get-GitHubAsset 'musescore/MuseScore_General' '(?i)\.sf2(\.zip)?$'
-    if (-not $asset) { throw 'sem arquivo .sf2 no release' }
-    $dest = Join-Path $SonsDir 'MuseScore_General'
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    $arq = Join-Path $dest $asset.name
-    Invoke-WebRequest $asset.browser_download_url -OutFile $arq -Headers @{ 'User-Agent'='preseter-instalador' }
-    if ($arq -match '\.zip$') { Expand-Archive $arq -DestinationPath $dest -Force }
-  } catch { $manual += "MuseScore_General (versão SF2): https://musescore.org/en/handbook/soundfonts ($($_.Exception.Message))" }
-}
-
-# ------------------------------------------------------------------------ 3) concert
+# --------------------------------------------------------------------- concert
 if (-not $SemGerar) {
   Write-Host "`n== Gerando o concert ==" -ForegroundColor Cyan
   Push-Location $repoRoot
@@ -181,7 +246,7 @@ if (-not $SemGerar) {
   } finally { Pop-Location }
 }
 
-# ------------------------------------------------------------------------ resumo
+# --------------------------------------------------------------------- resumo
 Write-Host "`n== Resumo ==" -ForegroundColor Cyan
 $resumo | ForEach-Object { Write-Host "  $_" }
 Write-Host "  Sons: $SonsDir"
@@ -191,5 +256,5 @@ if ($manual.Count) {
   $manual | Select-Object -Unique | ForEach-Object { Write-Host "  - $_" }
 }
 Write-Host "`nPróximo passo: abra o concert no Preseter, entre em cada patch, abra o plugin (tecla V),"
-Write-Host "carregue o preset/SFZ/SF2 (em $SonsDir) e salve o concert."
-Write-Host "Atribuição: Salamander Grand Piano (CC BY 3.0, Alexander Holm)."
+Write-Host "carregue o preset/SF2 e salve o concert."
+Write-Host "Atribuição: Salamander Grand Piano (CC BY 3.0, Alexander Holm); MuseScore_General (MIT)."
