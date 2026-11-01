@@ -5,6 +5,7 @@ import {
   buildDuplicatedElements,
   groupMembersOf,
   moveElementWithGroup,
+  moveElementsWithGroup,
   newElementId,
   newGroupId,
 } from './element-groups';
@@ -60,6 +61,28 @@ describe('moveElementWithGroup', () => {
     const elements = [element({ id: 'a', x: 1, y: 1, groupId: 'g' })];
     expect(moveElementWithGroup(elements, 'missing', 4, 5)).toBe(elements);
     expect(moveElementWithGroup(elements, 'a', 1, 1)).toBe(elements);
+  });
+});
+
+describe('moveElementsWithGroup', () => {
+  it('move vários selecionados e os grupos tocados por eles', () => {
+    const a = element({ id: 'a', x: 10, y: 20, groupId: 'g' });
+    const b = element({ id: 'b', x: 40, y: 20, groupId: 'g' });
+    const c = element({ id: 'c', x: 100, y: 100 });
+    const d = element({ id: 'd', x: 200, y: 200 });
+    const result = moveElementsWithGroup([a, b, c, d], ['a', 'c'], 'c', 120, 130);
+    expect(result[0]).toMatchObject({ x: 30, y: 50 });
+    expect(result[1]).toMatchObject({ x: 60, y: 50 });
+    expect(result[2]).toMatchObject({ x: 120, y: 130 });
+    expect(result[3]).toBe(d);
+  });
+
+  it('limita o conjunto inteiro às bordas do canvas', () => {
+    const a = element({ id: 'a', x: 10, y: 10 });
+    const b = element({ id: 'b', x: 50, y: 60 });
+    const result = moveElementsWithGroup([a, b], ['a', 'b'], 'a', -100, -100);
+    expect(result[0]).toMatchObject({ x: 0, y: 0 });
+    expect(result[1]).toMatchObject({ x: 40, y: 50 });
   });
 });
 

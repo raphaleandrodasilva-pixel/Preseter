@@ -24,7 +24,7 @@ import type {
 } from '@shared/types';
 import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
 import { defaultAudioInput } from '@shared/audio-input';
-import { buildDuplicatedElements, moveElementWithGroup, newGroupId } from '@shared/element-groups';
+import { buildDuplicatedElements, moveElementsWithGroup, newGroupId } from '@shared/element-groups';
 import {
   clearOverride,
   isMasked,
@@ -300,6 +300,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [tunerOpen, setTunerOpen] = useState(false);
   const [recordingPath, setRecordingPath] = useState<string | null>(null);
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'converting'>('idle');
+  const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
+  const multiSelectedRef = useRef<string[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [concertSelected, setConcertSelected] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -969,6 +971,35 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     () => (draft ?? currentPreset)?.layout.elements.find((element) => element.id === selectedId) ?? null,
     [draft, currentPreset, selectedId]
   );
+
+  // Mantém a seleção múltipla coerente com o elemento principal escolhido pelo app.
+  useEffect(() => {
+    const validIds = new Set((draft ?? currentPreset)?.layout.elements.map((element) => element.id) ?? []);
+    const current = multiSelectedRef.current;
+    if (!selectedId) {
+      if (current.length > 0) {
+        multiSelectedRef.current = [];
+        setMultiSelectedIds([]);
+      }
+      return;
+    }
+    const valid = current.filter((id) => validIds.has(id));
+    if (valid.length === 0) {
+      multiSelectedRef.current = [selectedId];
+      setMultiSelectedIds([selectedId]);
+      return;
+    }
+    if (!valid.includes(selectedId)) {
+      const next = [selectedId, ...valid];
+      multiSelectedRef.current = next;
+      setMultiSelectedIds(next);
+      return;
+    }
+    if (valid.length !== current.length) {
+      multiSelectedRef.current = valid;
+      setMultiSelectedIds(valid);
+    }
+  }, [selectedId, draft, currentPreset]);
   /** Aux ligado ao knob de send selecionado (abre a aba Aux do painel). */
   const selectedSendAux = selectedElement?.patchSendAux ?? null;
 
@@ -2054,54 +2085,52 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       });
     }
   };
+  const selectElement = (id: string | null, additive = false) => {
+    if (!id) {
+      multiSelectedRef.current = [];
+      setMultiSelectedIds([]);
+      onSelectedId(null);
+      return;
+    }
+    const current = multiSelectedRef.current;
+    let next: string[];
+    if (additive) {
+      next = current.includes(id)
+        ? current.filter((selected) => selected !== id)
+        : [...current, id];
+      if (next.length === 0) onSelectedId(null);
+      else onSelectedId(next.includes(id) ? id : next[next.length - 1]);
+    } else {
+      next = current.includes(id) ? current : [id];
+      onSelectedId(id);
+    }
+    multiSelectedRef.current = next;
+    setMultiSelectedIds(next);
+  };
   const moveElement = (id: string, x: number, y: number) => {
     if (!draft) return;
+    const ids = multiSelectedRef.current.includes(id) ? multiSelectedRef.current : [id];
     onDraftChange({
       ...draft,
       layout: {
         ...draft.layout,
-        elements: moveElementWithGroup(draft.layout.elements, id, x, y),
+        elements: moveElementsWithGroup(draft.layout.elements, ids, id, x, y),
       },
       updatedAt: Date.now(),
     });
     if (layout) {
       updateConcertLayout({
         ...layout,
-        elements: moveElementWithGroup(layout.elements, id, x, y),
+        elements: moveElementsWithGroup(layout.elements, ids, id, x, y),
       });
     }
   };
-  const removeElement = (id: string) => {
-    if (!draft) return;
-    const removed = draft.layout.elements.find((el) => el.id === id);
-    const elements = draft.layout.elements.filter((el) => el.id !== id);
-    const stillHasAudioInput = elements.some((el) => el.type === 'audio-input');
-    const nextAudioInput =
-      removed?.type === 'audio-input' && !stillHasAudioInput && draft.audioInput?.enabled
-        ? { ...draft.audioInput, enabled: false }
-        : draft.audioInput;
-    onDraftChange({
-      ...draft,
-      layout: { ...draft.layout, elements },
-      ...(nextAudioInput !== draft.audioInput ? { audioInput: nextAudioInput } : {}),
-      updatedAt: Date.now(),
-    });
-    if (layout) {
-      updateConcertLayout({
-        ...layout,
-        elements: layout.elements.filter((el) => el.id !== id),
-      });
-    }
-    if (nextAudioInput !== draft.audioInput && nextAudioInput) {
-      setAudioInputState(null);
-      void applyAudioInput(nextAudioInput);
-    }
-    if (selectedId === id) onSelectedId(null);
-  };
-  const removeGroup = (groupId: string) => {
-    if (!draft) return;
-    const removed = draft.layout.elements.filter((el) => el.groupId === groupId);
-    const elements = draft.layout.elements.filter((el) => el.groupId !== groupId);
+  const removeElements = (ids: string[]) => {
+    if (!draft || ids.length === 0) return;
+    const idsSet = new Set(ids);
+    const removed = draft.layout.elements.filter((el) => idsSet.has(el.id));
+    if (removed.length === 0) return;
+    const elements = draft.layout.elements.filter((el) => !idsSet.has(el.id));
     const stillHasAudioInput = elements.some((el) => el.type === 'audio-input');
     const nextAudioInput =
       removed.some((el) => el.type === 'audio-input') &&
@@ -2118,14 +2147,24 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     if (layout) {
       updateConcertLayout({
         ...layout,
-        elements: layout.elements.filter((el) => el.groupId !== groupId),
+        elements: layout.elements.filter((el) => !idsSet.has(el.id)),
       });
     }
     if (nextAudioInput !== draft.audioInput && nextAudioInput) {
       setAudioInputState(null);
       void applyAudioInput(nextAudioInput);
     }
-    if (selectedId && !elements.some((el) => el.id === selectedId)) onSelectedId(null);
+    const nextSelection = multiSelectedRef.current.filter((selected) => !idsSet.has(selected));
+    multiSelectedRef.current = nextSelection;
+    setMultiSelectedIds(nextSelection);
+    if (selectedId && !elements.some((el) => el.id === selectedId)) {
+      onSelectedId(nextSelection[nextSelection.length - 1] ?? null);
+    }
+  };
+  const removeElement = (id: string) => removeElements([id]);
+  const removeGroup = (groupId: string) => {
+    if (!draft) return;
+    removeElements(draft.layout.elements.filter((el) => el.groupId === groupId).map((el) => el.id));
   };
   const duplicateElement = (id: string) => {
     if (!draft) return;
@@ -2151,6 +2190,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       updateConcertLayout({ ...layout, elements: [...layout.elements, ...layoutCopies] });
     }
     onSelectedId(result.selectedId);
+    multiSelectedRef.current = [result.selectedId];
+    setMultiSelectedIds([result.selectedId]);
   };
   const bringFront = (id: string) => {
     if (!draft) return;
@@ -2215,6 +2256,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
     if (enablesAudio && nextAudioInput) void applyAudioInput(nextAudioInput);
     onSelectedId(created[0]?.id ?? null);
+    multiSelectedRef.current = created[0]?.id ? [created[0].id] : [];
+    setMultiSelectedIds(created[0]?.id ? [created[0].id] : []);
     onArmedKey(null);
   };
   const armItem = (item: PaletteItem) => {
@@ -2466,7 +2509,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
         const current = draft?.layout.elements.find((el) => el.id === selectedId);
-        if (e.shiftKey && current?.groupId) removeGroup(current.groupId);
+        if (multiSelectedRef.current.length > 1) removeElements(multiSelectedRef.current);
+        else if (e.shiftKey && current?.groupId) removeGroup(current.groupId);
         else removeElement(selectedId);
       }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedId) { e.preventDefault(); duplicateElement(selectedId); }
@@ -2893,6 +2937,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     <ComposerCanvas
                       elements={displayElements}
                       selectedId={selectedId}
+                      selectedIds={multiSelectedIds}
                       armed={mode === 'layout' && armedKey !== null && !!draft}
                       locked={!draft}
                       movable={mode === 'layout'}
@@ -2907,7 +2952,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                         const item = findPaletteItem(key);
                         if (item) placeItems(item, x, y);
                       }}
-                      onSelect={(id) => onSelectedId(id)}
+                      onSelect={selectElement}
                       onMove={moveElement}
                       onResize={(id, width, height) => updateElement(id, { width, height })}
                       onMidiMessage={onMidiMessage}
@@ -2938,6 +2983,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     {!draft && (
                       <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid rgba(10,132,255,0.4)', background: 'rgba(10,132,255,0.08)', color: '#EDEDEF' }}>
                         Visualizando patch salvo. Clique em um patch → Editar (✎) ou crie um novo para desenhar o layout.
+                      </div>
+                    )}
+                    {draft && mode === 'layout' && (
+                      <div className="mt-2 rounded-lg px-3 py-1.5 text-[11px]" style={{ border: '1px solid #3A3A3C', background: 'rgba(36,36,38,0.9)', color: '#9A9AA0' }}>
+                        Shift+clique seleciona vários controles; arraste um deles para mover o conjunto.
                       </div>
                     )}
                   </>

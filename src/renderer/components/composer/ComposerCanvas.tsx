@@ -11,6 +11,8 @@ import { snap8 } from './elementFactory';
 interface ComposerCanvasProps {
   elements: UiElement[];
   selectedId: string | null;
+  /** Seleção múltipla (Shift+clique). */
+  selectedIds?: string[];
   armed: boolean;
   locked: boolean;
   /** No Edit o controle pode ser selecionado, mas não arrastado/redimensionado. */
@@ -28,7 +30,7 @@ interface ComposerCanvasProps {
   channel: number;
   onCanvasClick: (x: number, y: number) => void;
   onDropKey: (key: string, x: number, y: number) => void;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, additive?: boolean) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
   onMidiMessage: (message: number[]) => void;
@@ -160,7 +162,7 @@ interface CanvasElementProps {
   locked: boolean;
   movable: boolean;
   scale: number;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, additive?: boolean) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
   onInteractionChange?: (active: boolean) => void;
@@ -208,6 +210,10 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
       onPointerDown={(event) => {
         if (locked) return;
         if ((event.target as HTMLElement).closest('input,button,select,textarea,[data-resize]')) return;
+        if (event.shiftKey) {
+          onSelect(element.id, true);
+          return;
+        }
         onSelect(element.id);
         if (!movable) return;
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -301,6 +307,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
 export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   elements,
   selectedId,
+  selectedIds = [],
   armed,
   locked,
   movable = true,
@@ -340,11 +347,26 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
 }) => {
   const safeScale = Math.max(0.01, scale);
   const selectedElement = elements.find((element) => element.id === selectedId) ?? null;
+  const selectedSet = new Set(selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : []);
+  const selectedElements = elements.filter((element) => selectedSet.has(element.id));
+  const multiBounds =
+    movable && selectedElements.length > 1
+      ? {
+          left: Math.min(...selectedElements.map((element) => element.x)),
+          top: Math.min(...selectedElements.map((element) => element.y)),
+          width:
+            Math.max(...selectedElements.map((element) => element.x + element.width)) -
+            Math.min(...selectedElements.map((element) => element.x)),
+          height:
+            Math.max(...selectedElements.map((element) => element.y + element.height)) -
+            Math.min(...selectedElements.map((element) => element.y)),
+        }
+      : null;
   const groupMembers = selectedElement?.groupId
     ? elements.filter((element) => element.groupId === selectedElement.groupId)
     : [];
   const groupBounds =
-    movable && groupMembers.length > 1
+    movable && groupMembers.length > 1 && selectedElements.length <= 1
       ? {
           left: Math.min(...groupMembers.map((element) => element.x)),
           top: Math.min(...groupMembers.map((element) => element.y)),
@@ -364,7 +386,12 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   return (
     <div
       onClick={(event) => {
-        if (locked || !armed || event.target !== event.currentTarget) return;
+        if (locked) return;
+        if (event.target !== event.currentTarget) return;
+        if (!armed) {
+          onSelect(null);
+          return;
+        }
         const { x, y } = coordsOf(event.clientX, event.clientY, event.currentTarget);
         onCanvasClick(x, y);
       }}
@@ -390,6 +417,18 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
          backgroundSize: '28px 28px',
        }}
     >
+      {multiBounds && (
+        <div
+          className="pointer-events-none absolute rounded-lg"
+          style={{
+            left: multiBounds.left - 4,
+            top: multiBounds.top - 4,
+            width: multiBounds.width + 8,
+            height: multiBounds.height + 8,
+            border: '1px dashed rgba(10,132,255,0.9)',
+          }}
+        />
+      )}
       {groupBounds && (
         <div
           className="pointer-events-none absolute rounded-lg"
@@ -461,7 +500,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   onKeepAudioInputMuted={onKeepAudioInputMuted}
                   onDisableAudioFeedbackProtection={onDisableAudioFeedbackProtection}
                 />
-                {element.id === selectedId && (
+                {selectedSet.has(element.id) && (
                   <div
                     className="pointer-events-none absolute rounded-lg"
                     style={{
@@ -492,7 +531,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               <CanvasElement
                 key={element.id}
                 element={element}
-                selected={element.id === selectedId}
+                selected={selectedSet.has(element.id)}
                 locked={locked}
                 movable={movable}
                 scale={scale}

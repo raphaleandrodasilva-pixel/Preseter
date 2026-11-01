@@ -33,19 +33,44 @@ export function moveElementWithGroup(
   x: number,
   y: number
 ): UiElement[] {
-  const target = elements.find((element) => element.id === id);
-  if (!target) return elements;
+  return moveElementsWithGroup(elements, [id], id, x, y);
+}
 
-  const members = groupMembersOf(elements, target);
-  const minX = Math.min(...members.map((element) => element.x));
-  const minY = Math.min(...members.map((element) => element.y));
-  const dx = Math.max(x - target.x, -minX);
-  const dy = Math.max(y - target.y, -minY);
+/**
+ * Move uma seleção múltipla e todos os membros dos grupos tocados por ela.
+ * O delta vem do elemento âncora (o que está sendo arrastado) e é aplicado
+ * igualmente aos demais, preservando o espaçamento.
+ */
+export function moveElementsWithGroup(
+  elements: UiElement[],
+  ids: string[],
+  anchorId: string,
+  x: number,
+  y: number
+): UiElement[] {
+  const anchor = elements.find((element) => element.id === anchorId);
+  if (!anchor) return elements;
+
+  const selected = new Set(ids.includes(anchorId) ? ids : [anchorId]);
+  const groupIds = new Set(
+    elements
+      .filter((element) => selected.has(element.id) && element.groupId)
+      .map((element) => element.groupId as string)
+  );
+  const targets = elements.filter(
+    (element) => selected.has(element.id) || (element.groupId !== undefined && groupIds.has(element.groupId))
+  );
+  if (targets.length === 0) return elements;
+
+  const minX = Math.min(...targets.map((element) => element.x));
+  const minY = Math.min(...targets.map((element) => element.y));
+  const dx = Math.max(x - anchor.x, -minX);
+  const dy = Math.max(y - anchor.y, -minY);
   if (dx === 0 && dy === 0) return elements;
 
-  const ids = new Set(members.map((element) => element.id));
+  const targetIds = new Set(targets.map((element) => element.id));
   return elements.map((element) =>
-    ids.has(element.id) ? { ...element, x: element.x + dx, y: element.y + dy } : element
+    targetIds.has(element.id) ? { ...element, x: element.x + dx, y: element.y + dy } : element
   );
 }
 
