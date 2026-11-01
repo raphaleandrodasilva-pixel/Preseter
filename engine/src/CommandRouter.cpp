@@ -251,6 +251,21 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setArp")
+    {
+        juce::var result;
+        const auto error = engine.setArp (message["layerId"].toString(), message, result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "arp")
+    {
+        ok (id, engine.describeArp (message["layerId"].toString()));
+        return;
+    }
+
     if (cmd == "setTranspose")
     {
         const auto error = engine.setTranspose (intArg (message, "semitones", 0));

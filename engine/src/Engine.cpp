@@ -128,6 +128,401 @@ private:
     std::array<std::array<int, 128>, 16> noteMap {};
 };
 
+/**
+ * Arpejador MIDI por layer (Fase 7.2).
+ *
+ * Consome note-on/note-off do layer e gera as notas do arp no lugar das
+ * originais. Sincronizado ao BPM do host, sem alocar na thread de áudio.
+ */
+class ArpeggiatorProcessor final : public juce::AudioProcessor
+{
+public:
+    ArpeggiatorProcessor()
+        : juce::AudioProcessor (BusesProperties())
+    {
+        resetHeld();
+    }
+
+    const juce::String getName() const override { return "Preseter Arpeggiator"; }
+    void prepareToPlay (double rate, int) override
+    {
+        sampleRate = rate > 0 ? rate : 44100.0;
+        reset();
+    }
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout&) const override { return true; }
+
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (audio);
+        const int numSamples = audio.getNumSamples();
+        if (numSamples <= 0) return;
+        const int64_t blockStart = processedSamples;
+        const int64_t blockEnd = blockStart + numSamples;
+
+        if (! enabled.load())
+        {
+            if (currentNote >= 0)
+                midi.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote), 0);
+            resetPerformance();
+            pendingAllOff.store (false);
+            processedSamples = blockEnd;
+            return;
+        }
+
+        juce::MidiBuffer output;
+
+        if (pendingAllOff.exchange (false))
+        {
+            stopCurrent (output, blockStart, numSamples);
+            resetHeld();
+            nextStepAbs = -1.0;
+            gateAbs = -1.0;
+            stepIndex = 0;
+        }
+
+        for (const auto metadata : midi)
+        {
+            const auto message = metadata.getMessage();
+            if (message.isNoteOn())
+            {
+                handleNoteOn (message, blockStart + metadata.samplePosition);
+                continue;
+            }
+            if (message.isNoteOff())
+            {
+                handleNoteOff (message);
+                continue;
+            }
+            if (message.isAllNotesOff() || message.isAllSoundOff())
+            {
+                stopCurrent (output, blockStart, numSamples);
+                resetHeld();
+                nextStepAbs = -1.0;
+                gateAbs = -1.0;
+                output.addEvent (message, juce::jlimit (0, numSamples - 1, metadata.samplePosition));
+                continue;
+            }
+            output.addEvent (message, juce::jlimit (0, numSamples - 1, metadata.samplePosition));
+        }
+
+        pump (blockStart, blockEnd, numSamples, output);
+        midi.swapWith (output);
+        processedSamples = blockEnd;
+    }
+
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return true; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+
+    void setEnabled (bool value)
+    {
+        if (enabled.exchange (value) != value)
+            pendingAllOff.store (true);
+    }
+    void setMode (int value) { mode.store (juce::jlimit (0, 4, value)); }
+    void setRate (int value) { rateIndex.store (juce::jlimit (0, 5, value)); }
+    void setOctaves (int value) { octaves.store (juce::jlimit (1, 4, value)); }
+    void setGate (double value) { gate.store (juce::jlimit (10.0f, 100.0f, (float) value)); }
+    void setSwing (double value) { swing.store (juce::jlimit (0.0f, 75.0f, (float) value)); }
+    void setHold (bool value)
+    {
+        if (hold.exchange (value) != value && ! value)
+            pendingAllOff.store (true);
+    }
+    void setTempo (double value) { bpm.store (juce::jlimit (20.0, 300.0, value)); }
+
+    bool isEnabled() const { return enabled.load(); }
+    int getMode() const { return mode.load(); }
+    int getRate() const { return rateIndex.load(); }
+    int getOctaves() const { return octaves.load(); }
+    double getGate() const { return (double) gate.load(); }
+    double getSwing() const { return (double) swing.load(); }
+    bool getHold() const { return hold.load(); }
+
+private:
+    void reset()
+    {
+        resetPerformance();
+        processedSamples = 0;
+    }
+
+    void resetPerformance()
+    {
+        resetHeld();
+        currentNote = -1;
+        currentChannel = 1;
+        currentVelocity = 100;
+        nextStepAbs = -1.0;
+        gateAbs = -1.0;
+        stepIndex = 0;
+        pendingAllOff.store (false);
+    }
+
+    void resetHeld()
+    {
+        held.fill (false);
+        heldCount = 0;
+        playedCount = 0;
+        physicalHeld = 0;
+        latchArmed = false;
+    }
+
+    static int rateToDivision (int index)
+    {
+        switch (index)
+        {
+            case 0: return 1;          // 1/4
+            case 1: return 2;          // 1/8
+            case 2: return 3;          // 1/8T
+            case 3: return 4;          // 1/16
+            case 4: return 6;          // 1/16T
+            default: return 8;         // 1/32
+        }
+    }
+
+    double samplesPerStep() const
+    {
+        const double tempo = bpm.load();
+        const int division = rateToDivision (rateIndex.load());
+        return (60.0 / tempo) * (4.0 / (double) division) * sampleRate;
+    }
+
+    void handleNoteOn (const juce::MidiMessage& message, int64_t absoluteSample)
+    {
+        const int note = message.getNoteNumber();
+        if (hold.load() && latchArmed && physicalHeld <= 0)
+        {
+            resetHeld();
+        }
+
+        if (! held[(size_t) note])
+        {
+            held[(size_t) note] = true;
+            velocities[(size_t) note] = message.getVelocity();
+            channels[(size_t) note] = message.getChannel();
+            int position = 0;
+            while (position < heldCount && heldNotes[(size_t) position] < note) ++position;
+            for (int i = heldCount; i > position; --i)
+                heldNotes[(size_t) i] = heldNotes[(size_t) (i - 1)];
+            heldNotes[(size_t) position] = note;
+            ++heldCount;
+            playedNotes[(size_t) playedCount] = note;
+            ++playedCount;
+            ++physicalHeld;
+        }
+        else
+        {
+            velocities[(size_t) note] = message.getVelocity();
+        }
+
+        if (nextStepAbs < 0.0)
+        {
+            nextStepAbs = (double) absoluteSample;
+            stepIndex = 0;
+        }
+    }
+
+    void handleNoteOff (const juce::MidiMessage& message)
+    {
+        const int note = message.getNoteNumber();
+        if (! held[(size_t) note]) return;
+
+        if (hold.load())
+        {
+            physicalHeld = juce::jmax (0, physicalHeld - 1);
+            if (physicalHeld == 0) latchArmed = true;
+            return;
+        }
+
+        removeHeld (note);
+    }
+
+    void removeHeld (int note)
+    {
+        if (! held[(size_t) note]) return;
+        held[(size_t) note] = false;
+        physicalHeld = juce::jmax (0, physicalHeld - 1);
+
+        int position = 0;
+        while (position < heldCount && heldNotes[(size_t) position] != note) ++position;
+        if (position < heldCount)
+        {
+            for (int i = position; i < heldCount - 1; ++i)
+                heldNotes[(size_t) i] = heldNotes[(size_t) (i + 1)];
+            --heldCount;
+        }
+        for (int i = 0; i < playedCount; ++i)
+        {
+            if (playedNotes[(size_t) i] != note) continue;
+            for (int j = i; j < playedCount - 1; ++j)
+                playedNotes[(size_t) j] = playedNotes[(size_t) (j + 1)];
+            --playedCount;
+            break;
+        }
+
+        if (heldCount == 0)
+        {
+            nextStepAbs = -1.0;
+            stepIndex = 0;
+            // gateAbs fica para o pump emitir o note-off da última nota.
+        }
+    }
+
+    int noteForStep (int& sourceNote, int& channel, int& velocity)
+    {
+        const int count = heldCount;
+        const int oct = octaves.load();
+        if (count <= 0 || oct <= 0) return -1;
+        const int total = count * oct;
+        const int currentMode = mode.load();
+        const int index = stepIndex;
+
+        int position = 0;
+        if (currentMode == 0) // up
+            position = index % total;
+        else if (currentMode == 1) // down
+            position = total - 1 - (index % total);
+        else if (currentMode == 2) // up/down
+        {
+            const int cycle = total > 1 ? total * 2 - 2 : 1;
+            const int offset = index % cycle;
+            position = offset >= total ? cycle - offset : offset;
+        }
+        else if (currentMode == 3) // random
+            position = random.nextInt (juce::jmax (1, total));
+        else // played
+        {
+            const int octave = (index % total) / count;
+            const int noteIndex = (index % total) % count;
+            sourceNote = playedNotes[(size_t) juce::jlimit (0, playedCount - 1, noteIndex)];
+            channel = channels[(size_t) sourceNote];
+            velocity = velocities[(size_t) sourceNote];
+            return juce::jlimit (0, 127, sourceNote + 12 * octave);
+        }
+
+        const int noteIndex = position % count;
+        const int octave = position / count;
+        sourceNote = heldNotes[(size_t) noteIndex];
+        channel = channels[(size_t) sourceNote];
+        velocity = velocities[(size_t) sourceNote];
+        return juce::jlimit (0, 127, sourceNote + 12 * octave);
+    }
+
+    void addNoteOn (juce::MidiBuffer& output, int64_t absoluteSample, int64_t blockStart, int numSamples, int channel, int note, int velocity)
+    {
+        const int position = juce::jlimit (0, numSamples - 1, (int) (absoluteSample - blockStart));
+        output.addEvent (juce::MidiMessage::noteOn (channel, note, (juce::uint8) juce::jlimit (1, 127, velocity)), position);
+    }
+
+    void stopCurrent (juce::MidiBuffer& output, int64_t blockStart, int numSamples)
+    {
+        if (currentNote < 0) return;
+        const int position = juce::jlimit (0, numSamples - 1, (int) (gateAbs >= 0.0 ? gateAbs - blockStart : 0));
+        output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote), position);
+        currentNote = -1;
+        gateAbs = -1.0;
+    }
+
+    void pump (int64_t blockStart, int64_t blockEnd, int numSamples, juce::MidiBuffer& output)
+    {
+        // Termina a nota atual mesmo depois que a última tecla foi solta.
+        if (gateAbs >= 0.0 && gateAbs <= (double) blockEnd)
+        {
+            output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote),
+                             juce::jlimit (0, numSamples - 1, (int) (gateAbs - blockStart)));
+            gateAbs = -1.0;
+            currentNote = -1;
+        }
+
+        if (nextStepAbs < 0.0) return;
+        if (nextStepAbs < (double) blockStart) nextStepAbs = (double) blockStart;
+
+        const double base = samplesPerStep();
+        const double gateFactor = (double) gate.load() / 100.0;
+        const double swingFactor = (double) swing.load() / 100.0;
+
+        while (nextStepAbs >= 0.0)
+        {
+            const double offset = (stepIndex % 2 == 1) ? base * swingFactor * 0.5 : 0.0;
+            const double stepAbs = nextStepAbs + offset;
+            if (stepAbs > (double) blockEnd) break;
+
+            if (gateAbs >= 0.0)
+            {
+                const double offAbs = juce::jmin (gateAbs, stepAbs);
+                output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote),
+                                 juce::jlimit (0, numSamples - 1, (int) (offAbs - blockStart)));
+                gateAbs = -1.0;
+                currentNote = -1;
+            }
+
+            int sourceNote = -1;
+            int channel = 1;
+            int velocity = 100;
+            const int note = noteForStep (sourceNote, channel, velocity);
+            if (note >= 0)
+            {
+                currentNote = note;
+                currentChannel = channel;
+                currentVelocity = velocity;
+                addNoteOn (output, stepAbs, blockStart, numSamples, channel, note, velocity);
+                gateAbs = stepAbs + base * gateFactor;
+            }
+
+            nextStepAbs += base;
+            ++stepIndex;
+        }
+
+        if (gateAbs >= 0.0 && gateAbs <= (double) blockEnd)
+        {
+            output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote),
+                             juce::jlimit (0, numSamples - 1, (int) (gateAbs - blockStart)));
+            gateAbs = -1.0;
+            currentNote = -1;
+        }
+    }
+
+    std::atomic<bool> enabled { false };
+    std::atomic<int> mode { 0 };
+    std::atomic<int> rateIndex { 3 };
+    std::atomic<int> octaves { 1 };
+    std::atomic<float> gate { 50.0f };
+    std::atomic<float> swing { 0.0f };
+    std::atomic<bool> hold { false };
+    std::atomic<double> bpm { 120.0 };
+
+    double sampleRate = 44100.0;
+    int64_t processedSamples = 0;
+    double nextStepAbs = -1.0;
+    double gateAbs = -1.0;
+    int stepIndex = 0;
+    int currentNote = -1;
+    int currentChannel = 1;
+    int currentVelocity = 100;
+    std::atomic<bool> pendingAllOff { false };
+
+    std::array<bool, 128> held {};
+    std::array<int, 128> heldNotes {};
+    std::array<int, 128> playedNotes {};
+    std::array<int, 128> velocities {};
+    std::array<int, 128> channels {};
+    int heldCount = 0;
+    int playedCount = 0;
+    int physicalHeld = 0;
+    bool latchArmed = false;
+    juce::Random random;
+};
+
 /** Clique do metrônomo (Fase 6.2). */
 class MetronomeProcessor final : public juce::AudioProcessor
 {
@@ -1626,11 +2021,13 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.role = Layer::Role::adopted;
             layer.pluginNode = candidate.pluginNode;   // a instância continua viva e soando
             layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+            layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
             layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
 
-            if (layer.midiFilterNode == nullptr || layer.stripNode == nullptr)
+            if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr || layer.stripNode == nullptr)
             {
                 if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+                if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
                 if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
                 done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
                 return;
@@ -1658,6 +2055,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
                 }
             candidate.pluginNode = nullptr;
             if (candidate.midiFilterNode != nullptr) graph.removeNode (candidate.midiFilterNode->nodeID);
+            if (candidate.midiFxNode != nullptr) graph.removeNode (candidate.midiFxNode->nodeID);
             if (candidate.stripNode != nullptr) graph.removeNode (candidate.stripNode->nodeID);
             layers.erase (layers.begin() + i);
 
@@ -1700,18 +2098,22 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.pinned = pinned;
             instance->setPlayHead (&playHead);
             layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+            layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
             layer.pluginNode = graph.addNode (std::move (instance));
             layer.stripNode = graph.addNode (
                 std::make_unique<ChannelStripProcessor> (&soloLayerCount));
-            if (layer.midiFilterNode == nullptr || layer.pluginNode == nullptr
-                || layer.stripNode == nullptr)
+            if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
+                || layer.pluginNode == nullptr || layer.stripNode == nullptr)
             {
                 if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+                if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
                 if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
                 if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
                 done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
                 return;
             }
+            if (auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor()))
+                arp->setTempo (playHead.getTempo());
             if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
             {
                 filter->setRange (minNote, maxNote);
@@ -1796,6 +2198,7 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
             graph.removeNode (sendNode->nodeID);
     if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
     if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+    if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
     if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
     for (int slot = 0; slot < kMaxInserts; ++slot)
         loadingInsertKeys.removeString (layer.id + "#" + juce::String (slot));
@@ -1833,6 +2236,102 @@ juce::String Engine::setLayerVelocityRange (const juce::String& layerId, int min
     if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
         filter->setVelocityRange (minVelocity, maxVelocity);
     return {};
+}
+
+namespace
+{
+int arpModeFromString (const juce::String& value)
+{
+    if (value == "down") return 1;
+    if (value == "updown") return 2;
+    if (value == "random") return 3;
+    if (value == "played") return 4;
+    return 0;
+}
+
+juce::String arpModeToString (int value)
+{
+    switch (value)
+    {
+        case 1: return "down";
+        case 2: return "updown";
+        case 3: return "random";
+        case 4: return "played";
+        default: return "up";
+    }
+}
+
+int arpRateFromString (const juce::String& value)
+{
+    if (value == "1/4") return 0;
+    if (value == "1/8") return 1;
+    if (value == "1/8T") return 2;
+    if (value == "1/16") return 3;
+    if (value == "1/16T") return 4;
+    if (value == "1/32") return 5;
+    return 3;
+}
+
+juce::String arpRateToString (int value)
+{
+    switch (value)
+    {
+        case 0: return "1/4";
+        case 1: return "1/8";
+        case 2: return "1/8T";
+        case 4: return "1/16T";
+        case 5: return "1/32";
+        default: return "1/16";
+    }
+}
+} // namespace
+
+juce::String Engine::setArp (const juce::String& layerId, const juce::var& options, juce::var& result)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+    auto& layer = layers[(size_t) index];
+    auto* arp = layer.midiFxNode != nullptr
+        ? dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor())
+        : nullptr;
+    if (arp == nullptr)
+        return utf8 ("O arpejador deste layer não está disponível.");
+
+    if (options.hasProperty ("enabled"))
+        arp->setEnabled ((bool) options["enabled"]);
+    if (options.hasProperty ("mode"))
+        arp->setMode (arpModeFromString (options["mode"].toString()));
+    if (options.hasProperty ("rate"))
+        arp->setRate (arpRateFromString (options["rate"].toString()));
+    if (options.hasProperty ("octaves"))
+        arp->setOctaves ((int) options["octaves"]);
+    if (options.hasProperty ("gate"))
+        arp->setGate ((double) options["gate"]);
+    if (options.hasProperty ("swing"))
+        arp->setSwing ((double) options["swing"]);
+    if (options.hasProperty ("hold"))
+        arp->setHold ((bool) options["hold"]);
+
+    result = describeArp (layerId);
+    return {};
+}
+
+juce::var Engine::describeArp (const juce::String& layerId) const
+{
+    const int index = findLayer (layerId);
+    if (index < 0 || layers[(size_t) index].midiFxNode == nullptr) return {};
+    auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layers[(size_t) index].midiFxNode->getProcessor());
+    if (arp == nullptr) return {};
+    return Obj()
+        .set ("layerId", layers[(size_t) index].id)
+        .set ("enabled", arp->isEnabled())
+        .set ("mode", arpModeToString (arp->getMode()))
+        .set ("rate", arpRateToString (arp->getRate()))
+        .set ("octaves", arp->getOctaves())
+        .set ("gate", arp->getGate())
+        .set ("swing", arp->getSwing())
+        .set ("hold", arp->getHold());
 }
 
 juce::String Engine::setTranspose (int semitones)
@@ -1887,6 +2386,10 @@ juce::String Engine::setHostClock (double bpm, int numerator, int denominator, b
     playHead.setTempo (bpm);
     playHead.setTimeSignature (numerator, denominator);
     playHead.setPlaying (playing);
+    for (auto& layer : layers)
+        if (layer.midiFxNode != nullptr)
+            if (auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor()))
+                arp->setTempo (bpm);
     if (auto* metronome = metronomeNode != nullptr
             ? dynamic_cast<MetronomeProcessor*> (metronomeNode->getProcessor())
             : nullptr)
@@ -2842,6 +3345,8 @@ void Engine::rebuildConnections()
             graph.addConnection ({ { midiThruNode->nodeID, Graph::midiChannelIndex },
                                    { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
             graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
+                                   { layer.midiFxNode->nodeID, Graph::midiChannelIndex } });
+            graph.addConnection ({ { layer.midiFxNode->nodeID, Graph::midiChannelIndex },
                                    { layer.pluginNode->nodeID, Graph::midiChannelIndex } });
         }
     }

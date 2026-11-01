@@ -116,6 +116,9 @@ public:
     juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
     /** Faixa de velocity aceita pelo layer (1..127), aplicada no filtro MIDI (Fase 3.4). */
     juce::String setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity);
+    /** Arpejador MIDI do layer (Fase 7.2). */
+    juce::String setArp (const juce::String& layerId, const juce::var& options, juce::var& result);
+    juce::var describeArp (const juce::String& layerId) const;
     /** Transpose global em semitons aplicado a todas as notas (patch + set + concert). */
     juce::String setTranspose (int semitones);
     /** Bloqueia no motor as mensagens de hardware marcadas como "Don't pass thru" (Fase 4.5). */
@@ -268,6 +271,8 @@ private:
         juce::String id;
         juce::String pluginId;
         Graph::Node::Ptr midiFilterNode;
+        /** MIDI FX (arpejador) antes do instrumento; sempre existe, mas fica bypassado quando desligado. */
+        Graph::Node::Ptr midiFxNode;
         Graph::Node::Ptr pluginNode;
         Graph::Node::Ptr stripNode;
         /** Efeitos de insert do channel strip; o índice é o slot (Fase 3.1). */
