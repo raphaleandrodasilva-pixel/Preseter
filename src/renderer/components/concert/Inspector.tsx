@@ -333,7 +333,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           <>
             <span className="px-1 py-2 text-[11px] font-semibold text-white">Layout</span>
             <span className="ml-2 px-1 py-2 text-[10px]" style={{ color: '#8E8E93' }}>
-              Layout deste patch · Ctrl+S salva o concert
+              Layout deste patch · Ctrl+S salva o patch
             </span>
             <button
               onClick={onSave}

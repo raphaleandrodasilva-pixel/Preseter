@@ -239,6 +239,11 @@ export interface AppContextType {
   setLayout: (layout: LayoutConfig) => void;
 
   // Ações de App
+  /**
+   * Quando definido, o "Salvar" do menu nativo (Ctrl+S) salva o patch em vez
+   * do concert. O handler retorna true se tratou o salvamento.
+   */
+  setPatchSaveHandler: (handler: (() => boolean) | null) => void;
   togglePanel: (panel: keyof AppContextType['isPanelOpen']) => void;
   setAppStatus: (status: Partial<AppStatus>) => Promise<AppStatus>;
   sendMidiNote: (note: number, velocity: number, channel: number) => void;
@@ -343,6 +348,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const concertInitialized = useRef(false);
   /** Última ação do menu nativo, lida pelo listener (sem closure velha). */
   const menuHandlerRef = useRef<(action: MenuAction) => void>(() => undefined);
+  /** Sobrescreve o "Salvar" do menu (Ctrl+S) para salvar o patch no Layout. */
+  const patchSaveHandlerRef = useRef<(() => boolean) | null>(null);
+  const setPatchSaveHandler = useCallback((handler: (() => boolean) | null) => {
+    patchSaveHandlerRef.current = handler;
+  }, []);
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
   const [currentPreset, setCurrentPreset] = useState<Preset | null>(null);
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
@@ -935,8 +945,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (state) await openConcertState(state);
         } else if (action.action === 'open-recent') {
           await openConcertState(await window.electronAPI.concertOpenRecent(action.path));
-        } else if (action.action === 'save' || action.action === 'save-as') {
-          const state = await window.electronAPI.concertSave(action.action === 'save-as');
+        } else if (action.action === 'save') {
+          // No Layout, Ctrl+S salva o patch em edição; senão salva o concert.
+          if (patchSaveHandlerRef.current?.()) return;
+          const state = await window.electronAPI.concertSave(false);
+          if (state) {
+            setConcertPath(state.path);
+            setConcertDirty(state.dirty);
+          }
+        } else if (action.action === 'save-as') {
+          const state = await window.electronAPI.concertSave(true);
           if (state) {
             setConcertPath(state.path);
             setConcertDirty(state.dirty);
@@ -2027,6 +2045,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateUIElement,
     removeUIElement,
     setLayout,
+    setPatchSaveHandler,
     togglePanel,
     setAppStatus: setAppStatusAction,
     sendMidiNote,

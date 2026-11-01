@@ -25,6 +25,7 @@ function toolbarProps() {
     midiLastMessage: '90 3C 64',
     isMetronomeOn: false,
     onToggleMetronome: vi.fn(),
+    onOpenConcertSettings: vi.fn(),
     onPanic: vi.fn(),
     onOpenSettings: vi.fn(),
   };
@@ -64,10 +65,12 @@ describe('ModeToolbar', () => {
     const props = toolbarProps();
     render(<ModeToolbar {...props} />);
     fireEvent.click(screen.getByTitle('Configurações'));
-    fireEvent.click(screen.getByTitle('Metrônomo'));
+    fireEvent.click(screen.getByTitle(/Metrônomo/));
+    fireEvent.click(screen.getByTitle(/Ajustes do metrônomo/));
     fireEvent.click(screen.getByTitle(/Panic/));
     expect(props.onOpenSettings).toHaveBeenCalledWith('general');
     expect(props.onToggleMetronome).toHaveBeenCalled();
+    expect(props.onOpenConcertSettings).toHaveBeenCalled();
     expect(props.onPanic).toHaveBeenCalled();
   });
 });

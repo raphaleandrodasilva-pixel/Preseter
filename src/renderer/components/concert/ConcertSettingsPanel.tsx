@@ -8,9 +8,15 @@ interface ConcertSettingsPanelProps {
   onTempoChange: (tempo: number) => void;
   /** Nomes das portas de entrada MIDI, para a origem do Program Change. */
   midiInputNames: string[];
+  /** Aba inicial ao montar o painel. */
+  initialTab?: ConcertSettingsTab;
+  /** "panel" = barra inferior fixa; "modal" = ocupa o corpo do diálogo. */
+  variant?: 'panel' | 'modal';
 }
 
-type Tab = 'midi' | 'timing' | 'tuning' | 'strips' | 'metronome' | 'notes';
+export type ConcertSettingsTab = 'midi' | 'timing' | 'tuning' | 'strips' | 'metronome' | 'notes';
+
+type Tab = ConcertSettingsTab;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'midi', label: 'MIDI' },
@@ -43,8 +49,11 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
   onChange,
   onTempoChange,
   midiInputNames,
+  initialTab = 'midi',
+  variant = 'panel',
 }) => {
-  const [tab, setTab] = useState<Tab>('midi');
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const isModal = variant === 'modal';
 
   const currentPanLawKey =
     PAN_LAWS.find(
@@ -52,14 +61,21 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
     )?.key ?? '-3';
 
   return (
-    <div className="flex shrink-0 flex-col border-t" style={{ borderColor: '#1E1E24', background: '#0A0A0C', height: 248 }}>
-      <div className="flex items-center gap-1 border-b px-3" style={{ borderColor: '#1E1E24' }}>
-        <span className="mr-2 text-[11px] font-semibold" style={{ color: '#EDEDEF' }}>Concert Settings</span>
+    <div
+      className={isModal ? 'flex min-h-0 flex-1 flex-col' : 'flex shrink-0 flex-col border-t'}
+      style={isModal
+        ? { background: '#0A0A0C' }
+        : { borderColor: '#1E1E24', background: '#0A0A0C', height: 248 }}
+    >
+      <div className="flex items-center gap-1 overflow-x-auto border-b px-3" style={{ borderColor: '#1E1E24' }}>
+        {!isModal && (
+          <span className="mr-2 shrink-0 text-[11px] font-semibold" style={{ color: '#EDEDEF' }}>Concert Settings</span>
+        )}
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`border-b-2 px-3 py-2 text-[11px] ${
+            className={`shrink-0 border-b-2 px-3 py-2 text-[11px] ${
               tab === id ? 'text-white' : 'border-transparent hover:text-slate-200'
             }`}
             style={tab === id ? { borderColor: '#0A84FF' } : { color: '#9A9AA0' }}

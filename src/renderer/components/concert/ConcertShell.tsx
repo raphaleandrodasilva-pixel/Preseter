@@ -44,6 +44,8 @@ import { PatchList } from './PatchList';
 import { ChannelStrips } from './ChannelStrips';
 import { Inspector } from './Inspector';
 import { ConcertSettingsPanel } from './ConcertSettingsPanel';
+import type { ConcertSettingsTab } from './ConcertSettingsPanel';
+import { ConcertSettingsModal } from './ConcertSettingsModal';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
@@ -250,7 +252,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     mixState, setVstLayerMix, setVstMasterMix, setVstBusMix, setVstSend, setVstLayerOutput,
     setVstPatchSend, setVstLayerPatchSend, setVstArp,
     openVstEditor, closeVstEditor, setAudioInput, getAudioInputState, setMidiThruBlocked,
-    setHostClock, setMetronome,
+    setHostClock, setMetronome, setPatchSaveHandler,
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
     setPanLaw,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
@@ -280,6 +282,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [performListQuery, setPerformListQuery] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const [concertSettingsTab, setConcertSettingsTab] = useState<ConcertSettingsTab | null>(null);
   const [mappingsOpen, setMappingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [tunerOpen, setTunerOpen] = useState(false);
@@ -902,6 +905,20 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       concertSettings.metronome.accentFirstBeat
     );
   }, [concertSettings?.metronome, setMetronome]);
+
+  // No Layout, o "Salvar" do menu (Ctrl+S) salva o patch em edição.
+  const hasDraft = draft !== null;
+  useEffect(() => {
+    if (mode !== 'layout' || !hasDraft) {
+      setPatchSaveHandler(null);
+      return;
+    }
+    setPatchSaveHandler(() => {
+      onSaveDraft();
+      return true;
+    });
+    return () => setPatchSaveHandler(null);
+  }, [mode, hasDraft, onSaveDraft, setPatchSaveHandler]);
 
   useEffect(() => {
     if (!concertSettings) return;
@@ -2571,6 +2588,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             Metrônomo
           </button>
           <button
+            className="hw-squarebtn px-2 py-1.5 text-xs"
+            onClick={() => setConcertSettingsTab('metronome')}
+            title="Ajustes do metrônomo — compasso e volume"
+            aria-label="Ajustes do metrônomo"
+            style={{ color: '#9A9AA0' }}
+          >
+            ⚙
+          </button>
+          <button
             className="hw-squarebtn px-3 py-1.5 text-xs"
             onClick={() => setSettingsTab('general')}
             title="Configurações"
@@ -2701,6 +2727,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         {settingsTab && (
           <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
         )}
+        {concertSettingsTab && concertSettings && (
+          <ConcertSettingsModal
+            settings={concertSettings}
+            tempo={appStatus.tempo}
+            onChange={updateConcertSettings}
+            onTempoChange={(tempo) => void setAppStatus({ tempo })}
+            midiInputNames={midiInputNames}
+            initialTab={concertSettingsTab}
+            onClose={() => setConcertSettingsTab(null)}
+          />
+        )}
       </div>
     );
   }
@@ -2720,6 +2757,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         midiLastMessage={midiLastMessage}
         isMetronomeOn={metronomeOn}
         onToggleMetronome={toggleMetronome}
+        onOpenConcertSettings={() => setConcertSettingsTab('metronome')}
         onPanic={panic}
         onOpenSettings={(tab) => setSettingsTab(tab)}
       />
@@ -2834,6 +2872,28 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <span className="truncate" style={{ color: '#9A9AA0' }}>
                 {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
               </span>
+              {mode === 'layout' && concertSettings && (
+                <button
+                  type="button"
+                  className="hw-squarebtn shrink-0 px-2.5 py-1 text-[11px]"
+                  onClick={() => setConcertSettingsTab('metronome')}
+                  title="Ajustes do metrônomo — BPM, compasso e volume"
+                >
+                  Metrônomo…
+                </button>
+              )}
+              {mode === 'layout' && (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
+                  style={{ background: '#0A84FF', color: '#FFFFFF' }}
+                  onClick={onSaveDraft}
+                  disabled={!draft || saving}
+                  title={draft ? 'Salvar o patch em edição (Ctrl+S)' : 'Nenhum patch em edição'}
+                >
+                  {saving ? 'Salvando…' : 'Salvar patch'}
+                </button>
+              )}
               {masterMuted && (
                 <span className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold" style={{ background: '#FF554D', color: '#1A1A1A' }}>
                   MASTER MUDO
@@ -3071,6 +3131,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       </div>
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
+      )}
+      {concertSettingsTab && concertSettings && (
+        <ConcertSettingsModal
+          settings={concertSettings}
+          tempo={appStatus.tempo}
+          onChange={updateConcertSettings}
+          onTempoChange={(tempo) => void setAppStatus({ tempo })}
+          midiInputNames={midiInputNames}
+          initialTab={concertSettingsTab}
+          onClose={() => setConcertSettingsTab(null)}
+        />
       )}
       {libraryOpen && (
         <PatchLibraryModal

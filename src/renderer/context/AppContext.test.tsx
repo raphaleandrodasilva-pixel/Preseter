@@ -542,4 +542,22 @@ describe('AppProvider main-process events', () => {
     await act(async () => api().emit('onMenuAction', { action: 'save' }));
     expect(latest.concertPath).toBe('C:/saved.preseter');
   });
+
+  it('delegates the menu save to the patch handler when registered', async () => {
+    vi.mocked(window.electronAPI.concertSave).mockClear();
+    vi.mocked(window.electronAPI.concertSave).mockResolvedValue(
+      createConcertState({ path: 'C:/saved.preseter', dirty: false })
+    );
+    await renderProvider();
+
+    const patchSave = vi.fn(() => true);
+    act(() => latest.setPatchSaveHandler(patchSave));
+    await act(async () => api().emit('onMenuAction', { action: 'save' }));
+    expect(patchSave).toHaveBeenCalledTimes(1);
+    expect(window.electronAPI.concertSave).not.toHaveBeenCalled();
+
+    act(() => latest.setPatchSaveHandler(null));
+    await act(async () => api().emit('onMenuAction', { action: 'save' }));
+    expect(window.electronAPI.concertSave).toHaveBeenCalledWith(false);
+  });
 });

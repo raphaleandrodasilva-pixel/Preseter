@@ -18,6 +18,8 @@ interface ModeToolbarProps {
   midiLastMessage: string | null;
   isMetronomeOn: boolean;
   onToggleMetronome: () => void;
+  /** Abre os ajustes do concert na aba do metrônomo. */
+  onOpenConcertSettings: () => void;
   onPanic: () => void;
   onOpenSettings: (tab: SettingsTab) => void;
 }
@@ -41,6 +43,7 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
   midiLastMessage,
   isMetronomeOn,
   onToggleMetronome,
+  onOpenConcertSettings,
   onPanic,
   onOpenSettings,
 }) => {
@@ -121,10 +124,19 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
         </label>
         <button
           onClick={onToggleMetronome}
-          title="Metrônomo"
+          title="Metrônomo — clique para ligar/desligar"
           className={`hw-squarebtn px-2.5 py-1.5${isMetronomeOn ? ' on' : ''}`}
         >
           Metro
+        </button>
+        <button
+          onClick={onOpenConcertSettings}
+          title="Ajustes do metrônomo — compasso e volume"
+          aria-label="Ajustes do metrônomo"
+          className="hw-squarebtn px-1.5 py-1.5"
+          style={{ color: '#9A9AA0' }}
+        >
+          ▾
         </button>
         <button
           onClick={onPanic}
