@@ -138,6 +138,13 @@ export class ConcertManager extends EventEmitter {
     return this.recent;
   }
 
+  /** Limpa a lista de concerts recentes do menu Arquivo → Abrir Recente. */
+  clearRecent(): void {
+    this.recent = [];
+    this.writeJson(this.recentPath, this.recent);
+    this.emit('recent-changed', this.recent);
+  }
+
   getSessionConcertPath(): string | null {
     return this.session.concertPath;
   }

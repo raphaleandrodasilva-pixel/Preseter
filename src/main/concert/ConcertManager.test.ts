@@ -166,6 +166,21 @@ describe('ConcertManager lifecycle', () => {
     expect(second.getLastPatchId()).toBe('patch-1');
   });
 
+  it('clears the recent concerts list', () => {
+    const concert = manager();
+    const recentChanged = vi.fn();
+    concert.on('recent-changed', recentChanged);
+    concert.saveTo(path.join(tempRoot, 'first.preseter'));
+    expect(concert.getRecent()).toHaveLength(1);
+
+    concert.clearRecent();
+
+    expect(concert.getRecent()).toEqual([]);
+    expect(recentChanged).toHaveBeenLastCalledWith([]);
+    expect(JSON.parse(fs.readFileSync(path.join(userData, 'recent-concerts.json'), 'utf8'))).toEqual([]);
+    expect(manager().getRecent()).toEqual([]);
+  });
+
   it('ignores invalid recent/session files and tolerates write failures', () => {
     fs.mkdirSync(userData, { recursive: true });
     fs.writeFileSync(path.join(userData, 'recent-concerts.json'), 'not json', 'utf8');

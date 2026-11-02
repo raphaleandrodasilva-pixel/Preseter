@@ -1733,11 +1733,21 @@ class MainWindow {
   private buildMenu(): void {
     const recent = this.concertManager.getRecent();
     const recentSubmenu: MenuItemConstructorOptions[] = recent.length
-      ? recent.map((entry) => ({
-          label: entry.name,
-          toolTip: entry.path,
-          click: () => this.sendMenuAction({ action: 'open-recent', path: entry.path }),
-        }))
+      ? [
+          ...recent.map((entry) => ({
+            label: entry.name,
+            toolTip: entry.path,
+            click: () => this.sendMenuAction({ action: 'open-recent', path: entry.path }),
+          })),
+          { type: 'separator' },
+          {
+            label: 'Limpar lista de recentes',
+            click: () => {
+              this.concertManager.clearRecent();
+              this.buildMenu();
+            },
+          },
+        ]
       : [{ label: 'Nenhum concert recente', enabled: false }];
 
     const template: MenuItemConstructorOptions[] = [
