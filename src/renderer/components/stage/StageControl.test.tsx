@@ -101,6 +101,23 @@ describe('StageControl value controls', () => {
     expect(slider.onMidiMessage).toHaveBeenLastCalledWith([0xb1, 10, 32]);
   });
 
+  it('maps the Volume fader to the master output in dB', () => {
+    const onSetMasterVolume = vi.fn();
+    const { container } = renderControl(
+      { type: 'fader', label: 'Volume', target: 'master-volume' },
+      { onSetMasterVolume }
+    );
+    const track = container.querySelector('[title*="arrastar"]')!;
+    track.getBoundingClientRect = rect;
+    fireEvent.pointerDown(track, { clientY: 50, pointerId: 1 });
+    const centerDb = onSetMasterVolume.mock.calls.at(-1)?.[0] as number;
+    expect(centerDb).toBeCloseTo(0, 3);
+    fireEvent.pointerDown(track, { clientY: 0, pointerId: 1 });
+    expect(onSetMasterVolume).toHaveBeenLastCalledWith(12);
+    fireEvent.pointerDown(track, { clientY: 100, pointerId: 1 });
+    expect(onSetMasterVolume).toHaveBeenLastCalledWith(-60);
+  });
+
   it('clamps values and sends no MIDI without a CC binding', () => {
     const { onMidiMessage } = renderControl({ type: 'fader', label: 'Fader' });
     const track = screen.getByTitle(/arrastar.*duplo clique/);

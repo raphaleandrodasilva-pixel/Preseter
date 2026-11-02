@@ -47,6 +47,23 @@ function keyboardRig(notes: string, tempo: number): UiElement[] {
   return createDefaultKeyboardLayout(tempo, { title: notes }).elements;
 }
 
+/**
+ * Corrige o nível de saída de instrumentos que o SoundFont/plugin entrega
+ * muito baixo. O piano do MuseScore_General sai cerca de 24 dB abaixo dos
+ * demais programas, por isso recebe o maior trim.
+ */
+function collectionLayerGainDb(layer: CollectionLayerSpec): number {
+  let trim = 0;
+  if (layer.inst === 'JUICY') {
+    trim = layer.programIndex === 0 || layer.programIndex === 1 ? 18 : 3;
+  } else if (layer.inst === 'DEXED') {
+    trim = 12;
+  } else if (layer.inst === 'MDA' || layer.inst === 'MDA_EP' || layer.inst === 'MDA_JX') {
+    trim = 3;
+  }
+  return Math.max(-60, Math.min(24, layer.db + trim));
+}
+
 function resolvePlugin(
   inst: CollectionLayerSpec['inst'],
   plugins: CollectionPlugin[],
@@ -101,7 +118,7 @@ export function buildCollectionConcert(
           role: 'instrument',
           minNote: layer.min,
           maxNote: layer.max,
-          mix: { volumeDb: layer.db, pan: 0, muted: false, solo: false },
+          mix: { volumeDb: collectionLayerGainDb(layer), pan: 0, muted: false, solo: false },
           ...(layer.programIndex !== undefined ? { programIndex: layer.programIndex } : {}),
           ...(layer.inst === 'JUICY' && options.soundsFolder
             ? (() => {

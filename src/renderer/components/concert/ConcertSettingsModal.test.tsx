@@ -30,14 +30,14 @@ describe('ConcertSettingsModal', () => {
     expect(screen.getByText('4/4 · 120 BPM')).toBeInTheDocument();
     expect(screen.getByLabelText('Metrônomo ligado')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Tempo \(BPM\)/), {
-      target: { value: '140' },
-    });
+    const bpm = screen.getByLabelText(/Tempo \(BPM\)/);
+    fireEvent.change(bpm, { target: { value: '140' } });
+    fireEvent.blur(bpm);
     expect(onTempoChange).toHaveBeenCalledWith(140);
 
-    fireEvent.change(screen.getByLabelText(/Compasso — numerador/), {
-      target: { value: '6' },
-    });
+    const numerator = screen.getByLabelText(/Compasso — numerador/);
+    fireEvent.change(numerator, { target: { value: '6' } });
+    fireEvent.blur(numerator);
     expect(onChange).toHaveBeenLastCalledWith({
       timeSignature: { ...settings.timeSignature, numerator: 6 },
     });
@@ -49,9 +49,9 @@ describe('ConcertSettingsModal', () => {
       timeSignature: { ...settings.timeSignature, denominator: 8 },
     });
 
-    fireEvent.change(screen.getByLabelText(/Valor do volume/), {
-      target: { value: '-18' },
-    });
+    const volume = screen.getByLabelText(/Valor do volume/);
+    fireEvent.change(volume, { target: { value: '-18' } });
+    fireEvent.blur(volume);
     expect(onChange).toHaveBeenLastCalledWith({
       metronome: { ...settings.metronome, volumeDb: -18 },
     });

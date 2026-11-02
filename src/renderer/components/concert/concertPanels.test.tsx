@@ -49,16 +49,21 @@ describe('ModeToolbar', () => {
     });
     expect(props.onConcertNameChange).toHaveBeenCalledWith('Renamed');
 
-    const tempo = screen.getByRole('spinbutton');
+    const tempo = screen.getByLabelText('Tempo');
     fireEvent.change(tempo, { target: { value: '140' } });
+    fireEvent.blur(tempo);
     expect(props.onTempoChange).toHaveBeenCalledWith(140);
 
     fireEvent.change(tempo, { target: { value: '10' } });
+    fireEvent.blur(tempo);
     expect(props.onTempoChange).toHaveBeenLastCalledWith(20);
     fireEvent.change(tempo, { target: { value: '999' } });
+    fireEvent.blur(tempo);
     expect(props.onTempoChange).toHaveBeenLastCalledWith(300);
+    const callsBeforeEmpty = props.onTempoChange.mock.calls.length;
     fireEvent.change(tempo, { target: { value: '' } });
-    expect(props.onTempoChange).toHaveBeenLastCalledWith(120);
+    fireEvent.blur(tempo);
+    expect(props.onTempoChange).toHaveBeenCalledTimes(callsBeforeEmpty);
   });
 
   it('opens settings, toggles metronome and panics', () => {

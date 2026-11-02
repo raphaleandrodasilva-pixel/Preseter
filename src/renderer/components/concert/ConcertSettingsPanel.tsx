@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ConcertSettings, PanLaw } from '@shared/types';
+import { NumberField } from '../ui/NumberField';
 
 interface ConcertSettingsPanelProps {
   settings: ConcertSettings;
@@ -194,30 +195,23 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
           <div className="flex max-w-xl flex-wrap items-end gap-4">
             <label className={classLabel}>
               Tempo (BPM)
-              <input
+              <NumberField
                 className={classInput}
-                type="number"
                 min={20}
                 max={300}
                 value={tempo}
-                onChange={(e) => onTempoChange(Math.max(20, Math.min(300, Number(e.target.value) || 120)))}
+                onCommit={onTempoChange}
               />
             </label>
             <label className={classLabel}>
               Compasso — numerador
-              <input
+              <NumberField
                 className={classInput}
-                type="number"
                 min={1}
                 max={32}
                 value={settings.timeSignature.numerator}
-                onChange={(e) =>
-                  onChange({
-                    timeSignature: {
-                      ...settings.timeSignature,
-                      numerator: Math.max(1, Math.min(32, Number(e.target.value) || 4)),
-                    },
-                  })
+                onCommit={(numerator) =>
+                  onChange({ timeSignature: { ...settings.timeSignature, numerator } })
                 }
               />
             </label>
@@ -288,29 +282,24 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
             <div className="flex flex-wrap items-end gap-3">
               <label className={classLabel}>
                 Tempo (BPM)
-                <input
+                <NumberField
                   className={classInput}
-                  type="number"
                   min={20}
                   max={300}
                   value={tempo}
-                  onChange={(e) => onTempoChange(Math.max(20, Math.min(300, Number(e.target.value) || 120)))}
+                  onCommit={onTempoChange}
                 />
               </label>
               <label className={classLabel}>
                 Compasso — numerador
-                <input
+                <NumberField
                   className={classInput}
-                  type="number"
                   min={1}
                   max={32}
                   value={settings.timeSignature.numerator}
-                  onChange={(e) => onChange({
-                    timeSignature: {
-                      ...settings.timeSignature,
-                      numerator: Math.max(1, Math.min(32, Number(e.target.value) || 4)),
-                    },
-                  })}
+                  onCommit={(numerator) =>
+                    onChange({ timeSignature: { ...settings.timeSignature, numerator } })
+                  }
                 />
               </label>
               <label className={classLabel}>
@@ -348,16 +337,14 @@ export const ConcertSettingsPanel: React.FC<ConcertSettingsPanelProps> = ({
             </label>
             <label className={classLabel}>
               Valor do volume (dB)
-              <input
+              <NumberField
                 className={classInput}
-                type="number"
                 min={-60}
                 max={0}
                 value={settings.metronome.volumeDb}
-                onChange={(e) => {
-                  const value = e.target.value === '' ? -12 : Number(e.target.value);
-                  onChange({ metronome: { ...settings.metronome, volumeDb: Math.max(-60, Math.min(0, value || 0)) } });
-                }}
+                onCommit={(volumeDb) =>
+                  onChange({ metronome: { ...settings.metronome, volumeDb } })
+                }
               />
             </label>
             <label className={classCheck}>

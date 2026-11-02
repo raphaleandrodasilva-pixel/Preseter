@@ -282,6 +282,8 @@ export interface ConcertSettings {
   buses: ConcertBusSettings;
   /** Anotações livres sobre o concert. */
   notes: string;
+  /** Volume do master do concert, em dB (fader Volume do Layout). */
+  masterVolumeDb: number;
 }
 
 /** Mapeamento MIDI no nível do concert (Fase 4). */
@@ -800,6 +802,8 @@ export interface UiElement {
   labelDisplay?: 'name' | 'value' | 'both';
   /** Label dinâmico: quando `patch-name`, mostra o nome do patch atual. */
   labelBinding?: 'patch-name';
+  /** Alvo especial do controle (ex.: fader de volume do master). */
+  target?: 'master-volume';
   // Porta MIDI de entrada vinculada (usada pelo motor na Fase E)
   midiPort?: string;
   // Repassa evento adiante sem processar (consumido pelo motor na Fase E)

@@ -657,7 +657,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const unsubscribe = subscribeMidiLearn((event) => {
       // CC7/CC10 globais do Concert Settings (Fase 2.4).
       if (event.kind === 'cc' && event.number === 7 && concertSettings?.midi.cc7ControlsVolume) {
-        const volumeDb = event.value === 0 ? -60 : -60 + (event.value / 127) * 60;
+        const volumeDb = event.value <= 0 ? -60 : Math.max(-60, 20 * Math.log10(event.value / 127));
         for (const plugin of loadedPlugins) {
           if (plugin.layerId) void setVstLayerMix(plugin.layerId, { volumeDb });
         }
@@ -905,6 +905,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       concertSettings.metronome.accentFirstBeat
     );
   }, [concertSettings?.metronome, setMetronome]);
+
+  // Volume do master do concert (fader Volume do Layout).
+  useEffect(() => {
+    if (!concertSettings) return;
+    void setVstMasterMix({ volumeDb: concertSettings.masterVolumeDb ?? 0 });
+  }, [concertSettings?.masterVolumeDb, setVstMasterMix]);
 
   // No Layout, o "Salvar" do menu (Ctrl+S) salva o patch em edição.
   const hasDraft = draft !== null;
@@ -2973,6 +2979,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                       onSetVstParameter={onSetVstParameter}
                       onSetPatchSend={changePatchSend}
                       onSetMappedParameter={setMappedParameter}
+                      onSetMasterVolume={(volumeDb) => {
+                        void setVstMasterMix({ volumeDb });
+                        if (concertSettings) updateConcertSettings({ masterVolumeDb: volumeDb });
+                      }}
                       keyboardZones={keyboardZones}
                       selectedZoneId={selectedLayerId}
                       onZoneClick={selectZone}

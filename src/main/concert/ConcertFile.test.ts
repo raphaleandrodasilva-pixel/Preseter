@@ -41,14 +41,14 @@ describe('default concert construction', () => {
     expect(createDefaultConcertSettings()).toMatchObject({
       timeSignature: { numerator: 4, denominator: 4 },
       midi: {
-        cc7ControlsVolume: true,
+        cc7ControlsVolume: false,
         cc10ControlsPan: true,
         sendUnassignedMidiToStrips: false,
         transpose: 0,
         programChange: { device: '', channel: null },
         sendUnusedProgramChangeToStrips: false,
       },
-      channelStrips: { panLaw: -3, panLawCompensated: false },
+      channelStrips: { panLaw: -3, panLawCompensated: true },
       metronome: { enabled: false, volumeDb: -12, accentFirstBeat: true },
       notes: '',
     });

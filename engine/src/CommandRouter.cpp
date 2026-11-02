@@ -15,6 +15,19 @@ bool boolArg (const juce::var& message, const juce::Identifier& key, bool fallba
 {
     return message.hasProperty (key) ? (bool) message[key] : fallback;
 }
+
+/** Aceita inteiro ou decimal: o JSON do renderer manda -12 como int. */
+double doubleArg (const juce::var& message, const juce::Identifier& key, double fallback)
+{
+    if (! message.hasProperty (key))
+        return fallback;
+
+    const auto& value = message[key];
+    if (value.isInt() || value.isInt64() || value.isDouble())
+        return (double) value;
+
+    return fallback;
+}
 } // namespace
 
 CommandRouter::CommandRouter (Engine& engineToUse, std::function<void()> quitCallback)
@@ -285,7 +298,7 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "setHostClock")
     {
         const auto error = engine.setHostClock (
-            message["bpm"].isDouble() ? (double) message["bpm"] : 120.0,
+            doubleArg (message, "bpm", 120.0),
             intArg (message, "numerator", 4),
             intArg (message, "denominator", 4),
             boolArg (message, "playing", false));
@@ -298,7 +311,7 @@ void CommandRouter::handleLine (const juce::String& line)
     {
         const auto error = engine.setMetronome (
             boolArg (message, "enabled", false),
-            message["volumeDb"].isDouble() ? (double) message["volumeDb"] : -12.0,
+            doubleArg (message, "volumeDb", -12.0),
             boolArg (message, "accentFirstBeat", true));
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, juce::var());
@@ -308,7 +321,7 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "setPanLaw")
     {
         engine.setPanLaw (
-            message["db"].isDouble() ? (float) (double) message["db"] : 0.0f,
+            (float) doubleArg (message, "db", 0.0),
             boolArg (message, "compensated", false));
         ok (id, juce::var());
         return;

@@ -43,20 +43,21 @@ export function createConcertSettings(overrides: Partial<ConcertSettings> = {}):
   return {
     timeSignature: { numerator: 4, denominator: 4 },
     midi: {
-      cc7ControlsVolume: true,
+      cc7ControlsVolume: false,
       cc10ControlsPan: true,
       sendUnassignedMidiToStrips: false,
       transpose: 0,
       programChange: { device: '', channel: null },
       sendUnusedProgramChangeToStrips: false,
     },
-    channelStrips: { panLaw: -3, panLawCompensated: false },
+    channelStrips: { panLaw: -3, panLawCompensated: true },
     metronome: { enabled: false, volumeDb: -12, accentFirstBeat: true },
     buses: {
       aux: Array.from({ length: 4 }, (_, index) => createBus({ enabled: false, output: 1 })),
       outputs: Array.from({ length: 4 }, () => createBus()),
     },
     notes: '',
+    masterVolumeDb: 0,
     ...overrides,
   };
 }

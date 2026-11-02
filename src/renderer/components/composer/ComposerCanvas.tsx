@@ -37,6 +37,7 @@ interface ComposerCanvasProps {
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
   /** Parâmetro mapeado por owner/slot (layers e inserts). */
   onSetMappedParameter?: (element: UiElement, value: number) => void;
+  onSetMasterVolume?: (volumeDb: number) => void;
   onSetPatchSend?: (aux: number, levelDb: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
@@ -326,6 +327,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
   onMidiMessage,
   onSetVstParameter,
   onSetMappedParameter,
+  onSetMasterVolume,
   onSetPatchSend,
   keyboardZones,
   selectedZoneId,
@@ -451,6 +453,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
               onMidiMessage={onMidiMessage}
               onSetVstParameter={onSetVstParameter}
               onSetMappedParameter={onSetMappedParameter}
+              onSetMasterVolume={onSetMasterVolume}
               onSetPatchSend={onSetPatchSend}
               keyboardZones={keyboardZones}
               selectedZoneId={selectedZoneId}
@@ -481,6 +484,7 @@ export const ComposerCanvas: React.FC<ComposerCanvasProps> = ({
                   onMidiMessage={onMidiMessage}
                   onSetVstParameter={onSetVstParameter}
                   onSetMappedParameter={onSetMappedParameter}
+                  onSetMasterVolume={onSetMasterVolume}
                   onSetPatchSend={onSetPatchSend}
                   keyboardZones={keyboardZones}
                   selectedZoneId={selectedZoneId}

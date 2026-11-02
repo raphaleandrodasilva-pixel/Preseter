@@ -260,7 +260,7 @@ private:
     Graph graph;
     juce::AudioProcessorPlayer player;
 
-    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, metronomeNode, recorderNode, playbackNode, masterNode;
+    Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, metronomeNode, recorderNode, playbackNode, masterNode, limiterNode;
     /** Relógio do host entregue aos plugins (Fase 6.2). */
     HostPlayHead playHead;
     std::atomic<int> soloLayerCount { 0 };

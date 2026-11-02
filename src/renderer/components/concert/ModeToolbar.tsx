@@ -1,5 +1,6 @@
 import React from 'react';
 import { PatchLcd } from '../hardware/PatchLcd';
+import { NumberField } from '../ui/NumberField';
 
 export type ConcertMode = 'layout' | 'edit' | 'perform';
 
@@ -112,12 +113,11 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
           style={{ color: '#9A9AA0' }}
         >
           <span className="hw-label" style={{ fontSize: 9 }}>Tempo</span>
-          <input
-            type="number"
+          <NumberField
             min={20}
             max={300}
             value={tempo}
-            onChange={(e) => onTempoChange(Math.max(20, Math.min(300, Number(e.target.value) || 120)))}
+            onCommit={onTempoChange}
             className="w-12 bg-transparent text-right text-[11px] tabular-nums outline-none"
             style={{ color: '#EDEDEF' }}
           />

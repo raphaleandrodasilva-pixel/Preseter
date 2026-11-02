@@ -72,6 +72,37 @@ function samePluginPath(a: unknown, b: unknown): boolean {
   );
 }
 
+/** Pastas LV2 padrão do JUCE no Windows/macOS/Linux. */
+function standardLv2Folders(): string[] {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Roaming');
+    const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
+    const common = process.env.CommonProgramFiles ?? path.join(programFiles, 'Common Files');
+    return [path.join(appData, 'LV2'), path.join(common, 'LV2')];
+  }
+  if (process.platform === 'darwin') {
+    return [
+      path.join(process.env.HOME ?? '', 'Library', 'Audio', 'Plug-Ins', 'LV2'),
+      path.join(process.env.HOME ?? '', '.lv2'),
+      '/Library/Audio/Plug-Ins/LV2',
+    ];
+  }
+  return [path.join(process.env.HOME ?? '', '.lv2'), '/usr/lib/lv2', '/usr/local/lib/lv2'];
+}
+
+/** Pastas de presets que devem disparar reindexação ao mudar. */
+function presetWatchFolders(): string[] {
+  const documents = app.getPath('documents');
+  const programData = process.env.PROGRAMDATA ?? 'C:\\ProgramData';
+  return [
+    path.join(documents, 'VST3 Presets'),
+    path.join(programData, 'VST3 Presets'),
+    path.join(documents, 'Vital'),
+    path.join(programData, 'Surge XT'),
+    path.join(programData, 'odin2'),
+  ];
+}
+
 /** Pastas VST3 padrão do sistema, incluindo a pasta sem administrador da coleção. */
 function standardVst3Folders(): string[] {
   if (process.platform === 'win32') {
@@ -478,6 +509,7 @@ class MainWindow {
       const preferences = this.readPreferences();
       const folders = Array.from(new Set([...preferences.pluginFolders, folder]));
       this.writePreferences({ ...preferences, pluginFolders: folders });
+      this.watchVstFolders();
       const plugins = await this.vstManager.scanDirectories(folders);
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
       return { canceled: false, folder, folders, plugins: this.visiblePlugins(plugins) };
@@ -487,6 +519,7 @@ class MainWindow {
       const preferences = this.readPreferences();
       const folders = preferences.pluginFolders.filter((item) => item !== folder);
       this.writePreferences({ ...preferences, pluginFolders: folders });
+      this.watchVstFolders();
       const plugins = await this.scanWithPreferences();
       void this.vstPresetLibrary.scan(plugins, this.vstManager);
       return { folders, plugins: this.visiblePlugins(plugins) };
@@ -1826,13 +1859,13 @@ class MainWindow {
     }
   }
 
-  /** Observa as pastas de VST3/presets para indexar plugins instalados com o app aberto. */
+  /** Observa as pastas de VST3/LV2/presets para indexar plugins instalados com o app aberto. */
   private watchVstFolders(): void {
-    if (this.vstWatchers.length > 0) return;
+    this.closeVstWatchers();
     const candidates = [
       ...standardVst3Folders(),
-      path.join(app.getPath('documents'), 'VST3 Presets'),
-      path.join(app.getPath('documents'), 'Vital'),
+      ...standardLv2Folders(),
+      ...presetWatchFolders(),
       ...this.readPreferences().pluginFolders,
     ];
     for (const dir of new Set(candidates)) {
@@ -1846,6 +1879,13 @@ class MainWindow {
         console.warn(`[Preseter] Não foi possível observar ${dir}:`, error);
       }
     }
+  }
+
+  private closeVstWatchers(): void {
+    for (const watcher of this.vstWatchers) {
+      try { watcher.close(); } catch { /* ignora */ }
+    }
+    this.vstWatchers = [];
   }
 
   private scheduleVstRefresh(): void {

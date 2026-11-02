@@ -43,7 +43,7 @@ export function createDefaultKeyboardLayout(
     orientation: 'vertical',
     isMomentary: false,
     value: 0.5,
-    midiCommand: cc(7),
+    target: 'master-volume',
   };
   const modulation: UiElement = {
     id: elementId('element_default_modulation'),

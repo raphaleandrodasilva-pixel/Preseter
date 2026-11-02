@@ -91,17 +91,18 @@ export function createDefaultConcertSettings(): ConcertSettings {
   return {
     timeSignature: { ...DEFAULT_TIME_SIGNATURE },
     midi: {
-      cc7ControlsVolume: true,
+      cc7ControlsVolume: false,
       cc10ControlsPan: true,
       sendUnassignedMidiToStrips: false,
       transpose: 0,
       programChange: { device: '', channel: null },
       sendUnusedProgramChangeToStrips: false,
     },
-    channelStrips: { panLaw: -3, panLawCompensated: false },
+    channelStrips: { panLaw: -3, panLawCompensated: true },
     metronome: { enabled: false, volumeDb: -12, accentFirstBeat: true },
     buses: createDefaultBuses(),
     notes: '',
+    masterVolumeDb: 0,
   };
 }
 
@@ -364,6 +365,7 @@ function normalizeSettings(value: unknown): ConcertSettings {
     },
     buses: normalizeBuses(value.buses, defaults.buses),
     notes: typeof value.notes === 'string' ? value.notes : defaults.notes,
+    masterVolumeDb: Math.max(-60, Math.min(12, toFiniteNumber(value.masterVolumeDb, defaults.masterVolumeDb))),
   };
 }
 

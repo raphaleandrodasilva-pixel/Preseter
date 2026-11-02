@@ -27,7 +27,7 @@ describe('ConcertSettingsPanel', () => {
 
     fireEvent.click(screen.getByLabelText('CC7 controla o volume dos channel strips'));
     expect(onChange).toHaveBeenCalledWith({
-      midi: { ...settings.midi, cc7ControlsVolume: false },
+      midi: { ...settings.midi, cc7ControlsVolume: true },
     });
 
     fireEvent.click(screen.getByLabelText('CC10 controla o pan dos channel strips'));
@@ -96,17 +96,16 @@ describe('ConcertSettingsPanel', () => {
   it('edits timing, tuning, pan law, metronome and notes', () => {
     const { onChange, onTempoChange, settings } = setup();
     fireEvent.click(screen.getByText('Timing'));
-    fireEvent.change(screen.getByLabelText(/Tempo \(BPM\)/), {
-      target: { value: '140' },
-    });
+    const bpm = screen.getByLabelText(/Tempo \(BPM\)/);
+    fireEvent.change(bpm, { target: { value: '140' } });
+    fireEvent.blur(bpm);
     expect(onTempoChange).toHaveBeenCalledWith(140);
-    fireEvent.change(screen.getByLabelText(/Tempo \(BPM\)/), {
-      target: { value: '5' },
-    });
+    fireEvent.change(bpm, { target: { value: '5' } });
+    fireEvent.blur(bpm);
     expect(onTempoChange).toHaveBeenLastCalledWith(20);
-    fireEvent.change(screen.getByLabelText(/Compasso — numerador/), {
-      target: { value: '40' },
-    });
+    const numerator = screen.getByLabelText(/Compasso — numerador/);
+    fireEvent.change(numerator, { target: { value: '40' } });
+    fireEvent.blur(numerator);
     expect(onChange).toHaveBeenLastCalledWith({
       timeSignature: { ...settings.timeSignature, numerator: 32 },
     });
@@ -134,17 +133,12 @@ describe('ConcertSettingsPanel', () => {
     expect(onChange).toHaveBeenLastCalledWith({
       metronome: { ...settings.metronome, enabled: true },
     });
-    fireEvent.change(screen.getByLabelText(/Volume do clique/), {
-      target: { value: '10' },
+    fireEvent.change(screen.getByLabelText(/Valor do volume/), {
+      target: { value: '-18' },
     });
+    fireEvent.blur(screen.getByLabelText(/Valor do volume/));
     expect(onChange).toHaveBeenLastCalledWith({
-      metronome: { ...settings.metronome, volumeDb: 0 },
-    });
-    fireEvent.change(screen.getByLabelText(/Volume do clique/), {
-      target: { value: '-99' },
-    });
-    expect(onChange).toHaveBeenLastCalledWith({
-      metronome: { ...settings.metronome, volumeDb: -60 },
+      metronome: { ...settings.metronome, volumeDb: -18 },
     });
     fireEvent.click(
       screen.getByLabelText('Acentuar o primeiro tempo do compasso')

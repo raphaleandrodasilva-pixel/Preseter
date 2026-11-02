@@ -31,6 +31,8 @@ interface StageControlProps {
   onSetPatchSend?: (aux: number, levelDb: number) => void;
   /** Parâmetro mapeado por owner/slot (inserts e layers). */
   onSetMappedParameter?: (element: UiElement, value: number) => void;
+  /** Fader especial de volume do master. */
+  onSetMasterVolume?: (volumeDb: number) => void;
   keyboardZones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;
@@ -68,6 +70,7 @@ export const StageControl: React.FC<StageControlProps> = ({
   onSetVstParameter,
   onSetPatchSend,
   onSetMappedParameter,
+  onSetMasterVolume,
   keyboardZones,
   selectedZoneId,
   onZoneClick,
@@ -99,6 +102,10 @@ export const StageControl: React.FC<StageControlProps> = ({
   const sendValue = (next: number) => {
     const clamped = Math.min(max, Math.max(min, next));
     setValue(clamped);
+    if (element.target === 'master-volume') {
+      const volumeDb = clamped <= 0 ? -60 : Math.max(-60, Math.min(12, 40 * Math.log10(clamped / 0.5)));
+      onSetMasterVolume?.(volumeDb);
+    }
     if (element.patchSendAux) {
       onSetPatchSend?.(element.patchSendAux, clamped);
     }

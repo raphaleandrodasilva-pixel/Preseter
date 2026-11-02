@@ -523,6 +523,60 @@ private:
     juce::Random random;
 };
 
+/** Proteção simples contra clipping no master (-0,45 dBFS). */
+class SafetyLimiterProcessor final : public juce::AudioProcessor
+{
+public:
+    SafetyLimiterProcessor()
+        : juce::AudioProcessor (BusesProperties()
+                                    .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                    .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+    {
+    }
+
+    const juce::String getName() const override { return "Preseter Safety Limiter"; }
+    void prepareToPlay (double, int) override {}
+    void releaseResources() override {}
+    bool isBusesLayoutSupported (const BusesLayout& layout) const override
+    {
+        return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
+            && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
+    {
+        juce::ignoreUnused (midi);
+        static constexpr float threshold = 0.90f;
+        static constexpr float headroom = 0.05f;
+
+        for (int ch = 0; ch < audio.getNumChannels(); ++ch)
+        {
+            auto* samples = audio.getWritePointer (ch);
+            for (int i = 0; i < audio.getNumSamples(); ++i)
+            {
+                const float value = samples[i];
+                const float magnitude = std::abs (value);
+                if (magnitude > threshold)
+                {
+                    const float compressed = threshold + headroom * std::tanh ((magnitude - threshold) / headroom);
+                    samples[i] = (value < 0.0f ? -1.0f : 1.0f) * compressed;
+                }
+            }
+        }
+    }
+    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
+    void getStateInformation (juce::MemoryBlock&) override {}
+    void setStateInformation (const void*, int) override {}
+};
+
 /** Clique do metrônomo (Fase 6.2). */
 class MetronomeProcessor final : public juce::AudioProcessor
 {
@@ -1272,6 +1326,7 @@ Engine::Engine()
     recorderNode = graph.addNode (std::make_unique<RecorderProcessor>());
     playbackNode = graph.addNode (std::make_unique<PlaybackProcessor>());
     masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
+    limiterNode  = graph.addNode (std::make_unique<SafetyLimiterProcessor>());
 
     // Barramentos do concert: 4 Aux + 4 Output (Fase 3.2). O strip do barramento
     // não participa do solo (soloCount = nullptr), só do seu próprio mute.
@@ -1566,8 +1621,8 @@ juce::String Engine::setLayerMix (const juce::String& layerId, const juce::var& 
         const auto& value = options["volumeDb"];
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
-            || (double) value < -60.0 || (double) value > 6.0)
-            return utf8 ("O volume deve ser um número entre -60 e +6 dB.");
+            || (double) value < -60.0 || (double) value > 24.0)
+            return utf8 ("O volume deve ser um número entre -60 e +24 dB.");
         volumeDb = (float) (double) value;
     }
     if (options.hasProperty ("pan"))
@@ -1675,8 +1730,8 @@ juce::String Engine::setMasterMix (const juce::var& options, juce::var& result)
         const auto& value = options["volumeDb"];
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
-            || (double) value < -60.0 || (double) value > 6.0)
-            return utf8 ("O volume Master deve ser um número entre -60 e +6 dB.");
+            || (double) value < -60.0 || (double) value > 24.0)
+            return utf8 ("O volume Master deve ser um número entre -60 e +24 dB.");
         volumeDb = (float) (double) value;
     }
     if (options.hasProperty ("muted"))
@@ -2500,9 +2555,9 @@ void Engine::setPanLaw (float db, bool compensated)
                 strip->setPanLaw (db, compensated);
     };
 
+    // Aplica a lei de pan só nos layers. Aplicar também nos buses e no master
+    // acumularia -3 dB por estágio no centro e derrubaria o volume final.
     for (const auto& layer : layers) apply (layer.stripNode);
-    for (const auto& bus : buses) apply (bus.stripNode);
-    apply (masterNode);
 }
 
 // ---- Inserts (efeitos por channel strip, Fase 3.1) ------------------------------
@@ -2723,8 +2778,8 @@ juce::String Engine::setBusMix (const juce::String& busId, const juce::var& opti
         const auto& value = options["volumeDb"];
         if (! (value.isInt() || value.isInt64() || value.isDouble())
             || ! std::isfinite ((double) value)
-            || (double) value < -60.0 || (double) value > 6.0)
-            return utf8 ("O volume deve ser um número entre -60 e +6 dB.");
+            || (double) value < -60.0 || (double) value > 24.0)
+            return utf8 ("O volume deve ser um número entre -60 e +24 dB.");
         volumeDb = (float) (double) value;
     }
     if (options.hasProperty ("pan"))
@@ -3215,10 +3270,11 @@ void Engine::rebuildConnections()
 
     const int graphIn  = graph.getMainBusNumInputChannels();
     const int graphOut = graph.getMainBusNumOutputChannels();
-    if (masterNode != nullptr && metronomeNode != nullptr && recorderNode != nullptr && audioOutNode != nullptr)
+    if (masterNode != nullptr && limiterNode != nullptr && metronomeNode != nullptr && recorderNode != nullptr && audioOutNode != nullptr)
         for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
         {
-            graph.addConnection ({ { masterNode->nodeID, ch }, { metronomeNode->nodeID, ch } });
+            graph.addConnection ({ { masterNode->nodeID, ch }, { limiterNode->nodeID, ch } });
+            graph.addConnection ({ { limiterNode->nodeID, ch }, { metronomeNode->nodeID, ch } });
             graph.addConnection ({ { metronomeNode->nodeID, ch }, { recorderNode->nodeID, ch } });
             graph.addConnection ({ { recorderNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
         }

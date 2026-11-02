@@ -42,6 +42,14 @@ export function extractMappings(layout: LayoutConfig | null | undefined): Record
   return mappings;
 }
 
+/** O fader "Volume" antigo vira o controle real do master do concert. */
+function migrateMasterVolumeElement(element: UiElement): UiElement {
+  if (element.target === 'master-volume') return element;
+  if (element.type !== 'fader' || element.label.trim().toLowerCase() !== 'volume') return element;
+  if (element.midiCommand?.type !== 'cc' || element.midiCommand.controllerNumber !== 7) return element;
+  return { ...element, target: 'master-volume', midiCommand: undefined };
+}
+
 /** Converte um mapping de concert/set para o formato por elemento do patch. */
 function mappingToPatchMapping(mapping: ConcertMapping, patch: Preset | null | undefined): PatchMapping {
   const plugin = mapping.pluginPath
@@ -103,7 +111,7 @@ export function materializeLayout(
       if (resolved.labelBinding === 'patch-name') {
         return { ...resolved, label: patch?.name?.trim() || resolved.label };
       }
-      return resolved;
+      return migrateMasterVolumeElement(resolved);
     }),
   };
 }
@@ -129,14 +137,18 @@ export function migrateConcertLayout(
   layout: LayoutConfig | null | undefined,
   patches: Preset[]
 ): { layout: LayoutConfig; patches: Preset[] } {
+  const normalizeLayout = (value: LayoutConfig): LayoutConfig => {
+    const withIds = assignMissingGroupIds(value);
+    return { ...withIds, elements: withIds.elements.map(migrateMasterVolumeElement) };
+  };
   const hasConcertLayout = (layout?.elements.length ?? 0) > 0;
   if (hasConcertLayout) {
     return {
-      layout: assignMissingGroupIds(layout as LayoutConfig),
+      layout: normalizeLayout(layout as LayoutConfig),
       patches: patches.map((patch) => ({
         ...patch,
         mappings: patch.mappings ?? extractMappings(patch.layout),
-        layout: assignMissingGroupIds(patch.layout),
+        layout: normalizeLayout(patch.layout),
       })),
     };
   }
@@ -149,12 +161,12 @@ export function migrateConcertLayout(
     : { elements: [], background: null, tempo: 120 };
 
   return {
-    layout: assignMissingGroupIds(concertLayout),
+    layout: normalizeLayout(concertLayout),
     patches: patches.map((patch) => ({
       ...patch,
       mappings: patch.mappings ?? extractMappings(patch.layout),
       layout: patch.layout?.elements.length
-        ? assignMissingGroupIds(patch.layout)
+        ? normalizeLayout(patch.layout)
         : { elements: [], background: null, tempo: patch.layout?.tempo ?? concertLayout.tempo },
     })),
   };

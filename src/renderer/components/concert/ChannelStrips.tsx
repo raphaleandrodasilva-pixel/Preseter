@@ -501,7 +501,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               aria-label={`Volume de ${label}`}
               type="range"
               min={-60}
-              max={6}
+              max={24}
               step={0.1}
               value={options.volumeDb}
               disabled={disabled}
@@ -687,7 +687,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               aria-label={`Volume de ${label}`}
               type="range"
               min={-60}
-              max={6}
+              max={24}
               step={0.1}
               value={mix.volumeDb}
               onClick={(event) => event.stopPropagation()}
