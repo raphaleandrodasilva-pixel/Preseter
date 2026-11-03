@@ -98,7 +98,9 @@ function presetWatchFolders(): string[] {
     path.join(documents, 'VST3 Presets'),
     path.join(programData, 'VST3 Presets'),
     path.join(documents, 'Vital'),
+    path.join(documents, 'Surge XT', 'Patches'),
     path.join(programData, 'Surge XT'),
+    path.join(documents, 'odin2'),
     path.join(programData, 'odin2'),
   ];
 }

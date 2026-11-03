@@ -256,6 +256,8 @@ export interface EngineCommands {
   };
   /** Aplica um arquivo `.vstpreset` num layer VST3 carregado. */
   setPresetFile: { args: { layerId?: string; path: string }; result: EngineLoadedPlugin };
+  /** Aplica um estado nativo diretamente no componente VST3 (ex.: .fxp). */
+  setComponentState: { args: { layerId?: string; data: string }; result: EngineLoadedPlugin };
   /** Abre (ou traz para a frente) a janela de edição do plugin. */
   openEditor: { args: { layerId?: string; slot?: number }; result: EngineEditorState };
   /** Fecha a janela de edição do plugin. */

@@ -51,7 +51,14 @@ export interface VstPluginInfo {
 }
 
 /** De onde veio um preset de VST exibido na Channel Strip Library. */
-export type VstPresetSource = 'program' | 'vstpreset' | 'vital' | 'snapshot';
+export type VstPresetSource =
+  | 'program'
+  | 'vstpreset'
+  | 'vital'
+  | 'snapshot'
+  | 'midi-program'
+  | 'fxp'
+  | 'odin';
 
 /** Preset de um VST3 indexado pelo Preseter. */
 export interface VstPreset {

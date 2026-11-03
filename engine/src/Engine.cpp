@@ -2,6 +2,9 @@
 
 #include "Output.h"
 
+#include <pluginterfaces/vst/ivstcomponent.h>
+#include <public.sdk/source/common/memorystream.h>
+
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -3035,6 +3038,52 @@ juce::String Engine::setPluginState (const juce::String& layerId, const juce::St
     if (insertSlot >= 0)
         out = out.set ("slot", insertSlot);
     result = out;
+    return {};
+}
+
+juce::String Engine::setPluginComponentState (const juce::String& layerId,
+                                               const juce::String& base64,
+                                               juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    juce::MemoryOutputStream decoded;
+    if (! juce::Base64::convertFromBase64 (decoded, base64))
+        return utf8 ("Estado nativo inválido (base64).");
+
+    struct Visitor final : public juce::ExtensionsVisitor
+    {
+        Steinberg::Vst::IComponent* component = nullptr;
+
+        void visitVST3Client (const VST3Client& client) override
+        {
+            component = client.getIComponentPtr();
+        }
+    } visitor;
+
+    plugin->getExtensions (visitor);
+    if (visitor.component == nullptr)
+        return utf8 ("O plugin não é VST3; estado nativo não suportado.");
+
+    juce::MemoryBlock before;
+    plugin->getStateInformation (before);
+
+    Steinberg::MemoryStream stream (const_cast<void*> (decoded.getData()),
+                                    (Steinberg::TSize) decoded.getDataSize());
+    const auto status = visitor.component->setState (&stream);
+    if (status != Steinberg::kResultOk && status != Steinberg::kResultTrue)
+        return utf8 ("O plugin recusou o estado nativo.");
+
+    juce::MemoryBlock after;
+    plugin->getStateInformation (after);
+    if (before == after)
+        return utf8 ("O plugin ignorou o estado nativo (formato de preset não suportado).");
+
+    result = Obj()
+        .set ("layerId", resolveLayerId (layerId))
+        .set ("bytes", (int) decoded.getDataSize());
     return {};
 }
 

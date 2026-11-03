@@ -498,6 +498,16 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setComponentState")
+    {
+        juce::var result;
+        const auto error = engine.setPluginComponentState (message["layerId"].toString(),
+                                                           message["data"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "openEditor")
     {
         juce::var result;

@@ -166,6 +166,10 @@ public:
     juce::String setPluginPresetFile (const juce::String& layerId, const juce::String& filePath,
                                       juce::var& result);
 
+    /** Aplica um estado nativo diretamente no componente VST3 (ex.: .fxp de Surge). */
+    juce::String setPluginComponentState (const juce::String& layerId, const juce::String& base64,
+                                          juce::var& result);
+
     /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer/slot. */
     juce::String openPluginEditor (const juce::String& layerId, juce::var& result,
                                    int insertSlot = -1);

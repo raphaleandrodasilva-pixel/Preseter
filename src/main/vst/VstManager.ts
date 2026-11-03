@@ -457,6 +457,26 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Aplica um estado nativo diretamente no componente VST3 (ex.: .fxp de Surge). */
+  async setComponentState(layerOrPluginId: string, base64: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('setComponentState', {
+      layerId: plugin.layerId,
+      data: base64,
+    });
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return true;
+  }
+
+  /** Envia Program Change para os plugins carregados (setBfree, por exemplo). */
+  async sendProgramChange(program: number, channel = 0): Promise<boolean> {
+    await this.engine.request('midi', {
+      bytes: [0xc0 | (channel & 0x0f), program & 0x7f],
+    });
+    return true;
+  }
+
   /** Aplica um estado cru (ex.: JSON do Vital) codificado em base64. */
   async applyRawState(layerOrPluginId: string, base64: string): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);

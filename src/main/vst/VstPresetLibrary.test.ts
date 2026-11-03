@@ -13,6 +13,8 @@ function fakeVst(overrides: Partial<Record<keyof VstManager, unknown>> = {}): Vs
     getPluginState: vi.fn(async () => null),
     setPluginProgram: vi.fn(async () => true),
     setPluginPresetFile: vi.fn(async () => true),
+    setComponentState: vi.fn(async () => true),
+    sendProgramChange: vi.fn(async () => true),
     applyRawState: vi.fn(async () => true),
     ...overrides,
   } as unknown as VstManager;
@@ -233,6 +235,54 @@ describe('VstPresetLibrary indexing', () => {
     expect(presets.find((preset) => preset.name === 'Broken')?.category).toBe('Synth Lead');
   });
 
+  it('indexes Surge .fxp patches and setBfree MIDI programs', async () => {
+    const previousProgramData = process.env.PROGRAMDATA;
+    const programData = makeTempDir('preseter-programdata-');
+    process.env.PROGRAMDATA = programData;
+    try {
+      const surge = instrument({ id: 'surge', name: 'Surge XT', path: 'C:/Surge XT.vst3' });
+      const setBfree = instrument({
+        id: 'b3',
+        name: 'setBfree DSP Tonewheel Organ',
+        path: 'http://gareus.org/oss/lv2/b_synth',
+      });
+      const fxp = path.join(programData, 'Surge XT', 'patches_factory', 'Basses', 'Attacky.fxp');
+      const payload = Buffer.from('sub3payload');
+      const header = Buffer.alloc(60);
+      header.write('CcnK', 0, 'ascii');
+      header.write('FPCh', 8, 'ascii');
+      fs.mkdirSync(path.dirname(fxp), { recursive: true });
+      fs.writeFileSync(fxp, Buffer.concat([header, payload]));
+
+      const lib = library();
+      await lib.scan([surge, setBfree], fakeVst());
+      const presets = lib.listResult().presets;
+      const surgePreset = presets.find((preset) => preset.source === 'fxp');
+      expect(surgePreset).toMatchObject({
+        name: 'Attacky',
+        pluginId: 'surge',
+        collection: 'Basses',
+        filePath: fxp,
+      });
+      expect(presets.filter((preset) => preset.source === 'midi-program').length).toBeGreaterThan(0);
+
+      const vst = fakeVst();
+      expect(await lib.applyPreset(surgePreset!.id, 'layer', vst)).toBe(true);
+      expect(vst.setComponentState).toHaveBeenCalledWith(
+        'layer',
+        payload.toString('base64')
+      );
+
+      const midiPreset = presets.find((preset) => preset.source === 'midi-program')!;
+      expect(await lib.applyPreset(midiPreset.id, 'layer', vst)).toBe(true);
+      expect(vst.sendProgramChange).toHaveBeenCalledWith(midiPreset.programIndex);
+    } finally {
+      if (previousProgramData === undefined) delete process.env.PROGRAMDATA;
+      else process.env.PROGRAMDATA = previousProgramData;
+      removeTempDir(programData);
+    }
+  });
+
   it('hides file presets whose files disappeared but keeps snapshots', async () => {
     const lib = library();
     const stateDir = path.join(userData, 'vst-presets');
@@ -391,7 +441,9 @@ describe('VstPresetLibrary snapshots and presets', () => {
   it('rejects unsupported or incomplete presets', async () => {
     await expect(lib.applyPreset('missing', 'l', fakeVst())).rejects.toThrow(/encontrado/);
     const vital = await presetOfType('vital');
-    await expect(lib.applyPreset(vital, 'l', fakeVst())).rejects.toThrow(/vital/);
+    const vst = fakeVst();
+    expect(await lib.applyPreset(vital, 'l', vst)).toBe(true);
+    expect(vst.setComponentState).toHaveBeenCalledWith('l', expect.any(String));
 
     fs.writeFileSync(
       path.join(userData, 'vst-presets.json'),

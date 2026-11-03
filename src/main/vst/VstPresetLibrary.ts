@@ -9,6 +9,7 @@ import type {
   VstPresetListResult,
 } from '../../shared/types';
 import type { VstManager } from './VstManager';
+import { SETBFREE_PROGRAMS } from './setbfree-programs';
 
 interface CachedPlugin {
   id: string;
@@ -119,6 +120,19 @@ function listFiles(root: string, extension: string): string[] {
   return found;
 }
 
+/** Extrai o chunk nativo (sub3...) de um .fxp de chunk (FPCh). */
+function readFxpPayload(filePath: string): Buffer | null {
+  try {
+    const raw = fs.readFileSync(filePath);
+    if (raw.length < 60) return null;
+    if (raw.toString('ascii', 0, 4) !== 'CcnK') return null;
+    if (raw.toString('ascii', 8, 12) !== 'FPCh') return null;
+    return raw.subarray(60);
+  } catch {
+    return null;
+  }
+}
+
 function readVitalStyle(filePath: string): string | undefined {
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
@@ -202,8 +216,12 @@ export class VstPresetLibrary extends EventEmitter {
     return {
       presets: this.index.presets
         .filter((preset) => {
-          if (preset.source === 'snapshot') return true;
-          if (preset.source === 'vital' || preset.source === 'vstpreset') return fileExists(preset.filePath);
+          if (preset.source === 'snapshot' || preset.source === 'midi-program') return true;
+          if (preset.source === 'vital' || preset.source === 'vstpreset') {
+            return fileExists(preset.filePath);
+          }
+          // .fxp/.odin são reindexados no próximo scan; evitar statSync em 3k arquivos.
+          if (preset.source === 'fxp' || preset.source === 'odin') return true;
           return true;
         })
         .map((preset) => this.applyOverride(preset)),
@@ -393,6 +411,105 @@ export class VstPresetLibrary extends EventEmitter {
         });
       }
     }
+
+    const surgePlugin = plugins.find(
+      (plugin) => normalize(plugin.name).includes('surge') && !normalize(plugin.name).includes('effect')
+    );
+    if (surgePlugin) {
+      const programData = process.env.PROGRAMDATA ?? 'C:\\ProgramData';
+      const roots = [
+        path.join(programData, 'Surge XT', 'patches_factory'),
+        path.join(programData, 'Surge XT', 'patches_3rdparty'),
+        path.join(this.documentsPath, 'Surge XT', 'Patches'),
+      ];
+      const seen = new Set<string>();
+      for (const root of roots) {
+        for (const filePath of listFiles(root, '.fxp')) {
+          const resolved = path.resolve(filePath);
+          if (seen.has(resolved)) continue;
+          seen.add(resolved);
+          const relative = path.relative(root, filePath);
+          const parts = relative.split(path.sep);
+          const fileName = path.basename(filePath, path.extname(filePath));
+          const collection = parts.length > 1 ? parts[0] : 'Surge XT';
+          this.index.presets.push({
+            id: `fxp:${resolved}`,
+            name: fileName,
+            category: categoryFromText(`${collection} ${fileName}`, 'Synth Lead'),
+            source: 'fxp',
+            pluginId: surgePlugin.id,
+            pluginName: surgePlugin.name,
+            pluginPath: surgePlugin.path,
+            filePath: resolved,
+            collection,
+            favorite: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+
+    const odinPlugin = plugins.find((plugin) => normalize(plugin.name).includes('odin'));
+    if (odinPlugin) {
+      const programData = process.env.PROGRAMDATA ?? 'C:\\ProgramData';
+      const roots = [
+        path.join(programData, 'odin2', 'Soundbanks'),
+        path.join(this.documentsPath, 'odin2'),
+      ];
+      const seen = new Set<string>();
+      for (const root of roots) {
+        for (const filePath of listFiles(root, '.odin')) {
+          const resolved = path.resolve(filePath);
+          if (seen.has(resolved)) continue;
+          seen.add(resolved);
+          const relative = path.relative(root, filePath);
+          const parts = relative.split(path.sep);
+          const fileName = path.basename(filePath, path.extname(filePath));
+          const collection = parts.length > 1 ? parts[0] : 'Odin2';
+          this.index.presets.push({
+            id: `odin:${resolved}`,
+            name: fileName,
+            category: categoryFromText(`${collection} ${fileName}`, 'Synth Lead'),
+            source: 'odin',
+            pluginId: odinPlugin.id,
+            pluginName: odinPlugin.name,
+            pluginPath: odinPlugin.path,
+            filePath: resolved,
+            collection,
+            favorite: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+
+    const setBfreePlugin = plugins.find((plugin) => {
+      const name = normalize(plugin.name);
+      return name.includes('setbfree') || name.includes('b_synth');
+    });
+    if (setBfreePlugin) {
+      const seen = new Set<number>();
+      for (const program of SETBFREE_PROGRAMS) {
+        if (seen.has(program.program)) continue;
+        seen.add(program.program);
+        this.index.presets.push({
+          id: `midi-program:${setBfreePlugin.id}:${program.program}`,
+          name: program.name,
+          category: 'Organ',
+          source: 'midi-program',
+          pluginId: setBfreePlugin.id,
+          pluginName: setBfreePlugin.name,
+          pluginPath: setBfreePlugin.path,
+          programIndex: program.program - 1,
+          collection: 'setBfree',
+          favorite: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
   }
 
   /** Captura o som atual do layer como um preset reutilizável. */
@@ -441,9 +558,27 @@ export class VstPresetLibrary extends EventEmitter {
     if (!preset) throw new Error('Preset não encontrado.');
 
     if (preset.source === 'vital') {
-      throw new Error(
-        'Presets .vital não podem ser aplicados diretamente no VST3. Carregue o preset no Vital e use "Salvar som atual".'
-      );
+      if (!preset.filePath) throw new Error('Arquivo .vital não informado.');
+      const raw = fs.readFileSync(preset.filePath);
+      return vst.setComponentState(layerId, raw.toString('base64'));
+    }
+
+    if (preset.source === 'midi-program') {
+      if (preset.programIndex === undefined) throw new Error('Programa MIDI inválido.');
+      return vst.sendProgramChange(preset.programIndex);
+    }
+
+    if (preset.source === 'fxp') {
+      if (!preset.filePath) throw new Error('Arquivo .fxp não informado.');
+      const payload = readFxpPayload(preset.filePath);
+      if (!payload) throw new Error('O arquivo .fxp não está no formato de chunk suportado.');
+      return vst.setComponentState(layerId, payload.toString('base64'));
+    }
+
+    if (preset.source === 'odin') {
+      if (!preset.filePath) throw new Error('Arquivo .odin não informado.');
+      const raw = fs.readFileSync(preset.filePath);
+      return vst.setComponentState(layerId, raw.toString('base64'));
     }
 
     if (preset.source === 'program') {
