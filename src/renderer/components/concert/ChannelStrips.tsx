@@ -16,6 +16,7 @@ import type {
   StripOverride,
   VstParameter,
   VstPluginInfo,
+  VstPreset,
 } from '@shared/types';
 import { DEFAULT_ARP, MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
 import { noteName } from '../composer/elementFactory';
@@ -281,6 +282,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const [stripEditTargets, setStripEditTargets] = useState<Record<string, StripEditTarget>>({});
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [learningParameter, setLearningParameter] = useState(false);
+  const [vstPresets, setVstPresets] = useState<VstPreset[]>([]);
+  const [presetChoices, setPresetChoices] = useState<Record<string, string>>({});
+  const [presetBusy, setPresetBusy] = useState<string | null>(null);
+  const [presetMenu, setPresetMenu] = useState<string | null>(null);
+  const [presetDialog, setPresetDialog] = useState<{
+    layerId: string;
+    layerName: string;
+    name: string;
+  } | null>(null);
+  const [presetNotice, setPresetNotice] = useState<string | null>(null);
+  const [savingPreset, setSavingPreset] = useState(false);
   const [width, setWidth] = useState<number>(() => {
     try {
       const raw = localStorage.getItem('preseter.channelStripsWidth.v1');
@@ -314,6 +326,31 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => subscribeParameterLearn(setLearningParameter), []);
+
+  useEffect(() => {
+    let active = true;
+    const apply = (result: { presets?: VstPreset[] } | null) => {
+      if (active) setVstPresets(result?.presets ?? []);
+    };
+    void window.electronAPI.vstPresetsList().then(apply).catch(() => undefined);
+    window.electronAPI.onVstPresetsUpdated(apply);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!presetNotice) return;
+    const timer = window.setTimeout(() => setPresetNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [presetNotice]);
+
+  useEffect(() => {
+    if (!presetMenu) return;
+    const close = () => setPresetMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [presetMenu]);
 
   // Selecionar um knob de send na área gráfica abre a aba Aux e destaca o destino.
   useEffect(() => {
@@ -1056,6 +1093,101 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     ? Math.max(splitMin + 1, Math.min(splitMax, clampNote(splitDraft.splitNote)))
     : 60;
 
+  /** Presets do plugin carregado neste timbre (programas, snapshots e .vstpreset). */
+  const presetsForPlugin = (plugin: VstPluginInfo | undefined): VstPreset[] => {
+    if (!plugin) return [];
+    return vstPresets.filter(
+      (item) =>
+        item.pluginId === plugin.id ||
+        (!!item.pluginPath && item.pluginPath === plugin.path) ||
+        (!!item.pluginName && item.pluginName === plugin.name)
+    );
+  };
+
+  const presetGroupsFor = (plugin: VstPluginInfo | undefined) => {
+    const byName = (a: VstPreset, b: VstPreset) => a.name.localeCompare(b.name, 'pt-BR');
+    const items = presetsForPlugin(plugin);
+    return [
+      { label: 'Do plugin', items: items.filter((item) => item.source === 'program').sort(byName) },
+      { label: 'Meus presets', items: items.filter((item) => item.source === 'snapshot').sort(byName) },
+      { label: 'Presets VST3', items: items.filter((item) => item.source === 'vstpreset').sort(byName) },
+    ].filter((group) => group.items.length > 0);
+  };
+
+  const applyTimbrePreset = async (layerId: string, presetId: string) => {
+    setPresetChoices((previous) => ({ ...previous, [layerId]: presetId }));
+    if (!presetId) return;
+    setPresetBusy(layerId);
+    try {
+      const applied = await window.electronAPI.vstPresetApply(presetId, layerId);
+      if (!applied) throw new Error('O preset não pôde ser aplicado.');
+      setPresetNotice('Preset aplicado.');
+    } catch (error) {
+      setPresetChoices((previous) => ({ ...previous, [layerId]: '' }));
+      setPresetNotice(error instanceof Error ? error.message : 'Falha ao aplicar o preset.');
+    } finally {
+      setPresetBusy(null);
+    }
+  };
+
+  const openSavePresetDialog = (layerId: string, layerName: string) => {
+    const patchName = preset?.name?.trim() || 'Patch';
+    setPresetDialog({ layerId, layerName, name: `${patchName} · ${layerName}` });
+  };
+
+  const confirmSavePreset = async () => {
+    if (!presetDialog) return;
+    const name = presetDialog.name.trim();
+    if (!name) return;
+    setSavingPreset(true);
+    try {
+      const saved = await window.electronAPI.vstPresetSaveSnapshot({
+        layerId: presetDialog.layerId,
+        name,
+      });
+      if (!saved) throw new Error('Não foi possível capturar o som atual.');
+      setPresetChoices((previous) => ({ ...previous, [presetDialog.layerId]: saved.id }));
+      setPresetNotice(`Preset "${saved.name}" salvo.`);
+      setPresetDialog(null);
+    } catch (error) {
+      setPresetNotice(error instanceof Error ? error.message : 'Falha ao salvar o preset.');
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  const exportTimbrePreset = async (layerId: string, name: string) => {
+    setPresetMenu(null);
+    setPresetBusy(layerId);
+    try {
+      const result = await window.electronAPI.vstPresetExport({ layerId, name });
+      if (!result.canceled && result.path) {
+        setPresetNotice(`Preset exportado: ${result.path}`);
+      }
+    } catch (error) {
+      setPresetNotice(error instanceof Error ? error.message : 'Falha ao exportar o preset.');
+    } finally {
+      setPresetBusy(null);
+    }
+  };
+
+  const importTimbrePreset = async (layerId: string) => {
+    setPresetMenu(null);
+    setPresetBusy(layerId);
+    try {
+      const result = await window.electronAPI.vstPresetImport({ layerId });
+      if (result.canceled || !result.preset) return;
+      setPresetChoices((previous) => ({ ...previous, [layerId]: result.preset!.id }));
+      const applied = await window.electronAPI.vstPresetApply(result.preset.id, layerId);
+      if (!applied) throw new Error('Preset importado, mas não pôde ser aplicado.');
+      setPresetNotice(`Preset "${result.preset.name}" importado e aplicado.`);
+    } catch (error) {
+      setPresetNotice(error instanceof Error ? error.message : 'Falha ao importar o preset.');
+    } finally {
+      setPresetBusy(null);
+    }
+  };
+
   return (
     <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}>
       <div
@@ -1086,7 +1218,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           <span
             className="text-[9px] font-semibold"
             style={{ color: '#FFB74D' }}
-            title="Como no MainStage: cada channel strip usa processamento; acima de três o patch pode pesar ao vivo."
+            title="Cada timbre usa processamento; acima de três o patch pode pesar ao vivo."
           >
             ⚠ acima de 3 pode pesar
           </span>
@@ -1361,7 +1493,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             return (
               <section
                 key={layerId}
-                className="flex w-[148px] shrink-0 flex-col rounded-xl p-2"
+                className="flex w-[172px] shrink-0 flex-col rounded-xl p-2"
                 style={{
                   border: `1px solid ${isSelected ? '#0A84FF' : '#3A3A3C'}`,
                   background: 'linear-gradient(to bottom, #232326, #2C2C2E)',
@@ -1372,7 +1504,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   type="button"
                   className="flex w-full items-center gap-1.5 border-b pb-1.5 text-left"
                   style={{ borderColor: '#3A3A3C', cursor: editable ? 'pointer' : 'default' }}
-                  title={editable ? 'Trocar VST deste channel strip' : assignment.name}
+                  title={editable ? 'Trocar VST deste timbre' : assignment.name}
                   onClick={(event) => {
                     event.stopPropagation();
                     setSelectedLayerId(layerId);
@@ -1383,6 +1515,88 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-white">{assignment.name}</span>
                   {editable && <span style={{ color: '#9A9AA0' }}>▾</span>}
                 </button>
+                <select
+                  className="mt-1 w-full rounded px-1 py-1 text-[9px] outline-none disabled:opacity-40"
+                  style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+                  aria-label={`Preset de ${assignment.name}`}
+                  value={presetChoices[layerId] ?? ''}
+                  disabled={!editable || !loaded || presetBusy === layerId}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    event.stopPropagation();
+                    void applyTimbrePreset(layerId, event.target.value);
+                  }}
+                  title={
+                    loaded
+                      ? 'Preset do plugin, snapshots do Preseter e arquivos .vstpreset'
+                      : 'Carregue um instrumento para escolher presets'
+                  }
+                >
+                  <option value="">{presetBusy === layerId ? 'Aplicando…' : '— Preset —'}</option>
+                  {presetGroupsFor(loaded).map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.items.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <div className="relative mt-1 flex gap-1">
+                  <button
+                    className="hw-squarebtn flex-1 px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
+                    style={{ background: '#3A3A3C', color: '#E5E5EA' }}
+                    disabled={!editable || !loaded || presetBusy === layerId}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openSavePresetDialog(layerId, assignment.name);
+                    }}
+                    title="Salvar o som atual como preset do Preseter"
+                  >
+                    💾 Salvar
+                  </button>
+                  <button
+                    className="hw-squarebtn px-1.5 py-1 text-[11px] disabled:opacity-40"
+                    aria-label={`Mais ações de preset de ${assignment.name}`}
+                    aria-expanded={presetMenu === layerId}
+                    disabled={!editable || !loaded || presetBusy === layerId}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPresetMenu((current) => (current === layerId ? null : layerId));
+                    }}
+                    title="Exportar ou importar preset .vstpreset"
+                  >
+                    ⋯
+                  </button>
+                  {presetMenu === layerId && (
+                    <div
+                      className="absolute right-0 top-full z-30 mt-1 w-[152px] rounded-lg p-1 shadow-xl"
+                      style={{ background: '#1F1F21', border: '1px solid #3A3A3C' }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        className="block w-full rounded px-2 py-1.5 text-left text-[10px] text-slate-100 hover:bg-white/10"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void exportTimbrePreset(layerId, presetChoices[layerId]
+                            ? vstPresets.find((item) => item.id === presetChoices[layerId])?.name ?? assignment.name
+                            : assignment.name);
+                        }}
+                      >
+                        Exportar .vstpreset
+                      </button>
+                      <button
+                        className="block w-full rounded px-2 py-1.5 text-left text-[10px] text-slate-100 hover:bg-white/10"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void importTimbrePreset(layerId);
+                        }}
+                      >
+                        Importar .vstpreset
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
                   style={{ background: '#3A3A3C', color: '#E5E5EA' }}
@@ -1561,8 +1775,71 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         />
       )}
       <div className="px-2 py-1 text-[9px]" style={{ borderTop: '1px solid #3A3A3C', color: '#9A9AA0' }}>
-        Nos strips do patch, use a aba Channel Strip do Inspector para as teclas (Low/High Key).
+        Nos timbres do patch, use a aba Timbre do Inspector para as teclas (Low/High Key).
       </div>
+      {presetDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="presentation"
+          onMouseDown={() => setPresetDialog(null)}
+        >
+          <form
+            role="dialog"
+            aria-label={`Salvar preset de ${presetDialog.layerName}`}
+            className="w-full max-w-[340px] rounded-xl p-4 shadow-2xl"
+            style={{ background: '#2C2C2E', border: '1px solid #3A3A3C' }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmSavePreset();
+            }}
+          >
+            <h3 className="text-[13px] font-semibold text-white">Salvar preset</h3>
+            <p className="mt-1 text-[11px]" style={{ color: '#9A9AA0' }}>
+              Timbre: <span className="text-slate-200">{presetDialog.layerName}</span>
+            </p>
+            <input
+              autoFocus
+              value={presetDialog.name}
+              onChange={(event) =>
+                setPresetDialog((previous) =>
+                  previous ? { ...previous, name: event.target.value } : previous
+                )
+              }
+              aria-label="Nome do preset"
+              className="mt-3 w-full rounded-lg px-2 py-1.5 text-[12px] text-white outline-none"
+              style={{ background: '#1F1F21', border: '1px solid #3A3A3C' }}
+              placeholder="Nome do preset"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="hw-squarebtn px-3 py-1 text-[11px]"
+                onClick={() => setPresetDialog(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="rounded px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+                style={{ background: '#0A84FF' }}
+                disabled={savingPreset || !presetDialog.name.trim()}
+              >
+                {savingPreset ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {presetNotice && (
+        <div
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg px-3 py-2 text-[11px] text-white shadow-xl"
+          style={{ background: '#2C2C2E', border: '1px solid #3A3A3C' }}
+          role="status"
+        >
+          {presetNotice}
+        </div>
+      )}
     </aside>
   );
 };

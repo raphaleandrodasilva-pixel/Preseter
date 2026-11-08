@@ -498,11 +498,11 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
-    if (cmd == "setComponentState")
+    if (cmd == "getPresetFile")
     {
         juce::var result;
-        const auto error = engine.setPluginComponentState (message["layerId"].toString(),
-                                                           message["data"].toString(), result);
+        const auto error = engine.savePluginPresetFile (message["layerId"].toString(),
+                                                        message["path"].toString(), result);
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;

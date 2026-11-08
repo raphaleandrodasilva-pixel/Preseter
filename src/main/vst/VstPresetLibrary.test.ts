@@ -13,8 +13,6 @@ function fakeVst(overrides: Partial<Record<keyof VstManager, unknown>> = {}): Vs
     getPluginState: vi.fn(async () => null),
     setPluginProgram: vi.fn(async () => true),
     setPluginPresetFile: vi.fn(async () => true),
-    setComponentState: vi.fn(async () => true),
-    sendProgramChange: vi.fn(async () => true),
     applyRawState: vi.fn(async () => true),
     ...overrides,
   } as unknown as VstManager;
@@ -210,81 +208,37 @@ describe('VstPresetLibrary indexing', () => {
     });
   });
 
-  it('indexes Vital presets from style metadata or the file name', async () => {
-    const plugin = instrument({ id: 'vital', name: 'Vital Synth', path: 'C:/vital.vst3' });
-    writeFile(
-      path.join(documents, 'Vital', 'Leads', 'Saw.vital'),
-      JSON.stringify({ preset_style: 'Lead' })
+  it('drops presets from sources that are no longer supported', () => {
+    fs.writeFileSync(
+      path.join(userData, 'vst-presets.json'),
+      JSON.stringify({
+        version: 1,
+        plugins: {},
+        presets: [
+          { id: 'program:one', source: 'program', pluginId: 'p1' },
+          { id: 'snapshot:one', source: 'snapshot' },
+          { id: 'fxp:one', source: 'fxp' },
+          { id: 'vital:one', source: 'vital' },
+          { id: 'odin:one', source: 'odin' },
+          { id: 'midi-program:one', source: 'midi-program' },
+        ],
+        overrides: {},
+      })
     );
-    writeFile(
-      path.join(documents, 'Vital', 'Pads', 'Warm.vital'),
-      JSON.stringify({ preset_style: 'Pad' })
-    );
-    writeFile(path.join(documents, 'Vital', 'Broken.vital'), '{bad');
 
     const lib = library();
-    await lib.scan([plugin], fakeVst());
-    const presets = lib.listResult().presets.filter((preset) => preset.source === 'vital');
-    expect(presets).toHaveLength(3);
-    expect(presets.find((preset) => preset.name === 'Saw')).toMatchObject({
-      category: 'Synth Lead',
-      collection: 'Leads',
-      pluginId: 'vital',
-    });
-    expect(presets.find((preset) => preset.name === 'Warm')?.category).toBe('Synth Pad');
-    expect(presets.find((preset) => preset.name === 'Broken')?.category).toBe('Synth Lead');
+    expect(lib.listResult().presets.map((preset) => preset.id)).toEqual([
+      'program:one',
+      'snapshot:one',
+    ]);
+    const saved = JSON.parse(fs.readFileSync(path.join(userData, 'vst-presets.json'), 'utf8'));
+    expect(saved.presets.map((preset: { id: string }) => preset.id)).toEqual([
+      'program:one',
+      'snapshot:one',
+    ]);
   });
 
-  it('indexes Surge .fxp patches and setBfree MIDI programs', async () => {
-    const previousProgramData = process.env.PROGRAMDATA;
-    const programData = makeTempDir('preseter-programdata-');
-    process.env.PROGRAMDATA = programData;
-    try {
-      const surge = instrument({ id: 'surge', name: 'Surge XT', path: 'C:/Surge XT.vst3' });
-      const setBfree = instrument({
-        id: 'b3',
-        name: 'setBfree DSP Tonewheel Organ',
-        path: 'http://gareus.org/oss/lv2/b_synth',
-      });
-      const fxp = path.join(programData, 'Surge XT', 'patches_factory', 'Basses', 'Attacky.fxp');
-      const payload = Buffer.from('sub3payload');
-      const header = Buffer.alloc(60);
-      header.write('CcnK', 0, 'ascii');
-      header.write('FPCh', 8, 'ascii');
-      fs.mkdirSync(path.dirname(fxp), { recursive: true });
-      fs.writeFileSync(fxp, Buffer.concat([header, payload]));
-
-      const lib = library();
-      await lib.scan([surge, setBfree], fakeVst());
-      const presets = lib.listResult().presets;
-      const surgePreset = presets.find((preset) => preset.source === 'fxp');
-      expect(surgePreset).toMatchObject({
-        name: 'Attacky',
-        pluginId: 'surge',
-        collection: 'Basses',
-        filePath: fxp,
-      });
-      expect(presets.filter((preset) => preset.source === 'midi-program').length).toBeGreaterThan(0);
-
-      const vst = fakeVst();
-      expect(await lib.applyPreset(surgePreset!.id, 'layer', vst)).toBe(true);
-      expect(vst.setComponentState).toHaveBeenCalledWith(
-        'layer',
-        payload.toString('base64')
-      );
-
-      const midiPreset = presets.find((preset) => preset.source === 'midi-program')!;
-      expect(await lib.applyPreset(midiPreset.id, 'layer', vst)).toBe(true);
-      expect(vst.sendProgramChange).toHaveBeenCalledWith(midiPreset.programIndex);
-    } finally {
-      if (previousProgramData === undefined) delete process.env.PROGRAMDATA;
-      else process.env.PROGRAMDATA = previousProgramData;
-      removeTempDir(programData);
-    }
-  });
-
-  it('hides file presets whose files disappeared but keeps snapshots', async () => {
-    const lib = library();
+  it('hides file presets whose files disappeared but keeps snapshots', async () => {    const lib = library();
     const stateDir = path.join(userData, 'vst-presets');
     const stateFile = path.join(stateDir, 'states', 's.bin');
     writeFile(stateFile);
@@ -349,6 +303,38 @@ describe('VstPresetLibrary snapshots and presets', () => {
     expect(lib.listResult().presets).toHaveLength(1);
   });
 
+  it('imports .vstpreset files into the plugin folder and avoids overwriting', () => {
+    const plugin = instrument({ id: 'p1', name: 'Piano' });
+    const source = path.join(documents, 'externo', 'Warm.vstpreset');
+    writeFile(source);
+
+    const preset = lib.importPresetFile(source, plugin);
+    const destination = path.join(documents, 'VST3 Presets', 'Piano', 'Warm.vstpreset');
+    expect(fs.existsSync(destination)).toBe(true);
+    expect(preset).toMatchObject({
+      name: 'Warm',
+      source: 'vstpreset',
+      pluginId: 'p1',
+      pluginName: 'Piano',
+      filePath: destination,
+      collection: 'Importados',
+    });
+    expect(lib.listResult().presets.some((item) => item.id === preset.id)).toBe(true);
+
+    const second = lib.importPresetFile(source, plugin);
+    expect(second.name).toBe('Warm (2)');
+    expect(second.filePath).toBe(path.join(documents, 'VST3 Presets', 'Piano', 'Warm (2).vstpreset'));
+  });
+
+  it('rejects importing files that are not .vstpreset', () => {
+    const source = path.join(documents, 'externo', 'Patch.fxp');
+    writeFile(source);
+    expect(() => lib.importPresetFile(source, instrument())).toThrow(/vstpreset/);
+    expect(() =>
+      lib.importPresetFile(path.join(documents, 'externo', 'missing.vstpreset'), instrument())
+    ).toThrow(/encontrado/);
+  });
+
   it('uses defaults for snapshot name and category', async () => {
     const plugin = instrument({ id: 'p1', name: 'Unknown Box' });
     const vst = fakeVst({
@@ -385,7 +371,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
   });
 
   async function presetOfType(
-    type: 'program' | 'vstpreset' | 'snapshot' | 'vital'
+    type: 'program' | 'vstpreset' | 'snapshot'
   ): Promise<string> {
     const plugin = instrument({ id: 'p1', name: 'Piano' });
     if (type === 'program') {
@@ -404,12 +390,6 @@ describe('VstPresetLibrary snapshots and presets', () => {
       writeFile(file);
       await lib.scan([plugin], fakeVst());
       return `vstpreset:${file}`;
-    }
-    if (type === 'vital') {
-      const file = path.join(documents, 'Vital', 'V.vital');
-      writeFile(file);
-      await lib.scan([{ ...plugin, id: 'vital', name: 'Vital' }], fakeVst());
-      return `vital:${file}`;
     }
     const preset = await lib.saveSnapshot({
       layerId: 'l',
@@ -440,11 +420,6 @@ describe('VstPresetLibrary snapshots and presets', () => {
 
   it('rejects unsupported or incomplete presets', async () => {
     await expect(lib.applyPreset('missing', 'l', fakeVst())).rejects.toThrow(/encontrado/);
-    const vital = await presetOfType('vital');
-    const vst = fakeVst();
-    expect(await lib.applyPreset(vital, 'l', vst)).toBe(true);
-    expect(vst.setComponentState).toHaveBeenCalledWith('l', expect.any(String));
-
     fs.writeFileSync(
       path.join(userData, 'vst-presets.json'),
       JSON.stringify({
@@ -454,7 +429,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
           { id: 'p:program', source: 'program' },
           { id: 'p:vstpreset', source: 'vstpreset' },
           { id: 'p:snapshot', source: 'snapshot' },
-          { id: 'p:unknown', source: 'other' },
+          { id: 'p:legacy', source: 'fxp', filePath: 'C:/old.fxp' },
         ],
         overrides: {},
       })
@@ -463,7 +438,8 @@ describe('VstPresetLibrary snapshots and presets', () => {
     await expect(lib.applyPreset('p:program', 'l', fakeVst())).rejects.toThrow(/Programa/);
     await expect(lib.applyPreset('p:vstpreset', 'l', fakeVst())).rejects.toThrow(/Arquivo/);
     await expect(lib.applyPreset('p:snapshot', 'l', fakeVst())).rejects.toThrow(/Estado/);
-    expect(await lib.applyPreset('p:unknown', 'l', fakeVst())).toBe(false);
+    // Fontes legadas são descartadas na leitura do índice.
+    await expect(lib.applyPreset('p:legacy', 'l', fakeVst())).rejects.toThrow(/encontrado/);
   });
 
   it('reports a snapshot whose state file is missing or keeps it in sync', async () => {

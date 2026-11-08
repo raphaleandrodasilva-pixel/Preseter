@@ -602,6 +602,21 @@ describe('VstManager plugin operations', () => {
     expect(await manager.setPluginPresetFile('missing', 'x')).toBe(false);
   });
 
+  it('exports the current sound as a .vstpreset', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'getPresetFile') {
+        return { layerId: 'layer-1', bytes: 128, path: 'C:/out.vstpreset' };
+      }
+      return undefined;
+    });
+    expect(await manager.savePresetFile('plugin-1', 'C:/out.vstpreset')).toBe(true);
+    expect(request).toHaveBeenCalledWith('getPresetFile', {
+      layerId: 'layer-1',
+      path: 'C:/out.vstpreset',
+    });
+    expect(await manager.savePresetFile('missing', 'C:/out.vstpreset')).toBe(false);
+  });
+
   it('applies raw states', async () => {
     const { manager, request } = await loadedManager();
     expect(await manager.applyRawState('plugin-1', 'base64')).toBe(true);

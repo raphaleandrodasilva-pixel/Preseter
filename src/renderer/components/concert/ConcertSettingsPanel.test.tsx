@@ -120,7 +120,7 @@ describe('ConcertSettingsPanel', () => {
     fireEvent.click(screen.getByText('Tuning'));
     expect(screen.getByText(/afinação mestre do concert/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Channel Strips'));
+    fireEvent.click(screen.getByText('Timbres'));
     fireEvent.change(screen.getByLabelText('Pan law'), {
       target: { value: '-6c' },
     });

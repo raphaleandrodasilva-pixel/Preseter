@@ -2,9 +2,6 @@
 
 #include "Output.h"
 
-#include <pluginterfaces/vst/ivstcomponent.h>
-#include <public.sdk/source/common/memorystream.h>
-
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -3041,50 +3038,52 @@ juce::String Engine::setPluginState (const juce::String& layerId, const juce::St
     return {};
 }
 
-juce::String Engine::setPluginComponentState (const juce::String& layerId,
-                                               const juce::String& base64,
-                                               juce::var& result)
+juce::String Engine::savePluginPresetFile (const juce::String& layerId,
+                                           const juce::String& filePath,
+                                           juce::var& result)
 {
     auto* plugin = getPlugin (layerId);
     if (plugin == nullptr)
-        return utf8 ("Nenhum instrumento carregado neste layer.");
+        return utf8 ("Nenhum instrumento carregado neste timbre.");
 
-    juce::MemoryOutputStream decoded;
-    if (! juce::Base64::convertFromBase64 (decoded, base64))
-        return utf8 ("Estado nativo inválido (base64).");
+   #if defined (JUCE_PLUGINHOST_VST3) && JUCE_PLUGINHOST_VST3
+    if (plugin->getPluginDescription().pluginFormatName != "VST3")
+        return utf8 ("Exportar .vstpreset só funciona em plugins VST3.");
 
     struct Visitor final : public juce::ExtensionsVisitor
     {
-        Steinberg::Vst::IComponent* component = nullptr;
+        juce::MemoryBlock preset;
+        bool visited = false;
 
         void visitVST3Client (const VST3Client& client) override
         {
-            component = client.getIComponentPtr();
+            visited = true;
+            preset = client.getPreset();
         }
     } visitor;
 
     plugin->getExtensions (visitor);
-    if (visitor.component == nullptr)
-        return utf8 ("O plugin não é VST3; estado nativo não suportado.");
+    if (! visitor.visited)
+        return utf8 ("O plugin não expõe preset VST3.");
+    if (visitor.preset.getSize() == 0)
+        return utf8 ("O plugin não forneceu um preset para exportar.");
 
-    juce::MemoryBlock before;
-    plugin->getStateInformation (before);
+    const juce::File target (filePath);
+    if (! target.getParentDirectory().createDirectory())
+        return utf8 ("Não foi possível criar a pasta do preset.");
 
-    Steinberg::MemoryStream stream (const_cast<void*> (decoded.getData()),
-                                    (Steinberg::TSize) decoded.getDataSize());
-    const auto status = visitor.component->setState (&stream);
-    if (status != Steinberg::kResultOk && status != Steinberg::kResultTrue)
-        return utf8 ("O plugin recusou o estado nativo.");
-
-    juce::MemoryBlock after;
-    plugin->getStateInformation (after);
-    if (before == after)
-        return utf8 ("O plugin ignorou o estado nativo (formato de preset não suportado).");
+    if (! target.replaceWithData (visitor.preset.getData(), visitor.preset.getSize()))
+        return utf8 ("Não foi possível gravar o preset: ") + filePath;
 
     result = Obj()
         .set ("layerId", resolveLayerId (layerId))
-        .set ("bytes", (int) decoded.getDataSize());
+        .set ("bytes", (int) visitor.preset.getSize())
+        .set ("path", target.getFullPathName());
     return {};
+   #else
+    juce::ignoreUnused (filePath, result);
+    return utf8 ("Este build do engine não inclui suporte a VST3.");
+   #endif
 }
 
 void Engine::scanPluginPrograms (const juce::String& idOrPath, Done done)

@@ -83,6 +83,14 @@ export interface ElectronAPI {
   vstPresetSaveSnapshot: (payload: { layerId: string; name: string; category?: string }) => Promise<VstPreset | null>;
   vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) => Promise<VstPreset | null>;
   vstPresetDelete: (presetId: string) => Promise<boolean>;
+  vstPresetExport: (payload: { layerId: string; name?: string }) => Promise<{
+    canceled: boolean;
+    path: string | null;
+  }>;
+  vstPresetImport: (payload: { layerId: string }) => Promise<{
+    canceled: boolean;
+    preset: VstPreset | null;
+  }>;
   engineMidi: (bytes: number[]) => Promise<boolean>;
   enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;

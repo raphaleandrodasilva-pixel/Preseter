@@ -148,7 +148,7 @@ describe('resolveStrips', () => {
       patchId: 'p',
       concertStrips: [strip({ name: '', role: 'bogus' as ConcertStrip['role'] })],
     });
-    expect(result.name).toBe('Channel Strip');
+    expect(result.name).toBe('Timbre');
     expect(result.role).toBe('instrument');
   });
 

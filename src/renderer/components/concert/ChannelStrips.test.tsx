@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { PresetPluginAssignment } from '@shared/types';
 import { ChannelStrips } from './ChannelStrips';
@@ -117,7 +117,78 @@ describe('ChannelStrips — arpejador', () => {
   });
 });
 
-describe('ChannelStrips — aba Aux', () => {  const auxBuses = Array.from({ length: 4 }, () => createBus());
+describe('ChannelStrips — presets do timbre', () => {
+  const basePreset = {
+    pluginId: 'plugin-1',
+    pluginName: 'Piano',
+    pluginPath: 'C:/plugins/piano.vst3',
+    category: 'Piano',
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
+  it('lista programas, snapshots e .vstpreset do plugin e aplica o escolhido', async () => {
+    vi.mocked(window.electronAPI.vstPresetsList).mockResolvedValueOnce({
+      presets: [
+        { ...basePreset, id: 'program:1', name: 'Grand', source: 'program', programIndex: 0 },
+        { ...basePreset, id: 'snapshot:1', name: 'Meu som', source: 'snapshot' },
+        { ...basePreset, id: 'vstpreset:1', name: 'Arquivo', source: 'vstpreset', filePath: 'C:/a.vstpreset' },
+        {
+          ...basePreset,
+          id: 'program:other',
+          name: 'Outro plugin',
+          source: 'program',
+          pluginId: 'other',
+          pluginName: 'Other',
+        },
+      ],
+      status: { scanning: false, scanned: 1, total: 1 },
+    });
+
+    renderStrips();
+    const select = (await screen.findByLabelText('Preset de Piano')) as HTMLSelectElement;
+
+    expect(within(select).getByRole('option', { name: 'Grand' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Meu som' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Arquivo' })).toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: 'Outro plugin' })).not.toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: 'program:1' } });
+    await waitFor(() =>
+      expect(window.electronAPI.vstPresetApply).toHaveBeenCalledWith('program:1', 'layer-1')
+    );
+  });
+
+  it('salva o som atual como preset com o nome informado', async () => {
+    vi.mocked(window.electronAPI.vstPresetSaveSnapshot).mockResolvedValueOnce({
+      ...basePreset,
+      id: 'snapshot:new',
+      name: 'Meu som',
+      source: 'snapshot',
+    });
+
+    renderStrips();
+    fireEvent.click(await screen.findByRole('button', { name: /Salvar/ }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Salvar preset de Piano' });
+    const name = within(dialog).getByLabelText('Nome do preset') as HTMLInputElement;
+    expect(name.value).toBe('Patch 1 · Piano');
+
+    fireEvent.change(name, { target: { value: 'Meu som' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() =>
+      expect(window.electronAPI.vstPresetSaveSnapshot).toHaveBeenCalledWith({
+        layerId: 'layer-1',
+        name: 'Meu som',
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+});
+
+describe('ChannelStrips — aba Aux', () => {
+  const auxBuses = Array.from({ length: 4 }, () => createBus());
 
   it('lists Aux 1–4 and opens the effect picker in an Aux slot', () => {
     renderStrips({

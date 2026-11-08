@@ -1,4 +1,4 @@
-/** Categorias exibidas na Channel Strip Library, na ordem do MainStage. */
+/** Categorias exibidas na biblioteca de presets, na ordem usada pelo Preseter. */
 export const VST_PRESET_CATEGORIES = [
   'Favoritos',
   'Recentes',

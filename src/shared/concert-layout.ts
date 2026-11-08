@@ -1,7 +1,7 @@
 /**
  * Layout por concert (Fase 4.1).
  *
- * No MainStage o layout é do concert; cada patch guarda só os mappings dos
+ * O layout é do concert; cada patch guarda só os mappings dos
  * controles. O arquivo antigo guardava o layout inteiro em cada patch, então
  * estas funções também migram esse formato.
  */

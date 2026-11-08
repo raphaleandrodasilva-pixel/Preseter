@@ -116,7 +116,7 @@ interface ConcertShellProps {  mode: ConcertMode;
 /** Sends do Master do Patch sem valor salvo: todos desligados. */
 const defaultPatchSends = (): number[] => Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB);
 
-/** Escala o workspace do Perform para preencher a tela, como no MainStage. */
+/** Escala o workspace do Perform para preencher a tela. */
 const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: React.ReactNode }> = ({ elements, topInset = 0, children }) => {
   const ref = useRef<HTMLDivElement>(null);
   const width = Math.max(320, ...elements.map((e) => e.x + e.width)) + 32;
@@ -145,7 +145,7 @@ const FitToView: React.FC<{ elements: UiElement[]; topInset?: number; children: 
   );
 };
 
-/** Canvas fixo (MainStage): tamanho lógico constante, escalado para caber no workspace. */
+/** Canvas fixo: tamanho lógico constante, escalado para caber no workspace. */
 const CANVAS_LOGICAL_W = 1000;
 const CANVAS_LOGICAL_H = 625;
 const EDIT_ZOOM_KEY = 'preseter.editZoom.v1';
@@ -1112,7 +1112,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     });
   }, [subscribeMidiLearn]);
 
-  /** Localiza o plugin escaneado que originou um preset da Channel Strip Library. */
+  /** Localiza o plugin escaneado que originou um preset da biblioteca. */
   const findPresetPlugin = (preset: VstPreset): VstPluginInfo | null =>
     scannedPlugins.find(
       (item) =>
@@ -1121,7 +1121,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         item.name === preset.pluginName
     ) ?? null;
 
-  /** Carrega um preset criando um channel strip novo. */
+  /** Carrega um preset criando um timbre novo. */
   const performPresetLoad = async (
     preset: VstPreset,
     patch: Preset
@@ -1137,29 +1137,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const loaded = await loadVstPlugin(plugin.path, layerId, 0, 127);
     if (!loaded) {
       return { ok: false, message: `Não foi possível carregar "${plugin.name}".` };
-    }
-
-    if (preset.source === 'vital') {
-      const assignment: PresetPluginAssignment = {
-        pluginId: plugin.id,
-        layerId,
-        name: plugin.name,
-        path: plugin.path,
-        role: 'instrument',
-        minNote: 0,
-        maxNote: 127,
-      };
-      onDraftChange({
-        ...patch,
-        plugins: [...(patch.plugins ?? []), assignment],
-        updatedAt: Date.now(),
-      });
-      setFocusLayerId(layerId);
-      if (mode !== 'edit') onModeChange('edit');
-      return {
-        ok: true,
-        message: `Channel strip criado. O preset .vital não é aplicável diretamente; use "Salvar som atual".`,
-      };
     }
 
     try {
@@ -1206,19 +1183,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     options: { replacePlugin?: boolean } = {}
   ): Promise<PresetLoadResult> => {
     if (!selectedLayerId) {
-      return { ok: false, message: 'Selecione um channel strip para aplicar o preset.' };
+      return { ok: false, message: 'Selecione um timbre para aplicar o preset.' };
     }
     if (!draft) {
       return { ok: false, message: 'Abra um patch antes de aplicar o preset.' };
     }
     if (!selectedLoadedPlugin) {
-      return { ok: false, message: 'Aguarde o plugin do channel strip terminar de carregar.' };
-    }
-    if (preset.source === 'vital') {
-      return {
-        ok: false,
-        message: 'Presets .vital não são aplicáveis diretamente. Use "Salvar som atual" no Vital.',
-      };
+      return { ok: false, message: 'Aguarde o plugin do timbre terminar de carregar.' };
     }
 
     const samePlugin =
@@ -1243,11 +1214,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         (item, index) => (item.layerId ?? `${draft.id}:layer:${index}`) === selectedLayerId
       );
       if (!assignment) {
-        return { ok: false, message: 'Channel strip não encontrado no patch.' };
+        return { ok: false, message: 'Timbre não encontrado no patch.' };
       }
       const replaced = await replaceLayer(assignment, selectedLayerId, plugin);
       if (!replaced) {
-        return { ok: false, message: 'Não foi possível substituir o VST do channel strip.' };
+        return { ok: false, message: 'Não foi possível substituir o VST do timbre.' };
       }
     }
 

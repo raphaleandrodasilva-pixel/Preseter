@@ -23,7 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'midi', label: 'MIDI' },
   { id: 'timing', label: 'Timing' },
   { id: 'tuning', label: 'Tuning' },
-  { id: 'strips', label: 'Channel Strips' },
+  { id: 'strips', label: 'Timbres' },
   { id: 'metronome', label: 'Metrônomo' },
   { id: 'notes', label: 'Notes' },
 ];

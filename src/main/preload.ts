@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) =>
     ipcRenderer.invoke('vst-presets-update', presetId, patch),
   vstPresetDelete: (presetId: string) => ipcRenderer.invoke('vst-presets-delete', presetId),
+  vstPresetExport: (payload: { layerId: string; name?: string }) =>
+    ipcRenderer.invoke('vst-presets-export', payload),
+  vstPresetImport: (payload: { layerId: string }) =>
+    ipcRenderer.invoke('vst-presets-import', payload),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
   enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>

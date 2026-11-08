@@ -50,15 +50,8 @@ export interface VstPluginInfo {
   programCount?: number;
 }
 
-/** De onde veio um preset de VST exibido na Channel Strip Library. */
-export type VstPresetSource =
-  | 'program'
-  | 'vstpreset'
-  | 'vital'
-  | 'snapshot'
-  | 'midi-program'
-  | 'fxp'
-  | 'odin';
+/** De onde veio um preset de VST exibido nos Timbres. */
+export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot';
 
 /** Preset de um VST3 indexado pelo Preseter. */
 export interface VstPreset {
@@ -72,7 +65,7 @@ export interface VstPreset {
   pluginPath: string;
   /** Programa interno (source = program). */
   programIndex?: number;
-  /** Arquivo .vstpreset ou .vital (source = vstpreset/vital). */
+  /** Arquivo .vstpreset (source = vstpreset). */
   filePath?: string;
   /** Nome do arquivo de estado capturado pelo Preseter (source = snapshot). */
   stateFile?: string;
@@ -174,7 +167,7 @@ export interface PatchMapping {
   respondToHardwareMove?: 'jump' | 'pickup' | 'relative';
 }
 
-/** Set (pasta) — MainStage style */
+/** Set (pasta): agrupamento de patches. */
 export interface PresetSet {
   id: string;
   name: string;
@@ -203,7 +196,7 @@ export interface AudioInputSettings {
   /** Canal de entrada do dispositivo (0 = primeiro). Em estéreo usa também o seguinte. */
   inputChannel: number;
   mode: AudioInputMode;
-  /** Volume inicial 0 dB, como no MainStage. */
+  /** Volume inicial 0 dB. */
   volumeDb: number;
   pan: number;
   muted: boolean;
@@ -228,7 +221,7 @@ export interface AudioInputState extends AudioInputSettings {
   feedback: boolean;
 }
 
-/** Concert — nível raiz estilo MainStage (Concert → Sets → Patches) */
+/** Concert — nível raiz (Concert → Sets → Patches) */
 export interface Concert {
   id: string;
   name: string;
@@ -267,7 +260,7 @@ export interface ConcertMidiSettings {
 
 export interface ConcertChannelStripSettings {
   panLaw: PanLaw;
-  /** Pan law com compensação de ganho (as opções "comp." do MainStage). */
+  /** Pan law com compensação de ganho. */
   panLawCompensated: boolean;
 }
 
@@ -779,7 +772,7 @@ export interface UiElement {
   color: string;
   /** Elementos com o mesmo groupId se deslocam juntos no canvas. */
   groupId?: string;
-  // Seção do palco MainStage (undefined = canvas livre)
+  // Seção do palco (undefined = canvas livre)
   section?: 'instrument' | 'effects' | 'tone' | 'output';
   // Para faders, sliders
   minValue: number;

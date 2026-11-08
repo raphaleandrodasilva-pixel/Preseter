@@ -93,12 +93,20 @@ export function createElectronApiMock(): ElectronApiMock {
     vstCloseEditor: vi.fn(async () => true),
     vstList: vi.fn(async () => []),
     vstLoaded: vi.fn(async () => []),
-    vstPresetsList: vi.fn(async () => ({ presets: [], scannedAt: null })),
-    vstPresetsRescan: vi.fn(async () => ({ presets: [], scannedAt: null })),
+    vstPresetsList: vi.fn(async () => ({
+      presets: [],
+      status: { scanning: false, scanned: 0, total: 0 },
+    })),
+    vstPresetsRescan: vi.fn(async () => ({
+      presets: [],
+      status: { scanning: false, scanned: 0, total: 0 },
+    })),
     vstPresetApply: vi.fn(async () => true),
     vstPresetSaveSnapshot: vi.fn(async () => null),
     vstPresetUpdate: vi.fn(async () => null),
     vstPresetDelete: vi.fn(async () => true),
+    vstPresetExport: vi.fn(async () => ({ canceled: true, path: null })),
+    vstPresetImport: vi.fn(async () => ({ canceled: true, preset: null })),
     engineMidi: vi.fn(async () => true),
     enginePanic: vi.fn(async () => true),
     vstSetLayerRange: vi.fn(async () => ({

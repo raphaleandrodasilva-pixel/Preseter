@@ -27,7 +27,7 @@ interface ModeToolbarProps {
 
 const MODES: { id: ConcertMode; label: string; hint: string }[] = [
   { id: 'layout', label: 'Layout', hint: 'Organizar controles e assignments (Ctrl+1)' },
-  { id: 'edit', label: 'Edit', hint: 'Editar sons, channel strips e mappings (Ctrl+2)' },
+  { id: 'edit', label: 'Edit', hint: 'Editar sons, timbres e mappings (Ctrl+2)' },
   { id: 'perform', label: 'Perform', hint: 'Tocar em tela cheia (Ctrl+3/4)' },
 ];
 

@@ -16,7 +16,7 @@ interface InspectorProps {
   scannedParams: { path: string; params: { id: string; name: string }[] }[];
   selectedElement: UiElement | null;
   selectedLayerId: string | null;
-  /** Plugin carregado no layer selecionado (para a Channel Strip Library). */
+  /** Plugin carregado no timbre selecionado (para a aba Presets). */
   selectedPlugin: VstPluginInfo | null;
   onLoadPresetAsNewStrip: (preset: VstPreset) => Promise<{ ok: boolean; message: string }>;
   onApplyPresetToSelected: (
@@ -175,12 +175,12 @@ export const Inspector: React.FC<InspectorProps> = ({
   }, [learningShortcut, presets, draft, onPatchChange]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'library', label: 'Patch Library' },
-    { id: 'attributes', label: 'Attributes' },
-    { id: 'strip', label: 'Channel Strip' },
-    { id: 'stripLibrary', label: 'Channel Strip Library' },
-    { id: 'mapping', label: 'Mapping' },
-    { id: 'notes', label: 'Notes' },
+    { id: 'library', label: 'Patch' },
+    { id: 'attributes', label: 'Atributos' },
+    { id: 'strip', label: 'Timbre' },
+    { id: 'stripLibrary', label: 'Presets' },
+    { id: 'mapping', label: 'Mapeamento' },
+    { id: 'notes', label: 'Notas' },
     ...(selectedElement ? [{ id: 'control' as Tab, label: `Control: ${selectedElement.label}` }] : []),
   ];
 
@@ -401,8 +401,8 @@ export const Inspector: React.FC<InspectorProps> = ({
           <>
         {tab === 'library' && (
           <div className="text-[11px] text-slate-400">
-            <p className="mb-2">Patch Library — clique para audicionar (carrega o patch). Edição completa do som chega nas próximas fases.</p>
-            <p className="text-slate-600">Use a Patch List à esquerda como library nesta fase visual.</p>
+            <p className="mb-2">Patch — clique para audicionar (carrega o patch). Edição completa do som chega nas próximas fases.</p>
+            <p className="text-slate-600">Use a Patch List à esquerda como biblioteca nesta fase visual.</p>
           </div>
         )}
         {tab === 'stripLibrary' && (
@@ -483,7 +483,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           }));
           const current = layers.find((layer) => layer.layerId === selectedLayerId) ?? layers[0];
           if (!current) {
-            return <div className="text-[11px] text-slate-400">Este patch ainda não tem channel strips. Use “＋ Adicionar layer” no painel Layers.</div>;
+            return <div className="text-[11px] text-slate-400">Este patch ainda não tem timbres. Use “＋ Adicionar layer” no painel Layers.</div>;
           }
           const low = current.assignment.minNote ?? 0;
           const high = current.assignment.maxNote ?? 127;
@@ -494,7 +494,7 @@ export const Inspector: React.FC<InspectorProps> = ({
           };
           return (
             <div className="max-w-xl">
-              <div className="mb-2 text-[11px] text-slate-400">Channel strip: <span className="font-semibold text-white">{current.assignment.name}</span> — Layers e Splits</div>
+              <div className="mb-2 text-[11px] text-slate-400">Timbre: <span className="font-semibold text-white">{current.assignment.name}</span> — Layers e Splits</div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-[11px] text-slate-400">Low Key ({noteLabel(low)})
                   <input className={`${classInput} mt-1`} type="number" min={0} max={127} value={low} onChange={(e) => apply(Number(e.target.value) || 0, high)} />

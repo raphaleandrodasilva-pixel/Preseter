@@ -26,7 +26,7 @@ describe('shared constants', () => {
     expect(CONCERT_FILE_EXTENSION).toBe('.preseter');
   });
 
-  it('lists the MainStage preset categories in order', () => {
+  it('lists the preset categories in order', () => {
     expect(VST_PRESET_CATEGORIES[0]).toBe('Favoritos');
     expect(VST_PRESET_CATEGORIES[1]).toBe('Recentes');
     expect(VST_PRESET_CATEGORIES).toContain('Synth Pad');

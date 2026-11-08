@@ -209,7 +209,7 @@ function effectiveFromInherited(
   const [velocityMin, velocityMax] = normalizeVelocityRange(strip.velocityMin, strip.velocityMax);
   const result: EffectiveStrip = {
     id: strip.id,
-    name: typeof strip.name === 'string' && strip.name !== '' ? strip.name : 'Channel Strip',
+    name: typeof strip.name === 'string' && strip.name !== '' ? strip.name : 'Timbre',
     pluginId: strip.pluginId,
     path: strip.path,
     role: roleOf(strip.role),

@@ -97,11 +97,6 @@ function presetWatchFolders(): string[] {
   return [
     path.join(documents, 'VST3 Presets'),
     path.join(programData, 'VST3 Presets'),
-    path.join(documents, 'Vital'),
-    path.join(documents, 'Surge XT', 'Patches'),
-    path.join(programData, 'Surge XT'),
-    path.join(documents, 'odin2'),
-    path.join(programData, 'odin2'),
   ];
 }
 
@@ -560,6 +555,59 @@ class MainWindow {
 
     ipcMain.handle('vst-presets-delete', (_event, presetId: string) => {
       return this.vstPresetLibrary.deletePreset(presetId);
+    });
+
+    ipcMain.handle(
+      'vst-presets-export',
+      async (_event, payload: { layerId: string; name?: string }) => {
+        const plugin = this.vstManager
+          .getLoadedPlugins()
+          .find((item) => item.layerId === payload.layerId);
+        if (!plugin) throw new Error('O timbre selecionado não está carregado.');
+        if (plugin.format !== 'VST3') {
+          throw new Error('Exportar .vstpreset só funciona em plugins VST3.');
+        }
+
+        const root = path.join(app.getPath('documents'), 'VST3 Presets');
+        fs.mkdirSync(root, { recursive: true });
+        const baseName =
+          (payload.name ?? plugin.name).replace(/[<>:"/\\|?*]/g, '_').trim() || 'Preset';
+        const result = await dialog.showSaveDialog(this.window!, {
+          title: 'Exportar preset VST3',
+          defaultPath: path.join(root, `${baseName}.vstpreset`),
+          filters: [{ name: 'Preset VST3', extensions: ['vstpreset'] }],
+          properties: ['createDirectory', 'showOverwriteConfirmation'],
+        });
+        if (result.canceled || !result.filePath) return { canceled: true, path: null };
+
+        const filePath = result.filePath.toLowerCase().endsWith('.vstpreset')
+          ? result.filePath
+          : `${result.filePath}.vstpreset`;
+        await this.vstManager.savePresetFile(payload.layerId, filePath);
+        return { canceled: false, path: filePath };
+      }
+    );
+
+    ipcMain.handle('vst-presets-import', async (_event, payload: { layerId: string }) => {
+      const plugin = this.vstManager
+        .getLoadedPlugins()
+        .find((item) => item.layerId === payload.layerId);
+      if (!plugin) throw new Error('O timbre selecionado não está carregado.');
+      if (plugin.format !== 'VST3') {
+        throw new Error('Importar .vstpreset só funciona em plugins VST3.');
+      }
+
+      const result = await dialog.showOpenDialog(this.window!, {
+        title: 'Importar preset VST3',
+        properties: ['openFile'],
+        filters: [{ name: 'Preset VST3', extensions: ['vstpreset'] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { canceled: true, preset: null };
+      }
+
+      const preset = this.vstPresetLibrary.importPresetFile(result.filePaths[0], plugin);
+      return { canceled: false, preset };
     });
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {

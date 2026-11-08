@@ -36,8 +36,8 @@ function saveRecent(ids: string[]): void {
 const rowClass = 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px]';
 
 /**
- * Channel Strip Library no estilo do MainStage: navegação em colunas
- * (categoria → coleção/plugin → preset) para os presets do VST do layer atual.
+ * Biblioteca de presets (aba Presets): navegação em colunas
+ * (categoria → coleção/plugin → preset) para os presets do VST do timbre atual.
  */
 export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
   selectedLayerId,
@@ -201,12 +201,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
       void loadPreset(preset);
       return;
     }
-    if (preset.source === 'vital') {
-      void applyToSelected(preset);
-      return;
-    }
     if (!selectedPlugin) {
-      setMessage('Aguarde o plugin do channel strip terminar de carregar.');
+      setMessage('Aguarde o plugin do timbre terminar de carregar.');
       return;
     }
     if (!isSamePlugin(preset, selectedPlugin)) {
@@ -227,7 +223,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
 
   const saveSnapshot = async () => {
     if (!selectedLayerId || !selectedPlugin) {
-      setMessage('Selecione um channel strip carregado para capturar o som atual.');
+      setMessage('Selecione um timbre carregado para capturar o som atual.');
       return;
     }
     const name = snapshotName.trim() || `${selectedPlugin.name} — som atual`;
@@ -257,8 +253,50 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     }
   };
 
-  const toggleFavorite = async (preset: VstPreset) => {
+  const exportCurrentSound = async () => {
+    if (!selectedLayerId || !selectedPlugin) {
+      setMessage('Selecione um timbre carregado para exportar o som atual.');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
     try {
+      const result = await window.electronAPI.vstPresetExport({
+        layerId: selectedLayerId,
+        name: activePreset?.name ?? selectedPlugin.name,
+      });
+      if (!result.canceled && result.path) {
+        setMessage(`Preset exportado: ${result.path}`);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao exportar o preset.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importPresetFile = async () => {
+    if (!selectedLayerId) {
+      setMessage('Selecione um timbre para importar o preset.');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await window.electronAPI.vstPresetImport({ layerId: selectedLayerId });
+      if (result.canceled || !result.preset) return;
+      setSelectedId(result.preset.id);
+      markRecent(result.preset.id);
+      setMessage(`Preset “${result.preset.name}” importado.`);
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao importar o preset.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleFavorite = async (preset: VstPreset) => {    try {
       await window.electronAPI.vstPresetUpdate(preset.id, { favorite: !preset.favorite });
       await refresh();
     } catch (error) {
@@ -311,14 +349,14 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     : selectedPlugin
       ? `Aplicar em: ${selectedPlugin.name}`
       : selectedLayerId
-        ? 'Aguardando o channel strip carregar…'
-        : 'Nenhum channel strip selecionado';
+        ? 'Aguardando o timbre carregar…'
+        : 'Nenhum timbre selecionado';
 
   return (
     <div className="flex h-full min-h-[190px] flex-col">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <div>
-          <div className="text-[12px] font-semibold text-white">Channel Strip Library</div>
+          <div className="text-[12px] font-semibold text-white">Presets</div>
           <div className="text-[10px]" style={{ color: '#8E8E93' }}>{statusText}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -342,13 +380,31 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
             {result.status.scanning ? 'Escaneando…' : 'Reescanear'}
           </button>
           <button
+            className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110 disabled:opacity-50"
+            style={{ borderColor: '#3A3A3C', background: '#242426' }}
+            disabled={busy || !selectedLayerId || !selectedPlugin}
+            onClick={() => void exportCurrentSound()}
+            title="Exportar o som atual como arquivo .vstpreset"
+          >
+            Exportar
+          </button>
+          <button
+            className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110 disabled:opacity-50"
+            style={{ borderColor: '#3A3A3C', background: '#242426' }}
+            disabled={busy || !selectedLayerId || !selectedPlugin}
+            onClick={() => void importPresetFile()}
+            title="Importar um arquivo .vstpreset para o plugin do timbre"
+          >
+            Importar
+          </button>
+          <button
             className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
             style={{ background: '#0A84FF' }}
             disabled={busy || !selectedLayerId || !selectedPlugin}
             onClick={() => void saveSnapshot()}
             title="Salvar o som atual como preset do Preseter"
           >
-            Salvar som atual
+            Salvar preset
           </button>
         </div>
       </div>
@@ -390,12 +446,12 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
 
       {selectedLayerId ? (
         <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
-          Clique em um preset para aplicá-lo ao channel strip selecionado. Use <strong>+</strong> para criar um channel strip novo.
+          Clique em um preset para aplicá-lo ao timbre selecionado. Use <strong>+</strong> para criar um timbre novo.
           {!allPlugins && ' Para presets de outro VST, use “Todos os plugins”.'}
         </div>
       ) : (
         <div className="mb-2 rounded-lg border px-2 py-1.5 text-[10px]" style={{ borderColor: '#2F5E99', background: '#14243A', color: '#CFE5FF' }}>
-          Selecione um channel strip para aplicar o preset nele. Sem seleção, o clique cria um novo channel strip.
+          Selecione um timbre para aplicar o preset nele. Sem seleção, o clique cria um novo timbre.
         </div>
       )}
 
@@ -475,7 +531,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               {result.status.scanning
                 ? 'Escaneando presets…'
                 : selectedPlugin && pluginPresets.length === 0
-                  ? 'Este plugin não expõe presets ao host. Use “Salvar som atual”.'
+                  ? 'Este plugin não expõe presets ao host. Use “Salvar preset”.'
                   : pluginPresets.length === 0
                     ? 'Nenhum preset indexado ainda.'
                     : 'Nenhum preset nesta categoria/coleção.'}
@@ -494,8 +550,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
                 onClick={() => handlePresetClick(preset)}
                 title={
                   selectedLayerId
-                    ? `Aplicar “${preset.name}” ao channel strip selecionado`
-                    : `Criar um novo channel strip com “${preset.name}”`
+                    ? `Aplicar “${preset.name}” ao timbre selecionado`
+                    : `Criar um novo timbre com “${preset.name}”`
                 }
               >
                 {preset.name}
@@ -508,7 +564,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
                 className="px-1 text-[11px] disabled:opacity-40"
                 style={{ color: '#64D2FF' }}
                 disabled={busy}
-                title="Criar novo channel strip com este preset"
+                title="Criar novo timbre com este preset"
               >
                 ＋
               </button>

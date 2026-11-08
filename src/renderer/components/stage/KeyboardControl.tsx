@@ -36,7 +36,7 @@ export interface KeyboardControlProps {
   onPitchBend?: (value: number) => void;
   /** 0..1 */
   onModulation?: (value: number) => void;
-  /** Layers de channel strips exibidas acima do teclado (MainStage). */
+  /** Camadas de timbres exibidas acima do teclado. */
   zones?: KeyboardZone[];
   selectedZoneId?: string | null;
   onZoneClick?: (id: string) => void;

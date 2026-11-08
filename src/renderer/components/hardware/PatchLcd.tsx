@@ -6,7 +6,7 @@ interface PatchLcdProps {
   tempo: number;
 }
 
-/** Display central da barra de ferramentas (estilo MainStage: tela escura com texto claro). */
+/** Display central da barra de ferramentas (tela escura com texto claro). */
 export const PatchLcd: React.FC<PatchLcdProps> = ({ programNumber, patchName, tempo }) => (
   <div
     className="hw-lcd flex items-center gap-3 px-3 py-1.5"

@@ -9,7 +9,7 @@ import type { AudioInputSettings, AudioInputState } from './types';
 
 export const MAX_AUDIO_INPUT_CHANNELS = 16;
 
-/** Valores iniciais iguais ao MainStage: volume 0 dB e proteção ligada. */
+/** Valores iniciais: volume 0 dB e proteção ligada. */
 export function defaultAudioInput(): AudioInputSettings {
   return {
     enabled: true,

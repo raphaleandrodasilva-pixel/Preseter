@@ -20,7 +20,7 @@ export interface DefaultKeyboardLayoutOptions {
 }
 
 /**
- * Layout padrão no estilo MainStage, na disposição usada pelo app:
+ * Layout padrão do Preseter, na disposição usada pelo app:
  * Volume + Modulação + MIDI + nome do patch no topo esquerdo, Aux 1–4 à
  * direita, teclado centralizado embaixo e só Expression/Sustain como pedais.
  * O Volume é um fader; não existe pedal de volume duplicado.

@@ -7,7 +7,7 @@ import {
 } from './audio-input';
 
 describe('defaultAudioInput', () => {
-  it('returns the MainStage-like default strip', () => {
+  it('returns the default input strip', () => {
     expect(defaultAudioInput()).toEqual({
       enabled: true,
       inputChannel: 0,

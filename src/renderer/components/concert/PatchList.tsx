@@ -51,7 +51,7 @@ function patchesOf(presets: Preset[], setId: string | undefined): Preset[] {
     .sort((a, b) => (a.setOrder ?? a.programNumber) - (b.setOrder ?? b.programNumber));
 }
 
-/** Lê a lista de patches arrastados (MainStage permite arrastar a seleção inteira). */
+/** Lê a lista de patches arrastados (a seleção inteira pode ser arrastada). */
 function draggedPatchIds(e: React.DragEvent): string[] | null {
   const raw = e.dataTransfer.getData('application/x-preseter-patches');
   if (!raw) return null;
@@ -106,7 +106,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   /** Último item clicado, base do Shift-clique. */
   const anchorRef = useRef<string | null>(null);
-  /** Sentido do último movimento, usado pelo "Mover novamente" do MainStage. */
+  /** Sentido do último movimento, usado por "Mover novamente". */
   const [moveDirection, setMoveDirection] = useState<1 | -1>(1);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLElement>(null);
@@ -128,7 +128,7 @@ export const PatchList: React.FC<PatchListProps> = ({
     });
   }, [presets]);
 
-  // O patch carregado entra na seleção, como no MainStage.
+  // O patch carregado entra na seleção.
   useEffect(() => {
     if (!currentPresetId) return;
     setSelectedIds((previous) =>
@@ -251,7 +251,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   };
 
   /**
-   * Move Again do MainStage: repete o último movimento (uma posição por vez,
+   * Move Again: repete o último movimento (uma posição por vez,
    * no mesmo sentido) para levar a seleção várias casas sem arrastar de novo.
    */
   const moveAgain = () => {
@@ -335,11 +335,11 @@ export const PatchList: React.FC<PatchListProps> = ({
     if (!e.altKey && targetIndex !== -1 && firstIndex !== -1) {
       setMoveDirection(targetIndex > firstIndex ? 1 : -1);
     }
-    // Option-arrastar copia, como no MainStage.
+    // Option-arrastar copia.
     void adopt(onMovePatches(ids, setId, target?.id ?? null, e.altKey));
   };
 
-  // Seleção rápida estilo MainStage: F foca, número ou nome seleciona
+  // Seleção rápida: F foca, número ou nome seleciona
   const handleSearchKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const q = query.trim().toLowerCase();

@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(98);
+    expect(handlers.size).toBe(100);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -38,6 +38,8 @@ describe('main process IPC wiring', () => {
       'vst-hide-plugin',
       'vst-show-plugin',
       'vst-presets-list',
+      'vst-presets-export',
+      'vst-presets-import',
       'engine-midi',
       'audio-settings-get',
       'preferences-get',
