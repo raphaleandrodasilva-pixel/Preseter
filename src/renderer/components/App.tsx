@@ -24,6 +24,7 @@ const AppContent: React.FC = () => {
     templatePickerOpen,
     chooseTemplate,
     cancelTemplatePicker,
+    openConcertFile,
     savePreset,
     loadPreset,
     createPreset,
@@ -272,6 +273,7 @@ const AppContent: React.FC = () => {
         <TemplatePicker
           templates={concertTemplates}
           onPick={(templateId) => void chooseTemplate(templateId)}
+          onOpenFile={() => void openConcertFile()}
           onCancel={cancelTemplatePicker}
         />
       )}

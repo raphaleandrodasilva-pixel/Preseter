@@ -84,7 +84,12 @@ describe('TemplatePicker', () => {
   it('lists templates and picks one', () => {
     const onPick = vi.fn();
     render(
-      <TemplatePicker templates={templates} onPick={onPick} onCancel={vi.fn()} />
+      <TemplatePicker
+        templates={templates}
+        onPick={onPick}
+        onOpenFile={vi.fn()}
+        onCancel={vi.fn()}
+      />
     );
     expect(screen.getByRole('dialog', { name: 'Escolha um template' })).toBeInTheDocument();
     expect(screen.getByText('2 template(s)')).toBeInTheDocument();
@@ -94,10 +99,29 @@ describe('TemplatePicker', () => {
     expect(onPick).toHaveBeenCalledWith('band');
   });
 
+  it('opens an existing .preseter file from the template page', () => {
+    const onOpenFile = vi.fn();
+    render(
+      <TemplatePicker
+        templates={templates}
+        onPick={vi.fn()}
+        onOpenFile={onOpenFile}
+        onCancel={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('Abrir arquivo…'));
+    expect(onOpenFile).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels from the footer, close button and Escape', () => {
     const onCancel = vi.fn();
     render(
-      <TemplatePicker templates={templates} onPick={vi.fn()} onCancel={onCancel} />
+      <TemplatePicker
+        templates={templates}
+        onPick={vi.fn()}
+        onOpenFile={vi.fn()}
+        onCancel={onCancel}
+      />
     );
     fireEvent.click(screen.getByText('Cancelar'));
     fireEvent.click(screen.getByTitle('Fechar (Esc)'));

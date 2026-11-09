@@ -106,7 +106,14 @@ export class EngineProcess extends EventEmitter {
       );
     }
 
-    const child = spawn(enginePath, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    const engineEnv = process.platform === 'win32'
+      ? { ...process.env, __COMPAT_LAYER: 'DPIUNAWARE' }
+      : process.env;
+    const child = spawn(enginePath, [], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: engineEnv,
+    });
     this.child = child;
     this.intentionalStop = false;
 

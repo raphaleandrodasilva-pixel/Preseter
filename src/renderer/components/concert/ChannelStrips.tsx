@@ -261,6 +261,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  /** Último layer recebido por `focusLayerId`; evita reaplicar o foco a cada render. */
+  const focusedLayerRef = useRef<string | null>(null);
   const [view, setView] = useState<'layers' | 'aux'>('layers');
   const [highlightedAux, setHighlightedAux] = useState<number | null>(null);
   const [arpLayer, setArpLayer] = useState<{ layerId: string; name: string; settings: ArpSettings } | null>(null);
@@ -366,7 +368,13 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   }, [selectedLayerId, layers]);
 
   useEffect(() => {
-    if (focusLayerId && layers.some((layer) => layer.layerId === focusLayerId)) {
+    if (!focusLayerId) {
+      focusedLayerRef.current = null;
+      return;
+    }
+    if (focusedLayerRef.current === focusLayerId) return;
+    if (layers.some((layer) => layer.layerId === focusLayerId)) {
+      focusedLayerRef.current = focusLayerId;
       setSelectedLayerId(focusLayerId);
     }
   }, [focusLayerId, layers]);
@@ -1115,6 +1123,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   };
 
   const applyTimbrePreset = async (layerId: string, presetId: string) => {
+    setSelectedLayerId(layerId);
     setPresetChoices((previous) => ({ ...previous, [layerId]: presetId }));
     if (!presetId) return;
     setPresetBusy(layerId);
@@ -1499,6 +1508,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   background: 'linear-gradient(to bottom, #232326, #2C2C2E)',
                 }}
                 onClick={() => setSelectedLayerId(layerId)}
+                onMouseDownCapture={() => setSelectedLayerId(layerId)}
+                onFocusCapture={() => setSelectedLayerId(layerId)}
               >
                 <button
                   type="button"
@@ -1602,7 +1613,11 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   style={{ background: '#3A3A3C', color: '#E5E5EA' }}
                   disabled={!loaded}
                   title="Abrir/fechar a janela do plugin (V)"
-                  onClick={(event) => { event.stopPropagation(); onOpenEditor?.(layerId); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedLayerId(layerId);
+                    onOpenEditor?.(layerId);
+                  }}
                 >
                   Editor (V)
                 </button>

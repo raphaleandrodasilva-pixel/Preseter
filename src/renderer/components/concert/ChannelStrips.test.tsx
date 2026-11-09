@@ -117,6 +117,60 @@ describe('ChannelStrips — arpejador', () => {
   });
 });
 
+describe('ChannelStrips — timbre ativo', () => {
+  it('seleciona o timbre ao clicar no Editor, Preset ou qualquer parte do strip', async () => {
+    const second = {
+      ...assignment,
+      pluginId: 'plugin-2',
+      layerId: 'layer-2',
+      name: 'Second',
+    };
+    const onOpenEditor = vi.fn();
+    const onSelectedLayerChange = vi.fn();
+    renderStrips({
+      preset: createPreset({ plugins: [assignment, second] }),
+      loadedPlugins: [
+        createPluginInfo({ id: 'plugin-1', layerId: 'layer-1', name: 'Piano' }),
+        createPluginInfo({ id: 'plugin-2', layerId: 'layer-2', name: 'Second' }),
+      ],
+      onOpenEditor,
+      onSelectedLayerChange,
+    });
+
+    const editors = screen.getAllByRole('button', { name: 'Editor (V)' });
+    fireEvent.click(editors[1]);
+
+    expect(onOpenEditor).toHaveBeenCalledWith('layer-2');
+    await waitFor(() => expect(onSelectedLayerChange).toHaveBeenLastCalledWith('layer-2'));
+
+    fireEvent.change(screen.getByLabelText('Preset de Piano'), { target: { value: '' } });
+    await waitFor(() => expect(onSelectedLayerChange).toHaveBeenLastCalledWith('layer-1'));
+  });
+
+  it('mantém o timbre clicado ativo mesmo com um layer recém-criado em foco', async () => {
+    const second = {
+      ...assignment,
+      pluginId: 'plugin-2',
+      layerId: 'layer-2',
+      name: 'Second',
+    };
+    const onSelectedLayerChange = vi.fn();
+    renderStrips({
+      preset: createPreset({ plugins: [assignment, second] }),
+      loadedPlugins: [
+        createPluginInfo({ id: 'plugin-1', layerId: 'layer-1', name: 'Piano' }),
+        createPluginInfo({ id: 'plugin-2', layerId: 'layer-2', name: 'Second' }),
+      ],
+      focusLayerId: 'layer-2',
+      onSelectedLayerChange,
+    });
+
+    await waitFor(() => expect(onSelectedLayerChange).toHaveBeenLastCalledWith('layer-2'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Editor (V)' })[0]);
+    await waitFor(() => expect(onSelectedLayerChange).toHaveBeenLastCalledWith('layer-1'));
+  });
+});
+
 describe('ChannelStrips — presets do timbre', () => {
   const basePreset = {
     pluginId: 'plugin-1',

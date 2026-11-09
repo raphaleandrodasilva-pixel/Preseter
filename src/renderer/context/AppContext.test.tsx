@@ -543,6 +543,21 @@ describe('AppProvider main-process events', () => {
     expect(latest.concertPath).toBe('C:/saved.preseter');
   });
 
+  it('opens a concert file from the template page', async () => {
+    vi.mocked(window.electronAPI.concertOpen).mockResolvedValue(
+      createConcertState({ name: 'Arquivo aberto' })
+    );
+    await renderProvider();
+    expect(latest.templatePickerOpen).toBe(true);
+
+    await act(async () => {
+      await latest.openConcertFile();
+    });
+
+    expect(latest.concertName).toBe('Arquivo aberto');
+    expect(latest.templatePickerOpen).toBe(false);
+  });
+
   it('delegates the menu save to the patch handler when registered', async () => {
     vi.mocked(window.electronAPI.concertSave).mockClear();
     vi.mocked(window.electronAPI.concertSave).mockResolvedValue(

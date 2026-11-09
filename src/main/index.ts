@@ -389,6 +389,9 @@ class MainWindow {
       },
       title: 'Preseter - Live Performance',
     });
+    // O app abre sempre maximizado; os bounds salvos valem para quando o
+    // usuário restaurar a janela.
+    this.window.maximize();
 
     // Carregar a interface
     const startUrl =

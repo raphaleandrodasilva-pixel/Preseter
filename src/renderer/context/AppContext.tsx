@@ -111,6 +111,8 @@ export interface AppContextType {
   chooseTemplate: (templateId: string) => Promise<void>;
   /** Fecha o seletor de templates sem criar nada. */
   cancelTemplatePicker: () => void;
+  /** Abre um concert .preseter pela página de templates. */
+  openConcertFile: () => Promise<void>;
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
@@ -448,6 +450,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
         setPreferences(prefs);
+        try {
+          setConcertTemplates(await window.electronAPI.concertTemplates());
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível listar os templates:', error);
+        }
+        // O app não cria mais um timbre/patch sozinho: entra pela página de
+        // templates, onde também é possível abrir um .preseter existente.
+        setTemplatePickerOpen(true);
         concertReady.current = true;
         window.electronAPI.startupProgress(95, 'Finalizando…');
       } catch (error) {
@@ -986,6 +996,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const cancelTemplatePicker = useCallback(() => setTemplatePickerOpen(false), []);
+
+  const openConcertFile = useCallback(async () => {
+    setConcertError(null);
+    try {
+      const state = await window.electronAPI.concertOpen();
+      if (!state) return;
+      setTemplatePickerOpen(false);
+      await openConcertState(state);
+    } catch (error) {
+      setConcertError(error instanceof Error ? error.message : 'Falha ao abrir o concert.');
+    }
+  }, [openConcertState]);
 
   useEffect(() => {
     window.electronAPI.onMenuAction((action) => void menuHandlerRef.current(action));
@@ -1956,6 +1978,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     templatePickerOpen,
     chooseTemplate,
     cancelTemplatePicker,
+    openConcertFile,
     midiDevices,
     midiError,
     midiLastMessage,
