@@ -187,6 +187,7 @@ describe('ChannelStrips — presets do timbre', () => {
         { ...basePreset, id: 'program:1', name: 'Grand', source: 'program', programIndex: 0 },
         { ...basePreset, id: 'snapshot:1', name: 'Meu som', source: 'snapshot' },
         { ...basePreset, id: 'vstpreset:1', name: 'Arquivo', source: 'vstpreset', filePath: 'C:/a.vstpreset' },
+        { ...basePreset, id: 'fxp:1', name: 'Fxp antigo', source: 'fxp', filePath: 'C:/a.fxp' },
         {
           ...basePreset,
           id: 'program:other',
@@ -205,11 +206,41 @@ describe('ChannelStrips — presets do timbre', () => {
     expect(within(select).getByRole('option', { name: 'Grand' })).toBeInTheDocument();
     expect(within(select).getByRole('option', { name: 'Meu som' })).toBeInTheDocument();
     expect(within(select).getByRole('option', { name: 'Arquivo' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Fxp antigo' })).toBeInTheDocument();
     expect(within(select).queryByRole('option', { name: 'Outro plugin' })).not.toBeInTheDocument();
 
     fireEvent.change(select, { target: { value: 'program:1' } });
     await waitFor(() =>
       expect(window.electronAPI.vstPresetApply).toHaveBeenCalledWith('program:1', 'layer-1')
+    );
+  });
+
+  it('gera um .fxp do som atual pelo menu do Timbre', async () => {
+    vi.mocked(window.electronAPI.vstPresetsGenerateFxp).mockResolvedValueOnce({
+      folder: 'C:/Presets/FSVR',
+      files: ['C:/Presets/FSVR/Teste.fxp'],
+      count: 1,
+    });
+
+    renderStrips({
+      loadedPlugins: [
+        createPluginInfo({ id: 'plugin-1', layerId: 'layer-1', name: 'Piano', format: 'VST' }),
+      ],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Mais ações de preset de Piano' }));
+    fireEvent.click(screen.getByText('Gerar .fxp…'));
+
+    const dialog = screen.getByRole('dialog', { name: 'Gerar .fxp de Piano' });
+    expect(within(dialog).getByLabelText('Nome do arquivo .fxp')).toHaveValue('Patch 1 · Piano');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Gerar' }));
+
+    await waitFor(() =>
+      expect(window.electronAPI.vstPresetsGenerateFxp).toHaveBeenCalledWith({
+        layerId: 'layer-1',
+        mode: 'current',
+        name: 'Patch 1 · Piano',
+      })
     );
   });
 

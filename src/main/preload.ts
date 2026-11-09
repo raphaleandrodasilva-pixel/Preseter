@@ -72,6 +72,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-presets-export', payload),
   vstPresetImport: (payload: { layerId: string }) =>
     ipcRenderer.invoke('vst-presets-import', payload),
+  vstPresetsGenerateFxp: (payload: { layerId: string; mode: 'current' | 'all'; name?: string }) =>
+    ipcRenderer.invoke('vst-presets-generate-fxp', payload),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
   enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>

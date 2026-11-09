@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstring>
 #include <optional>
 
 namespace preseter
@@ -3083,6 +3084,103 @@ juce::String Engine::savePluginPresetFile (const juce::String& layerId,
    #else
     juce::ignoreUnused (filePath, result);
     return utf8 ("Este build do engine não inclui suporte a VST3.");
+   #endif
+}
+
+juce::String Engine::saveVst2FxpFile (const juce::String& layerId,
+                                      const juce::String& filePath,
+                                      juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste timbre.");
+
+   #if defined (JUCE_PLUGINHOST_VST) && JUCE_PLUGINHOST_VST
+    if (plugin->getPluginDescription().pluginFormatName != "VST")
+        return utf8 ("Exportar .fxp só funciona em plugins VST2.");
+
+    juce::MemoryBlock fxp;
+    if (! juce::VSTPluginFormat::saveToFXBFile (plugin, fxp, false) || fxp.getSize() == 0)
+        return utf8 ("O plugin não expôs um estado .fxp.");
+
+    const juce::File target (filePath);
+    if (! target.getParentDirectory().createDirectory())
+        return utf8 ("Não foi possível criar a pasta do preset.");
+    if (! target.replaceWithData (fxp.getData(), fxp.getSize()))
+        return utf8 ("Não foi possível gravar o preset: ") + filePath;
+
+    result = Obj()
+        .set ("layerId", resolveLayerId (layerId))
+        .set ("bytes", (int) fxp.getSize())
+        .set ("path", target.getFullPathName());
+    return {};
+   #else
+    juce::ignoreUnused (filePath, result);
+    return utf8 ("Este build do engine não inclui suporte a VST2.");
+   #endif
+}
+
+juce::String Engine::setVst2FxpFile (const juce::String& layerId,
+                                     const juce::String& filePath,
+                                     juce::var& result)
+{
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return utf8 ("Nenhum instrumento carregado neste timbre.");
+
+   #if defined (JUCE_PLUGINHOST_VST) && JUCE_PLUGINHOST_VST
+    if (plugin->getPluginDescription().pluginFormatName != "VST")
+        return utf8 ("Presets .fxp só podem ser aplicados em plugins VST2.");
+
+    const juce::File file (filePath);
+    if (! file.existsAsFile())
+        return utf8 ("Arquivo .fxp não encontrado: ") + filePath;
+
+    juce::MemoryBlock data;
+    if (! file.loadFileAsData (data) || data.getSize() < 60)
+        return utf8 ("Arquivo .fxp inválido.");
+
+    auto* bytes = static_cast<const juce::uint8*> (data.getData());
+    if (std::memcmp (bytes, "CcnK", 4) != 0)
+        return utf8 ("Arquivo .fxp inválido (cabeçalho).");
+
+    const auto readBe32 = [] (const juce::uint8* p)
+    {
+        return ((juce::uint32) p[0] << 24) | ((juce::uint32) p[1] << 16)
+             | ((juce::uint32) p[2] << 8) | (juce::uint32) p[3];
+    };
+
+    const auto fxpId = readBe32 (bytes + 16);
+    const auto pluginId = (juce::uint32) plugin->getPluginDescription().uniqueId;
+    if (pluginId != 0 && fxpId != pluginId)
+        return utf8 ("Este .fxp pertence a outro plugin (ID não confere).");
+
+    const auto magic = juce::String::fromUTF8 (reinterpret_cast<const char*> (bytes + 8), 4);
+    if (magic == "FxBk")
+        return utf8 ("Bancos .fxb não são suportados; use um .fxp.");
+
+    if (magic == "FPCh")
+    {
+        const auto chunkSize = (int) readBe32 (bytes + 56);
+        if (chunkSize <= 0 || (size_t) chunkSize + 60 > data.getSize())
+            return utf8 ("O chunk do .fxp está inválido.");
+        if (! juce::VSTPluginFormat::setChunkData (plugin, bytes + 60, chunkSize, true))
+            return utf8 ("O plugin recusou o preset .fxp.");
+    }
+    else if (magic == "FxCk")
+    {
+        plugin->setStateInformation (data.getData(), (int) data.getSize());
+    }
+    else
+    {
+        return utf8 ("Formato .fxp não suportado.");
+    }
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+   #else
+    juce::ignoreUnused (filePath, result);
+    return utf8 ("Este build do engine não inclui suporte a VST2.");
    #endif
 }
 

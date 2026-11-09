@@ -617,6 +617,30 @@ describe('VstManager plugin operations', () => {
     expect(await manager.savePresetFile('missing', 'C:/out.vstpreset')).toBe(false);
   });
 
+  it('exports and applies VST2 .fxp presets', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'saveVst2Fxp') {
+        return { layerId: 'layer-1', bytes: 256, path: 'C:/out.fxp' };
+      }
+      if (command === 'setVst2FxpFile') return enginePlugin({ program: 2 });
+      return undefined;
+    });
+
+    expect(await manager.saveVst2FxpFile('plugin-1', 'C:/out.fxp')).toBe(true);
+    expect(request).toHaveBeenCalledWith('saveVst2Fxp', {
+      layerId: 'layer-1',
+      path: 'C:/out.fxp',
+    });
+
+    expect(await manager.setVst2FxpFile('plugin-1', 'C:/out.fxp')).toBe(true);
+    expect(request).toHaveBeenCalledWith('setVst2FxpFile', {
+      layerId: 'layer-1',
+      path: 'C:/out.fxp',
+    });
+    expect(await manager.saveVst2FxpFile('missing', 'C:/out.fxp')).toBe(false);
+    expect(await manager.setVst2FxpFile('missing', 'C:/out.fxp')).toBe(false);
+  });
+
   it('applies raw states', async () => {
     const { manager, request } = await loadedManager();
     expect(await manager.applyRawState('plugin-1', 'base64')).toBe(true);

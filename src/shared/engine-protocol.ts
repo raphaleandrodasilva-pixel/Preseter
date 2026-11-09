@@ -261,6 +261,13 @@ export interface EngineCommands {
     args: { layerId?: string; path: string };
     result: { layerId: string; bytes: number; path: string };
   };
+  /** Exporta o som atual de um plugin VST2 como `.fxp`. */
+  saveVst2Fxp: {
+    args: { layerId?: string; path: string };
+    result: { layerId: string; bytes: number; path: string };
+  };
+  /** Aplica um `.fxp` num plugin VST2 carregado. */
+  setVst2FxpFile: { args: { layerId?: string; path: string }; result: EngineLoadedPlugin };
   /** Abre (ou traz para a frente) a janela de edição do plugin. */
   openEditor: { args: { layerId?: string; slot?: number }; result: EngineEditorState };
   /** Fecha a janela de edição do plugin. */

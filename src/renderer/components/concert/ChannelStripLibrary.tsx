@@ -275,8 +275,31 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     }
   };
 
-  const importPresetFile = async () => {
-    if (!selectedLayerId) {
+  const generateFxp = async () => {
+    if (!selectedLayerId || !selectedPlugin) {
+      setMessage('Selecione um timbre carregado para gerar um .fxp.');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await window.electronAPI.vstPresetsGenerateFxp({
+        layerId: selectedLayerId,
+        mode: 'current',
+        name: activePreset?.name ?? selectedPlugin.name,
+      });
+      setMessage(
+        `${result.count} .fxp gerado(s) em ${result.folder}`
+      );
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao gerar o .fxp.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importPresetFile = async () => {    if (!selectedLayerId) {
       setMessage('Selecione um timbre para importar o preset.');
       return;
     }
@@ -396,6 +419,15 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
             title="Importar um arquivo .vstpreset para o plugin do timbre"
           >
             Importar
+          </button>
+          <button
+            className="rounded-lg border px-2 py-1 text-[10px] text-slate-200 hover:brightness-110 disabled:opacity-50"
+            style={{ borderColor: '#3A3A3C', background: '#242426' }}
+            disabled={busy || !selectedLayerId || !selectedPlugin || selectedPlugin.format !== 'VST'}
+            onClick={() => void generateFxp()}
+            title="Gerar um .fxp do som atual (plugin VST2)"
+          >
+            Gerar .fxp
           </button>
           <button
             className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white hover:brightness-110 disabled:opacity-50"

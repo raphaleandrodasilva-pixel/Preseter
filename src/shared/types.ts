@@ -51,7 +51,7 @@ export interface VstPluginInfo {
 }
 
 /** De onde veio um preset de VST exibido nos Timbres. */
-export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot';
+export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot' | 'fxp';
 
 /** Preset de um VST3 indexado pelo Preseter. */
 export interface VstPreset {
@@ -65,7 +65,7 @@ export interface VstPreset {
   pluginPath: string;
   /** Programa interno (source = program). */
   programIndex?: number;
-  /** Arquivo .vstpreset (source = vstpreset). */
+  /** Arquivo .vstpreset ou .fxp (source = vstpreset/fxp). */
   filePath?: string;
   /** Nome do arquivo de estado capturado pelo Preseter (source = snapshot). */
   stateFile?: string;

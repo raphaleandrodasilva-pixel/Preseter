@@ -11,7 +11,7 @@ import type {
 import type { VstManager } from './VstManager';
 
 /** Fontes de preset aceitas pela biblioteca. */
-const SUPPORTED_SOURCES = new Set(['program', 'vstpreset', 'snapshot']);
+const SUPPORTED_SOURCES = new Set(['program', 'vstpreset', 'snapshot', 'fxp']);
 
 interface CachedPlugin {
   id: string;
@@ -157,7 +157,7 @@ export class VstPresetLibrary extends EventEmitter {
       this.index = {
         version: 1,
         plugins: raw.plugins ?? {},
-        // Migração: descarta fontes que deixaram de ser suportadas (fxp, vital, odin, midi-program).
+        // Migração: descarta apenas fontes que não existem mais (vital, odin, midi-program).
         presets: presets.filter((preset) => SUPPORTED_SOURCES.has(preset.source)),
         overrides: raw.overrides ?? {},
         lastScan: raw.lastScan,
@@ -197,7 +197,9 @@ export class VstPresetLibrary extends EventEmitter {
       presets: this.index.presets
         .filter((preset) => {
           if (preset.source === 'snapshot') return true;
-          if (preset.source === 'vstpreset') return fileExists(preset.filePath);
+          if (preset.source === 'vstpreset' || preset.source === 'fxp') {
+            return fileExists(preset.filePath);
+          }
           return true;
         })
         .map((preset) => this.applyOverride(preset)),
@@ -216,6 +218,14 @@ export class VstPresetLibrary extends EventEmitter {
       this.scanPromise = null;
     });
     return this.scanPromise;
+  }
+
+  /** Reindexa só os arquivos de preset (.vstpreset/.fxp), sem reler programas. */
+  refreshPresetFiles(plugins: VstPluginInfo[]): void {
+    this.scanPresetFiles(plugins);
+    this.index.lastScan = Date.now();
+    this.save();
+    this.emitChange();
   }
 
   private async runScan(plugins: VstPluginInfo[], vst: VstManager, force: boolean): Promise<void> {
@@ -361,6 +371,36 @@ export class VstPresetLibrary extends EventEmitter {
         });
       }
     }
+
+    // Presets .fxp gerados pelo script/botão do Preseter: uma pasta por plugin.
+    const fxpRoot = path.join(this.documentsPath, 'Preseter', 'Presets');
+    for (const filePath of listFiles(fxpRoot, '.fxp')) {
+      const relative = path.relative(fxpRoot, filePath);
+      const parts = relative.split(path.sep);
+      const fileName = path.basename(filePath, path.extname(filePath));
+      const folder = parts.length > 1 ? parts[0] : 'Presets';
+      const plugin =
+        parts
+          .map((part) => pluginByName.get(normalize(part)))
+          .find((match) => match !== undefined) ??
+        [...pluginByName.entries()].find(
+          ([name]) => normalize(folder).includes(name) || name.includes(normalize(folder))
+        )?.[1];
+      this.index.presets.push({
+        id: `fxp:${filePath}`,
+        name: fileName,
+        category: categoryFromText(`${folder} ${fileName}`, plugin ? categoryFromPlugin(plugin) : 'Outros'),
+        source: 'fxp',
+        pluginId: plugin?.id ?? '',
+        pluginName: plugin?.name ?? folder,
+        pluginPath: plugin?.path ?? '',
+        filePath,
+        collection: folder,
+        favorite: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
   }
 
   /** Captura o som atual do layer como um preset reutilizável. */
@@ -469,6 +509,11 @@ export class VstPresetLibrary extends EventEmitter {
     if (preset.source === 'vstpreset') {
       if (!preset.filePath) throw new Error('Arquivo .vstpreset não informado.');
       return vst.setPluginPresetFile(layerId, preset.filePath);
+    }
+
+    if (preset.source === 'fxp') {
+      if (!preset.filePath) throw new Error('Arquivo .fxp não informado.');
+      return vst.setVst2FxpFile(layerId, preset.filePath);
     }
 
     if (preset.source === 'snapshot') {

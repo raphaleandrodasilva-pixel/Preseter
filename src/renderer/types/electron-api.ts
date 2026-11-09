@@ -91,6 +91,11 @@ export interface ElectronAPI {
     canceled: boolean;
     preset: VstPreset | null;
   }>;
+  vstPresetsGenerateFxp: (payload: {
+    layerId: string;
+    mode: 'current' | 'all';
+    name?: string;
+  }) => Promise<{ folder: string; files: string[]; count: number }>;
   engineMidi: (bytes: number[]) => Promise<boolean>;
   enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;

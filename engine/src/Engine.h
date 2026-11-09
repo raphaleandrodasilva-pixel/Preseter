@@ -170,6 +170,14 @@ public:
     juce::String savePluginPresetFile (const juce::String& layerId, const juce::String& filePath,
                                        juce::var& result);
 
+    /** Exporta o som atual de um plugin VST2 como `.fxp`. */
+    juce::String saveVst2FxpFile (const juce::String& layerId, const juce::String& filePath,
+                                  juce::var& result);
+
+    /** Aplica um `.fxp` (VST2) num instrumento carregado. */
+    juce::String setVst2FxpFile (const juce::String& layerId, const juce::String& filePath,
+                                 juce::var& result);
+
     /** Abre (ou traz para a frente) a janela de edição nativa do plugin do layer/slot. */
     juce::String openPluginEditor (const juce::String& layerId, juce::var& result,
                                    int insertSlot = -1);

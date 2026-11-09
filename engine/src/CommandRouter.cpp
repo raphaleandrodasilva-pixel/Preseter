@@ -508,6 +508,26 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "saveVst2Fxp")
+    {
+        juce::var result;
+        const auto error = engine.saveVst2FxpFile (message["layerId"].toString(),
+                                                    message["path"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "setVst2FxpFile")
+    {
+        juce::var result;
+        const auto error = engine.setVst2FxpFile (message["layerId"].toString(),
+                                                   message["path"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "openEditor")
     {
         juce::var result;

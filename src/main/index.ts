@@ -97,6 +97,7 @@ function presetWatchFolders(): string[] {
   return [
     path.join(documents, 'VST3 Presets'),
     path.join(programData, 'VST3 Presets'),
+    path.join(documents, 'Preseter', 'Presets'),
   ];
 }
 
@@ -130,6 +131,7 @@ class MainWindow {
   private window: BrowserWindow | null = null;
   private splash: BrowserWindow | null = null;
   private splashShownAt = 0;
+  private splashPercent = 0;
   private vstManager: VstManager;
   private vstPresetLibrary: VstPresetLibrary;
   private vstWatchers: fs.FSWatcher[] = [];
@@ -293,6 +295,7 @@ class MainWindow {
     </script></body></html>`;
     void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     this.splashShownAt = Date.now();
+    this.splashPercent = 0;
     splash.showInactive();
     splash.webContents.on('did-finish-load', () => this.setSplashProgress(8, 'Abrindo Preseter…'));
     splash.once('ready-to-show', () => {
@@ -304,13 +307,17 @@ class MainWindow {
     this.splash = splash;
     setTimeout(() => {
       if (this.splash === splash) this.closeSplash();
-    }, 25000).unref();
+    }, 12000).unref();
   }
 
   private setSplashProgress(percent: number, message?: string): void {
     const splash = this.splash;
     if (!splash || splash.isDestroyed()) return;
-    const script = `window.setSplashProgress && window.setSplashProgress(${Math.max(0, Math.min(100, percent))}, ${JSON.stringify(message ?? '')})`;
+    this.splashPercent = Math.max(
+      this.splashPercent,
+      Math.max(0, Math.min(100, percent))
+    );
+    const script = `window.setSplashProgress && window.setSplashProgress(${this.splashPercent}, ${JSON.stringify(message ?? '')})`;
     void splash.webContents.executeJavaScript(script).catch(() => undefined);
   }
 
@@ -612,6 +619,61 @@ class MainWindow {
       const preset = this.vstPresetLibrary.importPresetFile(result.filePaths[0], plugin);
       return { canceled: false, preset };
     });
+
+    ipcMain.handle(
+      'vst-presets-generate-fxp',
+      async (
+        _event,
+        payload: { layerId: string; mode: 'current' | 'all'; name?: string }
+      ) => {
+        const plugin = this.vstManager
+          .getLoadedPlugins()
+          .find((item) => item.layerId === payload.layerId);
+        if (!plugin) throw new Error('O timbre selecionado não está carregado.');
+        if (plugin.format !== 'VST') {
+          throw new Error('Gerar .fxp só funciona em plugins VST2.');
+        }
+
+        const safe = (value: string) =>
+          value.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim() || 'Preset';
+        const root = path.join(
+          app.getPath('documents'),
+          'Preseter',
+          'Presets',
+          safe(plugin.name)
+        );
+        fs.mkdirSync(root, { recursive: true });
+
+        const files: string[] = [];
+        const originalProgram = plugin.program ?? 0;
+        const writeCurrent = async (name: string) => {
+          const filePath = path.join(root, `${safe(name)}.fxp`);
+          await this.vstManager.saveVst2FxpFile(payload.layerId, filePath);
+          files.push(filePath);
+        };
+
+        if (payload.mode === 'all' && (plugin.programCount ?? 1) > 1) {
+          const list = await this.vstManager
+            .scanPluginPrograms(plugin.id)
+            .catch(() => ({ programs: [] as { index: number; name: string }[] }));
+          const count = Math.max(plugin.programCount ?? 0, list.programs.length);
+          for (let index = 0; index < count; index += 1) {
+            await this.vstManager.setPluginProgram(payload.layerId, index);
+            await new Promise((resolve) => setTimeout(resolve, 80));
+            const name =
+              list.programs.find((program) => program.index === index)?.name ??
+              `Program ${index + 1}`;
+            await writeCurrent(`${String(index + 1).padStart(3, '0')} - ${name}`);
+          }
+          await this.vstManager.setPluginProgram(payload.layerId, originalProgram);
+        } else {
+          await writeCurrent(payload.name?.trim() || plugin.name);
+        }
+
+        this.vstPresetLibrary.refreshPresetFiles(this.vstManager.getScannedPlugins());
+        return { folder: root, files, count: files.length };
+      }
+    );
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
       const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);

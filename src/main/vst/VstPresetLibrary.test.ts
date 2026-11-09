@@ -13,6 +13,7 @@ function fakeVst(overrides: Partial<Record<keyof VstManager, unknown>> = {}): Vs
     getPluginState: vi.fn(async () => null),
     setPluginProgram: vi.fn(async () => true),
     setPluginPresetFile: vi.fn(async () => true),
+    setVst2FxpFile: vi.fn(async () => true),
     applyRawState: vi.fn(async () => true),
     ...overrides,
   } as unknown as VstManager;
@@ -208,7 +209,28 @@ describe('VstPresetLibrary indexing', () => {
     });
   });
 
-  it('drops presets from sources that are no longer supported', () => {
+  it('indexes .fxp files from Documents/Preseter/Presets', async () => {
+    const plugin = instrument({ id: 'piano', name: 'Piano', path: 'C:/piano.dll', format: 'VST' });
+    const file = path.join(documents, 'Preseter', 'Presets', 'Piano', 'Warm.fxp');
+    writeFile(file);
+
+    const lib = library();
+    await lib.scan([plugin], fakeVst());
+    const preset = lib.listResult().presets.find((item) => item.source === 'fxp');
+
+    expect(preset).toMatchObject({
+      source: 'fxp',
+      name: 'Warm',
+      pluginId: 'piano',
+      pluginName: 'Piano',
+      collection: 'Piano',
+      filePath: file,
+    });
+  });
+
+  it('drops only sources that no longer exist', () => {
+    const fxpFile = path.join(documents, 'Preseter', 'Presets', 'Piano', 'One.fxp');
+    writeFile(fxpFile);
     fs.writeFileSync(
       path.join(userData, 'vst-presets.json'),
       JSON.stringify({
@@ -217,7 +239,7 @@ describe('VstPresetLibrary indexing', () => {
         presets: [
           { id: 'program:one', source: 'program', pluginId: 'p1' },
           { id: 'snapshot:one', source: 'snapshot' },
-          { id: 'fxp:one', source: 'fxp' },
+          { id: 'fxp:one', source: 'fxp', filePath: fxpFile },
           { id: 'vital:one', source: 'vital' },
           { id: 'odin:one', source: 'odin' },
           { id: 'midi-program:one', source: 'midi-program' },
@@ -230,11 +252,13 @@ describe('VstPresetLibrary indexing', () => {
     expect(lib.listResult().presets.map((preset) => preset.id)).toEqual([
       'program:one',
       'snapshot:one',
+      'fxp:one',
     ]);
     const saved = JSON.parse(fs.readFileSync(path.join(userData, 'vst-presets.json'), 'utf8'));
     expect(saved.presets.map((preset: { id: string }) => preset.id)).toEqual([
       'program:one',
       'snapshot:one',
+      'fxp:one',
     ]);
   });
 
@@ -371,7 +395,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
   });
 
   async function presetOfType(
-    type: 'program' | 'vstpreset' | 'snapshot'
+    type: 'program' | 'vstpreset' | 'snapshot' | 'fxp'
   ): Promise<string> {
     const plugin = instrument({ id: 'p1', name: 'Piano' });
     if (type === 'program') {
@@ -391,6 +415,12 @@ describe('VstPresetLibrary snapshots and presets', () => {
       await lib.scan([plugin], fakeVst());
       return `vstpreset:${file}`;
     }
+    if (type === 'fxp') {
+      const file = path.join(documents, 'Preseter', 'Presets', 'Piano', 'P.fxp');
+      writeFile(file);
+      await lib.scan([plugin], fakeVst());
+      return `fxp:${file}`;
+    }
     const preset = await lib.saveSnapshot({
       layerId: 'l',
       plugin,
@@ -400,7 +430,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
     return preset!.id;
   }
 
-  it('applies program, vstpreset and snapshot presets', async () => {
+  it('applies program, vstpreset, fxp and snapshot presets', async () => {
     const program = await presetOfType('program');
     const vst = fakeVst();
     expect(await lib.applyPreset(program, 'layer', vst)).toBe(true);
@@ -411,6 +441,13 @@ describe('VstPresetLibrary snapshots and presets', () => {
     expect(vst.setPluginPresetFile).toHaveBeenCalledWith(
       'layer',
       path.join(documents, 'VST3 Presets', 'Piano', 'P.vstpreset')
+    );
+
+    const fxpPreset = await presetOfType('fxp');
+    expect(await lib.applyPreset(fxpPreset, 'layer', vst)).toBe(true);
+    expect(vst.setVst2FxpFile).toHaveBeenCalledWith(
+      'layer',
+      path.join(documents, 'Preseter', 'Presets', 'Piano', 'P.fxp')
     );
 
     const snapshot = await presetOfType('snapshot');
@@ -429,7 +466,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
           { id: 'p:program', source: 'program' },
           { id: 'p:vstpreset', source: 'vstpreset' },
           { id: 'p:snapshot', source: 'snapshot' },
-          { id: 'p:legacy', source: 'fxp', filePath: 'C:/old.fxp' },
+          { id: 'p:fxp', source: 'fxp' },
         ],
         overrides: {},
       })
@@ -438,8 +475,7 @@ describe('VstPresetLibrary snapshots and presets', () => {
     await expect(lib.applyPreset('p:program', 'l', fakeVst())).rejects.toThrow(/Programa/);
     await expect(lib.applyPreset('p:vstpreset', 'l', fakeVst())).rejects.toThrow(/Arquivo/);
     await expect(lib.applyPreset('p:snapshot', 'l', fakeVst())).rejects.toThrow(/Estado/);
-    // Fontes legadas são descartadas na leitura do índice.
-    await expect(lib.applyPreset('p:legacy', 'l', fakeVst())).rejects.toThrow(/encontrado/);
+    await expect(lib.applyPreset('p:fxp', 'l', fakeVst())).rejects.toThrow(/Arquivo/);
   });
 
   it('reports a snapshot whose state file is missing or keeps it in sync', async () => {

@@ -437,20 +437,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertInitialized.current = true;
     const loadData = async () => {
       try {
-        window.electronAPI.startupProgress(25, 'Lendo preferências e concert…');
-        const [concert, loaded, audio, prefs] = await Promise.all([
-          window.electronAPI.concertInit(readLegacyConcert()),
-          window.electronAPI.vstLoaded(),
-          window.electronAPI.audioSettingsGet(),
-          window.electronAPI.preferencesGet(),
-        ]);
-        window.electronAPI.startupProgress(70, 'Aplicando concert…');
+        window.electronAPI.startupProgress(25, 'Lendo preferências…');
+        const prefs = await window.electronAPI.preferencesGet();
+        window.electronAPI.startupProgress(32, 'Carregando concert…');
+        const concert = await window.electronAPI.concertInit(readLegacyConcert());
+        window.electronAPI.startupProgress(42, 'Carregando instrumentos…');
+        const loaded = await window.electronAPI.vstLoaded();
+        window.electronAPI.startupProgress(52, 'Verificando áudio…');
+        const audio = await window.electronAPI.audioSettingsGet();
+        window.electronAPI.startupProgress(65, 'Aplicando concert…');
         applyConcertState(concert);
         setLoadedPlugins(loaded);
         setAudioDevices(audio.devices);
         setAudioSettings(audio.settings);
         setPreferences(prefs);
         try {
+          window.electronAPI.startupProgress(82, 'Preparando página inicial…');
           setConcertTemplates(await window.electronAPI.concertTemplates());
         } catch (error) {
           console.warn('[Preseter] Não foi possível listar os templates:', error);

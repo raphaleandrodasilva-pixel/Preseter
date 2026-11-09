@@ -465,6 +465,26 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Exporta o som atual como `.fxp` (apenas VST2). */
+  async saveVst2FxpFile(layerOrPluginId: string, filePath: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    await this.engine.request('saveVst2Fxp', { layerId: plugin.layerId, path: filePath });
+    return true;
+  }
+
+  /** Aplica um `.fxp` num plugin VST2 carregado. */
+  async setVst2FxpFile(layerOrPluginId: string, filePath: string): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('setVst2FxpFile', {
+      layerId: plugin.layerId,
+      path: filePath,
+    });
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return true;
+  }
+
   /** Aplica um estado cru (chunk do plugin) codificado em base64. */
   async applyRawState(layerOrPluginId: string, base64: string): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);

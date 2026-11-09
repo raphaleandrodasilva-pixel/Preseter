@@ -293,6 +293,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     layerName: string;
     name: string;
   } | null>(null);
+  const [fxpDialog, setFxpDialog] = useState<{
+    layerId: string;
+    layerName: string;
+    pluginName: string;
+    programCount: number;
+    mode: 'current' | 'all';
+    name: string;
+  } | null>(null);
+  const [fxpBusy, setFxpBusy] = useState(false);
   const [presetNotice, setPresetNotice] = useState<string | null>(null);
   const [savingPreset, setSavingPreset] = useState(false);
   const [width, setWidth] = useState<number>(() => {
@@ -1118,6 +1127,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     return [
       { label: 'Do plugin', items: items.filter((item) => item.source === 'program').sort(byName) },
       { label: 'Meus presets', items: items.filter((item) => item.source === 'snapshot').sort(byName) },
+      { label: 'Presets .fxp', items: items.filter((item) => item.source === 'fxp').sort(byName) },
       { label: 'Presets VST3', items: items.filter((item) => item.source === 'vstpreset').sort(byName) },
     ].filter((group) => group.items.length > 0);
   };
@@ -1162,6 +1172,40 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
       setPresetNotice(error instanceof Error ? error.message : 'Falha ao salvar o preset.');
     } finally {
       setSavingPreset(false);
+    }
+  };
+
+  const openFxpDialog = (layerId: string, layerName: string, plugin: VstPluginInfo | undefined) => {
+    const patchName = preset?.name?.trim() || 'Patch';
+    setFxpDialog({
+      layerId,
+      layerName,
+      pluginName: plugin?.name ?? '',
+      programCount: plugin?.programCount ?? 1,
+      mode: 'current',
+      name: `${patchName} · ${layerName}`,
+    });
+  };
+
+  const confirmGenerateFxp = async () => {
+    if (!fxpDialog) return;
+    setFxpBusy(true);
+    try {
+      const result = await window.electronAPI.vstPresetsGenerateFxp({
+        layerId: fxpDialog.layerId,
+        mode: fxpDialog.mode,
+        name: fxpDialog.mode === 'current' ? fxpDialog.name.trim() : undefined,
+      });
+      setPresetNotice(
+        result.count === 1
+          ? `1 .fxp gerado em ${result.folder}`
+          : `${result.count} .fxp gerados em ${result.folder}`
+      );
+      setFxpDialog(null);
+    } catch (error) {
+      setPresetNotice(error instanceof Error ? error.message : 'Falha ao gerar o .fxp.');
+    } finally {
+      setFxpBusy(false);
     }
   };
 
@@ -1605,6 +1649,22 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                       >
                         Importar .vstpreset
                       </button>
+                      <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
+                      <button
+                        className="block w-full rounded px-2 py-1.5 text-left text-[10px] text-slate-100 hover:bg-white/10 disabled:opacity-40"
+                        disabled={loaded?.format !== 'VST'}
+                        title={
+                          loaded?.format === 'VST'
+                            ? 'Gerar um ou mais arquivos .fxp a partir deste plugin'
+                            : 'Gerar .fxp só funciona em plugins VST2'
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openFxpDialog(layerId, assignment.name, loaded);
+                        }}
+                      >
+                        Gerar .fxp…
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1841,6 +1901,105 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 disabled={savingPreset || !presetDialog.name.trim()}
               >
                 {savingPreset ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {fxpDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="presentation"
+          onMouseDown={() => !fxpBusy && setFxpDialog(null)}
+        >
+          <form
+            role="dialog"
+            aria-label={`Gerar .fxp de ${fxpDialog.layerName}`}
+            className="w-full max-w-[360px] rounded-xl p-4 shadow-2xl"
+            style={{ background: '#2C2C2E', border: '1px solid #3A3A3C' }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmGenerateFxp();
+            }}
+          >
+            <h3 className="text-[13px] font-semibold text-white">Gerar .fxp</h3>
+            <p className="mt-1 text-[11px]" style={{ color: '#9A9AA0' }}>
+              Plugin: <span className="text-slate-200">{fxpDialog.pluginName}</span>
+            </p>
+
+            <label className="mt-3 flex items-center gap-2 text-[11px] text-slate-200">
+              <input
+                type="radio"
+                name="fxp-mode"
+                checked={fxpDialog.mode === 'current'}
+                onChange={() =>
+                  setFxpDialog((previous) =>
+                    previous ? { ...previous, mode: 'current' } : previous
+                  )
+                }
+              />
+              Som atual
+            </label>
+            <label
+              className={`mt-1 flex items-center gap-2 text-[11px] ${
+                fxpDialog.programCount > 1 ? 'text-slate-200' : 'text-slate-500'
+              }`}
+            >
+              <input
+                type="radio"
+                name="fxp-mode"
+                disabled={fxpDialog.programCount <= 1}
+                checked={fxpDialog.mode === 'all'}
+                onChange={() =>
+                  setFxpDialog((previous) =>
+                    previous ? { ...previous, mode: 'all' } : previous
+                  )
+                }
+              />
+              Todos os programas ({fxpDialog.programCount})
+            </label>
+
+            {fxpDialog.mode === 'current' && (
+              <input
+                autoFocus
+                value={fxpDialog.name}
+                onChange={(event) =>
+                  setFxpDialog((previous) =>
+                    previous ? { ...previous, name: event.target.value } : previous
+                  )
+                }
+                aria-label="Nome do arquivo .fxp"
+                className="mt-3 w-full rounded-lg px-2 py-1.5 text-[12px] text-white outline-none"
+                style={{ background: '#1F1F21', border: '1px solid #3A3A3C' }}
+                placeholder="Nome do arquivo"
+              />
+            )}
+
+            <p className="mt-3 text-[10px]" style={{ color: '#9A9AA0' }}>
+              Os arquivos vão para Documentos\Preseter\Presets\{fxpDialog.pluginName}\ e
+              aparecem na biblioteca.
+            </p>
+
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="hw-squarebtn px-3 py-1 text-[11px]"
+                disabled={fxpBusy}
+                onClick={() => setFxpDialog(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="rounded px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+                style={{ background: '#0A84FF' }}
+                disabled={
+                  fxpBusy ||
+                  (fxpDialog.mode === 'current' && !fxpDialog.name.trim())
+                }
+              >
+                {fxpBusy ? 'Gerando…' : 'Gerar'}
               </button>
             </div>
           </form>
