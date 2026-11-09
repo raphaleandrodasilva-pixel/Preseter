@@ -72,8 +72,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-presets-export', payload),
   vstPresetImport: (payload: { layerId: string }) =>
     ipcRenderer.invoke('vst-presets-import', payload),
-  vstPresetsGenerateFxp: (payload: { layerId: string; mode: 'current' | 'all'; name?: string }) =>
+  vstPresetsGenerateFxp: (payload: { layerId: string; mode: 'current' | 'all'; name?: string; bank?: 'all' | 'A' | 'B' | 'C' }) =>
     ipcRenderer.invoke('vst-presets-generate-fxp', payload),
+  vstPresetsGenerateFxpCancel: () => ipcRenderer.invoke('vst-presets-generate-fxp-cancel'),
+  onVstFxpProgress: (callback: (payload: { current: number; total: number; name: string }) => void) =>
+    ipcRenderer.on('vst-presets-fxp-progress', (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as any)),
   engineMidi: (bytes: number[]) => ipcRenderer.invoke('engine-midi', bytes),
   enginePanic: () => ipcRenderer.invoke('engine-panic'),
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) =>

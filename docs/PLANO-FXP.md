@@ -40,15 +40,29 @@ node scripts/exportar-fxp.js --plugin=MEU_PLUGIN --programas=all
 
 ## FSVR
 
-O FSVR expõe apenas 1 programa ao host (`Default`); os 3 bancos são internos.
-Hoje o fluxo é:
+O FSVR expõe apenas 1 programa ao host (`Default`), mas aceita Program Change
+nos bancos internos. O diálogo oferece:
 
-1. escolher o preset no FSVR;
-2. clicar em **⋯ → Gerar .fxp…**;
-3. dar um nome.
+- Som atual;
+- Banco A, B, C (128 cada);
+- Todos os bancos (384).
 
-Gerar os 3 bancos automaticamente exigiria investigar os dados internos do
-FSVR (DLL/fonte) ou automatizar a interface. Fica como fase separada.
+O fluxo por performance é:
+
+1. CC0 = 63 (bank MSB);
+2. CC32 = 65/66/67 (Banco A/B/C);
+3. Program Change 0–127 no canal 1;
+4. espera o FSVR carregar a performance;
+5. `saveVst2Fxp`.
+
+Os outros timbres do patch são salvos e restaurados depois. O `.fxp` do FSVR
+traz o nome do programa como `Default`; por isso os arquivos são numerados
+(`A001 - Performance 1.fxp`).
+
+### Splash
+
+O áudio não bloqueia mais a abertura: `audioSettingsGet` carrega em segundo
+plano e o splash fecha quando concert e templates estão prontos.
 
 ## Limites
 

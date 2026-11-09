@@ -297,11 +297,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     layerId: string;
     layerName: string;
     pluginName: string;
+    fsvr: boolean;
     programCount: number;
     mode: 'current' | 'all';
+    bank: 'all' | 'A' | 'B' | 'C';
     name: string;
   } | null>(null);
   const [fxpBusy, setFxpBusy] = useState(false);
+  const [fxpProgress, setFxpProgress] = useState<{
+    current: number;
+    total: number;
+    name: string;
+  } | null>(null);
   const [presetNotice, setPresetNotice] = useState<string | null>(null);
   const [savingPreset, setSavingPreset] = useState(false);
   const [width, setWidth] = useState<number>(() => {
@@ -362,6 +369,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
   }, [presetMenu]);
+
+  useEffect(() => {
+    window.electronAPI.onVstFxpProgress((payload) => setFxpProgress(payload));
+  }, []);
 
   // Selecionar um knob de send na área gráfica abre a aba Aux e destaca o destino.
   useEffect(() => {
@@ -1177,12 +1188,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
 
   const openFxpDialog = (layerId: string, layerName: string, plugin: VstPluginInfo | undefined) => {
     const patchName = preset?.name?.trim() || 'Patch';
+    const fsvr = /fsvr/i.test(plugin?.name ?? '');
     setFxpDialog({
       layerId,
       layerName,
       pluginName: plugin?.name ?? '',
-      programCount: plugin?.programCount ?? 1,
+      fsvr,
+      programCount: fsvr ? 384 : plugin?.programCount ?? 1,
       mode: 'current',
+      bank: 'all',
       name: `${patchName} · ${layerName}`,
     });
   };
@@ -1190,23 +1204,36 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const confirmGenerateFxp = async () => {
     if (!fxpDialog) return;
     setFxpBusy(true);
+    setFxpProgress(null);
     try {
       const result = await window.electronAPI.vstPresetsGenerateFxp({
         layerId: fxpDialog.layerId,
         mode: fxpDialog.mode,
-        name: fxpDialog.mode === 'current' ? fxpDialog.name.trim() : undefined,
+        ...(fxpDialog.fsvr && fxpDialog.mode === 'all' ? { bank: fxpDialog.bank } : {}),
+        ...(fxpDialog.mode === 'current' ? { name: fxpDialog.name.trim() } : {}),
       });
-      setPresetNotice(
-        result.count === 1
-          ? `1 .fxp gerado em ${result.folder}`
-          : `${result.count} .fxp gerados em ${result.folder}`
-      );
+      if (result.canceled) {
+        setPresetNotice('Geração de .fxp cancelada.');
+      } else if (result.warning) {
+        setPresetNotice(result.warning);
+      } else {
+        setPresetNotice(
+          result.count === 1
+            ? `1 .fxp gerado em ${result.folder}`
+            : `${result.count} .fxp gerados em ${result.folder}`
+        );
+      }
       setFxpDialog(null);
     } catch (error) {
       setPresetNotice(error instanceof Error ? error.message : 'Falha ao gerar o .fxp.');
     } finally {
       setFxpBusy(false);
+      setFxpProgress(null);
     }
+  };
+
+  const cancelFxpGeneration = () => {
+    void window.electronAPI.vstPresetsGenerateFxpCancel();
   };
 
   const exportTimbrePreset = async (layerId: string, name: string) => {
@@ -1957,8 +1984,37 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   )
                 }
               />
-              Todos os programas ({fxpDialog.programCount})
+              {fxpDialog.fsvr
+                ? `Todos os programas (${fxpDialog.bank === 'all' ? '3 bancos × 128' : '128'})`
+                : `Todos os programas (${fxpDialog.programCount})`}
             </label>
+
+            {fxpDialog.fsvr && fxpDialog.mode === 'all' && (
+              <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-200">
+                Banco
+                <select
+                  value={fxpDialog.bank}
+                  onChange={(event) =>
+                    setFxpDialog((previous) =>
+                      previous
+                        ? {
+                            ...previous,
+                            bank: event.target.value as 'all' | 'A' | 'B' | 'C',
+                          }
+                        : previous
+                    )
+                  }
+                  aria-label="Banco do FSVR"
+                  className="rounded px-2 py-1 text-[11px] outline-none"
+                  style={{ background: '#1F1F21', border: '1px solid #3A3A3C', color: '#E5E5EA' }}
+                >
+                  <option value="all">Todos os bancos (384)</option>
+                  <option value="A">Banco A (128)</option>
+                  <option value="B">Banco B (128)</option>
+                  <option value="C">Banco C (128)</option>
+                </select>
+              </label>
+            )}
 
             {fxpDialog.mode === 'current' && (
               <input
@@ -1981,14 +2037,32 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               aparecem na biblioteca.
             </p>
 
+            {fxpProgress && (
+              <div className="mt-2 rounded-lg px-2 py-1.5 text-[10px]" style={{ background: '#1F1F21', color: '#CFE5FF' }}>
+                Gerando {fxpProgress.current}/{fxpProgress.total}…
+                <div className="truncate" style={{ color: '#9A9AA0' }}>{fxpProgress.name}</div>
+                <div className="mt-1 h-1 overflow-hidden rounded" style={{ background: '#3A3A3C' }}>
+                  <div
+                    className="h-full rounded"
+                    style={{
+                      width: `${Math.min(100, (fxpProgress.current / Math.max(1, fxpProgress.total)) * 100)}%`,
+                      background: '#0A84FF',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
                 className="hw-squarebtn px-3 py-1 text-[11px]"
-                disabled={fxpBusy}
-                onClick={() => setFxpDialog(null)}
+                onClick={() => {
+                  if (fxpBusy) cancelFxpGeneration();
+                  else setFxpDialog(null);
+                }}
               >
-                Cancelar
+                {fxpBusy ? 'Cancelar geração' : 'Cancelar'}
               </button>
               <button
                 type="submit"

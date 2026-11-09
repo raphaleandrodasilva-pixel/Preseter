@@ -435,25 +435,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (concertInitialized.current) return;
     concertInitialized.current = true;
+    const withTimeout = <T,>(promise: Promise<T>, fallback: T, ms: number): Promise<T> =>
+      Promise.race([
+        promise.catch(() => fallback),
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+      ]);
+
     const loadData = async () => {
       try {
         window.electronAPI.startupProgress(25, 'Lendo preferências…');
-        const prefs = await window.electronAPI.preferencesGet();
-        window.electronAPI.startupProgress(32, 'Carregando concert…');
+        const prefs = await withTimeout(window.electronAPI.preferencesGet(), null, 3000);
+        window.electronAPI.startupProgress(35, 'Carregando concert…');
         const concert = await window.electronAPI.concertInit(readLegacyConcert());
-        window.electronAPI.startupProgress(42, 'Carregando instrumentos…');
-        const loaded = await window.electronAPI.vstLoaded();
-        window.electronAPI.startupProgress(52, 'Verificando áudio…');
-        const audio = await window.electronAPI.audioSettingsGet();
-        window.electronAPI.startupProgress(65, 'Aplicando concert…');
+        window.electronAPI.startupProgress(45, 'Carregando instrumentos…');
+        const loaded = await withTimeout(window.electronAPI.vstLoaded(), [], 3000);
+        window.electronAPI.startupProgress(55, 'Aplicando concert…');
         applyConcertState(concert);
-        setLoadedPlugins(loaded);
-        setAudioDevices(audio.devices);
-        setAudioSettings(audio.settings);
-        setPreferences(prefs);
+        setLoadedPlugins(loaded ?? []);
+        if (prefs) setPreferences(prefs);
         try {
-          window.electronAPI.startupProgress(82, 'Preparando página inicial…');
-          setConcertTemplates(await window.electronAPI.concertTemplates());
+          window.electronAPI.startupProgress(70, 'Preparando página inicial…');
+          const templates = await withTimeout(window.electronAPI.concertTemplates(), [], 3000);
+          setConcertTemplates(templates ?? []);
         } catch (error) {
           console.warn('[Preseter] Não foi possível listar os templates:', error);
         }
@@ -462,6 +465,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTemplatePickerOpen(true);
         concertReady.current = true;
         window.electronAPI.startupProgress(95, 'Finalizando…');
+        // Áudio não bloqueia o boot: a interface abre e o estado chega depois.
+        void withTimeout(window.electronAPI.audioSettingsGet(), null, 6000).then((audio) => {
+          if (!audio) return;
+          setAudioDevices(audio.devices);
+          setAudioSettings(audio.settings);
+        });
       } catch (error) {
         setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
       } finally {

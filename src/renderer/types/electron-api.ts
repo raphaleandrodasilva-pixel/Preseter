@@ -95,7 +95,14 @@ export interface ElectronAPI {
     layerId: string;
     mode: 'current' | 'all';
     name?: string;
-  }) => Promise<{ folder: string; files: string[]; count: number }>;
+    bank?: 'all' | 'A' | 'B' | 'C';
+  }) => Promise<{ folder: string; files: string[]; count: number; canceled: boolean; warning?: string }>;
+  vstPresetsGenerateFxpCancel: () => Promise<boolean>;
+  onVstFxpProgress: (callback: (payload: {
+    current: number;
+    total: number;
+    name: string;
+  }) => void) => void;
   engineMidi: (bytes: number[]) => Promise<boolean>;
   enginePanic: () => Promise<boolean>;
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;

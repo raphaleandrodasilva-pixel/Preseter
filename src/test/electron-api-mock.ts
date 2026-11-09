@@ -25,6 +25,7 @@ const EVENT_METHODS = [
   'onVstScanned',
   'onPresetLoadProgress',
   'onVstPresetsUpdated',
+  'onVstFxpProgress',
   'onPluginLoaded',
   'onPluginUnloaded',
   'onParameterChanged',
@@ -107,7 +108,8 @@ export function createElectronApiMock(): ElectronApiMock {
     vstPresetDelete: vi.fn(async () => true),
     vstPresetExport: vi.fn(async () => ({ canceled: true, path: null })),
     vstPresetImport: vi.fn(async () => ({ canceled: true, preset: null })),
-    vstPresetsGenerateFxp: vi.fn(async () => ({ folder: '', files: [], count: 0 })),
+    vstPresetsGenerateFxp: vi.fn(async () => ({ folder: '', files: [], count: 0, canceled: false })),
+    vstPresetsGenerateFxpCancel: vi.fn(async () => true),
     engineMidi: vi.fn(async () => true),
     enginePanic: vi.fn(async () => true),
     vstSetLayerRange: vi.fn(async () => ({

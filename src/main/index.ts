@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemConstructorOptions, nativeImage, shell } from 'electron';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { VstManager } from './vst/VstManager';
@@ -151,6 +152,8 @@ class MainWindow {
   private recovering: Promise<void> | null = null;
   /** true quando o usuário já confirmou o fechamento com alterações pendentes. */
   private closing = false;
+  /** Pedido de cancelamento da geração de .fxp em lote. */
+  private fxpCancelRequested = false;
   /** Gravação em andamento; para MP3/FLAC guarda o WAV temporário a converter. */
   private pendingRecording: {
     format: RecordingFormat;
@@ -624,7 +627,7 @@ class MainWindow {
       'vst-presets-generate-fxp',
       async (
         _event,
-        payload: { layerId: string; mode: 'current' | 'all'; name?: string }
+        payload: { layerId: string; mode: 'current' | 'all'; name?: string; bank?: 'all' | 'A' | 'B' | 'C' }
       ) => {
         const plugin = this.vstManager
           .getLoadedPlugins()
@@ -632,6 +635,10 @@ class MainWindow {
         if (!plugin) throw new Error('O timbre selecionado não está carregado.');
         if (plugin.format !== 'VST') {
           throw new Error('Gerar .fxp só funciona em plugins VST2.');
+        }
+
+        if (payload.mode === 'all' && /fsvr/i.test(plugin.name)) {
+          return this.generateFsvrBanks(plugin, payload.bank ?? 'all');
         }
 
         const safe = (value: string) =>
@@ -671,9 +678,14 @@ class MainWindow {
         }
 
         this.vstPresetLibrary.refreshPresetFiles(this.vstManager.getScannedPlugins());
-        return { folder: root, files, count: files.length };
+        return { folder: root, files, count: files.length, canceled: false };
       }
     );
+
+    ipcMain.handle('vst-presets-generate-fxp-cancel', () => {
+      this.fxpCancelRequested = true;
+      return true;
+    });
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
       const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);
@@ -1944,6 +1956,128 @@ class MainWindow {
     const hidden = new Set(this.readPreferences().hiddenPluginIds);
     if (hidden.size === 0) return plugins;
     return plugins.filter((plugin) => !hidden.has(plugin.id) && !hidden.has(plugin.path));
+  }
+
+  /**
+   * FSVR: percorre os bancos internos via MIDI (CC0=63, CC32=65..67 e PC 0..127)
+   * e captura um .fxp de cada performance.
+   */
+  private async generateFsvrBanks(
+    plugin: VstPluginInfo,
+    bank: 'all' | 'A' | 'B' | 'C'
+  ): Promise<{
+    folder: string;
+    files: string[];
+    count: number;
+    canceled: boolean;
+    warning?: string;
+  }> {
+    const safe = (value: string) =>
+      value.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim() || 'Performance';
+    const root = path.join(
+      app.getPath('documents'),
+      'Preseter',
+      'Presets',
+      safe(plugin.name)
+    );
+    fs.mkdirSync(root, { recursive: true });
+    const layerId = plugin.layerId;
+    if (!layerId) throw new Error('O timbre do FSVR não está carregado.');
+
+    const bankMap = { A: 65, B: 66, C: 67 } as const;
+    const banks = bank === 'all'
+      ? ([['A', bankMap.A], ['B', bankMap.B], ['C', bankMap.C]] as const)
+      : ([[bank, bankMap[bank]]] as const);
+    const total = banks.length * 128;
+    const files: string[] = [];
+    const hashes = new Set<string>();
+    let canceled = false;
+
+    const devices = await this.vstManager.getAudioDevices();
+    if (!devices.running) {
+      try {
+        await this.vstManager.startAudio({ outputs: 2, inputs: 0 });
+      } catch {
+        throw new Error('Inicie o áudio antes de gerar os bancos do FSVR.');
+      }
+    }
+
+    const originalStates = new Map<string, string>();
+    for (const loaded of this.vstManager.getLoadedPlugins()) {
+      if (!loaded.layerId) continue;
+      try {
+        const state = await this.vstManager.getPluginState(loaded.layerId);
+        if (state?.data) originalStates.set(loaded.layerId, state.data);
+      } catch {
+        // Se um plugin não expõe estado, segue sem restaurar esse layer.
+      }
+    }
+
+    this.fxpCancelRequested = false;
+    let current = 0;
+
+    try {
+      outer: for (const [label, lsb] of banks) {
+        await this.vstManager.sendMidi([0xb0, 0, 63]);
+        await this.vstManager.sendMidi([0xb0, 32, lsb]);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        for (let program = 0; program < 128; program += 1) {
+          if (this.fxpCancelRequested) {
+            canceled = true;
+            break outer;
+          }
+
+          await this.vstManager.sendMidi([0xc0, program]);
+          await new Promise((resolve) => setTimeout(resolve, 220));
+
+          const stub = `${label}${String(program + 1).padStart(3, '0')}`;
+          const tempPath = path.join(root, `_tmp_${stub}.fxp`);
+          await this.vstManager.saveVst2FxpFile(layerId, tempPath);
+
+          const data = fs.readFileSync(tempPath);
+          hashes.add(createHash('md5').update(data).digest('hex'));
+          const headerName = data
+            .toString('utf8', 28, 56)
+            .replace(/\0.*$/, '')
+            .trim();
+          const name =
+            headerName && !/^default$/i.test(headerName)
+              ? headerName
+              : `Performance ${program + 1}`;
+          const finalPath = path.join(root, `${stub} - ${safe(name)}.fxp`);
+          fs.renameSync(tempPath, finalPath);
+          files.push(finalPath);
+          current += 1;
+          this.sendToRenderer('vst-presets-fxp-progress', {
+            current,
+            total,
+            name: `${stub} - ${name}`,
+          });
+        }
+      }
+    } finally {
+      // Devolve todos os plugins ao som que estava antes da varredura.
+      for (const [layerId, data] of originalStates) {
+        try {
+          await this.vstManager.applyRawState(layerId, data);
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível restaurar o timbre após gerar .fxp:', error);
+        }
+      }
+      this.vstPresetLibrary.refreshPresetFiles(this.vstManager.getScannedPlugins());
+    }
+
+    return {
+      folder: root,
+      files,
+      count: files.length,
+      canceled,
+      warning:
+        files.length > 0 && hashes.size === 1
+          ? 'O FSVR não respondeu aos Program Changes: todos os arquivos ficaram iguais.'
+          : undefined,
+    };
   }
 
   private async initializeEngine(): Promise<void> {

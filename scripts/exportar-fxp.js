@@ -4,6 +4,7 @@
  *
  * Uso:
  *   node scripts/exportar-fxp.js --plugin=FSVR --atual --nome="Zap 1"
+ *   node scripts/exportar-fxp.js --plugin=FSVR --programas=all --bank=all
  *   node scripts/exportar-fxp.js --plugin=MDA --programas=all
  *   node scripts/exportar-fxp.js --path="C:/.../Plugin.dll" --atual --nome="Som"
  *
@@ -135,11 +136,52 @@ async function main() {
 
     const currentName = first('nome', plugin.name);
     const wantsAll = first('programas', flag('atual') ? 'current' : 'all') === 'all';
+    const isFsvr = /fsvr/i.test(plugin.name);
 
     if (!wantsAll) {
       const target = path.join(outputDir, `${safeName(currentName)}.fxp`);
       const result = await request('saveVst2Fxp', { layerId: loaded.layerId, path: target });
       console.log(`OK ${result.path} (${result.bytes} bytes)`);
+    } else if (isFsvr) {
+      const bank = first('bank', 'all');
+      const map = { A: 65, B: 66, C: 67 };
+      const banks =
+        bank === 'all'
+          ? [['A', map.A], ['B', map.B], ['C', map.C]]
+          : [[bank, map[bank]]];
+      if (banks.some(([, lsb]) => !lsb)) {
+        throw new Error('Banco inválido. Use --bank=A, B, C ou all.');
+      }
+
+      try {
+        await request('audioStart', { outputs: 2, inputs: 0 });
+      } catch {
+        throw new Error('Não foi possível abrir o áudio para enviar os Program Changes do FSVR.');
+      }
+
+      for (const [label, lsb] of banks) {
+        await request('midi', { bytes: [0xb0, 0, 63] });
+        await request('midi', { bytes: [0xb0, 32, lsb] });
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        for (let program = 0; program < 128; program += 1) {
+          await request('midi', { bytes: [0xc0, program] });
+          await new Promise((resolve) => setTimeout(resolve, 220));
+          const stub = `${label}${String(program + 1).padStart(3, '0')}`;
+          const temp = path.join(outputDir, `_tmp_${stub}.fxp`);
+          await request('saveVst2Fxp', { layerId: loaded.layerId, path: temp });
+          const data = fs.readFileSync(temp);
+          const headerName = data.toString('utf8', 28, 56).replace(/\0.*$/, '').trim();
+          const name = headerName && !/^default$/i.test(headerName)
+            ? headerName
+            : `Performance ${program + 1}`;
+          const target = path.join(outputDir, `${stub} - ${safeName(name)}.fxp`);
+          fs.renameSync(temp, target);
+          console.log(`OK ${target}`);
+        }
+      }
+      console.log(`Pasta: ${outputDir}`);
+      return;
     } else {
       const programs = await request('pluginPrograms', { plugin: plugin.id });
       const count = Math.max(programs.count || 0, programs.programs?.length || 0);

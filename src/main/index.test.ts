@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(101);
+    expect(handlers.size).toBe(102);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -41,6 +41,7 @@ describe('main process IPC wiring', () => {
       'vst-presets-export',
       'vst-presets-import',
       'vst-presets-generate-fxp',
+      'vst-presets-generate-fxp-cancel',
       'engine-midi',
       'audio-settings-get',
       'preferences-get',
