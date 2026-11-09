@@ -201,6 +201,11 @@ export interface EngineCommands {
     args: { layerId: string; minNote: number; maxNote: number };
     result: EngineLoadedPlugin;
   };
+  /** Liga/desliga o MIDI de um layer (geração em lote de presets). */
+  setLayerMidiEnabled: {
+    args: { layerId: string; enabled: boolean };
+    result: EngineLoadedPlugin;
+  };
   /** Faixa de velocity (1..127) aceita por um layer (Fase 3.4). */
   setLayerVelocityRange: {
     args: { layerId: string; minVelocity: number; maxVelocity: number };

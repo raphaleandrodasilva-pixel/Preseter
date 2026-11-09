@@ -1283,9 +1283,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       return false;
     }
     try {
-      const state = await window.electronAPI.vstGetState(sourceLayerId);
-      const stateApplied = await window.electronAPI.vstSetState(layerId, state);
-      if (!stateApplied) throw new Error('O engine não confirmou a cópia dos parâmetros.');
+      const state = await readLoadedState(sourceLayerId);
+      if (state) {
+        const stateApplied = await window.electronAPI.vstSetState(layerId, state);
+        if (!stateApplied) throw new Error('O engine não confirmou a cópia dos parâmetros.');
+      }
       const mixApplied = await setVstLayerMix(layerId, assignment.mix ?? {});
       if (!mixApplied) throw new Error('O engine não confirmou a cópia dos controles de mixagem.');
       await setVstLayerOutput(layerId, assignment.output ?? 1);
@@ -1314,6 +1316,20 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       return false;
     }
   };
+  /** Lê o estado sem travar em plugins LV2 (setBfree) ou demorados. */
+  const readLoadedState = async (layerId: string) => {
+    const current = loadedPlugins.find((item) => item.layerId === layerId);
+    if (current?.format === 'LV2') return null;
+    try {
+      return await Promise.race([
+        window.electronAPI.vstGetState(layerId),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+      ]);
+    } catch {
+      return null;
+    }
+  };
+
   /** Troca o VST de um layer mantendo o mesmo strip, mixagem, key range e inserts. */
   const replaceLayer = async (
     assignment: PresetPluginAssignment,
@@ -1324,7 +1340,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const minNote = assignment.minNote ?? 0;
     const maxNote = assignment.maxNote ?? 127;
     const oldPluginId = assignment.pluginId;
-    const oldState = await window.electronAPI.vstGetState(layerId);
+    const oldState = await readLoadedState(layerId);
     const insertStates: { slot: number; data: string }[] = [];
     for (const insert of assignment.inserts ?? []) {
       const state = await window.electronAPI.vstInsertStateGet(layerId, insert.slot);

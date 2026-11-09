@@ -114,6 +114,8 @@ public:
     juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});
     juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
+    /** Liga/desliga o MIDI de um layer (usado na geração em lote de presets). */
+    juce::String setLayerMidiEnabled (const juce::String& layerId, bool enabled);
     /** Faixa de velocity aceita pelo layer (1..127), aplicada no filtro MIDI (Fase 3.4). */
     juce::String setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity);
     /** Arpejador MIDI do layer (Fase 7.2). */

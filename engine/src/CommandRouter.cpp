@@ -253,6 +253,15 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setLayerMidiEnabled")
+    {
+        const auto error = engine.setLayerMidiEnabled (
+            message["layerId"].toString(), boolArg (message, "enabled", true));
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, engine.describeLoadedPlugin (message["layerId"].toString()));
+        return;
+    }
+
     if (cmd == "setLayerVelocityRange")
     {
         const auto error = engine.setLayerVelocityRange (

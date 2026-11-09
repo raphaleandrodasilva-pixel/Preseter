@@ -701,7 +701,32 @@ class MainWindow {
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
-      return this.vstManager.unloadPlugin(pluginId);
+      const plugin = this.vstManager
+        .getLoadedPlugins()
+        .find((item) => item.layerId === pluginId || item.id === pluginId);
+      const isLv2 = plugin?.format === 'LV2';
+      let restartAudio = false;
+      if (isLv2) {
+        try {
+          const devices = await this.vstManager.getAudioDevices();
+          restartAudio = devices.running;
+          if (restartAudio) await this.vstManager.stopAudio();
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível parar o áudio antes de descarregar o LV2:', error);
+          restartAudio = false;
+        }
+      }
+      try {
+        return await this.vstManager.unloadPlugin(pluginId);
+      } finally {
+        if (restartAudio) {
+          try {
+            await this.vstManager.startAudio(this.readAudioSettings());
+          } catch (error) {
+            console.warn('[Preseter] Não foi possível reiniciar o áudio após descarregar o LV2:', error);
+          }
+        }
+      }
     });
 
     ipcMain.handle('vst-set-param', (_event, pluginId: string, paramId: string, value: number, slot?: number) => {
@@ -2002,14 +2027,15 @@ class MainWindow {
       }
     }
 
-    const originalStates = new Map<string, string>();
+    const disabledMidi: string[] = [];
+    const originalTargetState = await this.vstManager.getPluginState(layerId).catch(() => null);
     for (const loaded of this.vstManager.getLoadedPlugins()) {
-      if (!loaded.layerId) continue;
+      if (!loaded.layerId || loaded.layerId === layerId) continue;
       try {
-        const state = await this.vstManager.getPluginState(loaded.layerId);
-        if (state?.data) originalStates.set(loaded.layerId, state.data);
+        await this.vstManager.setLayerMidiEnabled(loaded.layerId, false);
+        disabledMidi.push(loaded.layerId);
       } catch {
-        // Se um plugin não expõe estado, segue sem restaurar esse layer.
+        // Se um layer não aceitar o controle, segue sem ele.
       }
     }
 
@@ -2057,12 +2083,19 @@ class MainWindow {
         }
       }
     } finally {
-      // Devolve todos os plugins ao som que estava antes da varredura.
-      for (const [layerId, data] of originalStates) {
+      // Devolve o FSVR ao som original e reativa o MIDI dos outros layers.
+      if (originalTargetState?.data) {
         try {
-          await this.vstManager.applyRawState(layerId, data);
+          await this.vstManager.applyRawState(layerId, originalTargetState.data);
         } catch (error) {
-          console.warn('[Preseter] Não foi possível restaurar o timbre após gerar .fxp:', error);
+          console.warn('[Preseter] Não foi possível restaurar o FSVR após gerar .fxp:', error);
+        }
+      }
+      for (const disabledId of disabledMidi) {
+        try {
+          await this.vstManager.setLayerMidiEnabled(disabledId, true);
+        } catch {
+          // Ignora: o layer pode ter sido removido durante a geração.
         }
       }
       this.vstPresetLibrary.refreshPresetFiles(this.vstManager.getScannedPlugins());

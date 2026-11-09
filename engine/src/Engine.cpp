@@ -28,6 +28,11 @@ public:
     void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
     {
         juce::ignoreUnused (audio);
+        if (! midiEnabled.load())
+        {
+            midi.clear();
+            return;
+        }
         juce::MidiBuffer accepted;
         const int transpose = transposeSemitones.load();
         const int velocityLow = velocityMinimum.load();
@@ -118,12 +123,19 @@ public:
         transposeSemitones.store (semitones);
     }
 
+    /** Usado na geração em lote: evita que Program Change chegue a outros layers. */
+    void setMidiEnabled (bool enabled)
+    {
+        midiEnabled.store (enabled);
+    }
+
 private:
     std::atomic<int> minimum { 0 };
     std::atomic<int> maximum { 127 };
     std::atomic<int> velocityMinimum { 1 };
     std::atomic<int> velocityMaximum { 127 };
     std::atomic<int> transposeSemitones { 0 };
+    std::atomic<bool> midiEnabled { true };
     std::array<std::array<unsigned int, 128>, 16> activeNotes {};
     /** Nota de entrada -> nota transposta do note-on ainda ativo (-1 = nenhuma). */
     std::array<std::array<int, 128>, 16> noteMap {};
@@ -2289,6 +2301,18 @@ juce::String Engine::setLayerRange (const juce::String& layerId, int minNote, in
     return {};
 }
 
+juce::String Engine::setLayerMidiEnabled (const juce::String& layerId, bool enabled)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+
+    auto& layer = layers[(size_t) index];
+    if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+        filter->setMidiEnabled (enabled);
+    return {};
+}
+
 juce::String Engine::setLayerVelocityRange (const juce::String& layerId, int minVelocity, int maxVelocity)
 {
     const int index = findLayer (layerId);
@@ -3006,6 +3030,9 @@ juce::String Engine::getPluginState (const juce::String& layerId, juce::var& res
         return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
                               : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
+    if (plugin->getPluginDescription().pluginFormatName == "LV2")
+        return utf8 ("Estado de plugins LV2 não é suportado.");
+
     juce::MemoryBlock state;
     plugin->getStateInformation (state);
     auto out = Obj()
@@ -3024,6 +3051,9 @@ juce::String Engine::setPluginState (const juce::String& layerId, const juce::St
     if (plugin == nullptr)
         return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
                               : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
+
+    if (plugin->getPluginDescription().pluginFormatName == "LV2")
+        return utf8 ("Estado de plugins LV2 não é suportado.");
 
     juce::MemoryOutputStream decoded;
     if (! juce::Base64::convertFromBase64 (decoded, base64))

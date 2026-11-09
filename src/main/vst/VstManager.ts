@@ -313,6 +313,12 @@ export class VstManager extends EventEmitter {
     return updated;
   }
 
+  /** Liga/desliga o MIDI de um layer (usado na geração em lote). */
+  async setLayerMidiEnabled(layerId: string, enabled: boolean): Promise<boolean> {
+    await this.engine.request('setLayerMidiEnabled', { layerId, enabled });
+    return true;
+  }
+
   async setLayerVelocityRange(
     layerId: string,
     minVelocity: number,
@@ -406,6 +412,7 @@ export class VstManager extends EventEmitter {
   ): Promise<{ data: string; parameters: Record<string, number>; bypass: false } | null> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return null;
+    if (plugin.format === 'LV2') return null;
     const chunk = await this.engine.request('getState', { layerId: plugin.layerId });
     const parameters = await this.engine.request('params', { layerId: plugin.layerId });
     return {
@@ -489,6 +496,9 @@ export class VstManager extends EventEmitter {
   async applyRawState(layerOrPluginId: string, base64: string): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;
+    if (plugin.format === 'LV2') {
+      throw new Error('Estado de plugins LV2 não é suportado.');
+    }
     await this.engine.request('setState', { layerId: plugin.layerId, data: base64 });
     await this.refreshLoadedPlugin(plugin.layerId);
     return true;
@@ -545,6 +555,9 @@ export class VstManager extends EventEmitter {
   async setPluginState(layerOrPluginId: string, state: unknown): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;
+    if (plugin.format === 'LV2') {
+      throw new Error('Estado de plugins LV2 não é suportado.');
+    }
     if (!state || typeof state !== 'object') throw new TypeError('O estado do plugin precisa ser um objeto.');
 
     const stateRecord = state as { data?: unknown; parameters?: unknown; bypass?: unknown };

@@ -563,6 +563,13 @@ export class VstPresetLibrary extends EventEmitter {
         // Ignora: o índice já não aponta para o arquivo.
       }
     }
+    if (preset.source === 'fxp' && preset.filePath) {
+      try {
+        fs.rmSync(preset.filePath, { force: true });
+      } catch {
+        // Ignora: o arquivo pode ter sido removido manualmente.
+      }
+    }
     this.save();
     this.emitChange();
     return true;

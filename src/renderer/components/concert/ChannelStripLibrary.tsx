@@ -336,13 +336,23 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     }
   };
 
-  const deleteSnapshot = async (preset: VstPreset) => {
-    if (preset.source !== 'snapshot') return;
+  const deletePreset = async (preset: VstPreset) => {
+    if (preset.source !== 'snapshot' && preset.source !== 'fxp') return;
+    if (
+      preset.source === 'fxp' &&
+      !window.confirm(`Excluir o arquivo .fxp "${preset.name}" do disco?`)
+    ) {
+      return;
+    }
     setBusy(true);
     try {
       const deleted = await window.electronAPI.vstPresetDelete(preset.id);
       if (deleted) {
-        setMessage(`Preset “${preset.name}” excluído.`);
+        setMessage(
+          preset.source === 'fxp'
+            ? `Arquivo .fxp “${preset.name}” excluído.`
+            : `Preset “${preset.name}” excluído.`
+        );
         setSelectedId(null);
         await refresh();
       }
@@ -608,14 +618,14 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               >
                 {preset.favorite ? '★' : '☆'}
               </button>
-              {preset.source === 'snapshot' && (
+              {(preset.source === 'snapshot' || preset.source === 'fxp') && (
                 <button
-                  onClick={() => void deleteSnapshot(preset)}
+                  onClick={() => void deletePreset(preset)}
                   className="px-1 text-[10px] opacity-0 group-hover:opacity-100"
                   style={{ color: '#FF8A80' }}
-                  title="Excluir preset"
+                  title={preset.source === 'fxp' ? 'Excluir arquivo .fxp' : 'Excluir preset'}
                 >
-                  ✕
+                  🗑
                 </button>
               )}
             </div>

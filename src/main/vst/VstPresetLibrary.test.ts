@@ -510,6 +510,17 @@ describe('VstPresetLibrary snapshots and presets', () => {
     });
   });
 
+  it('deletes an .fxp file from disk and from the index', async () => {
+    const id = await presetOfType('fxp');
+    const preset = lib.listResult().presets.find((item) => item.id === id)!;
+    const file = preset.filePath!;
+    expect(fs.existsSync(file)).toBe(true);
+
+    expect(lib.deletePreset(id)).toBe(true);
+    expect(fs.existsSync(file)).toBe(false);
+    expect(lib.listResult().presets.some((item) => item.id === id)).toBe(false);
+  });
+
   it('deletes presets, state files and overrides', async () => {
     const snapshot = await presetOfType('snapshot');
     const preset = lib.listResult().presets.find((item) => item.id === snapshot)!;
