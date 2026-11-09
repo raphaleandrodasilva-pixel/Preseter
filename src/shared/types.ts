@@ -2,6 +2,8 @@
  * Tipos compartilhados entre main process e renderer
  */
 
+import type { ExternalMidiConfig } from './external-midi';
+
 // Tipo de plugin VST
 /** Progresso global de carregamento de arquivo/patch mostrado no overlay. */
 export interface AppLoadProgress {
@@ -439,6 +441,11 @@ export interface PresetPluginAssignment {
   samplePath?: string;
   /** Preset nomeado do acervo de VST presets a aplicar ao carregar. */
   presetId?: string;
+  /**
+   * Timbre MIDI externo (opcional). Quando presente, este strip representa um
+   * dispositivo MIDI (porta/canal/banco/programa/controles) em vez de um plugin.
+   */
+  externalMidi?: ExternalMidiConfig;
 }
 
 export type ArpMode = 'up' | 'down' | 'updown' | 'random' | 'played';
