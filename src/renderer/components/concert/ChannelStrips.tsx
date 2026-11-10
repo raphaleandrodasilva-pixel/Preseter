@@ -19,8 +19,10 @@ import type {
   VstPreset,
 } from '@shared/types';
 import { DEFAULT_ARP, MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
+import type { ExternalMidiConfig } from '@shared/external-midi';
 import { noteName } from '../composer/elementFactory';
 import { ArpeggiatorModal } from './ArpeggiatorModal';
+import { ExternalMidiStrip } from './ExternalMidiStrip';
 import {
   maskedAttributes,
   stripLevelViews,
@@ -100,6 +102,12 @@ interface ChannelStripsProps {
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
   onSetLayerMix: (layerId: string, update: LayerMixUpdate) => void;
   onSetMasterMix: (update: MasterMixUpdate) => void;
+  /** Timbre MIDI externo: criar, editar, atualizar e enviar ao vivo. */
+  externalMidiEnabled: boolean;
+  onAddExternalMidi: () => void;
+  onEditExternalMidi: (layerId: string) => void;
+  onUpdateExternalMidi: (layerId: string, config: ExternalMidiConfig) => void;
+  onSendExternalMidi: (portName: string, message: number[]) => void;
 }
 
 /** Onde o seletor de plugins está carregando: num layer do patch, num strip herdado ou trocando um instrumento. */
@@ -243,6 +251,11 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetParameter,
   onSetLayerMix,
   onSetMasterMix,
+  externalMidiEnabled,
+  onAddExternalMidi,
+  onEditExternalMidi,
+  onUpdateExternalMidi,
+  onSendExternalMidi,
 }) => {
   const plugins = preset?.plugins ?? [];
   const outputPairLimit = Math.max(1, Math.min(MAX_OUTPUT_BUSES, availableOutputPairs || 1));
@@ -1335,6 +1348,16 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 </button>
                 <button
                   type="button"
+                  className="block w-full px-3 py-2 text-left text-[11px] text-slate-100 hover:bg-white/10"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onAddExternalMidi();
+                  }}
+                >
+                  MIDI externo…
+                </button>
+                <button
+                  type="button"
                   className="block w-full px-3 py-2 text-left text-[11px] text-slate-100 hover:bg-white/10 disabled:opacity-40"
                   disabled={
                     !selectedLayer ||
@@ -1554,6 +1577,22 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           {showInheritedLevels && renderInheritedGroup('concert', concertStrips)}
           {showInheritedLevels && setName !== null && renderInheritedGroup('set', setStrips)}
           {layers.map(({ assignment, layerId, index }) => {
+            if (assignment.externalMidi) {
+              return (
+                <ExternalMidiStrip
+                  key={layerId}
+                  assignment={assignment}
+                  editable={editable}
+                  enabled={externalMidiEnabled}
+                  selected={selectedLayer?.layerId === layerId}
+                  onSelect={() => setSelectedLayerId(layerId)}
+                  onRemove={() => void onRemove(assignment, layerId)}
+                  onEdit={() => onEditExternalMidi(layerId)}
+                  onChange={(config) => onUpdateExternalMidi(layerId, config)}
+                  onSend={onSendExternalMidi}
+                />
+              );
+            }
             const loaded = loadedPlugins.find((plugin) => plugin.layerId === layerId);
             const liveMix = mixState?.layers.find((state) => state.layerId === layerId);
             const mix = liveMix ?? {

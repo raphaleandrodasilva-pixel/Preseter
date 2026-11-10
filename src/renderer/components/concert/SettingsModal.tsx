@@ -485,6 +485,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   A saída serve para enviar Program Change ao controlador.
                 </p>
               </section>
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">MIDI externo</h4>
+                <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={preferences?.externalMidiEnabled ?? false}
+                    onChange={(event) => void updatePreferences({ externalMidiEnabled: event.target.checked })}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">Habilitar MIDI externo</span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Permite timbres que enviam banco, programa e CC para qualquer dispositivo MIDI.
+                      Desligado, o Preseter não envia nada.
+                    </span>
+                  </span>
+                </label>
+              </section>
               <section>
                 <h4 className="hw-label mb-2">Monitor</h4>
                 <div className="hw-lcd p-3 font-mono text-xs" style={{ color: '#E5E5EA' }}>

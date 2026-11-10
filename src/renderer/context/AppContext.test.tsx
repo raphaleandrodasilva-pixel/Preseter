@@ -366,7 +366,58 @@ describe('AppProvider preset and concert actions', () => {
   });
 });
 
+function midiAccessWithOutput(send: ReturnType<typeof vi.fn>): MIDIAccess {
+  const output = {
+    id: 'fake-out',
+    name: 'Fake MIDI Out',
+    type: 'output',
+    state: 'connected',
+    open: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+    send,
+  };
+  return {
+    inputs: new Map(),
+    outputs: new Map([['fake-out', output]]),
+    sysexEnabled: false,
+    onstatechange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  } as unknown as MIDIAccess;
+}
+
 describe('AppProvider MIDI and VST actions', () => {
+  it('sends to an external MIDI output only when enabled', async () => {
+    const send = vi.fn();
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(midiAccessWithOutput(send));
+    vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(
+      createPreferences({ externalMidiEnabled: true })
+    );
+    await renderProvider();
+    await act(async () => {
+      await latest.listMidiDevices();
+    });
+
+    expect(await latest.sendExternalMidi('Fake MIDI Out', [0xb0, 7, 100])).toBe(true);
+    expect(send).toHaveBeenCalledWith([0xb0, 7, 100]);
+  });
+
+  it('does not send external MIDI when the feature is disabled', async () => {
+    const send = vi.fn();
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(midiAccessWithOutput(send));
+    vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(
+      createPreferences({ externalMidiEnabled: false })
+    );
+    await renderProvider();
+    await act(async () => {
+      await latest.listMidiDevices();
+    });
+
+    expect(await latest.sendExternalMidi('Fake MIDI Out', [0xb0, 7, 100])).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('sends MIDI to the engine and to a selected output', async () => {
     await renderProvider();
     vi.mocked(window.electronAPI.engineMidi).mockResolvedValue(true);

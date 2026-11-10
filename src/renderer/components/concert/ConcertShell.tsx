@@ -23,6 +23,7 @@ import type {
   PlaybackState,
 } from '@shared/types';
 import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
+import type { ExternalMidiConfig } from '@shared/external-midi';
 import { defaultAudioInput } from '@shared/audio-input';
 import { buildDuplicatedElements, moveElementsWithGroup, newGroupId } from '@shared/element-groups';
 import {
@@ -50,6 +51,7 @@ import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
 import { TunerModal } from './TunerModal';
+import { ExternalMidiEditor } from './ExternalMidiEditor';
 import { ComposerCanvas } from '../composer/ComposerCanvas';
 import { ControlPalette } from '../composer/ControlPalette';
 import { buildScannedParams } from '../composer/MappingTable';
@@ -256,6 +258,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
     setPanLaw,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
+    preferences, sendExternalMidi, applyExternalMidiConfig,
     concertStrips, updateConcertStrips, updateSet, layout, mappings, updateMappings,
     exportPatch, importPatch, exportSet, importSet,
   } = ctx;
@@ -286,6 +289,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [mappingsOpen, setMappingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [tunerOpen, setTunerOpen] = useState(false);
+  const [externalMidiEditor, setExternalMidiEditor] = useState<{
+    layerId: string | null;
+    name: string;
+    config: ExternalMidiConfig | null;
+  } | null>(null);
   const [recordingPath, setRecordingPath] = useState<string | null>(null);
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'converting'>('idle');
   const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
@@ -1040,6 +1048,87 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     return true;
   };
 
+  /** Abre o editor para criar um timbre MIDI externo no patch. */
+  const openNewExternalMidi = () => {
+    if (!draft) {
+      onError('Edite ou crie um patch para adicionar um timbre MIDI externo.');
+      return;
+    }
+    setExternalMidiEditor({ layerId: null, name: 'MIDI externo', config: null });
+  };
+
+  /** Abre o editor de um timbre MIDI externo já existente. */
+  const openEditExternalMidi = (layerId: string) => {
+    if (!draft) return;
+    const assignment = (draft.plugins ?? []).find(
+      (item, index) => (item.layerId ?? `${draft.id}:layer:${index}`) === layerId
+    );
+    if (!assignment?.externalMidi) return;
+    setExternalMidiEditor({
+      layerId,
+      name: assignment.name,
+      config: assignment.externalMidi,
+    });
+  };
+
+  /** Atualiza os valores dos controles de um timbre MIDI externo. */
+  const updateExternalMidi = (layerId: string, config: ExternalMidiConfig) => {
+    if (!draft) return;
+    onDraftChange({
+      ...draft,
+      plugins: (draft.plugins ?? []).map((item, index) =>
+        (item.layerId ?? `${draft.id}:layer:${index}`) === layerId
+          ? { ...item, externalMidi: config }
+          : item
+      ),
+      updatedAt: Date.now(),
+    });
+  };
+
+  /** Salva o timbre MIDI externo (novo ou existente) no patch. */
+  const saveExternalMidi = (name: string, config: ExternalMidiConfig) => {
+    if (!draft || !externalMidiEditor) return;
+
+    if (externalMidiEditor.layerId) {
+      const layerId = externalMidiEditor.layerId;
+      onDraftChange({
+        ...draft,
+        plugins: (draft.plugins ?? []).map((item, index) =>
+          (item.layerId ?? `${draft.id}:layer:${index}`) === layerId
+            ? { ...item, name, externalMidi: config }
+            : item
+        ),
+        updatedAt: Date.now(),
+      });
+    } else {
+      const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+      const assignment: PresetPluginAssignment = {
+        pluginId: `external-midi:${layerId}`,
+        layerId,
+        name,
+        path: '',
+        role: 'instrument',
+        minNote: 0,
+        maxNote: 127,
+        patchSendDb: 0,
+        externalMidi: config,
+      };
+      onDraftChange({
+        ...draft,
+        plugins: [...(draft.plugins ?? []), assignment],
+        updatedAt: Date.now(),
+      });
+      setFocusLayerId(layerId);
+    }
+
+    setExternalMidiEditor(null);
+    onError('');
+    // Feedback imediato: envia o programa e os valores escolhidos.
+    void applyExternalMidiConfig(config);
+  };
+
   /** Cria um layer novo dividindo o range do layer base em grave/agudo. */
   const addSplitLayer = async (
     plugin: VstPluginInfo,
@@ -1250,10 +1339,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const removeLayer = async (assignment: PresetPluginAssignment, layerId: string) => {
     if (!draft) return;
-    const removed = await unloadVstPlugin(layerId);
-    if (!removed) {
-      onError(`Não foi possível remover o layer "${assignment.name}".`);
-      return;
+    // Timbre MIDI externo não tem plugin no motor: remove só do patch.
+    if (!assignment.externalMidi) {
+      const removed = await unloadVstPlugin(layerId);
+      if (!removed) {
+        onError(`Não foi possível remover o layer "${assignment.name}".`);
+        return;
+      }
     }
     onDraftChange({
       ...draft,
@@ -3113,6 +3205,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}
             onSetLayerMix={(layerId, update) => void changeLayerMix(layerId, update)}
             onSetMasterMix={(update) => void changeMasterMix(update)}
+            externalMidiEnabled={preferences?.externalMidiEnabled ?? false}
+            onAddExternalMidi={openNewExternalMidi}
+            onEditExternalMidi={openEditExternalMidi}
+            onUpdateExternalMidi={updateExternalMidi}
+            onSendExternalMidi={(portName, message) => void sendExternalMidi(portName, message)}
           />
         )}
       </div>
@@ -3154,6 +3251,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           state={audioInputState}
           referenceHz={activePreset?.tuningReferenceHz ?? 440}
           onClose={() => setTunerOpen(false)}
+        />
+      )}
+      {externalMidiEditor && (
+        <ExternalMidiEditor
+          title={externalMidiEditor.layerId ? 'Editar timbre MIDI externo' : 'Novo timbre MIDI externo'}
+          initialName={externalMidiEditor.name}
+          initialConfig={externalMidiEditor.config}
+          ports={midiDevices
+            .filter((device) => device.type === 'output')
+            .map((device) => device.name)}
+          onSave={saveExternalMidi}
+          onClose={() => setExternalMidiEditor(null)}
         />
       )}
       {mappingsOpen && (

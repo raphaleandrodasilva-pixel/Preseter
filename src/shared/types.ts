@@ -756,6 +756,11 @@ export interface AppPreferences {
   recordingBitrate: RecordingBitrate;
   /** Pasta das gravações; vazio = pasta de Música (ou Documentos). */
   recordingFolder?: string;
+  /**
+   * Habilita timbres MIDI externos. Desligado por padrão: nenhum timbre
+   * externo envia mensagens e o comportamento do app fica igual ao atual.
+   */
+  externalMidiEnabled: boolean;
 }
 
 // Configuração de layout da interface

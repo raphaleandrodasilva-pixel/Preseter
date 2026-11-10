@@ -45,6 +45,7 @@ import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMid
 import { ConcertHistory } from '@shared/concert-history';
 import { materializeLayout, withoutLayoutGeometry } from '@shared/concert-layout';
 import { suggestPatchIcon } from '@shared/patch-icons';
+import { buildExternalMidiLoadSteps, type ExternalMidiConfig } from '@shared/external-midi';
 
 /** Instantâneo do concert para o desfazer/refazer (Fase 2.5). */
 interface ConcertSnapshot {
@@ -170,6 +171,10 @@ export interface AppContextType {
   openMidiPort: (deviceId: string, type: 'input' | 'output') => Promise<boolean>;
   sendProgramChange: (program: number, channel?: number) => Promise<any>;
   sendMidiMessage: (message: number[]) => Promise<boolean>;
+  /** Envia bytes para uma saída MIDI externa pelo nome da porta. */
+  sendExternalMidi: (portName: string, message: number[]) => Promise<boolean>;
+  /** Envia a cena completa de um timbre MIDI externo (programa + controles). */
+  applyExternalMidiConfig: (config: ExternalMidiConfig) => Promise<void>;
   /** Panic do motor: all notes off + all sound off em todos os canais. */
   enginePanic: () => Promise<boolean>;
   /** Assina mensagens MIDI brutas (MIDI Learn). Retorna unsubscribe. */
@@ -331,6 +336,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
   const [presets, setPresets] = useState<Preset[]>([]);
   const presetsRef = useRef(presets);
+  /** Patch cujo carregamento pedimos agora; usado para a cena MIDI externa. */
+  const pendingExternalPresetRef = useRef<Preset | null>(null);
   const [sets, setSets] = useState<PresetSet[]>([]);
   const [concertName, setConcertNameState] = useState<string>('Meu Concert');
   const [concertLoaded, setConcertLoaded] = useState(false);
@@ -383,6 +390,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     vst: false,
     presets: false,
   });
+
+  /** Envia bytes para uma porta MIDI externa; só age com o recurso ligado. */
+  const sendExternalMidi = useCallback(async (portName: string, message: number[]): Promise<boolean> => {
+    if (!preferences?.externalMidiEnabled) return false;
+    const service = webMidi.current;
+    if (!service || !portName.trim()) return false;
+    try {
+      return await service.sendToPortName(portName, message);
+    } catch (error) {
+      console.warn('[Preseter] Falha ao enviar MIDI externo:', error);
+      return false;
+    }
+  }, [preferences?.externalMidiEnabled]);
+
+  /** Envia programa + controles de um timbre MIDI externo. */
+  const applyExternalMidiConfig = useCallback(async (config: ExternalMidiConfig): Promise<void> => {
+    if (!preferences?.externalMidiEnabled) return;
+    const steps = buildExternalMidiLoadSteps(config);
+    for (const step of steps) {
+      await sendExternalMidi(config.portName, step.bytes);
+      if (step.delayMs) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, step.delayMs);
+        });
+      }
+    }
+  }, [preferences?.externalMidiEnabled, sendExternalMidi]);
+
+  /** Aplica a cena MIDI de um patch sem bloquear o carregamento. */
+  const applyExternalMidiForPreset = useCallback(async (preset: Preset | null | undefined): Promise<void> => {
+    if (!preset || !preferences?.externalMidiEnabled) return;
+    for (const assignment of preset.plugins ?? []) {
+      const config = assignment.externalMidi;
+      if (config) await applyExternalMidiConfig(config);
+    }
+  }, [preferences?.externalMidiEnabled, applyExternalMidiConfig]);
+
+  const applyExternalMidiRef = useRef(applyExternalMidiForPreset);
+  useEffect(() => {
+    applyExternalMidiRef.current = applyExternalMidiForPreset;
+  }, [applyExternalMidiForPreset]);
 
   /** Materializa o layout de um patch com o layout/mappings/set atuais. */
   const materializePatchLayout = useCallback((
@@ -506,12 +554,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     window.electronAPI.onPresetLoaded((data) => {
-      setCurrentPreset(presetsRef.current.find((preset) => preset.id === data.presetId) || null);
+      const pending = pendingExternalPresetRef.current;
+      const preset = pending?.id === data.presetId
+        ? pending
+        : presetsRef.current.find((item) => item.id === data.presetId) || null;
+      pendingExternalPresetRef.current = null;
+      setCurrentPreset(preset);
       setAppStatus((prev) => ({
         ...prev,
         currentPresetId: data.presetId,
         currentProgramNumber: data.programNumber,
       }));
+      void applyExternalMidiRef.current(preset);
     });
 
     window.electronAPI.onAppStatusChange((status) => {
@@ -659,6 +713,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       total: targetPreset?.plugins?.length ?? 0,
       percent: 3,
     });
+    pendingExternalPresetRef.current = targetPreset ?? null;
     let result: boolean;
     try {
       result = await window.electronAPI.presetLoad(presetId);
@@ -2026,6 +2081,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openMidiPort,
     sendProgramChange,
     sendMidiMessage,
+    sendExternalMidi,
+    applyExternalMidiConfig,
     enginePanic,
     subscribeMidiLearn,
     scanVstPlugins,

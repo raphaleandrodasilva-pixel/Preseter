@@ -47,7 +47,13 @@ export class WebMidiService {
       throw new Error('Web MIDI não está disponível nesta versão do Electron.');
     }
 
-    this.access = await navigator.requestMIDIAccess({ sysex: false });
+    // SysEx é opcional: alguns dispositivos só aceitam parâmetros por SysEx.
+    // Se a permissão for negada, cai de volta para o acesso sem SysEx.
+    try {
+      this.access = await navigator.requestMIDIAccess({ sysex: true });
+    } catch {
+      this.access = await navigator.requestMIDIAccess({ sysex: false });
+    }
     this.refreshPorts();
 
     return [
@@ -94,10 +100,58 @@ export class WebMidiService {
       return false;
     }
 
+    this.validateMessage(message);
+
+    await output.open();
+    output.send(message);
+    return true;
+  }
+
+  /** Nomes das saídas disponíveis (para a UI de timbre externo). */
+  listOutputNames(): string[] {
+    return Array.from(this.outputs.values(), (output) => output.name || 'MIDI output');
+  }
+
+  /**
+   * Envia para uma porta pelo nome (ou id), sem mudar a saída selecionada.
+   * Usado pelos timbres MIDI externos. Retorna false quando a porta sumiu.
+   */
+  async sendToPortName(portName: string, message: number[]): Promise<boolean> {
+    const name = portName.trim();
+    if (!name) return false;
+
+    const output = Array.from(this.outputs.values()).find(
+      (item) => item.name === name || item.id === name
+    );
+    if (!output) return false;
+
+    this.validateMessage(message, true);
+
+    await output.open();
+    output.send(message);
+    return true;
+  }
+
+  private validateMessage(message: number[], allowSysex = false): void {
+    if (!Array.isArray(message) || message.length === 0) {
+      throw new RangeError('Mensagem MIDI inválida.');
+    }
+
     const status = message[0];
+    if (status === 0xf0) {
+      if (!allowSysex) throw new RangeError('Mensagem MIDI inválida.');
+      if (
+        message.length < 2 ||
+        message[message.length - 1] !== 0xf7 ||
+        message.some((value) => !Number.isInteger(value) || value < 0 || value > 255)
+      ) {
+        throw new RangeError('Mensagem SysEx inválida.');
+      }
+      return;
+    }
+
     const statusType = status & 0xf0;
-    const expectedLength =
-      statusType === 0xc0 || statusType === 0xd0 ? 2 : 3;
+    const expectedLength = statusType === 0xc0 || statusType === 0xd0 ? 2 : 3;
     if (
       status < 0x80 ||
       status > 0xef ||
@@ -106,10 +160,6 @@ export class WebMidiService {
     ) {
       throw new RangeError('Mensagem MIDI inválida.');
     }
-
-    await output.open();
-    output.send(message);
-    return true;
   }
 
   async sendProgramChange(program: number, channel: number): Promise<boolean> {

@@ -203,6 +203,7 @@ export function createPreferences(overrides: Partial<AppPreferences> = {}): AppP
     scrollSpeed: 'slow',
     recordingFormat: 'wav',
     recordingBitrate: 320,
+    externalMidiEnabled: false,
     ...overrides,
   };
 }

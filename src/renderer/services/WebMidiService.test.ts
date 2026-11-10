@@ -76,7 +76,7 @@ describe('WebMidiService device discovery', () => {
       { id: 'in-1', name: 'MIDI input', type: 'input', connected: true },
       { id: 'out-1', name: 'Output', type: 'output', connected: false },
     ]);
-    expect(navigator.requestMIDIAccess).toHaveBeenCalledWith({ sysex: false });
+    expect(navigator.requestMIDIAccess).toHaveBeenCalledWith({ sysex: true });
   });
 });
 
@@ -226,5 +226,31 @@ describe('WebMidiService output', () => {
     expect(midi.hasSelectedOutput()).toBe(false);
     expect(await midi.send([0x90, 1, 1])).toBe(false);
     expect(errors).toHaveBeenCalled();
+  });
+
+  it('sends to a named output without changing the selected one', async () => {
+    const selected = port('sel', 'Selected', 'output');
+    const external = port('ext', 'MOTIF-RACK', 'output');
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(accessWith([], [selected, external]));
+    const { midi } = service();
+    await midi.listDevices();
+    await midi.openPort('sel', 'output');
+
+    expect(await midi.sendToPortName('MOTIF-RACK', [0xb0, 74, 80])).toBe(true);
+    expect(external.send).toHaveBeenCalledWith([0xb0, 74, 80]);
+    expect(selected.send).not.toHaveBeenCalled();
+    expect(midi.listOutputNames()).toEqual(['Selected', 'MOTIF-RACK']);
+  });
+
+  it('returns false for a missing external output and accepts SysEx', async () => {
+    const output = port('out', 'Out', 'output');
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(accessWith([], [output]));
+    const { midi } = service();
+    await midi.listDevices();
+
+    expect(await midi.sendToPortName('Missing', [0xb0, 7, 100])).toBe(false);
+    expect(await midi.sendToPortName('Out', [0xf0, 0x43, 0xf7])).toBe(true);
+    expect(output.send).toHaveBeenCalledWith([0xf0, 0x43, 0xf7]);
+    await expect(midi.sendToPortName('Out', [0xf0, 0x43])).rejects.toThrow(/SysEx/);
   });
 });

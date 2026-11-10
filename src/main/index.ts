@@ -1400,6 +1400,8 @@ class MainWindow {
     const restoredStateKeys = new Set<string>();
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      // Timbre MIDI externo: não carrega plugin nem entra no grafo de áudio.
+      if (assignment.externalMidi) continue;
       this.sendToRenderer('preset-load-progress', {
         presetId: preset.id,
         current: index + 1,
@@ -1454,6 +1456,7 @@ class MainWindow {
     // Faixa de velocity por layer (Fase 3.4).
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      if (assignment.externalMidi) continue;
       try {
         await this.vstManager.setLayerVelocityRange(
           layerId,
@@ -1469,6 +1472,7 @@ class MainWindow {
     // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      if (assignment.externalMidi) continue;
       const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
       for (const insert of inserts) {
         try {
@@ -1487,6 +1491,7 @@ class MainWindow {
     // Sends (Aux) e saída (Output) de cada channel strip (Fase 3.2).
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+      if (assignment.externalMidi) continue;
       try {
         // Todos os layers vão para o Master do Patch (bus interno do patch).
         await this.vstManager.setLayerOutput(layerId, 1);
@@ -2284,6 +2289,7 @@ class MainWindow {
       recordingFormat: 'wav',
       recordingBitrate: 320,
       recordingFolder: '',
+      externalMidiEnabled: false,
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -2317,6 +2323,7 @@ class MainWindow {
         recordingFolder: typeof saved.recordingFolder === 'string' && saved.recordingFolder.trim() !== ''
           ? saved.recordingFolder
           : '',
+        externalMidiEnabled: saved.externalMidiEnabled === true,
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);
@@ -2335,11 +2342,12 @@ class MainWindow {
 
   private configureMidiPermissions(): void {
     const appSession = session.defaultSession;
+    const midiPermission = (permission: string) => permission === 'midi' || permission === 'midiSysex';
     appSession.setPermissionCheckHandler((webContents, permission) => {
-      return permission === 'midi' && webContents === this.window?.webContents;
+      return midiPermission(permission) && webContents === this.window?.webContents;
     });
     appSession.setPermissionRequestHandler((webContents, permission, callback) => {
-      callback(permission === 'midi' && webContents === this.window?.webContents);
+      callback(midiPermission(permission) && webContents === this.window?.webContents);
     });
   }
 
