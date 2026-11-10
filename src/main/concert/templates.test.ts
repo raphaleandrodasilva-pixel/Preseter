@@ -5,15 +5,21 @@ import { buildTemplateConcert, CONCERT_TEMPLATES, listTemplates } from './templa
 describe('concert templates', () => {
   it('lists template summaries without implementation fields', () => {
     const templates = listTemplates();
-    expect(templates).toHaveLength(4);
-    expect(templates.map((template) => template.id)).toEqual(['vazio', 'teclado', 'worship', 'fullset']);
+    expect(templates).toHaveLength(5);
+    expect(templates.map((template) => template.id)).toEqual([
+      'vazio',
+      'teclado',
+      'worship',
+      'fullset',
+      'midi-externo',
+    ]);
     expect(templates[0]).toMatchObject({
       id: 'vazio',
       name: 'Vazio',
       description: expect.any(String),
     });
     expect(templates[0]).not.toHaveProperty('sets');
-    expect(CONCERT_TEMPLATES).toHaveLength(4);
+    expect(CONCERT_TEMPLATES).toHaveLength(5);
   });
 
   it('builds an empty concert with the default keyboard layout', () => {
@@ -72,6 +78,22 @@ describe('concert templates', () => {
     expect(file.patches.every((patch) => patch.layout.tempo === 72)).toBe(true);
     expect(file.patches[0].notes).toBe('Pad de fundo');
     expect(file.patches.map((patch) => patch.icon)).toEqual(['pad', 'pad-bright', 'piano', 'generic']);
+  });
+
+  it('builds the MIDI external template with one set, one patch and keyboard', () => {
+    const file = buildTemplateConcert('midi-externo');
+    expect(file.concert.name).toBe('Meu Concert MIDI');
+    expect(file.sets).toHaveLength(1);
+    expect(file.sets[0]).toMatchObject({ name: 'Externo', order: 0, expanded: true });
+    expect(file.patches).toHaveLength(1);
+    expect(file.patches[0]).toMatchObject({
+      name: 'MIDI externo',
+      notes: 'Timbre MIDI externo',
+      programNumber: 0,
+      plugins: [],
+    });
+    expect(file.patches[0].setId).toBe(file.sets[0].id);
+    expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
   });
 
   it('builds the full set template with 8 sets and 40 patches', () => {

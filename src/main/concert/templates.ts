@@ -229,6 +229,17 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       },
     ],
   },
+  {
+    id: 'midi-externo',
+    name: 'MIDI externo',
+    description: 'Cria um patch com um timbre MIDI externo e teclado na tela. Ideal para comandar um módulo ou teclado externo.',
+    concertName: 'Meu Concert MIDI',
+    tempo: DEFAULT_TEMPO,
+    sets: ['Externo'],
+    patches: [
+      { name: 'MIDI externo', setName: 'Externo', withKeyboard: true, notes: 'Timbre MIDI externo' },
+    ],
+  },
 ];
 
 export function listTemplates(): ConcertTemplateSummary[] {

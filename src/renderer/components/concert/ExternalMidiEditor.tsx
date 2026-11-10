@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type {
   ExternalMidiConfig,
   ExternalMidiControl,
@@ -16,6 +16,8 @@ interface ExternalMidiEditorProps {
   initialConfig: ExternalMidiConfig | null;
   /** Nomes das saídas MIDI disponíveis. */
   ports: string[];
+  /** Atualiza a lista de saídas (quando nenhuma foi encontrada). */
+  onRefreshPorts?: () => Promise<unknown>;
   onSave: (name: string, config: ExternalMidiConfig) => void;
   onClose: () => void;
 }
@@ -151,6 +153,7 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
   initialName,
   initialConfig,
   ports,
+  onRefreshPorts,
   onSave,
   onClose,
 }) => {
@@ -170,6 +173,13 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
     if (portName && !unique.includes(portName)) unique.unshift(portName);
     return unique;
   }, [ports, portName]);
+
+  // Quando as portas chegam depois (ex.: usuário conectou o dispositivo e
+  // clicou em Atualizar), seleciona a primeira automaticamente.
+  useEffect(() => {
+    if (portName || portOptions.length === 0) return;
+    setPortName(portOptions[0]);
+  }, [portName, portOptions]);
 
   const patchControl = (id: string, update: Partial<ControlDraft>) => {
     setControls((previous) => previous.map((item) => (item.id === id ? { ...item, ...update } : item)));
@@ -356,6 +366,24 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
             />
           </label>
         </div>
+
+        {portOptions.length === 0 && (
+          <div
+            className="mt-3 rounded-lg border px-3 py-2 text-[11px]"
+            style={{ borderColor: '#3A3A3C', color: '#9A9AA0' }}
+          >
+            Nenhuma saída MIDI encontrada. Conecte o dispositivo e atualize.
+            {onRefreshPorts && (
+              <button
+                className="ml-2 underline"
+                style={{ color: '#0A84FF' }}
+                onClick={() => void onRefreshPorts()}
+              >
+                Atualizar dispositivos
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="mt-5 flex items-center justify-between">
           <h4 className="hw-label">Controles</h4>

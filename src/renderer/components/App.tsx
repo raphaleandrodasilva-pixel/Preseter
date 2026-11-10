@@ -36,6 +36,7 @@ const AppContent: React.FC = () => {
     layout,
     updateConcertLayout,
     preferences,
+    updatePreferences,
   } = context;
 
   useSlowScroll(preferences?.scrollSpeed ?? 'slow');
@@ -272,6 +273,11 @@ const AppContent: React.FC = () => {
       {templatePickerOpen && (
         <TemplatePicker
           templates={concertTemplates}
+          externalMidiEnabled={preferences?.externalMidiEnabled ?? false}
+          onEnableExternalMidi={async () => {
+            const next = await updatePreferences({ externalMidiEnabled: true });
+            return next?.externalMidiEnabled === true;
+          }}
           onPick={(templateId) => void chooseTemplate(templateId)}
           onOpenFile={() => void openConcertFile()}
           onCancel={cancelTemplatePicker}

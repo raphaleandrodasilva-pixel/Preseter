@@ -259,6 +259,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     setPanLaw,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
     preferences, sendExternalMidi, applyExternalMidiConfig,
+    externalMidiSetupPending, clearExternalMidiSetup,
     concertStrips, updateConcertStrips, updateSet, layout, mappings, updateMappings,
     exportPatch, importPatch, exportSet, importSet,
   } = ctx;
@@ -1128,6 +1129,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     // Feedback imediato: envia o programa e os valores escolhidos.
     void applyExternalMidiConfig(config);
   };
+
+  // Template "MIDI externo": entra no patch e abre o editor uma única vez.
+  useEffect(() => {
+    if (!externalMidiSetupPending) return;
+    if (!draft) {
+      const patch = currentPreset ?? presets[0];
+      if (!patch) return;
+      onEditPreset(patch);
+      return;
+    }
+    clearExternalMidiSetup();
+    openNewExternalMidi();
+  }, [externalMidiSetupPending, draft, currentPreset, presets, onEditPreset, clearExternalMidiSetup]);
 
   /** Cria um layer novo dividindo o range do layer base em grave/agudo. */
   const addSplitLayer = async (
@@ -3262,6 +3276,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             .filter((device) => device.type === 'output')
             .map((device) => device.name)}
           onSave={saveExternalMidi}
+          onRefreshPorts={() => listMidiDevices()}
           onClose={() => setExternalMidiEditor(null)}
         />
       )}

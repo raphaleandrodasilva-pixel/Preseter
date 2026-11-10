@@ -364,6 +364,26 @@ describe('AppProvider preset and concert actions', () => {
     expect(latest.concertName).toBe('Novo');
     expect(latest.layout?.tempo).toBe(88);
   });
+
+  it('prepares the MIDI external template and clears the pending setup', async () => {
+    const patch = createPreset({ id: 'midi-patch', name: 'MIDI externo' });
+    vi.mocked(window.electronAPI.concertNew).mockResolvedValue(
+      createConcertState({ name: 'Meu Concert MIDI', patches: [patch] })
+    );
+    vi.mocked(window.electronAPI.presetLoad).mockResolvedValue(true);
+    await renderProvider();
+
+    await act(async () => {
+      await latest.chooseTemplate('midi-externo');
+    });
+
+    expect(latest.concertName).toBe('Meu Concert MIDI');
+    expect(latest.externalMidiSetupPending).toBe(true);
+    expect(window.electronAPI.presetLoad).toHaveBeenCalledWith('midi-patch');
+
+    act(() => latest.clearExternalMidiSetup());
+    expect(latest.externalMidiSetupPending).toBe(false);
+  });
 });
 
 function midiAccessWithOutput(send: ReturnType<typeof vi.fn>): MIDIAccess {

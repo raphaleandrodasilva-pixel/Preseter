@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { AudioInputState, ConcertTemplateSummary } from '@shared/types';
 import { ModeToolbar } from './ModeToolbar';
@@ -10,6 +10,12 @@ const templates: ConcertTemplateSummary[] = [
   { id: 'empty', name: 'Empty', description: 'Start from scratch' },
   { id: 'band', name: 'Band', description: 'Keys and pads' },
 ];
+
+const midiTemplate: ConcertTemplateSummary = {
+  id: 'midi-externo',
+  name: 'MIDI externo',
+  description: 'Cria um patch com timbre MIDI externo',
+};
 
 function toolbarProps() {
   return {
@@ -86,6 +92,8 @@ describe('TemplatePicker', () => {
     render(
       <TemplatePicker
         templates={templates}
+        externalMidiEnabled={false}
+        onEnableExternalMidi={vi.fn(async () => true)}
         onPick={onPick}
         onOpenFile={vi.fn()}
         onCancel={vi.fn()}
@@ -104,6 +112,8 @@ describe('TemplatePicker', () => {
     render(
       <TemplatePicker
         templates={templates}
+        externalMidiEnabled={false}
+        onEnableExternalMidi={vi.fn(async () => true)}
         onPick={vi.fn()}
         onOpenFile={onOpenFile}
         onCancel={vi.fn()}
@@ -118,6 +128,8 @@ describe('TemplatePicker', () => {
     render(
       <TemplatePicker
         templates={templates}
+        externalMidiEnabled={false}
+        onEnableExternalMidi={vi.fn(async () => true)}
         onPick={vi.fn()}
         onOpenFile={vi.fn()}
         onCancel={onCancel}
@@ -127,6 +139,65 @@ describe('TemplatePicker', () => {
     fireEvent.click(screen.getByTitle('Fechar (Esc)'));
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onCancel).toHaveBeenCalledTimes(3);
+  });
+
+  it('asks before enabling MIDI external and then picks the template', async () => {
+    const onPick = vi.fn();
+    const onEnableExternalMidi = vi.fn(async () => true);
+    render(
+      <TemplatePicker
+        templates={[...templates, midiTemplate]}
+        externalMidiEnabled={false}
+        onEnableExternalMidi={onEnableExternalMidi}
+        onPick={onPick}
+        onOpenFile={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('MIDI externo'));
+    expect(onPick).not.toHaveBeenCalled();
+    expect(screen.getByText('Comandar um dispositivo MIDI externo?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Ligar e continuar'));
+    await waitFor(() => expect(onEnableExternalMidi).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onPick).toHaveBeenCalledWith('midi-externo'));
+  });
+
+  it('does not pick when enabling MIDI external fails', async () => {
+    const onPick = vi.fn();
+    render(
+      <TemplatePicker
+        templates={[...templates, midiTemplate]}
+        externalMidiEnabled={false}
+        onEnableExternalMidi={vi.fn(async () => false)}
+        onPick={onPick}
+        onOpenFile={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('MIDI externo'));
+    fireEvent.click(screen.getByText('Ligar e continuar'));
+    await waitFor(() => expect(screen.getByText(/Não foi possível ligar/)).toBeInTheDocument());
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('picks MIDI external directly when the feature is enabled', () => {
+    const onPick = vi.fn();
+    render(
+      <TemplatePicker
+        templates={[...templates, midiTemplate]}
+        externalMidiEnabled
+        onEnableExternalMidi={vi.fn(async () => true)}
+        onPick={onPick}
+        onOpenFile={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('MIDI externo'));
+    expect(onPick).toHaveBeenCalledWith('midi-externo');
   });
 });
 

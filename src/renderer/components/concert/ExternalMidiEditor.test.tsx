@@ -72,6 +72,25 @@ describe('ExternalMidiEditor', () => {
     );
   });
 
+  it('shows a refresh action when no MIDI output exists', () => {
+    const onRefreshPorts = vi.fn(async () => undefined);
+    render(
+      <ExternalMidiEditor
+        title="Novo"
+        initialName="MIDI externo"
+        initialConfig={null}
+        ports={[]}
+        onRefreshPorts={onRefreshPorts}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Nenhuma saída MIDI encontrada/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Atualizar dispositivos'));
+    expect(onRefreshPorts).toHaveBeenCalledTimes(1);
+  });
+
   it('shows an error for an invalid 14-bit CC', () => {
     const { onSave } = renderEditor({
       portName: 'MOTIF-RACK',

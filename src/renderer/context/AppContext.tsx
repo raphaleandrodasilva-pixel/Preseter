@@ -108,6 +108,9 @@ export interface AppContextType {
   concertTemplates: ConcertTemplateSummary[];
   /** true quando o seletor de templates está aberto. */
   templatePickerOpen: boolean;
+  /** true quando o template MIDI externo pediu para abrir o editor. */
+  externalMidiSetupPending: boolean;
+  clearExternalMidiSetup: () => void;
   /** Cria um concert novo a partir de um template. */
   chooseTemplate: (templateId: string) => Promise<void>;
   /** Fecha o seletor de templates sem criar nada. */
@@ -351,6 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertRevision, setConcertRevision] = useState(0);
   const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [externalMidiSetupPending, setExternalMidiSetupPending] = useState(false);
   /** true depois que o estado do concert foi carregado do main (libera o sync). */
   const concertReady = useRef(false);
   /** Garante que o concert inicial seja carregado uma única vez. */
@@ -1053,15 +1057,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTemplatePickerOpen(false);
       setConcertError(null);
       try {
-        applyConcertState(await window.electronAPI.concertNew(templateId));
+        const state = await window.electronAPI.concertNew(templateId);
+        applyConcertState(state);
+        if (templateId === 'midi-externo') {
+          const first = state.patches[0];
+          if (first) {
+            try {
+              await loadPreset(first.id, {
+                preset: first,
+                layout: state.layout,
+                mappings: state.mappings,
+                sets: state.sets,
+              });
+            } catch {
+              // O concert já foi criado; o editor ainda pode ser aberto.
+            }
+          }
+          setExternalMidiSetupPending(true);
+        }
       } catch (error) {
         setConcertError(error instanceof Error ? error.message : 'Falha ao criar o concert.');
       }
     },
-    [applyConcertState]
+    [applyConcertState, loadPreset]
   );
 
   const cancelTemplatePicker = useCallback(() => setTemplatePickerOpen(false), []);
+  const clearExternalMidiSetup = useCallback(() => setExternalMidiSetupPending(false), []);
 
   const openConcertFile = useCallback(async () => {
     setConcertError(null);
@@ -2042,6 +2064,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertRevision,
     concertTemplates,
     templatePickerOpen,
+    externalMidiSetupPending,
+    clearExternalMidiSetup,
     chooseTemplate,
     cancelTemplatePicker,
     openConcertFile,
