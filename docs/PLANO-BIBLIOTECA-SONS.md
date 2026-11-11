@@ -140,13 +140,12 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
 - [ ] **7.6 Downloads grandes.** Pausar, retomar e cancelar; mostrar o espaço livre antes de começar.
 - [ ] **7.7 Bibliotecas do usuário.** Aceitar pastas extras com `.sfz`/`.sf2` fora do catálogo.
 - [ ] **7.8 Testes.** Catálogo inválido, hash errado, zip malicioso e link fora do ar.
-- [ ] **7.9 Atualização automática das bibliotecas (sem quebrar patches).**
-  **Decisão: as bibliotecas também se atualizam sozinhas.** Para não alterar o som dos patches:
-  cada versão fica em uma pasta própria (`~/PreseterSons/<id>/<versão>/`); os patches continuam
-  apontando para a versão que usavam; a versão nova é baixada ao lado e o app avisa
-  "X atualizada; trocar nos patches?". Opção nas Configurações: atualizar automaticamente (padrão
-  ligado) e apagar versões antigas (padrão desligado). Respeitar espaço livre e conexão
-  (não baixar arquivos grandes em conexão limitada).
-- [ ] **7.10 Segurança da atualização automática.** O catálogo só aceita links de domínios permitidos
-  (lista no próprio app), sempre `https` e com `sha256`; mudança de licença para pior
-  (ex.: livre → só uso pessoal) **não** atualiza sozinha: pede confirmação.
+- [ ] **7.9 Bibliotecas já baixadas não mudam sozinhas.** O que o usuário baixou fica como está.
+  Se o autor publicar versão nova, o app só **avisa** (versão e hash no catálogo) e o usuário decide baixar.
+- [ ] **7.10 Segurança da atualização do catálogo.** Só aceitar links de domínios permitidos (lista no
+  próprio app), sempre `https` e com `sha256`; verificar o formato do JSON antes de aplicar; se a
+  atualização falhar, manter a última cópia boa.
+- [ ] **7.11 Novidades chegando ao catálogo (semiautomático).** Um script de curadoria
+  (`scripts/verificar-fontes.js`) olha as fontes aprovadas (GitHub, FreePats etc.), detecta arquivos novos
+  ou alterados e gera um **rascunho de item** para revisão humana (licença conferida antes de publicar).
+  Publicar não é automático por causa da licença de cada arquivo.
