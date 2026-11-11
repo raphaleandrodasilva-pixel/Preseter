@@ -4,6 +4,9 @@
 baixa com um clique e usa no **sforzando** (player padrão do projeto).
 
 **Decisões:**
+- A loja é um **item do próprio app** (uma tela dentro do Preseter), não um site à parte.
+  Arquitetura: o **processo principal** (Electron) faz o download, a conferência do hash e a extração;
+  a **interface** só mostra a lista e o progresso, pelos canais IPC já usados no app.
 - O Preseter é open source, sem fins lucrativos, com foco em Linux na versão pública
   (a Fase Linux fica para depois; este plano vale nos dois sistemas).
 - Modelo: **catálogo com links**. O projeto **não hospeda** os arquivos de terceiros; o app
