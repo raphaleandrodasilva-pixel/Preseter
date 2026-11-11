@@ -179,14 +179,23 @@ export const CollectionSettings: React.FC = () => {
   return (
     <div className="space-y-4">
       <section className="hw-inset space-y-2 p-3">
-        <h4 className="hw-label">Coleção de instrumentos</h4>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="hw-label">Coleção de instrumentos</h4>
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'rgba(10,132,255,0.18)', color: '#7FB6FF' }}>
+            {window.electronAPI.platform === 'linux'
+              ? 'Linux'
+              : window.electronAPI.platform === 'darwin'
+                ? 'macOS'
+                : 'Windows'}
+          </span>
+        </div>
         <p className="text-xs leading-relaxed" style={{ color: '#C6C6CB' }}>
           Baixa os plugins e bibliotecas de fontes oficiais para a coleção de 40 patches.
           Nada é executado sem aviso: zips são extraídos e instaladores aparecem como “pronto”
           para você abrir.
         </p>
         <div className="rounded-lg border px-3 py-2 text-[11px] leading-relaxed" style={{ borderColor: '#3A3A3C', color: '#9A9AA0' }}>
-          <strong style={{ color: '#EDEDEF' }}>Licenças:</strong> juicysfplugin (GPLv3), Surge/Dexed/Helm (GPLv3),
+          <strong style={{ color: '#EDEDEF' }}>Licenças:</strong> Sforzando (freeware), FSVR/Surge/Dexed/Helm (GPLv3),
           sfizz (BSD-2), MuseScore_General (MIT), Sonatina (CC Sampling Plus 1.0) e Salamander
           (CC BY 3.0 — atribuição a Alexander Holm). Os arquivos são baixados dos sites oficiais
           e não são redistribuídos pelo Preseter.
@@ -228,7 +237,7 @@ export const CollectionSettings: React.FC = () => {
           <div className="space-y-2">
             {items.map((item) => {
               const progress = progressFor(item.id) ?? item;
-              const isManual = item.status === 'manual';
+              const isManual = item.status === 'manual' || item.kind === 'manual';
               const isBusyItem = progress.status === 'downloading' || progress.status === 'extracting';
               return (
                 <div
@@ -400,9 +409,20 @@ export const CollectionSettings: React.FC = () => {
           <p className="text-[11px]" style={{ color: '#C6C6CB' }}>{notice}</p>
         )}
         <p className="text-[11px]" style={{ color: '#8E8E93' }}>
-          Os plugins vão para <code>%LOCALAPPDATA%\Programs\Common\VST3</code> (sem administrador)
-          e também são procurados em <code>C:\Program Files\Common Files\VST3</code>.
-          O Odin é um instalador: o app só baixa e você abre.
+          {window.electronAPI.platform === 'linux' ? (
+            <>
+              Os plugins VST3 vão para <code>~/.vst3</code> e os LV2 para{' '}
+              <code>~/.lv2</code>. O sistema também é procurado em{' '}
+              <code>/usr/lib/vst3</code> e <code>/usr/lib/lv2</code>.
+            </>
+          ) : (
+            <>
+              Os plugins vão para <code>%LOCALAPPDATA%\Programs\Common\VST3</code>{' '}
+              (sem administrador) e também são procurados em{' '}
+              <code>C:\Program Files\Common Files\VST3</code>.
+            </>
+          )}{' '}
+          Instaladores nativos são baixados e abertos para você concluir.
         </p>
       </section>
 
@@ -410,8 +430,8 @@ export const CollectionSettings: React.FC = () => {
         <h4 className="hw-label">Concert da coleção</h4>
         <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
           Depois de instalar, gere o concert com os 40 patches. O Full Set e o concert da
-          coleção já carregam os instrumentos, os programas e o MuseScore_General nos
-          patches de sample. Você ainda pode trocar o preset e salvar no patch.
+          coleção já carregam os instrumentos e os programas. Nos patches com Sforzando,
+          carregue o SFZ/SF2 uma vez e salve o patch: o estado VST3 fica guardado no patch.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button

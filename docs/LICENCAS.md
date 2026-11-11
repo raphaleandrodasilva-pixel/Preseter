@@ -39,5 +39,5 @@ Preseter só aponta para os downloads (`scripts/instalar-colecao.ps1`, `docs/PAT
 
 - Salamander Grand Piano: CC BY 3.0 (atribuição a Alexander Holm).
 - MuseScore_General: MIT. Sonatina Symphonic Orchestra: CC Sampling Plus 1.0.
-- sforzando (Plogue): freeware, não redistribuir. SF2 Player (Bertom): gratuito, licença não informada.
+- sforzando (Plogue): freeware, não redistribuir. FSVR: GPLv3, baixado do GitHub oficial. SF2 Player (Bertom): gratuito, licença não informada.
 - Samples da Nord: licença não confirmada; fora da coleção.

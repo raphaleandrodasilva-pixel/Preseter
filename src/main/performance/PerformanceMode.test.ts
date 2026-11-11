@@ -21,12 +21,45 @@ const plans = new Map<string, string>([
 ]);
 let activeGuid = ORIGINAL;
 let duplicateFails = false;
+let linuxGovernor = 'powersave';
+let cpupowerMissing = false;
+let powerProfilesMissing = true;
 
 function result(status: number, stdout = '') {
   return { status, stdout, stderr: '' } as ReturnType<typeof spawnSync>;
 }
 
+function missingCommand() {
+  return {
+    status: null,
+    stdout: '',
+    stderr: '',
+    error: Object.assign(new Error('not found'), { code: 'ENOENT' }),
+  } as unknown as ReturnType<typeof spawnSync>;
+}
+
 vi.mocked(spawnSync).mockImplementation(((_command: string, args: string[]) => {
+  if (_command === 'cpupower') {
+    if (cpupowerMissing) return missingCommand();
+    if (args[0] === 'frequency-info') {
+      return result(0, `The governor "${linuxGovernor}" may decide the frequency.`);
+    }
+    if (args[0] === 'frequency-set') {
+      linuxGovernor = args[3] ?? linuxGovernor;
+      return result(0);
+    }
+  }
+  if (_command === 'pkexec') {
+    if (args[0] === 'cpupower' && args[1] === 'frequency-set') {
+      linuxGovernor = args[3] ?? linuxGovernor;
+    }
+    return result(0);
+  }
+  if (_command === 'powerprofilesctl') {
+    if (powerProfilesMissing) return missingCommand();
+    if (args[0] === 'get') return result(0, 'balanced\n');
+    return result(0);
+  }
   const action = args[0];
   if (action === '/getactivescheme') {
     return result(0, `Power Scheme GUID: ${activeGuid}  (${plans.get(activeGuid) ?? 'Ativo'})\n`);
@@ -68,6 +101,9 @@ describe('PerformanceMode', () => {
     plans.set(HIGH_PERFORMANCE, 'Alto Desempenho');
     activeGuid = ORIGINAL;
     duplicateFails = false;
+    linuxGovernor = 'powersave';
+    cpupowerMissing = false;
+    powerProfilesMissing = true;
     vi.mocked(spawnSync).mockClear();
     vi.mocked(os.setPriority).mockClear();
     vi.mocked(powerMonitor.isOnBatteryPower).mockReturnValue(false);
@@ -148,5 +184,43 @@ describe('PerformanceMode', () => {
       expect.objectContaining({ windowsHide: true })
     );
     expect(plans.has(STALE)).toBe(false);
+  });
+
+  it('aplica cpupower no Linux e restaura o governor anterior', () => {
+    const mode = new PerformanceMode({
+      getEnginePid: () => 777,
+      platform: 'linux',
+    });
+    mode.initialize(true);
+
+    expect(vi.mocked(spawnSync)).toHaveBeenCalledWith(
+      'pkexec',
+      ['cpupower', 'frequency-set', '-g', 'performance'],
+      expect.objectContaining({ windowsHide: true })
+    );
+    expect(mode.getStatus()).toMatchObject({
+      supported: true,
+      method: 'cpupower',
+      governor: 'performance',
+      processorMax: true,
+      enginePid: 777,
+    });
+
+    mode.dispose();
+    expect(linuxGovernor).toBe('powersave');
+  });
+
+  it('informa quando cpupower não está instalado', () => {
+    cpupowerMissing = true;
+    const mode = new PerformanceMode({
+      getEnginePid: () => null,
+      platform: 'linux',
+    });
+    mode.initialize(true);
+
+    const status = mode.getStatus();
+    expect(status.supported).toBe(false);
+    expect(status.method).toBe('none');
+    expect(status.message).toContain('cpupower');
   });
 });

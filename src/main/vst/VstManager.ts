@@ -443,7 +443,7 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
-  /** Carrega um SoundFont no juicysfplugin de um layer e atualiza o cache. */
+  /** Carrega um SoundFont no juicysfplugin legado de um layer. */
   async loadSoundFont(layerId: string, filePath: string, programIndex?: number): Promise<boolean> {
     const plugin = this.loadedPlugins.get(layerId);
     if (!plugin) throw new Error('O layer do SoundFont não está carregado.');

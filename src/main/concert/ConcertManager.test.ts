@@ -85,7 +85,8 @@ describe('ConcertManager lifecycle', () => {
     const concert = manager();
     const state = concert.newConcert('fullset', {
       plugins: [
-        { id: 'juicy', name: 'juicysfplugin', isInstrument: true },
+        { id: 'sforzando', name: 'Sforzando', isInstrument: true },
+        { id: 'fsvr', name: 'FSVR', isInstrument: true },
         { id: 'surge', name: 'Surge XT', isInstrument: true },
         { id: 'dexed', name: 'Dexed', isInstrument: true },
         { id: 'helm', name: 'Helm', isInstrument: true },
@@ -97,7 +98,7 @@ describe('ConcertManager lifecycle', () => {
       soundsFolder: tempRoot,
     });
     expect(state.patches).toHaveLength(40);
-    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'juicy', programIndex: 0 });
+    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'sforzando', programIndex: 0 });
     expect(state.patches.every((patch) => (patch.plugins?.length ?? 0) > 0)).toBe(true);
   });
 

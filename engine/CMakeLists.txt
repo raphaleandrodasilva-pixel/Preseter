@@ -37,7 +37,11 @@ endif()
 # --------------------------------------------------------------------------
 option(PRESETER_ENABLE_ASIO "Windows: habilita ASIO (exige o SDK da Steinberg)" OFF)
 set(PRESETER_ASIO_SDK_DIR "" CACHE PATH "Windows: pasta do ASIO SDK")
-option(PRESETER_ENABLE_JACK "Linux: habilita JACK (exige libjack-dev)" OFF)
+if(UNIX AND NOT APPLE)
+    option(PRESETER_ENABLE_JACK "Linux: habilita JACK (exige libjack-dev)" ON)
+else()
+    option(PRESETER_ENABLE_JACK "Linux: habilita JACK (exige libjack-dev)" OFF)
+endif()
 set(PRESETER_VST2_SDK_DIR "" CACHE PATH "VST2 SDK (ex.: R-Tur/VST_SDK_2.4); vazio desativa VST2")
 
 # --------------------------------------------------------------------------
@@ -86,7 +90,14 @@ if(WIN32 AND PRESETER_ENABLE_ASIO)
 endif()
 
 if(UNIX AND NOT APPLE AND PRESETER_ENABLE_JACK)
-    target_compile_definitions(PreseterEngine PRIVATE JUCE_JACK=1)
+    find_path(PRESETER_JACK_INCLUDE_DIR jack/jack.h)
+    if(PRESETER_JACK_INCLUDE_DIR)
+        target_compile_definitions(PreseterEngine PRIVATE JUCE_JACK=1)
+        target_include_directories(PreseterEngine PRIVATE "${PRESETER_JACK_INCLUDE_DIR}")
+    else()
+        message(WARNING "JACK habilitado, mas jack/jack.h não foi encontrado. Instale libjack-jackd2-dev; o engine será compilado sem JACK.")
+        target_compile_definitions(PreseterEngine PRIVATE JUCE_JACK=0)
+    endif()
 endif()
 
 option(PRESETER_BUILD_TEST_PLUGIN "Compila um sintetizador VST3 de teste (para validar o motor)" OFF)

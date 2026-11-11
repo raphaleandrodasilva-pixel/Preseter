@@ -1,0 +1,41 @@
+name: Linux build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências do motor
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git pkg-config \
+            libasound2-dev libjack-jackd2-dev \
+            libfreetype6-dev libx11-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxcursor-dev libgl1-mesa-dev
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vitest run
+      - run: npm run build:engine:linux
+      - run: npm run build
+      - run: npx electron-builder --linux AppImage deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preseter-linux
+          path: |
+            release/*.AppImage
+            release/*.deb

@@ -41,6 +41,7 @@ function loadPreload(): {
     module,
     exports: module.exports,
     console,
+    process: { platform: process.platform },
   };
 
   vm.runInNewContext(compiled, sandbox, { filename: sourcePath });
@@ -92,8 +93,10 @@ describe('preload electronAPI', () => {
   it('covers all invoke wrappers and event subscriptions', () => {
     const { api, invoke, send, on } = loadPreload();
 
+    expect(typeof api.platform).toBe('string');
     for (const [name, method] of Object.entries(api)) {
       if (name.startsWith('on') || name === 'startupProgress' || name === 'startupReady') continue;
+      if (typeof method !== 'function') continue;
       invoke.mockClear();
       method('a', 'b', 'c', 'd', 'e');
       expect(invoke, name).toHaveBeenCalledTimes(1);

@@ -22,7 +22,8 @@ interface InstrumentSpec {
 
 /** Siglas da coleção → nomes procurados no scan do motor. */
 export const COLLECTION_INSTRUMENTS: Record<CollectionLayerSpec['inst'], InstrumentSpec> = {
-  JUICY: { label: 'juicysfplugin', match: [/juicy|juicysf/i] },
+  SFORZANDO: { label: 'Sforzando', match: [/sforzando/i] },
+  FSVR: { label: 'FSVR', match: [/fsvr/i], fallback: 'DEXED' },
   SURGE: { label: 'Surge XT', match: [/surge/i], fallback: 'DEXED' },
   DEXED: { label: 'Dexed', match: [/dexed/i] },
   ODIN: { label: 'Odin 2', match: [/odin/i], fallback: 'SURGE' },
@@ -30,8 +31,8 @@ export const COLLECTION_INSTRUMENTS: Record<CollectionLayerSpec['inst'], Instrum
   MDA: { label: 'MDA', match: [/mda/i], fallback: 'DEXED' },
   MDA_EP: { label: 'MDA ePiano', match: [/mda\s*epiano|mdaepiano/i], fallback: 'MDA' },
   MDA_JX: { label: 'MDA JX10', match: [/mda\s*jx\s*10|mdajx10/i], fallback: 'MDA' },
-  ORG: { label: 'setBfree', match: [/setbfree/i], fallback: 'JUICY' },
-  SFIZZ: { label: 'sfizz', match: [/sfizz/i], fallback: 'JUICY' },
+  ORG: { label: 'setBfree', match: [/setbfree/i], fallback: 'SFORZANDO' },
+  SFIZZ: { label: 'sfizz', match: [/sfizz/i], fallback: 'SFORZANDO' },
 };
 
 export interface BuildCollectionResult {
@@ -104,12 +105,14 @@ export function buildCollectionConcert(
           // A coleção nasce em 0 dB; o usuário ajusta os volumes manualmente.
           mix: { volumeDb: 0, pan: 0, muted: false, solo: false },
           ...(layer.programIndex !== undefined ? { programIndex: layer.programIndex } : {}),
-          ...(layer.inst === 'JUICY' && options.soundsFolder
+          ...(layer.inst === 'SFORZANDO' && options.soundsFolder
             ? (() => {
                 const samplePath = path.join('MuseScore_General', 'MuseScore_General.sf2');
                 const fullPath = path.join(options.soundsFolder!, samplePath);
                 if (!existsSync(fullPath)) missing.add('MuseScore_General.sf2');
-                return existsSync(fullPath) ? { samplePath } : {};
+                return existsSync(fullPath)
+                  ? { samplePath, samplerKind: 'sforzando' as const }
+                  : { samplerKind: 'sforzando' as const };
               })()
             : {}),
         });

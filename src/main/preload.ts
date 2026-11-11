@@ -8,6 +8,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // === App Info ===
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  /** Sistema operacional detectado no processo principal. */
+  platform: process.platform,
 
   // === MIDI ===
   midiProgramChange: (program: number, channel: number) =>

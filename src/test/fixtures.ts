@@ -166,6 +166,8 @@ export function createAudioDeviceSnapshot(
     running: false,
     asioSupported: false,
     asioDriverAvailable: false,
+    jackSupported: false,
+    jackAvailable: false,
     current: null,
     audioTypes: [],
     midiInputs: [],

@@ -12,27 +12,22 @@ import type {
   CollectionOverallProgress,
   CollectionProgress,
 } from '../../shared/collection';
+import {
+  expandUserPath as expandPlatformPath,
+  getPlatformPaths,
+  type SupportedPlatform,
+} from '../platform/paths';
 
 export type CollectionInstallerOptions = {
   /** Pasta onde as bibliotecas de som são salvas. */
   getSoundsFolder: () => string;
+  /** Sistema atual; define pastas de VST3/LV2 e tipos de instalador. */
+  platform?: SupportedPlatform;
   /** Emite progresso para a UI. */
   onProgress?: (progress: CollectionProgress) => void;
   /** Chamado depois de instalar plugins, para reescanear o motor. */
   onPluginsInstalled?: () => Promise<unknown>;
 }
-
-const USER_VST3 = path.join(
-  process.env.LOCALAPPDATA ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Local'),
-  'Programs',
-  'Common',
-  'VST3'
-);
-const GLOBAL_VST3 = path.join(
-  process.env.CommonProgramFiles ?? 'C:\\Program Files\\Common Files',
-  'VST3'
-);
-const PLUGIN_FOLDERS = [USER_VST3, GLOBAL_VST3];
 
 /** Converte um padrão simples (`*.vst3`, `mda*.vst3`) em RegExp. */
 function wildcard(pattern: string): RegExp {
@@ -68,31 +63,12 @@ function findEntry(root: string, pattern: string, depth = 2): string | null {
   return null;
 }
 
-function findInAllPlugins(item: CollectionItem): string | null {
-  for (const pattern of item.vst3Patterns ?? []) {
-    for (const folder of PLUGIN_FOLDERS) {
-      const found = findEntry(folder, pattern, 3);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
 function findSoundfont(folder: string, item: CollectionItem): string | null {
   for (const pattern of item.soundfontPatterns ?? []) {
     const found = findEntry(folder, pattern, 2);
     if (found) return found;
   }
   return null;
-}
-
-/** Expande %APPDATA%, %LOCALAPPDATA% e %USERPROFILE% em caminhos do catálogo. */
-function expandUserPath(value: string): string {
-  const home = process.env.USERPROFILE ?? '';
-  return value
-    .replace(/%APPDATA%/gi, process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'))
-    .replace(/%LOCALAPPDATA%/gi, process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'))
-    .replace(/%USERPROFILE%/gi, home);
 }
 
 function formatBytes(bytes: number): string {
@@ -108,6 +84,8 @@ function formatBytes(bytes: number): string {
  */
 export class CollectionInstaller {
   private readonly options: CollectionInstallerOptions;
+  private readonly platform: SupportedPlatform;
+  private readonly paths: ReturnType<typeof getPlatformPaths>;
   private abortController: AbortController | null = null;
   private running = false;
   /** Contexto do lote atual, usado para calcular a barra geral. */
@@ -123,6 +101,23 @@ export class CollectionInstaller {
 
   constructor(options: CollectionInstallerOptions) {
     this.options = options;
+    this.platform = options.platform ?? (process.platform as SupportedPlatform);
+    this.paths = getPlatformPaths(this.platform);
+  }
+
+  private findInAllPlugins(item: CollectionItem): string | null {
+    const folders = [...this.paths.vst3Folders, ...this.paths.lv2Folders];
+    for (const pattern of item.vst3Patterns ?? []) {
+      for (const folder of folders) {
+        const found = findEntry(folder, pattern, 3);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  private expandUserPath(value: string): string {
+    return expandPlatformPath(value, this.platform);
   }
 
   get isRunning(): boolean {
@@ -153,13 +148,16 @@ export class CollectionInstaller {
       defaultSelected: item.defaultSelected,
     };
     if (item.kind === 'manual') {
-      return { ...base, status: 'manual' };
+      const found = item.group === 'plugin' ? this.findInAllPlugins(item) : null;
+      return found
+        ? { ...base, status: 'installed', filePath: found }
+        : { ...base, status: 'manual' };
     }
     if (item.group === 'plugin') {
-      const found = findInAllPlugins(item);
+      const found = this.findInAllPlugins(item);
       if (found) return { ...base, status: 'installed', filePath: found };
-      if (item.kind === 'vst3-exe' && item.fileName) {
-        const installer = path.join(process.env.USERPROFILE ?? '.', 'Downloads', 'PreseterColecao', item.fileName);
+      if ((item.kind === 'installer' || item.kind === 'vst3-exe') && item.fileName) {
+        const installer = path.join(this.paths.downloads, item.fileName);
         if (existsSync(installer)) return { ...base, status: 'ready', filePath: installer };
       }
       return { ...base, status: 'missing' };
@@ -211,7 +209,8 @@ export class CollectionInstaller {
     this.abortController = new AbortController();
     const soundsFolder = this.options.getSoundsFolder();
     mkdirSync(soundsFolder, { recursive: true });
-    mkdirSync(USER_VST3, { recursive: true });
+    mkdirSync(this.paths.userVst3, { recursive: true });
+    mkdirSync(this.paths.userLv2, { recursive: true });
     const selected = items.filter((item) => ids.includes(item.id));
     const result: CollectionItemStatus[] = [];
     const summary: CollectionDownloadSummary = {
@@ -342,11 +341,17 @@ export class CollectionInstaller {
         return done;
       }
 
-      if (item.kind === 'vst3-exe') {
-        const downloads = path.join(process.env.USERPROFILE ?? '.', 'Downloads', 'PreseterColecao');
-        mkdirSync(downloads, { recursive: true });
-        const dest = path.join(downloads, item.fileName ?? path.basename(downloadPath));
+      if (item.kind === 'installer' || item.kind === 'vst3-exe') {
+        mkdirSync(this.paths.downloads, { recursive: true });
+        const dest = path.join(this.paths.downloads, item.fileName ?? path.basename(downloadPath));
         await fs.copyFile(downloadPath, dest);
+        if (this.platform !== 'win32') {
+          try {
+            await fs.chmod(dest, 0o755);
+          } catch {
+            /* alguns instaladores não precisam do bit executável */
+          }
+        }
         const ready = {
           ...base,
           status: 'ready' as const,
@@ -363,15 +368,19 @@ export class CollectionInstaller {
       mkdirSync(extractDir, { recursive: true });
       if (item.kind === 'vst3-zip') {
         await extractZip(downloadPath, { dir: extractDir });
-      } else {
+      } else if (this.platform === 'win32') {
         this.extractMsi(downloadPath, extractDir);
+      } else {
+        throw new Error('Este pacote MSI só pode ser instalado no Windows.');
       }
-      const copied = this.copyVst3(extractDir);
+      const copied = this.copyVst3(extractDir, item);
+      const bundled = this.installVst3Bundle(item, extractDir);
+      if (bundled) copied.push(bundled);
       if (copied.length === 0) {
-        throw new Error('O pacote não continha um plugin .vst3.');
+        throw new Error('O pacote não continha um plugin VST3/LV2.');
       }
       this.copyDataFolders(item, extractDir);
-      const found = findInAllPlugins(item) ?? copied[0];
+      const found = this.findInAllPlugins(item) ?? copied[0];
       const done = {
         ...base,
         status: 'installed' as const,
@@ -484,8 +493,21 @@ export class CollectionInstaller {
     }
   }
 
-  /** Copia bundles .vst3 e DLLs ao lado deles para a pasta VST3 do usuário. */
-  private copyVst3(extractDir: string): string[] {
+  /** Monta um bundle VST3 quando o pacote Linux traz apenas um .so avulso. */
+  private installVst3Bundle(item: CollectionItem, extractDir: string): string | null {
+    const bundle = item.vst3Bundle;
+    if (!bundle) return null;
+    const source = path.join(extractDir, bundle.source);
+    if (!existsSync(source)) return null;
+    const arch = this.platform === 'win32' ? 'x86_64-win' : 'x86_64-linux';
+    const destDir = path.join(this.paths.userVst3, bundle.name, 'Contents', arch);
+    mkdirSync(destDir, { recursive: true });
+    copyFileSync(source, path.join(destDir, path.basename(bundle.source)));
+    return path.join(this.paths.userVst3, bundle.name);
+  }
+
+  /** Copia bundles VST3/LV2 (e DLLs, no Windows) para as pastas do usuário. */
+  private copyVst3(extractDir: string, item: CollectionItem): string[] {
     const copied: string[] = [];
     const stack = [extractDir];
     while (stack.length > 0) {
@@ -504,25 +526,43 @@ export class CollectionInstaller {
         } catch {
           continue;
         }
-        if (isDir && name.toLowerCase().endsWith('.vst3')) {
-          const dest = path.join(USER_VST3, name);
+        const lower = name.toLowerCase();
+        if (isDir && lower.endsWith('.vst3')) {
+          const dest = path.join(this.paths.userVst3, name);
           cpSync(full, dest, { recursive: true });
           copied.push(dest);
           // DLLs que ficam ao lado do bundle (comum nos builds Windows).
-          for (const sibling of entries) {
-            if (sibling.toLowerCase().endsWith('.dll')) {
-              try {
-                copyFileSync(path.join(dir, sibling), path.join(USER_VST3, sibling));
-              } catch {
-                /* ignora */
+          if (this.platform === 'win32') {
+            for (const sibling of entries) {
+              if (sibling.toLowerCase().endsWith('.dll')) {
+                try {
+                  copyFileSync(path.join(dir, sibling), path.join(this.paths.userVst3, sibling));
+                } catch {
+                  /* ignora */
+                }
               }
             }
           }
           continue;
         }
         // Alguns fabricantes distribuem o VST3 como arquivo único.
-        if (!isDir && name.toLowerCase().endsWith('.vst3')) {
-          const dest = path.join(USER_VST3, name);
+        if (!isDir && lower.endsWith('.vst3')) {
+          const dest = path.join(this.paths.userVst3, name);
+          copyFileSync(full, dest);
+          copied.push(dest);
+          continue;
+        }
+        // Bundles LV2 (Linux).
+        if (isDir && lower.endsWith('.lv2')) {
+          const dest = path.join(this.paths.userLv2, name);
+          cpSync(full, dest, { recursive: true });
+          copied.push(dest);
+          continue;
+        }
+        // VST2 avulso (Linux); o engine só o carrega se compilado com VST2.
+        if (!isDir && lower.endsWith('.so') && this.platform === 'linux' && !item.vst3Bundle) {
+          const dest = path.join(this.paths.userVst2, name);
+          mkdirSync(this.paths.userVst2, { recursive: true });
           copyFileSync(full, dest);
           copied.push(dest);
           continue;
@@ -531,18 +571,20 @@ export class CollectionInstaller {
       }
     }
     // DLLs soltas na raiz do pacote (alguns builds colocam as dependências ali).
-    try {
-      for (const name of readdirSync(extractDir)) {
-        if (name.toLowerCase().endsWith('.dll')) {
-          try {
-            copyFileSync(path.join(extractDir, name), path.join(USER_VST3, name));
-          } catch {
-            /* ignora */
+    if (this.platform === 'win32') {
+      try {
+        for (const name of readdirSync(extractDir)) {
+          if (name.toLowerCase().endsWith('.dll')) {
+            try {
+              copyFileSync(path.join(extractDir, name), path.join(this.paths.userVst3, name));
+            } catch {
+              /* ignora */
+            }
           }
         }
+      } catch {
+        /* ignora */
       }
-    } catch {
-      /* ignora */
     }
     return copied;
   }
@@ -552,7 +594,7 @@ export class CollectionInstaller {
     for (const folder of item.dataFolders ?? []) {
       const source = path.join(extractDir, folder.from);
       if (!existsSync(source)) continue;
-      const dest = expandUserPath(folder.to);
+      const dest = this.expandUserPath(folder.to);
       mkdirSync(dest, { recursive: true });
       for (const entry of readdirSync(source)) {
         try {

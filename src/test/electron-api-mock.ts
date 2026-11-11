@@ -48,6 +48,7 @@ export function createElectronApiMock(): ElectronApiMock {
 
   const api: Record<string, unknown> = {
     getAppVersion: vi.fn(async () => '1.0.0-test'),
+    platform: 'win32' as const,
     midiProgramChange: vi.fn(async () => ({ success: true })),
     midiInputProgramChange: vi.fn(async () => true),
 
@@ -208,6 +209,8 @@ export function createElectronApiMock(): ElectronApiMock {
     preferencesSet: vi.fn(async () => createPreferences()),
     performanceModeGet: vi.fn(async () => ({
       enabled: false,
+      supported: true,
+      method: 'powercfg' as const,
       onAc: true,
       waitingForAc: false,
       planName: 'Balanceado',
@@ -221,6 +224,8 @@ export function createElectronApiMock(): ElectronApiMock {
     })),
     performanceModeSet: vi.fn(async () => ({
       enabled: false,
+      supported: true,
+      method: 'powercfg' as const,
       onAc: true,
       waitingForAc: false,
       planName: 'Balanceado',

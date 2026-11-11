@@ -12,7 +12,7 @@
  *   node scripts/gerar-colecao.js --test               # tudo vira "Preseter Test Synth"
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
- *   node scripts/gerar-colecao.js --listar=juicy       # mostra o que o motor enxerga
+ *   node scripts/gerar-colecao.js --listar=sforzando  # mostra o que o motor enxerga
  *
  * Patches cujo plugin não foi encontrado são PULADOS e listados no final.
  */

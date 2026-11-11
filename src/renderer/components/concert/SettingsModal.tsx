@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type {
+  AppPlatform,
+  AudioDeviceSnapshot,
   AudioPerformanceStatus,
   RecordingBitrate,
   RecordingFormat,
@@ -9,6 +11,18 @@ import { useAppContext } from '../../context/AppContext';
 import { CollectionSettings } from './CollectionSettings';
 
 export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'collection';
+
+/** Mostra apenas os backends de áudio que existem na plataforma atual. */
+function filterAudioTypes(
+  devices: AudioDeviceSnapshot | null,
+  platform: AppPlatform
+): AudioDeviceSnapshot['audioTypes'] {
+  return (devices?.audioTypes ?? []).filter((item) => {
+    if (platform === 'win32') return !/jack|alsa|bela/i.test(item.type);
+    if (platform === 'linux') return !/asio|directsound|windows audio/i.test(item.type);
+    return true;
+  });
+}
 
 interface SettingsModalProps {
   initialTab: SettingsTab;
@@ -37,6 +51,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const [audioOutputPairs, setAudioOutputPairs] = useState(1);
   const [audioBusy, setAudioBusy] = useState(false);
   const [performanceStatus, setPerformanceStatus] = useState<AudioPerformanceStatus | null>(null);
+  const platform = window.electronAPI.platform;
+  const isWindows = platform === 'win32';
+  const isLinux = platform === 'linux';
+  const audioTypes = filterAudioTypes(audioDevices, platform);
 
   useEffect(() => setTab(initialTab), [initialTab]);
   useEffect(() => {
@@ -65,9 +83,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     // Ao trocar o driver, não pré-selecionamos o primeiro dispositivo:
     // deixar o usuário escolher. Se há tipo salvo, usa ele; senão vazio.
     const savedType = audioSettings?.type ?? audioDevices.current?.type ?? '';
-    setAudioType(savedType);
+    const available = filterAudioTypes(audioDevices, platform);
+    setAudioType(available.some((item) => item.type === savedType) ? savedType : '');
     // Não pré-selecionar entrada/saída: deixar vazio para o usuário escolher.
-    const type = savedType ? audioDevices.audioTypes.find((item) => item.type === savedType) : null;
     setAudioInput('');
     setAudioOutput('');
     setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
@@ -96,9 +114,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           : tab === 'collection'
             ? 'Coleção'
             : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
-  const selectedAudioType = audioDevices?.audioTypes.find((item) => item.type === audioType);
-  const asioAvailable = audioDevices?.asioSupported === true;
-  const asioDriverAvailable = audioDevices?.asioDriverAvailable === true;
+  const selectedAudioType = audioTypes.find((item) => item.type === audioType);
+  const asioAvailable = isWindows && audioDevices?.asioSupported === true;
+  const asioDriverAvailable = isWindows && audioDevices?.asioDriverAvailable === true;
+  const jackAvailable = isLinux && audioDevices?.jackAvailable === true;
+  const jackSupported = isLinux && audioDevices?.jackSupported === true;
+  const jackSelected = isLinux && /jack/i.test(audioType);
 
   const accentBtn: React.CSSProperties = {
     background: '#0A84FF',
@@ -301,19 +322,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
                   >
                     <option value="">Selecione o driver</option>
-                    {audioDevices?.audioTypes.map((item) => (
+                    {audioTypes.map((item) => (
                       <option key={item.type} value={item.type}>{item.type}</option>
                     ))}
                   </select>
                 </label>
-                {!asioAvailable && (
+                {isWindows && !asioAvailable && (
                   <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
                     <strong className="block">ASIO não está ativo nesta compilação.</strong>
                     {audioDevices?.asioUnavailableReason ?? 'Este engine foi compilado sem o backend ASIO.'}
                     {' '}Para ativá-lo, instale o ASIO SDK da Steinberg e recompile com PRESETER_ENABLE_ASIO=ON e PRESETER_ASIO_SDK_DIR apontando para o SDK. O SDK deve ser obtido e licenciado separadamente. Os drivers listados acima continuam disponíveis sem ASIO.
                   </p>
                 )}
-                {asioAvailable && (
+                {isWindows && asioAvailable && (
                   asioDriverAvailable ? (
                     <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 p-2 text-[11px] text-emerald-200">
                       Backend ASIO habilitado e driver encontrado. Selecione ASIO em Driver / tipo para escolher o dispositivo.
@@ -323,6 +344,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                       Backend ASIO habilitado, mas nenhum driver ASIO foi encontrado. Instale o driver ASIO do dispositivo de áudio; os outros drivers continuam disponíveis.
                     </p>
                   )
+                )}
+                {isLinux && !jackSupported && (
+                  <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                    <strong className="block">JACK não foi compilado neste engine.</strong>
+                    {audioDevices?.jackUnavailableReason ?? 'Instale libjack-jackd2-dev e recompile com PRESETER_ENABLE_JACK=ON.'}
+                    {' '}O ALSA continua disponível.
+                  </p>
+                )}
+                {isLinux && jackSupported && (
+                  jackAvailable ? (
+                    <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 p-2 text-[11px] text-emerald-200">
+                      JACK disponível. Selecione JACK em Driver / tipo para usar o servidor JACK/PipeWire.
+                    </p>
+                  ) : (
+                    <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                      {audioDevices?.jackUnavailableReason ?? 'JACK compilado, mas nenhum servidor JACK/PipeWire foi encontrado.'}
+                      {' '}Inicie o jackd ou o pipewire-jack e atualize os dispositivos.
+                    </p>
+                  )
+                )}
+                {jackSelected && (
+                  <p className="rounded-lg border border-sky-700/50 bg-sky-950/30 p-2 text-[11px] text-sky-200">
+                    O JACK usa a taxa de amostragem e o buffer do servidor. Ajuste esses valores no jackd/PipeWire, não aqui.
+                  </p>
                 )}
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block text-xs" style={{ color: '#9A9AA0' }}>
@@ -419,75 +464,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   As preferências são salvas e reaplicadas quando o Preseter abre.
                 </p>
               </section>
-              <section className="hw-inset space-y-3 p-3">
-                <h4 className="hw-label">Desempenho máximo</h4>
-                <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    style={{ accentColor: '#0A84FF' }}
-                    checked={preferences?.performanceMode ?? false}
-                    onChange={(event) => {
-                      const enabled = event.target.checked;
-                      void (async () => {
-                        await updatePreferences({ performanceMode: enabled });
-                        try {
-                          setPerformanceStatus(
-                            await window.electronAPI.performanceModeSet(enabled)
-                          );
-                        } catch {
-                          /* a mensagem fica no status */
-                        }
-                      })();
-                    }}
-                  />
-                  <span>
-                    <span className="font-semibold text-white">
-                      Manter o processador no máximo
-                    </span>
-                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
-                      Só na tomada. Ativa o plano Alto Desempenho, tenta 100% no processador,
-                      desativa core parking e sobe a prioridade do Preseter e do motor.
-                    </span>
-                  </span>
-                </label>
+              {(isWindows || isLinux) && (
+                <section className="hw-inset space-y-3 p-3">
+                  <h4 className="hw-label">Desempenho máximo</h4>
+                  {performanceStatus?.supported === false ? (
+                    <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
+                      {isLinux
+                        ? 'cpupower não foi encontrado. Instale linux-tools-common/linux-tools-generic (ou o pacote cpupower da sua distro).'
+                        : 'O modo de desempenho não está disponível neste sistema.'}
+                    </p>
+                  ) : (
+                    <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        style={{ accentColor: '#0A84FF' }}
+                        checked={preferences?.performanceMode ?? false}
+                        onChange={(event) => {
+                          const enabled = event.target.checked;
+                          void (async () => {
+                            await updatePreferences({ performanceMode: enabled });
+                            try {
+                              setPerformanceStatus(
+                                await window.electronAPI.performanceModeSet(enabled)
+                              );
+                            } catch {
+                              /* a mensagem fica no status */
+                            }
+                          })();
+                        }}
+                      />
+                      <span>
+                        <span className="font-semibold text-white">
+                          {isWindows
+                            ? 'Manter o processador no máximo'
+                            : performanceStatus?.method === 'powerprofilesctl'
+                              ? 'Perfil de energia (power-profiles-daemon)'
+                              : 'Governor de desempenho (cpupower)'}
+                        </span>
+                        <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                          {isWindows
+                            ? 'Só na tomada. Ativa o plano Alto Desempenho, tenta 100% no processador, desativa core parking e sobe a prioridade do Preseter e do motor.'
+                            : performanceStatus?.method === 'powerprofilesctl'
+                              ? 'Só na tomada. Ativa o perfil performance via power-profiles-daemon e restaura o perfil anterior ao desligar.'
+                              : 'Só na tomada. Aplica o governor performance com cpupower; pode pedir a senha do administrador. Restaura o governor anterior ao desligar.'}
+                        </span>
+                      </span>
+                    </label>
+                  )}
 
-                {performanceStatus && (
-                  <div
-                    className="hw-lcd grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 p-2 font-mono text-[10px]"
-                    style={{ color: '#E5E5EA' }}
-                  >
-                    <span style={{ color: '#9A9AA0' }}>Plano</span>
-                    <span>{performanceStatus.planName || '—'}</span>
-                    <span style={{ color: '#9A9AA0' }}>Processador</span>
-                    <span>{performanceStatus.processorMax ? '100%' : 'padrão'}</span>
-                    <span style={{ color: '#9A9AA0' }}>Prioridade</span>
-                    <span>
-                      {performanceStatus.appPriority === 'high' ? 'Alta' : 'Normal'}
-                    </span>
-                    <span style={{ color: '#9A9AA0' }}>Fonte</span>
-                    <span>{performanceStatus.onAc ? 'Na tomada ✔' : 'Na bateria'}</span>
-                    <span style={{ color: '#9A9AA0' }}>CPU do app</span>
-                    <span>{performanceStatus.appCpu.toFixed(0)}%</span>
-                    <span style={{ color: '#9A9AA0' }}>CPU do sistema</span>
-                    <span>{performanceStatus.systemCpu.toFixed(0)}%</span>
-                    <span style={{ color: '#9A9AA0' }}>Buffer</span>
-                    <span>{currentAudio ? `${currentAudio.bufferSize} samples` : '—'}</span>
-                    <span style={{ color: '#9A9AA0' }}>Sample rate</span>
-                    <span>{currentAudio ? `${currentAudio.sampleRate} Hz` : '—'}</span>
-                    <span style={{ color: '#9A9AA0' }}>Latência</span>
-                    <span>{audioLatencyMs > 0 ? `${audioLatencyMs.toFixed(1)} ms` : '—'}</span>
-                    <span style={{ color: '#9A9AA0' }}>Falhas aprox.</span>
-                    <span>{currentAudio?.xruns ?? '—'}</span>
-                  </div>
-                )}
+                  {performanceStatus && (
+                    <div
+                      className="hw-lcd grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 p-2 font-mono text-[10px]"
+                      style={{ color: '#E5E5EA' }}
+                    >
+                      <span style={{ color: '#9A9AA0' }}>{isWindows ? 'Plano' : 'Governor'}</span>
+                      <span>
+                        {performanceStatus.governor
+                          ? performanceStatus.governor
+                          : (performanceStatus.planName || '—')}
+                      </span>
+                      <span style={{ color: '#9A9AA0' }}>Processador</span>
+                      <span>{performanceStatus.processorMax ? '100%' : 'padrão'}</span>
+                      <span style={{ color: '#9A9AA0' }}>Prioridade</span>
+                      <span>
+                        {performanceStatus.appPriority === 'high' ? 'Alta' : 'Normal'}
+                      </span>
+                      <span style={{ color: '#9A9AA0' }}>Fonte</span>
+                      <span>{performanceStatus.onAc ? 'Na tomada ✔' : 'Na bateria'}</span>
+                      <span style={{ color: '#9A9AA0' }}>CPU do app</span>
+                      <span>{performanceStatus.appCpu.toFixed(0)}%</span>
+                      <span style={{ color: '#9A9AA0' }}>CPU do sistema</span>
+                      <span>{performanceStatus.systemCpu.toFixed(0)}%</span>
+                      <span style={{ color: '#9A9AA0' }}>Buffer</span>
+                      <span>{currentAudio ? `${currentAudio.bufferSize} samples` : '—'}</span>
+                      <span style={{ color: '#9A9AA0' }}>Sample rate</span>
+                      <span>{currentAudio ? `${currentAudio.sampleRate} Hz` : '—'}</span>
+                      <span style={{ color: '#9A9AA0' }}>Latência</span>
+                      <span>{audioLatencyMs > 0 ? `${audioLatencyMs.toFixed(1)} ms` : '—'}</span>
+                      <span style={{ color: '#9A9AA0' }}>Falhas aprox.</span>
+                      <span>{currentAudio?.xruns ?? '—'}</span>
+                    </div>
+                  )}
 
-                {performanceStatus?.message && (
-                  <p className="text-[10px]" style={{ color: '#FFD60A' }}>
-                    {performanceStatus.message}
-                  </p>
-                )}
-              </section>
+                  {performanceStatus?.message && (
+                    <p className="text-[10px]" style={{ color: '#FFD60A' }}>
+                      {performanceStatus.message}
+                    </p>
+                  )}
+                </section>
+              )}
             </div>
           )}
 
@@ -512,7 +578,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               <section className="hw-inset space-y-3 p-3">
                 <h4 className="hw-label">Velocidade do scroll</h4>
                 <p className="text-[11px]" style={{ color: '#8E8E93' }}>
-                  Afeta listas e menus do Preseter. Menus nativos do Windows não mudam.
+                  Afeta listas e menus do Preseter. Menus nativos do sistema não mudam.
                 </p>
                 <select
                   value={preferences?.scrollSpeed ?? 'slow'}

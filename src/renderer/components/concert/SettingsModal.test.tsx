@@ -3,10 +3,17 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider } from '../../context/AppContext';
 import { SettingsModal } from './SettingsModal';
-import { createConcertState, createPreferences } from '../../../test/fixtures';
+import {
+  createAudioDeviceSnapshot,
+  createAudioSettingsSnapshot,
+  createConcertState,
+  createPreferences,
+  createSavedAudioSettings,
+} from '../../../test/fixtures';
 
 beforeEach(() => {
   localStorage.clear();
+  (window.electronAPI as unknown as { platform: string }).platform = 'win32';
   vi.mocked(window.electronAPI.concertInit).mockResolvedValue(createConcertState());
   vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(createPreferences());
   vi.mocked(window.electronAPI.preferencesSet).mockImplementation(async (update) => ({
@@ -61,5 +68,39 @@ describe('SettingsModal — gravação', () => {
         recordingFolder: 'C:/Minhas Gravacoes',
       });
     });
+  });
+
+  it('mostra JACK e ALSA no Linux e esconde ASIO', async () => {
+    (window.electronAPI as unknown as { platform: string }).platform = 'linux';
+    const devices = createAudioDeviceSnapshot({
+      jackSupported: true,
+      jackAvailable: true,
+      audioTypes: [
+        { type: 'ALSA', outputs: ['default'], inputs: [] },
+        { type: 'JACK', outputs: ['system'], inputs: [] },
+        { type: 'ASIO', outputs: ['Driver'], inputs: [] },
+      ],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings(),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText(/JACK disponível/)).toBeInTheDocument());
+    expect(screen.queryByText(/ASIO não está ativo/)).not.toBeInTheDocument();
+    const options = Array.from(document.querySelectorAll('select option')).map(
+      (option) => (option as HTMLOptionElement).value
+    );
+    expect(options).toContain('ALSA');
+    expect(options).toContain('JACK');
+    expect(options).not.toContain('ASIO');
   });
 });

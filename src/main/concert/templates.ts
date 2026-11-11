@@ -115,7 +115,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'fullset',
     name: 'Full Set',
-    description: 'Set completo com 40 patches em 8 famílias, usando instrumentos livres (juicysfplugin/Surge/Dexed/Odin/Helm/MDA)',
+    description: 'Set completo com 40 patches em 8 famílias, usando instrumentos livres (Sforzando/FSVR/Surge/Dexed/Odin/Helm/MDA)',
     concertName: 'Full Set — 40 Patches',
     tempo: 100,
     sets: [
@@ -130,11 +130,11 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
     ],
     patches: [
       // 1. Pianos
-      { name: 'Piano de Cauda', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano de cauda (MuseScore_General)', { programIndex: 0 })] },
-      { name: 'Piano de Cauda Brilhante', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano brilhante', { programIndex: 0 })] },
-      { name: 'Piano Suave', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano suave', { programIndex: 0 })] },
-      { name: 'Piano Vertical', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano vertical', { programIndex: 1 })] },
-      { name: 'Piano + Pad', setName: 'Pianos', withKeyboard: true, layers: [layer('juicysfplugin', 'Piano', { programIndex: 0 }), layer('Surge XT', 'Pad quente', { db: -12 })] },
+      { name: 'Piano de Cauda', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano de cauda (MuseScore_General)', { programIndex: 0 })] },
+      { name: 'Piano de Cauda Brilhante', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano brilhante', { programIndex: 0 })] },
+      { name: 'Piano Suave', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano suave', { programIndex: 0 })] },
+      { name: 'Piano Vertical', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano vertical', { programIndex: 1 })] },
+      { name: 'Piano + Pad', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano', { programIndex: 0 }), layer('Surge XT', 'Pad quente', { db: -12 })] },
 
       // 2. Teclas elétricas
       { name: 'Elétrico Clássico', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Dexed', 'E.Piano', { db: -6 })] },
@@ -144,18 +144,18 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       { name: 'Sinos Elétricos', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Dexed', 'Bell', { db: -6 })] },
 
       // 3. Órgãos
-      { name: 'Órgão Tonewheel', setName: 'Órgãos', withKeyboard: true, layers: [layer('juicysfplugin', 'Tonewheel', { db: -6, programIndex: 16 })] },
-      { name: 'Órgão Rock', setName: 'Órgãos', withKeyboard: true, layers: [layer('juicysfplugin', 'Tonewheel + leslie rápido', { db: -6, programIndex: 16 })] },
-      { name: 'Órgão de Igreja', setName: 'Órgãos', withKeyboard: true, layers: [layer('juicysfplugin', 'Church Organ', { db: -6, programIndex: 19 })] },
+      { name: 'Órgão Tonewheel', setName: 'Órgãos', withKeyboard: true, layers: [layer('Sforzando', 'Tonewheel', { db: -6, programIndex: 16 })] },
+      { name: 'Órgão Rock', setName: 'Órgãos', withKeyboard: true, layers: [layer('Sforzando', 'Tonewheel + leslie rápido', { db: -6, programIndex: 16 })] },
+      { name: 'Órgão de Igreja', setName: 'Órgãos', withKeyboard: true, layers: [layer('Sforzando', 'Church Organ', { db: -6, programIndex: 19 })] },
       { name: 'Órgão Suave', setName: 'Órgãos', withKeyboard: true, layers: [layer('Surge XT', 'Órgão', { db: -6 })] },
 
       // 4. Cordas e orquestra
-      { name: 'Cordas Legato', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('juicysfplugin', 'Cordas sustain', { db: -6, programIndex: 48 })] },
-      { name: 'Cordas Staccato', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('juicysfplugin', 'Cordas staccato', { db: -6, programIndex: 48 })] },
+      { name: 'Cordas Legato', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Sforzando', 'Cordas sustain', { db: -6, programIndex: 48 })] },
+      { name: 'Cordas Staccato', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Sforzando', 'Cordas staccato', { db: -6, programIndex: 48 })] },
       { name: 'Cordas Sintéticas', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Surge XT', 'String ensemble', { db: -6 })] },
-      { name: 'Metais', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('juicysfplugin', 'Metais', { db: -6, programIndex: 61 })] },
-      { name: 'Flauta', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('juicysfplugin', 'Flauta', { db: -6, programIndex: 73 })] },
-      { name: 'Coral', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('juicysfplugin', 'Choir Aahs', { db: -6, programIndex: 52 })] },
+      { name: 'Metais', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Sforzando', 'Metais', { db: -6, programIndex: 61 })] },
+      { name: 'Flauta', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Sforzando', 'Flauta', { db: -6, programIndex: 73 })] },
+      { name: 'Coral', setName: 'Cordas e orquestra', withKeyboard: true, layers: [layer('Sforzando', 'Choir Aahs', { db: -6, programIndex: 52 })] },
 
       // 5. Pads
       { name: 'Pad Quente', setName: 'Pads', withKeyboard: true, layers: [layer('Surge XT', 'Pad quente', { db: -6 })] },
@@ -173,15 +173,15 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
 
       // 7. Baixos
       { name: 'Baixo Sintético', setName: 'Baixos', withKeyboard: true, layers: [layer('Surge XT', 'Sub bass', { db: -6 })] },
-      { name: 'Baixo Elétrico', setName: 'Baixos', withKeyboard: true, layers: [layer('juicysfplugin', 'Electric Bass', { db: -6, programIndex: 33 })] },
-      { name: 'Baixo Acústico', setName: 'Baixos', withKeyboard: true, layers: [layer('juicysfplugin', 'Acoustic Bass', { db: -6, programIndex: 32 })] },
+      { name: 'Baixo Elétrico', setName: 'Baixos', withKeyboard: true, layers: [layer('Sforzando', 'Electric Bass', { db: -6, programIndex: 33 })] },
+      { name: 'Baixo Acústico', setName: 'Baixos', withKeyboard: true, layers: [layer('Sforzando', 'Acoustic Bass', { db: -6, programIndex: 32 })] },
 
       // 8. Layers e splits
       {
         name: 'Split Baixo + Piano', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('juicysfplugin', 'Baixo', { db: -6, minNote: 0, maxNote: 59, programIndex: 33 }),
-          layer('juicysfplugin', 'Piano', { db: -6, minNote: 60, maxNote: 127, programIndex: 0 }),
+          layer('Sforzando', 'Baixo', { db: -6, minNote: 0, maxNote: 59, programIndex: 33 }),
+          layer('Sforzando', 'Piano', { db: -6, minNote: 60, maxNote: 127, programIndex: 0 }),
         ],
       },
       {
@@ -194,14 +194,14 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       {
         name: 'Piano + Cordas', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('juicysfplugin', 'Piano', { db: -6, programIndex: 0 }),
-          layer('juicysfplugin', 'Cordas legato', { db: -9, programIndex: 48 }),
+          layer('Sforzando', 'Piano', { db: -6, programIndex: 0 }),
+          layer('Sforzando', 'Cordas legato', { db: -9, programIndex: 48 }),
         ],
       },
       {
         name: 'Piano + Pad (worship)', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('juicysfplugin', 'Piano', { db: -6, programIndex: 0 }),
+          layer('Sforzando', 'Piano', { db: -6, programIndex: 0 }),
           layer('Surge XT', 'Pad quente', { db: -12 }),
         ],
       },
@@ -215,15 +215,15 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       {
         name: 'Split Cordas / Piano', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('juicysfplugin', 'Cordas', { db: -6, minNote: 0, maxNote: 59, programIndex: 48 }),
-          layer('juicysfplugin', 'Piano', { db: -6, minNote: 60, maxNote: 127, programIndex: 0 }),
+          layer('Sforzando', 'Cordas', { db: -6, minNote: 0, maxNote: 59, programIndex: 48 }),
+          layer('Sforzando', 'Piano', { db: -6, minNote: 60, maxNote: 127, programIndex: 0 }),
         ],
       },
       {
         name: 'Tripla: Piano + Cordas + Pad', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('juicysfplugin', 'Piano', { db: -6, programIndex: 0 }),
-          layer('juicysfplugin', 'Cordas', { db: -9, programIndex: 48 }),
+          layer('Sforzando', 'Piano', { db: -6, programIndex: 0 }),
+          layer('Sforzando', 'Cordas', { db: -9, programIndex: 48 }),
           layer('Surge XT', 'Pad quente', { db: -12 }),
         ],
       },

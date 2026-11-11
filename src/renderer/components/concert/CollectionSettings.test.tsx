@@ -8,9 +8,9 @@ import { createConcertState } from '../../../test/fixtures';
 
 function item(overrides: Partial<CollectionItemStatus> = {}): CollectionItemStatus {
   return {
-    id: 'juicysfplugin',
-    name: 'juicysfplugin 3.1.0',
-    description: 'Player SF2',
+    id: 'sforzando',
+    name: 'Sforzando (Plogue)',
+    description: 'Player SFZ/SF2',
     group: 'plugin',
     kind: 'vst3-zip',
     approxBytes: 16000000,
@@ -73,7 +73,7 @@ describe('CollectionSettings', () => {
       </AppProvider>
     );
 
-    expect(await screen.findByText('juicysfplugin 3.1.0')).toBeInTheDocument();
+    expect(await screen.findByText('Sforzando (Plogue)')).toBeInTheDocument();
     expect(screen.getByText('MuseScore_General.sf2')).toBeInTheDocument();
 
     const download = await screen.findByRole('button', { name: /Baixar selecionados/ });
@@ -81,7 +81,7 @@ describe('CollectionSettings', () => {
 
     await waitFor(() => expect(window.electronAPI.collectionDownload).toHaveBeenCalled());
     const ids = vi.mocked(window.electronAPI.collectionDownload).mock.calls[0][0];
-    expect(ids).toEqual(expect.arrayContaining(['juicysfplugin', 'musescore-general']));
+    expect(ids).toEqual(expect.arrayContaining(['sforzando', 'musescore-general']));
   });
 
   it('mostra a barra geral enquanto o download está em andamento', async () => {
@@ -128,12 +128,12 @@ describe('CollectionSettings', () => {
       </AppProvider>
     );
 
-    fireEvent.click(await screen.findByLabelText('Selecionar juicysfplugin 3.1.0'));
+    fireEvent.click(await screen.findByLabelText('Selecionar Sforzando (Plogue)'));
     fireEvent.click(await screen.findByRole('checkbox', { name: /Baixar novamente/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Baixar novamente/ }));
     await waitFor(() => {
       expect(window.electronAPI.collectionDownload).toHaveBeenCalledWith(
-        expect.arrayContaining(['juicysfplugin']),
+        expect.arrayContaining(['sforzando']),
         true
       );
     });

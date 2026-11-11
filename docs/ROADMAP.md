@@ -83,9 +83,9 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - [x] **5.2** "Novo set a partir da seleção", "Novo patch a partir de patches selecionados".
 - [x] **5.3** Importar/Exportar patch e set (`.patch`), compartilhar entre concerts.
 - [x] **5.4** Patch Settings Inspector: Library, Attributes (compasso, mudar tempo ao selecionar, banco/programa, ícone, transpose), Tuning, Notes.
-- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SF2 via juicysfplugin, SFZ via sfizz, MDA, ZynAddSubFX, Helm, Surge, setBfree). **Decisão:** o player SF2 da coleção é o **juicysfplugin** (GPLv3), no lugar do SF2 Player (Bertom) e do sforzando; `sfizz` + Salamander (CC BY 3.0) ficam como alternativa para piano. O juicysfplugin roda como VST3 separado (sem linkagem com o Preseter) e deve ser creditado.
+- [x] **5.5** Patch Library com busca (`Cmd/Ctrl+F`) — por enquanto lista os patches salvos; no futuro, só plugins liberados (SFZ/SF2 via Sforzando, SFZ via sfizz, MDA, ZynAddSubFX, Helm, Surge, setBfree). **Decisão:** o player SFZ/SF2 da coleção é o **Sforzando** (freeware); `sfizz` + Salamander (CC BY 3.0) ficam como alternativa para piano. O Sforzando roda como VST3 separado (sem linkagem com o Preseter).
 - [x] **5.6** Program Change: respeitar banco, skip, e a origem definida no Concert Settings.
-- [x] **5.7 Coleção no app:** **Configurações → Coleção** baixa os plugins e bibliotecas oficiais (juicysfplugin, Surge, Dexed, MuseScore_General, Sonatina etc.), instala VST3 sem admin e gera o concert de 40 patches. O script `scripts/instalar-colecao.ps1` lê o mesmo catálogo (`src/shared/collection-catalog.json`).
+- [x] **5.7 Coleção no app:** **Configurações → Coleção** baixa os plugins e bibliotecas oficiais (Sforzando, FSVR, Surge, Dexed, MuseScore_General, Sonatina etc.), instala VST3 sem admin e gera o concert de 40 patches. O script `scripts/instalar-colecao.ps1` lê o mesmo catálogo (`src/shared/collection-catalog.json`).
 
 ## Fase 6 — Perform e extras
 
@@ -99,7 +99,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 
 - **Preseter**: AGPL-3.0-or-later (`package.json` e `LICENSE`).
 - **JUCE** (motor): AGPLv3 ou licença comercial da Raw Material Software (`engine/README.md`).
-- **juicysfplugin** (player SF2 da coleção): **GPLv3**. Roda como plugin VST3
+- **Sforzando** (player SFZ/SF2 da coleção): **freeware**. Roda como plugin VST3
   separado, sem linkagem com o Preseter, mas deve ser creditado na documentação
   e no instalador.
 - **sfizz**: BSD-2. **Salamander Grand Piano V3**: CC BY 3.0 (exige atribuição).
@@ -107,7 +107,7 @@ abaixo, para o roadmap não voltar a indicar progresso que o código não tem.
 - **sforzando** (Plogue) e **SF2 Player** (Bertom) saíram da coleção padrão: as
   licenças de redistribuição não estavam claras.
 - Plugins GPLv3 usados só como VST3 externos (Surge XT, Dexed, Odin, Helm,
-  juicysfplugin, setBfree) permanecem projetos separados; o Preseter apenas os
+  Sforzando, setBfree) permanecem projetos separados; o Preseter apenas os
   carrega em tempo de execução.
 
 ## Como saber se terminou uma tarefa

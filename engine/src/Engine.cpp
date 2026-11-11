@@ -1435,15 +1435,38 @@ juce::String Engine::startAudio (const juce::var& options)
         deviceInitialised = true;
     }
 
+    juce::String requestedType;
     if (options.hasProperty ("type"))
-        deviceManager.setCurrentAudioDeviceType (options["type"].toString(), true);
+        requestedType = options["type"].toString().trim();
 
+    bool requestedAvailable = requestedType.isEmpty();
+    if (! requestedType.isEmpty())
+    {
+        for (auto* type : deviceManager.getAvailableDeviceTypes())
+        {
+            if (type->getTypeName().equalsIgnoreCase (requestedType))
+            {
+                requestedAvailable = true;
+                break;
+            }
+        }
+
+        if (requestedAvailable)
+            deviceManager.setCurrentAudioDeviceType (requestedType, true);
+        else if (requestedType.containsIgnoreCase ("JACK"))
+            return utf8 ("JACK não está disponível neste engine. Compile com PRESETER_ENABLE_JACK=ON e instale libjack.");
+        // Tipos salvos em outro sistema (ex.: Windows Audio no Linux) são ignorados;
+        // o engine segue com o dispositivo padrão.
+    }
+
+    const bool isJack = requestedAvailable && requestedType.containsIgnoreCase ("JACK");
     auto setup = deviceManager.getAudioDeviceSetup();
 
     if (options.hasProperty ("output"))     setup.outputDeviceName = options["output"].toString();
     if (options.hasProperty ("input"))      setup.inputDeviceName  = options["input"].toString();
-    if (options.hasProperty ("sampleRate")) setup.sampleRate       = (double) options["sampleRate"];
-    if (options.hasProperty ("bufferSize")) setup.bufferSize       = (int) options["bufferSize"];
+    // O servidor JACK manda na taxa e no buffer; não sobrescrever.
+    if (! isJack && options.hasProperty ("sampleRate")) setup.sampleRate = (double) options["sampleRate"];
+    if (! isJack && options.hasProperty ("bufferSize")) setup.bufferSize = (int) options["bufferSize"];
 
     setup.useDefaultInputChannels  = false;
     setup.useDefaultOutputChannels = false;
@@ -1454,11 +1477,18 @@ juce::String Engine::startAudio (const juce::var& options)
 
     auto error = deviceManager.setAudioDeviceSetup (setup, true);
     if (error.isNotEmpty())
-        return error;
+        return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                      : error;
 
     // O JUCE pode devolver "sem erro" mesmo sem nenhum dispositivo aberto.
     if (deviceManager.getCurrentAudioDevice() == nullptr)
-        return utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
+        return isJack
+            ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
+            : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
+
+    if (requestedAvailable && ! requestedType.isEmpty()
+        && ! deviceManager.getCurrentAudioDevice()->getTypeName().equalsIgnoreCase (requestedType))
+        return utf8 ("O backend de áudio solicitado não pôde ser aberto: ") + requestedType;
 
     if (! audioCallbackAttached)
     {
@@ -1520,6 +1550,13 @@ juce::var Engine::describeDevices()
     juce::Array<juce::var> types;
     bool asioBackendAvailable = false;
     bool asioDriverAvailable = false;
+    bool jackAvailable = false;
+
+    #if defined (JUCE_JACK) && JUCE_JACK
+    const bool jackBackendAvailable = true;
+    #else
+    const bool jackBackendAvailable = false;
+    #endif
 
     for (auto* type : deviceManager.getAvailableDeviceTypes())
     {
@@ -1533,6 +1570,8 @@ juce::var Engine::describeDevices()
             asioBackendAvailable = true;
             asioDriverAvailable = ! outputs.isEmpty() || ! inputs.isEmpty();
         }
+        if (type->getTypeName().containsIgnoreCase ("JACK"))
+            jackAvailable = ! outputs.isEmpty() || ! inputs.isEmpty();
 
         types.add (Obj()
                        .set ("type", type->getTypeName())
@@ -1571,7 +1610,14 @@ juce::var Engine::describeDevices()
         .set ("asioDriverAvailable", asioDriverAvailable)
         .set ("asioUnavailableReason", asioBackendAvailable
             ? (asioDriverAvailable ? juce::String() : juce::String ("Backend ASIO compilado, mas nenhum driver ASIO foi encontrado."))
-            : audioConfigurationError());
+            : audioConfigurationError())
+        .set ("jackSupported", jackBackendAvailable)
+        .set ("jackAvailable", jackBackendAvailable && jackAvailable)
+        .set ("jackUnavailableReason", ! jackBackendAvailable
+            ? juce::String ("JACK não foi compilado neste engine. Instale libjack-jackd2-dev e recompile com PRESETER_ENABLE_JACK=ON.")
+            : (jackAvailable
+                ? juce::String()
+                : juce::String ("JACK compilado, mas nenhum servidor JACK/PipeWire foi encontrado. Inicie o jackd ou o pipewire-jack.")));
 }
 
 juce::var Engine::describeAudioConfiguration()

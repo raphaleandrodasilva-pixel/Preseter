@@ -6,9 +6,9 @@ coleção.
 
 ## Decisão atual
 
-- **Player SF2:** **juicysfplugin 3.1.0** (VST3, GPLv3). Substitui o SF2 Player
-  (Bertom) e o sforzando nos patches de piano acústico, órgão, cordas, metais,
-  flauta, coral e baixo.
+- **Player SFZ/SF2:** **Sforzando** (Plogue, freeware). É o player dos patches
+  de piano acústico, órgão, cordas, metais, flauta, coral e baixo. No Linux é a
+  versão beta oficial; importa SF2 e converte para SFZ.
 - **Piano de cauda alternativo:** **sfizz** (BSD-2) + **Salamander Grand Piano V3**
   (CC BY 3.0, exige atribuição). Fica como opção de qualidade, não como padrão.
 - **Sintetizadores:** Surge XT (GPLv3), Dexed (GPLv3), Odin 2 (GPLv3), Helm
@@ -16,7 +16,7 @@ coleção.
   ainda não foi validado no Windows.
 - **Bibliotecas de som:** **MuseScore_General** (MIT) e **Sonatina Symphonic
   Orchestra** (CC Sampling Plus 1.0). Os arquivos SF2 não são distribuídos com o
-  Preseter; o usuário baixa e carrega no juicysfplugin.
+  Preseter; o usuário baixa e carrega no Sforzando.
 
 ## Como instalar
 
@@ -39,19 +39,19 @@ powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1
 # só verifica:
 powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -SemBaixar -SemGerar
 # itens específicos:
-powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens juicysfplugin,musescore-general
+powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens sforzando,musescore-general
 ```
 
 O script lê o mesmo catálogo do app (`src/shared/collection-catalog.json`) e, no
 final, roda `scripts/gerar-colecao.js`.
 
-## Como o juicysfplugin é usado
+## Como o Sforzando é usado
 
-1. Instale o VST3 do juicysfplugin 3.1.0 (Windows x64).
+1. Instale o Sforzando (Windows: instalador oficial; Linux: beta oficial).
 2. No Preseter, escaneie os plugins VST3.
-3. Abra o patch, abra o plugin (tecla **V**) e carregue o SF2 desejado no
-   juicysfplugin.
-4. Escolha o preset (Program Change) e feche a janela.
+3. Abra o patch, abra o plugin (tecla **V**) e carregue o SFZ/SF2 desejado no
+   Sforzando (o SF2 é convertido para SFZ no import).
+4. Escolha o preset/Program Change e feche a janela.
 5. Salve o concert/patch: o estado completo do plugin é gravado no patch e
    restaurado ao reabrir.
 
@@ -61,11 +61,10 @@ plugin.
 
 ## Pendências de validação
 
-- [ ] Instalar o VST3 do juicysfplugin 3.1.0 e rodar o scan do motor.
-- [ ] Carregar um SF2, trocar de preset por Program Change, salvar e reabrir o
-      patch para confirmar que o preset volta.
-- [ ] Medir o CPU com 2–3 layers de juicysfplugin simultâneos.
-- [ ] Testar o setBfree (LV2) no Windows.
+- [ ] Instalar o Sforzando (Windows e Linux beta) e rodar o scan do motor.
+- [ ] Carregar um SFZ/SF2, salvar e reabrir o patch para confirmar que o estado volta.
+- [ ] Medir o CPU com 2–3 layers de Sforzando simultâneos.
+- [ ] Testar o setBfree (LV2) no Linux.
 
 ## Licenças
 
@@ -73,7 +72,8 @@ plugin.
 |---|---|---|
 | Preseter | AGPL-3.0-or-later | Código do app (`LICENSE`, `package.json`) |
 | JUCE 8 | AGPLv3 ou comercial | Linkado no motor `preseter-engine` |
-| juicysfplugin | GPLv3 | VST3 externo (sem linkagem); creditar |
+| Sforzando | Freeware (Plogue) | VST3 externo; não redistribuir |
+| FSVR | GPLv3 | VST3 externo; não redistribuir |
 | sfizz | BSD-2 | VST3 externo (opcional) |
 | Salamander Grand Piano V3 | CC BY 3.0 | Samples; exige atribuição |
 | MuseScore_General | MIT | SF2; baixado à parte |
@@ -82,6 +82,6 @@ plugin.
 | MDA | GPL | VST externos |
 | setBfree | GPL-2.0 | LV2 externo |
 
-O juicysfplugin e os demais plugins GPLv3 rodam como processos/plugins
-separados carregados em tempo de execução; o Preseter não os linka. Mesmo assim,
-o crédito ao juicysfplugin deve aparecer na documentação e no instalador.
+O Sforzando e os demais plugins GPLv3 rodam como processos/plugins separados
+carregados em tempo de execução; o Preseter não os linka. Os binários são baixados
+dos sites oficiais e não são redistribuídos pelo Preseter.

@@ -106,8 +106,9 @@ export class EngineProcess extends EventEmitter {
     const enginePath = this.findEngine();
     if (!enginePath) {
       throw new Error(
-        'Não encontrei PreseterEngine. Compile o engine com CMake e Visual Studio 2022; ' +
-          'em desenvolvimento, o executável esperado fica em engine/build/PreseterEngine_artefacts/Release.'
+        'Não encontrei PreseterEngine. Compile o engine com CMake (Visual Studio no Windows, ' +
+          'build-essential no Linux); em desenvolvimento, o executável esperado fica em ' +
+          'engine/build/PreseterEngine_artefacts/Release.'
       );
     }
 

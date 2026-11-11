@@ -5,6 +5,7 @@ import type {
   AudioPerformanceStatus,
   AudioSettingsSnapshot,
   AudioStartOptions,
+  AppPlatform,
   AppPreferences,
   BusMixUpdate,
   ConcertState,
@@ -40,6 +41,8 @@ import type { EngineInsertState } from '@shared/engine-protocol';
 export interface ElectronAPI {
   // App Info
   getAppVersion: () => Promise<string>;
+  /** Sistema operacional detectado pelo processo principal. */
+  platform: AppPlatform;
 
   // MIDI
   midiProgramChange: (program: number, channel: number) => Promise<any>;

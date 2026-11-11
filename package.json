@@ -16,6 +16,8 @@
     "dev:main:watch": "tsc -p tsconfig.main.json --watch",
     "dev:electron": "node scripts/dev-electron.js",
     "package": "electron-builder build",
+    "package:linux": "npm run build && electron-builder --linux AppImage deb",
+    "build:engine:linux": "cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release -DPRESETER_ENABLE_JACK=ON && cmake --build engine/build --config Release --target PreseterEngine",
     "preview": "npm run build && electron .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -94,6 +96,10 @@
       ]
     },
     "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "AudioVideo",
+      "synopsis": "Live performance host para VST3, LV2 e MIDI",
+      "description": "Preseter organiza patches, timbres e controles para performance ao vivo, com VST3/LV2, MIDI externo e áudio de baixa latência.",
       "icon": "build/icon.png",
       "extraResources": [
         {
@@ -117,6 +123,9 @@
           "to": "ffmpeg/ffmpeg"
         }
       ]
+    },
+    "deb": {
+      "recommends": ["libjack-jackd2-0", "pipewire-jack"]
     },
     "nsis": {
       "oneClick": false,

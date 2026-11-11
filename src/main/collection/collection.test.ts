@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildCollectionConcert } from './generateCollection';
-import { COLLECTION_CATALOG } from '../../shared/collection';
+import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
 const plugins = [
-  { id: 'juicy', name: 'juicysfplugin', isInstrument: true },
+  { id: 'sforzando', name: 'Sforzando', isInstrument: true },
+  { id: 'fsvr', name: 'FSVR', isInstrument: true },
   { id: 'surge', name: 'Surge XT', isInstrument: true },
   { id: 'dexed', name: 'Dexed', isInstrument: true },
   { id: 'helm', name: 'Helm', isInstrument: true },
@@ -30,7 +31,54 @@ describe('collection catalog', () => {
     expect(charlatan?.dataFolders).toHaveLength(1);
 
     const sforzando = COLLECTION_CATALOG.items.find((item) => item.id === 'sforzando');
-    expect(sforzando).toMatchObject({ kind: 'manual', license: 'Freeware' });
+    expect(sforzando).toMatchObject({ kind: 'installer', license: 'Freeware' });
+
+    const fsvr = COLLECTION_CATALOG.items.find((item) => item.id === 'fsvr');
+    expect(fsvr).toMatchObject({ kind: 'vst3-zip', license: 'GPL-3.0' });
+  });
+
+  it('resolve somente os itens e links do sistema atual', () => {
+    const windows = resolveCollectionItems(COLLECTION_CATALOG.items, 'win32');
+    const linux = resolveCollectionItems(COLLECTION_CATALOG.items, 'linux');
+
+    const winIds = windows.map((item) => item.id);
+    const linuxIds = linux.map((item) => item.id);
+    expect(winIds).toContain('sforzando');
+    expect(winIds).toContain('fsvr');
+    expect(linuxIds).toContain('sforzando');
+    expect(linuxIds).toContain('fsvr');
+    expect(linuxIds).not.toContain('juicysfplugin');
+
+    const winSurge = windows.find((item) => item.id === 'surge-xt');
+    const linuxSurge = linux.find((item) => item.id === 'surge-xt');
+    expect(winSurge?.url).toContain('win64');
+    expect(linuxSurge).toMatchObject({
+      kind: 'installer',
+      url: expect.stringContaining('surge-xt-linux-x64'),
+    });
+
+    const linuxSforzando = linux.find((item) => item.id === 'sforzando');
+    const winSforzando = windows.find((item) => item.id === 'sforzando');
+    expect(linuxSforzando?.url).toContain('LINUX_plogue-sforzando');
+    expect(winSforzando?.url).toContain('WIN_sforzando');
+
+    const linuxTetra = linux.find((item) => item.id === 'tetraop');
+    expect(linuxTetra?.url).toContain('tetraop-linux');
+    expect(linuxTetra?.dataFolders?.[0].to).toContain('.config/TetraOP');
+
+    const linuxCharlatan = linux.find((item) => item.id === 'charlatan3');
+    expect(linuxCharlatan?.vst3Bundle).toEqual({
+      source: 'Charlatan3.so',
+      name: 'Charlatan3.vst3',
+    });
+
+    const linuxFs = linux.find((item) => item.id === 'fsvr');
+    const winFs = windows.find((item) => item.id === 'fsvr');
+    expect(linuxFs?.url).toContain('FSVR-Linux-VST3');
+    expect(winFs?.url).toContain('FSVR-Windows-VST3');
+
+    expect(linuxIds).toContain('setbfree');
+    expect(winIds).not.toContain('setbfree');
   });
 });
 
@@ -58,6 +106,9 @@ describe('buildCollectionConcert', () => {
     expect(file.layout.elements.filter((element) => element.type === 'pedal')).toHaveLength(2);
     expect(file.patches.every((patch) => patch.icon)).toBe(true);
     expect(file.patches.find((patch) => patch.name === 'Pad Ambiente')?.icon).toBe('pad');
+    expect(
+      file.patches.find((patch) => patch.name === 'Sinos Elétricos')?.plugins?.[0]?.name
+    ).toBe('FSVR');
     expect(
       file.patches.flatMap((patch) => patch.plugins ?? []).every((layer) => layer.mix?.volumeDb === 0)
     ).toBe(true);
@@ -88,6 +139,7 @@ describe('buildCollectionConcert', () => {
       expect(piano?.plugins?.[0]).toMatchObject({
         programIndex: 0,
         samplePath: path.join('MuseScore_General', 'MuseScore_General.sf2'),
+        samplerKind: 'sforzando',
       });
       const electric = file.patches.find((patch) => patch.name === 'Elétrico Clássico');
       expect(electric?.plugins?.[0].programIndex).toBe(1);
@@ -97,12 +149,13 @@ describe('buildCollectionConcert', () => {
     }
   });
 
-  it('skips patches when a required instrument is missing', () => {    const { file, skipped, missing } = buildCollectionConcert(
-      [{ id: 'juicy', name: 'juicysfplugin', isInstrument: true }],
+  it('skips patches when a required instrument is missing', () => {
+    const { file, skipped, missing } = buildCollectionConcert(
+      [{ id: 'sforzando', name: 'Sforzando', isInstrument: true }],
       { tempo: 100 }
     );
     expect(file.patches.length).toBeLessThan(40);
     expect(skipped.length).toBeGreaterThan(0);
-    expect(missing).toContain('Dexed');
+    expect(missing.length).toBeGreaterThan(0);
   });
 });

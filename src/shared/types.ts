@@ -4,6 +4,9 @@
 
 import type { ExternalMidiConfig } from './external-midi';
 
+/** Plataformas com suporte oficial no Preseter. */
+export type AppPlatform = 'win32' | 'linux' | 'darwin';
+
 // Tipo de plugin VST
 /** Progresso global de carregamento de arquivo/patch mostrado no overlay. */
 export interface AppLoadProgress {
@@ -437,8 +440,10 @@ export interface PresetPluginAssignment {
   arp?: ArpSettings;
   /** Programa interno do plugin a aplicar ao carregar (ex.: GM/SF2). */
   programIndex?: number;
-  /** SoundFont (.sf2) que o juicysfplugin deve carregar automaticamente. */
+  /** Arquivo SFZ/SF2 associado ao layer de sampler. */
   samplePath?: string;
+  /** Sampler usado pelo layer; ausente = comportamento legado. */
+  samplerKind?: 'sforzando' | 'juicysfplugin';
   /** Preset nomeado do acervo de VST presets a aplicar ao carregar. */
   presetId?: string;
   /**
@@ -701,6 +706,11 @@ export interface AudioDeviceSnapshot {
   asioSupported: boolean;
   asioDriverAvailable: boolean;
   asioUnavailableReason?: string;
+  /** JACK foi compilado neste engine (Linux). */
+  jackSupported?: boolean;
+  /** Existe um servidor JACK/PipeWire utilizável agora. */
+  jackAvailable?: boolean;
+  jackUnavailableReason?: string;
   current: null | {
     type: string;
     name: string;
@@ -719,10 +729,13 @@ export interface AudioDeviceSnapshot {
 /** Estado do modo de desempenho máximo (Configurações → Áudio). */
 export interface AudioPerformanceStatus {
   enabled: boolean;
+  supported: boolean;
+  method: 'powercfg' | 'cpupower' | 'powerprofilesctl' | 'none';
   onAc: boolean;
   waitingForAc: boolean;
   planName: string;
   planGuid: string | null;
+  governor?: string;
   processorMax: boolean;
   appPriority: 'normal' | 'high';
   enginePriority: 'normal' | 'high';

@@ -14,7 +14,7 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1
   powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -SonsDir D:\Sons -SemGerar
-  powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens juicysfplugin,musescore-general
+  powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Itens sforzando,musescore-general
   powershell -ExecutionPolicy Bypass -File scripts\instalar-colecao.ps1 -Todos
 #>
 param(
@@ -207,6 +207,14 @@ foreach ($item in $catalog.items) {
         $resumo += "$($item.name): instalado"
       }
       'vst3-exe' {
+        $dest = Join-Path $HOME 'Downloads\PreseterColecao'
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Copy-Item $download (Join-Path $dest $item.fileName) -Force
+        Write-Host "    instalador baixado: $(Join-Path $dest $item.fileName)" -ForegroundColor Yellow
+        $manual += "$($item.name): abra o instalador em $(Join-Path $dest $item.fileName)"
+        $resumo += "$($item.name): instalador baixado"
+      }
+      'installer' {
         $dest = Join-Path $HOME 'Downloads\PreseterColecao'
         New-Item -ItemType Directory -Force -Path $dest | Out-Null
         Copy-Item $download (Join-Path $dest $item.fileName) -Force

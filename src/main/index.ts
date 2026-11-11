@@ -9,10 +9,15 @@ import { LayoutManager } from './layout/LayoutManager';
 import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
 import { listTemplates } from './concert/templates';
 import { serializeConcertFile } from './concert/ConcertFile';
-import { COLLECTION_CATALOG } from '../shared/collection';
+import { COLLECTION_CATALOG, resolveCollectionItems, type CollectionItem } from '../shared/collection';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { buildCollectionConcert } from './collection/generateCollection';
 import { PerformanceMode } from './performance/PerformanceMode';
+import {
+  getPlatformPaths,
+  presetWatchFolders as platformPresetWatchFolders,
+  type SupportedPlatform,
+} from './platform/paths';
 import {
   convertRecording,
   recordingExtension,
@@ -76,57 +81,21 @@ function samePluginPath(a: unknown, b: unknown): boolean {
 
 /** Pastas LV2 padrão do JUCE no Windows/macOS/Linux. */
 function standardLv2Folders(): string[] {
-  if (process.platform === 'win32') {
-    const appData = process.env.APPDATA ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Roaming');
-    const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
-    const common = process.env.CommonProgramFiles ?? path.join(programFiles, 'Common Files');
-    return [path.join(appData, 'LV2'), path.join(common, 'LV2')];
-  }
-  if (process.platform === 'darwin') {
-    return [
-      path.join(process.env.HOME ?? '', 'Library', 'Audio', 'Plug-Ins', 'LV2'),
-      path.join(process.env.HOME ?? '', '.lv2'),
-      '/Library/Audio/Plug-Ins/LV2',
-    ];
-  }
-  return [path.join(process.env.HOME ?? '', '.lv2'), '/usr/lib/lv2', '/usr/local/lib/lv2'];
+  return getPlatformPaths().lv2Folders;
 }
 
 /** Pastas de presets que devem disparar reindexação ao mudar. */
 function presetWatchFolders(): string[] {
-  const documents = app.getPath('documents');
-  const programData = process.env.PROGRAMDATA ?? 'C:\\ProgramData';
-  return [
-    path.join(documents, 'VST3 Presets'),
-    path.join(programData, 'VST3 Presets'),
-    path.join(documents, 'Preseter', 'Presets'),
-  ];
+  return platformPresetWatchFolders(
+    process.platform,
+    process.env,
+    app.getPath('documents')
+  );
 }
 
 /** Pastas VST3 padrão do sistema, incluindo a pasta sem administrador da coleção. */
 function standardVst3Folders(): string[] {
-  if (process.platform === 'win32') {
-    const local = process.env.LOCALAPPDATA
-      ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Local');
-    const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
-    const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
-    return [
-      path.join(local, 'Programs', 'Common', 'VST3'),
-      path.join(programFiles, 'Common Files', 'VST3'),
-      path.join(programFilesX86, 'Common Files', 'VST3'),
-    ];
-  }
-  if (process.platform === 'darwin') {
-    return [
-      path.join(process.env.HOME ?? '', 'Library', 'Audio', 'Plug-Ins', 'VST3'),
-      '/Library/Audio/Plug-Ins/VST3',
-    ];
-  }
-  return [
-    path.join(process.env.HOME ?? '', '.vst3'),
-    '/usr/lib/vst3',
-    '/usr/local/lib/vst3',
-  ];
+  return getPlatformPaths().vst3Folders;
 }
 
 class MainWindow {
@@ -187,6 +156,7 @@ class MainWindow {
     this.preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
     this.collectionInstaller = new CollectionInstaller({
       getSoundsFolder: () => this.soundsFolder(),
+      platform: process.platform as SupportedPlatform,
       onProgress: (progress) => this.sendToRenderer('collection-progress', progress),
       onPluginsInstalled: async () => {
         await this.scanWithPreferences(true);
@@ -194,6 +164,7 @@ class MainWindow {
     });
     this.performanceMode = new PerformanceMode({
       getEnginePid: () => this.vstManager.getEnginePid(),
+      platform: process.platform,
     });
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
@@ -804,14 +775,15 @@ class MainWindow {
       return this.vstManager.getParameters(ownerId, slot);
     });
 
-    ipcMain.handle('collection-status', () => this.collectionInstaller.status(COLLECTION_CATALOG.items));
+    ipcMain.handle('collection-status', () => this.collectionInstaller.status(this.collectionItems()));
 
     ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
+      const items = this.collectionItems();
       const selected = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
-      const result = await this.collectionInstaller.install(COLLECTION_CATALOG.items, selected, force === true);
+      const result = await this.collectionInstaller.install(items, selected, force === true);
       const byId = new Map(result.statuses.map((item) => [item.id, item]));
       const statuses = this.collectionInstaller
-        .status(COLLECTION_CATALOG.items)
+        .status(items)
         .map((item) => byId.get(item.id) ?? item);
       return {
         ok: result.summary.failed === 0 && result.summary.cancelled === 0,
@@ -827,7 +799,7 @@ class MainWindow {
 
     ipcMain.handle('collection-open-folder', async (_event, kind?: 'sounds' | 'plugins') => {
       const folder = kind === 'plugins'
-        ? path.join(process.env.LOCALAPPDATA ?? app.getPath('home'), 'Programs', 'Common', 'VST3')
+        ? getPlatformPaths().userVst3
         : this.soundsFolder();
       fs.mkdirSync(folder, { recursive: true });
       const error = await shell.openPath(folder);
@@ -1130,9 +1102,10 @@ class MainWindow {
 
     ipcMain.handle('performance-mode-set', (_event, enabled: unknown) => {
       const value = enabled === true;
-      const preferences = { ...this.readPreferences(), performanceMode: value };
+      const status = this.performanceMode.setEnabled(value);
+      const preferences = { ...this.readPreferences(), performanceMode: status.enabled };
       this.writePreferences(preferences);
-      return this.performanceMode.setEnabled(value);
+      return status;
     });
 
     ipcMain.handle('window-set-fullscreen', (_event, value: unknown) => {
@@ -1509,18 +1482,23 @@ class MainWindow {
         await this.vstManager.setPluginState(layerId, preset.vstStates[savedStateKey]);
         restoredStateKeys.add(savedStateKey);
       } else {
-        // Sonoplastia inicial do fullset/coleção: SoundFont + programa do layer.
-        if (assignment.samplePath) {
+        // Sonoplastia inicial do fullset/coleção. O Sforzando guarda o SFZ/SF2
+        // no estado VST3 do patch; não tentamos injetar o arquivo como no
+        // juicysfplugin legado.
+        const autoLoadSample =
+          assignment.samplePath && assignment.samplerKind !== 'sforzando';
+        if (autoLoadSample) {
           try {
-            const samplePath = path.isAbsolute(assignment.samplePath)
-              ? assignment.samplePath
-              : path.join(this.soundsFolder(), assignment.samplePath);
+            const samplePath = path.isAbsolute(assignment.samplePath!)
+              ? assignment.samplePath!
+              : path.join(this.soundsFolder(), assignment.samplePath!);
             await this.vstManager.loadSoundFont(layerId, samplePath, assignment.programIndex);
           } catch (error) {
             console.warn(`[Preseter] Não foi possível carregar o SoundFont do layer "${layerId}":`, error);
           }
         }
-        if (!assignment.samplePath && assignment.programIndex !== undefined) {
+        if (!autoLoadSample && assignment.programIndex !== undefined
+            && assignment.samplerKind !== 'sforzando') {
           try {
             await this.vstManager.setPluginProgram(layerId, assignment.programIndex);
           } catch (error) {
@@ -2039,6 +2017,14 @@ class MainWindow {
     const state = this.concertManager.getState();
     const marker = state.dirty ? ' •' : '';
     this.window?.setTitle(`${state.name}${marker} — Preseter`);
+  }
+
+  /** Catálogo da coleção já resolvido para o sistema atual. */
+  private collectionItems(): CollectionItem[] {
+    return resolveCollectionItems(
+      COLLECTION_CATALOG.items,
+      process.platform as SupportedPlatform
+    );
   }
 
   /** Pastas que o app sempre varre: padrões do sistema + extras do usuário. */
