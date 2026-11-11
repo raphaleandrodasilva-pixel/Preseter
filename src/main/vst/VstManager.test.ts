@@ -112,6 +112,16 @@ function makeEngine(handler?: Handler): {
 }
 
 describe('VstManager scanning', () => {
+  it('forwards scan progress from the engine', () => {
+    const { engine, emitter } = makeEngine();
+    const manager = new VstManager(engine);
+    const progress = vi.fn();
+    manager.on('scan-progress', progress);
+
+    emitter.emit('scan-progress', 'Surge XT');
+    expect(progress).toHaveBeenCalledWith('Surge XT');
+  });
+
   it('maps engine plugins to VST info and emits scanned', async () => {
     const { engine } = makeEngine((command) =>
       command === 'scan'

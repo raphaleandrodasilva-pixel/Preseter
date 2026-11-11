@@ -12,6 +12,7 @@ import { serializeConcertFile } from './concert/ConcertFile';
 import { COLLECTION_CATALOG } from '../shared/collection';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { buildCollectionConcert } from './collection/generateCollection';
+import { PerformanceMode } from './performance/PerformanceMode';
 import {
   convertRecording,
   recordingExtension,
@@ -133,6 +134,12 @@ class MainWindow {
   private splash: BrowserWindow | null = null;
   private splashShownAt = 0;
   private splashPercent = 0;
+  /** Varredura de plugins do startup em andamento. */
+  private startupScanActive = false;
+  private startupScanDone = false;
+  private rendererReady = false;
+  /** Usuário pediu para continuar em segundo plano. */
+  private backgroundScan = false;
   private vstManager: VstManager;
   private vstPresetLibrary: VstPresetLibrary;
   private vstWatchers: fs.FSWatcher[] = [];
@@ -142,6 +149,7 @@ class MainWindow {
   private layoutManager: LayoutManager;
   private concertManager: ConcertManager;
   private collectionInstaller: CollectionInstaller;
+  private performanceMode: PerformanceMode;
   private audioSettingsPath: string;
   private preferencesPath: string;
   /** Último patch carregado, para recarregar após uma queda do motor. */
@@ -184,6 +192,9 @@ class MainWindow {
         await this.scanWithPreferences(true);
       },
     });
+    this.performanceMode = new PerformanceMode({
+      getEnginePid: () => this.vstManager.getEnginePid(),
+    });
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
@@ -215,6 +226,7 @@ class MainWindow {
       this.buildMenu();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
+        this.performanceMode.initialize(this.readPreferences().performanceMode);
         void this.initializeEngine();
       });
     });
@@ -242,6 +254,7 @@ class MainWindow {
       this.vstWatchers = [];
       if (this.splash && !this.splash.isDestroyed()) this.splash.close();
       this.splash = null;
+      this.performanceMode.dispose();
       void this.vstManager.shutdown().finally(() => app.quit());
     });
   }
@@ -258,14 +271,19 @@ class MainWindow {
     const dataUrl = icon.toDataURL();
     const splash = new BrowserWindow({
       width: 420,
-      height: 320,
+      height: 360,
       frame: false,
       transparent: true,
       resizable: false,
       alwaysOnTop: true,
       skipTaskbar: true,
       show: false,
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: false },
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        preload: path.join(__dirname, 'splash-preload.js'),
+      },
     });
     const html = `<!doctype html><html><head><meta charset="utf-8"><style>
       html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:system-ui,sans-serif}
@@ -279,11 +297,15 @@ class MainWindow {
       .bar{margin-top:14px;width:250px;height:6px;border-radius:999px;background:#303032;overflow:hidden}
       .fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#0A6FE0,#5AA9FF);transition:width .25s ease-out}
       .pct{margin-top:5px;color:#9A9AA0;font-size:10px;font-variant-numeric:tabular-nums}
+      .continue{margin-top:12px;display:none;border:1px solid #3A3A3C;border-radius:8px;
+        background:#2C2C2E;color:#E5E5EA;font-size:11px;padding:6px 12px;cursor:pointer}
+      .continue:hover{background:#3A3A3C}
     </style></head><body><div class="wrap"><div class="card">
       <img src="${dataUrl}" alt="Preseter"><div class="name">PRESETER</div>
       <div class="hint" id="hint">Abrindo Preseter…</div>
       <div class="bar"><div class="fill" id="fill"></div></div>
       <div class="pct" id="pct">0%</div>
+      <button class="continue" id="continue">Continuar em segundo plano</button>
     </div></div>
     <script>
       window.setSplashProgress = function (percent, message) {
@@ -295,12 +317,33 @@ class MainWindow {
         if (pct) pct.textContent = Math.round(p) + '%';
         if (hint && message) hint.textContent = message;
       };
+      window.setSplashScanning = function (active) {
+        var btn = document.getElementById('continue');
+        if (!btn) return;
+        if (!active) {
+          btn.style.display = 'none';
+          if (window.__scanTimer) { clearTimeout(window.__scanTimer); window.__scanTimer = null; }
+          return;
+        }
+        if (window.__scanTimer) return;
+        window.__scanTimer = setTimeout(function () {
+          if (window.splashContinue) btn.style.display = 'inline-block';
+        }, 30000);
+      };
+      document.getElementById('continue').onclick = function () {
+        var btn = document.getElementById('continue');
+        if (btn) btn.style.display = 'none';
+        if (window.splashContinue) window.splashContinue();
+      };
     </script></body></html>`;
     void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     this.splashShownAt = Date.now();
     this.splashPercent = 0;
     splash.showInactive();
-    splash.webContents.on('did-finish-load', () => this.setSplashProgress(8, 'Abrindo Preseter…'));
+    splash.webContents.on('did-finish-load', () => {
+      this.setSplashProgress(8, 'Abrindo Preseter…');
+      if (this.startupScanActive) this.setSplashScanning(true);
+    });
     splash.once('ready-to-show', () => {
       if (!splash.isDestroyed()) splash.showInactive();
     });
@@ -308,9 +351,26 @@ class MainWindow {
       if (this.splash === splash) this.splash = null;
     });
     this.splash = splash;
+    // Segurança: se algo travar, a splash não fica presa para sempre.
     setTimeout(() => {
-      if (this.splash === splash) this.closeSplash();
-    }, 12000).unref();
+      if (this.splash === splash) {
+        this.backgroundScan = true;
+        this.closeSplash();
+      }
+    }, 5 * 60 * 1000).unref();
+  }
+
+  private setSplashScanning(active: boolean): void {
+    const splash = this.splash;
+    if (!splash || splash.isDestroyed()) return;
+    const script = `window.setSplashScanning && window.setSplashScanning(${active ? 'true' : 'false'})`;
+    void splash.webContents.executeJavaScript(script).catch(() => undefined);
+  }
+
+  private maybeCloseSplash(): void {
+    if (!this.rendererReady || (!this.startupScanDone && !this.backgroundScan)) return;
+    this.setSplashProgress(100, 'Pronto');
+    this.closeSplash();
   }
 
   private setSplashProgress(percent: number, message?: string): void {
@@ -447,10 +507,18 @@ class MainWindow {
 
   private registerIpcHandlers(): void {
     ipcMain.on('startup-progress', (_event, data?: { percent?: number; message?: string }) => {
+      // Durante a varredura, a splash pertence ao scan de plugins.
+      if (this.startupScanActive) return;
       this.setSplashProgress(Number(data?.percent ?? 0), data?.message);
     });
     ipcMain.on('startup-ready', () => {
-      this.setSplashProgress(100, 'Pronto');
+      this.rendererReady = true;
+      this.setSplashProgress(95, 'Finalizando…');
+      this.maybeCloseSplash();
+    });
+    ipcMain.on('splash-continue', () => {
+      this.backgroundScan = true;
+      this.setSplashProgress(100, 'Continuando em segundo plano…');
       this.closeSplash();
     });
 
@@ -1053,6 +1121,18 @@ class MainWindow {
       const preferences = { ...this.readPreferences(), ...update };
       this.writePreferences(preferences);
       return preferences;
+    });
+
+    ipcMain.handle('performance-mode-get', () => {
+      this.performanceMode.refresh();
+      return this.performanceMode.getStatus();
+    });
+
+    ipcMain.handle('performance-mode-set', (_event, enabled: unknown) => {
+      const value = enabled === true;
+      const preferences = { ...this.readPreferences(), performanceMode: value };
+      this.writePreferences(preferences);
+      return this.performanceMode.setEnabled(value);
     });
 
     ipcMain.handle('window-set-fullscreen', (_event, value: unknown) => {
@@ -2129,30 +2209,49 @@ class MainWindow {
       }
     }
 
+    this.startupScanActive = true;
+    this.startupScanDone = false;
+    this.backgroundScan = false;
+    this.setSplashScanning(true);
+
+    let scanned = 0;
+    let lastProgressAt = 0;
+    const onScanProgress = (plugin: string) => {
+      scanned += 1;
+      const now = Date.now();
+      if (now - lastProgressAt < 80) return;
+      lastProgressAt = now;
+      const percent = 40 + Math.round(45 * (1 - Math.exp(-scanned / 40)));
+      this.setSplashProgress(percent, `Escaneando: ${plugin || 'plugin'} (${scanned})`);
+    };
+    this.vstManager.on('scan-progress', onScanProgress);
+
     try {
-      // Usa a lista já salva pelo motor para abrir rápido; a varredura completa
-      // fica para segundo plano e para o botão "Reescanear".
-      const known = await this.vstManager.loadKnownPlugins();
-      if (known.length > 0) {
-        this.setSplashProgress(55, `Plugins em cache (${known.length})`);
-        void this.vstPresetLibrary.scan(known, this.vstManager);
-        setTimeout(() => {
-          void this.scanWithPreferences()
-            .then((plugins) => {
-              void this.vstPresetLibrary.scan(plugins, this.vstManager);
-            })
-            .catch((error) => {
-              console.warn('[Preseter] Falha no scan em segundo plano:', error);
-            });
-        }, 8000);
-      } else {
-        this.setSplashProgress(40, 'Escaneando plugins…');
-        const plugins = await this.scanWithPreferences();
-        void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      this.setSplashProgress(32, 'Lendo plugins em cache…');
+      try {
+        const known = await this.vstManager.loadKnownPlugins();
+        if (known.length > 0) {
+          this.setSplashProgress(38, `Plugins em cache (${known.length})`);
+        }
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível ler o cache de plugins:', error);
       }
-      this.watchVstFolders();
+
+      this.setSplashProgress(40, 'Escaneando plugins…');
+      const plugins = await this.scanWithPreferences();
+      this.setSplashProgress(88, `${plugins.length} plugin(s) encontrado(s).`);
+      void this.vstPresetLibrary.scan(plugins, this.vstManager);
     } catch (error) {
       console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
+      this.setSplashProgress(88, 'Falha ao escanear plugins. Continuando…');
+    } finally {
+      this.vstManager.off('scan-progress', onScanProgress);
+      this.startupScanActive = false;
+      this.startupScanDone = true;
+      this.setSplashScanning(false);
+      this.watchVstFolders();
+      this.performanceMode.refresh();
+      this.maybeCloseSplash();
     }
   }
 
@@ -2290,6 +2389,8 @@ class MainWindow {
       recordingBitrate: 320,
       recordingFolder: '',
       externalMidiEnabled: false,
+      computerKeyboardMidi: false,
+      performanceMode: false,
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -2324,6 +2425,8 @@ class MainWindow {
           ? saved.recordingFolder
           : '',
         externalMidiEnabled: saved.externalMidiEnabled === true,
+        computerKeyboardMidi: saved.computerKeyboardMidi === true,
+        performanceMode: saved.performanceMode === true,
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

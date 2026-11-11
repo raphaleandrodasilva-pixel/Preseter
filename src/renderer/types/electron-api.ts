@@ -2,6 +2,7 @@ import type {
   AudioDeviceSnapshot,
   AudioInputSettings,
   AudioInputState,
+  AudioPerformanceStatus,
   AudioSettingsSnapshot,
   AudioStartOptions,
   AppPreferences,
@@ -140,6 +141,8 @@ export interface ElectronAPI {
   audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
   preferencesGet: () => Promise<AppPreferences>;
   preferencesSet: (update: Partial<AppPreferences>) => Promise<AppPreferences>;
+  performanceModeGet: () => Promise<AudioPerformanceStatus>;
+  performanceModeSet: (enabled: boolean) => Promise<AudioPerformanceStatus>;
   windowSetFullscreen: (value: boolean) => Promise<boolean>;
   audioStart: (options: AudioStartOptions) => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
   audioStop: () => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;

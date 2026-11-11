@@ -55,6 +55,12 @@ function renderStrips(overrides: Partial<React.ComponentProps<typeof ChannelStri
     onSetStripValue: vi.fn(),
     onSetStripInserts: vi.fn(async () => true),
     onRevertStripAttribute: vi.fn(),
+    editorOpenLayerIds: new Set<string>(),
+    externalMidiEnabled: false,
+    onAddExternalMidi: vi.fn(),
+    onEditExternalMidi: vi.fn(),
+    onUpdateExternalMidi: vi.fn(),
+    onSendExternalMidi: vi.fn(),
     onSetParameter: vi.fn(),
     onSetLayerMix: vi.fn(),
     onSetMasterMix: vi.fn(),
@@ -296,5 +302,15 @@ describe('ChannelStrips — aba Aux', () => {
     renderStrips({ auxBuses, focusedSendAux: 2 });
     expect(screen.getByRole('button', { name: 'Aux 1–4' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('bus-strip-aux2')).toBeInTheDocument();
+  });
+});
+
+describe('ChannelStrips - editor do plugin', () => {
+  it('marks the Editor button as pressed while the window is open', () => {
+    renderStrips({ editorOpenLayerIds: new Set(['layer-1']) });
+
+    const button = screen.getByRole('button', { name: 'Fechar editor (V)' });
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Editor (V)' })).not.toBeInTheDocument();
   });
 });

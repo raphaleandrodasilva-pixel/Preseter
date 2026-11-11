@@ -50,6 +50,7 @@ export class VstManager extends EventEmitter {
       this.loadedPlugins.clear();
       this.emit('engine-crashed', error);
     });
+    this.engine.on('scan-progress', (plugin: string) => this.emit('scan-progress', plugin));
   }
 
   /** Serializa cargas de plugin: nunca roda duas ao mesmo tempo. */
@@ -719,6 +720,11 @@ export class VstManager extends EventEmitter {
   /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
   async setLayerOutput(layerId: string, output: number): Promise<EngineMixState> {
     return this.engine.request('setLayerOutput', { layerId, output });
+  }
+
+  /** PID do processo do motor (para o modo de desempenho). */
+  getEnginePid(): number | null {
+    return this.engine.getPid();
   }
 
   async shutdown(): Promise<void> {

@@ -163,6 +163,7 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
   const [bankMsb, setBankMsb] = useState(initialConfig?.program?.bankMsb?.toString() ?? '');
   const [bankLsb, setBankLsb] = useState(initialConfig?.program?.bankLsb?.toString() ?? '');
   const [program, setProgram] = useState(initialConfig?.program?.pc?.toString() ?? '');
+  const [receiveNotes, setReceiveNotes] = useState(initialConfig?.receiveNotes !== false);
   const [controls, setControls] = useState<ControlDraft[]>(() =>
     (initialConfig?.controls ?? []).map(draftFromControl)
   );
@@ -245,6 +246,7 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
       portName: trimmedPort,
       channel,
       program: Object.keys(programConfig).length > 0 ? programConfig : undefined,
+      receiveNotes: receiveNotes ? undefined : false,
       controls: parsedControls,
       values: initialConfig?.values
         ? { ...initialConfig.values, ...values }
@@ -262,6 +264,9 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="MIDI externo"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -366,6 +371,16 @@ export const ExternalMidiEditor: React.FC<ExternalMidiEditorProps> = ({
             />
           </label>
         </div>
+
+        <label className="mt-3 flex items-center gap-2 text-[11px]" style={{ color: '#C6C6CB' }}>
+          <input
+            type="checkbox"
+            style={{ accentColor: '#0A84FF' }}
+            checked={receiveNotes}
+            onChange={(event) => setReceiveNotes(event.target.checked)}
+          />
+          Receber notas e performance do teclado
+        </label>
 
         {portOptions.length === 0 && (
           <div

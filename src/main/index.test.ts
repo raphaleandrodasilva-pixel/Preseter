@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(102);
+    expect(handlers.size).toBe(104);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -45,6 +45,8 @@ describe('main process IPC wiring', () => {
       'engine-midi',
       'audio-settings-get',
       'preferences-get',
+      'performance-mode-get',
+      'performance-mode-set',
       'preset-list',
       'concert-get',
       'layout-change',

@@ -120,6 +120,11 @@ export interface AppContextType {
   midiDevices: MidiDeviceInfo[];
   midiError: string | null;
   midiLastMessage: string | null;
+  /** Últimas mensagens MIDI, de entrada e de saída. */
+  midiMonitor: MidiMonitorEvent[];
+  /** Incrementa a cada nota enviada; usado pelo LED de atividade. */
+  midiOutPulse: number;
+  clearMidiMonitor: () => void;
   /** Entradas MIDI que abertas com sucesso nesta sessão. */
   openMidiInputs: Set<string>;
   /** Saída MIDI atualmente selecionada para envio. */
@@ -320,14 +325,74 @@ function rawMidiToBytes(event: RawMidiEvent): number[] | null {
   }
 }
 
+/** Evento exibido no monitor MIDI (entrada ou saída). */
+export interface MidiMonitorEvent {
+  id: string;
+  direction: 'in' | 'out';
+  portName: string;
+  summary: string;
+  bytes: number[];
+  at: number;
+}
+
+function formatMidiBytes(bytes: number[]): string {
+  const hex = bytes.map((byte) => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  if (bytes.length === 0) return 'Mensagem MIDI';
+
+  const status = bytes[0];
+  const type = status & 0xf0;
+  const channel = (status & 0x0f) + 1;
+
+  if (type === 0x90 && bytes[2] > 0) {
+    return `Note On ${midiNoteLabel(bytes[1])} · vel ${bytes[2]} · canal ${channel} · ${hex}`;
+  }
+  if (type === 0x80 || (type === 0x90 && bytes[2] === 0)) {
+    return `Note Off ${midiNoteLabel(bytes[1])} · canal ${channel} · ${hex}`;
+  }
+  if (type === 0xb0) return `CC ${bytes[1]} = ${bytes[2]} · canal ${channel} · ${hex}`;
+  if (type === 0xc0) return `Program Change ${bytes[1]} · canal ${channel} · ${hex}`;
+  if (type === 0xe0) {
+    return `Pitch Bend ${(bytes[2] << 7) | bytes[1]} · canal ${channel} · ${hex}`;
+  }
+  if (status === 0xf0) return `SysEx · ${hex}`;
+  return hex;
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiLastMessage, setMidiLastMessage] = useState<string | null>(null);
+  const [midiMonitor, setMidiMonitor] = useState<MidiMonitorEvent[]>([]);
+  const [midiOutPulse, setMidiOutPulse] = useState(0);
+
+  const pushMidiMonitor = useCallback((entry: Omit<MidiMonitorEvent, 'id' | 'at'>) => {
+    const event: MidiMonitorEvent = {
+      ...entry,
+      id: `midi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      at: Date.now(),
+    };
+    setMidiMonitor((previous) => [...previous.slice(-49), event]);
+    setMidiLastMessage(event.summary);
+    if (event.direction === 'out') {
+      setMidiOutPulse((value) => value + 1);
+    }
+  }, []);
+
+  const clearMidiMonitor = useCallback(() => {
+    setMidiMonitor([]);
+    setMidiLastMessage(null);
+  }, []);
+
   const webMidi = useRef<WebMidiService | null>(null);
   if (!webMidi.current) {
     webMidi.current = new WebMidiService(
       (program, channel, bank, deviceName) => {
-        setMidiLastMessage(`Program Change ${program}${bank ? ` · banco ${bank}` : ''} · canal ${channel + 1}`);
+        const portName = deviceName || 'MIDI In';
+        pushMidiMonitor({
+          direction: 'in',
+          portName,
+          summary: `Program Change ${program}${bank ? ` · banco ${bank}` : ''} · canal ${channel + 1}`,
+          bytes: [0xc0 | (channel & 0x0f), program & 0x7f],
+        });
         void window.electronAPI.midiInputProgramChange(program, channel, bank, deviceName)
           .then(() => setMidiError(null))
           .catch((error: unknown) => {
@@ -368,6 +433,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
   const [activeNotes, setActiveNotes] = useState<Set<number>>(new Set());
   const [currentPreset, setCurrentPreset] = useState<Preset | null>(null);
+  const currentPresetRef = useRef(currentPreset);
+  currentPresetRef.current = currentPreset;
   const [loadedPlugins, setLoadedPlugins] = useState<VstPluginInfo[]>([]);
   const [mixState, setMixState] = useState<EngineMixState | null>(null);
   const [scannedPlugins, setScannedPlugins] = useState<VstPluginInfo[]>([]);
@@ -401,12 +468,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const service = webMidi.current;
     if (!service || !portName.trim()) return false;
     try {
-      return await service.sendToPortName(portName, message);
+      const sent = await service.sendToPortName(portName, message);
+      if (sent) {
+        pushMidiMonitor({
+          direction: 'out',
+          portName,
+          summary: formatMidiBytes(message),
+          bytes: message,
+        });
+      }
+      return sent;
     } catch (error) {
       console.warn('[Preseter] Falha ao enviar MIDI externo:', error);
       return false;
     }
-  }, [preferences?.externalMidiEnabled]);
+  }, [preferences?.externalMidiEnabled, pushMidiMonitor]);
+
+  /**
+   * Roteia notas e performance do teclado para os timbres MIDI externos do
+   * patch atual. Só envia para timbres com `receiveNotes` ligado.
+   */
+  const sendToExternalTimbres = useCallback(async (
+    message: number[],
+    /** true quando a mensagem já foi para a saída MIDI selecionada. */
+    alreadySentToSelected = false
+  ): Promise<void> => {
+    if (!preferences?.externalMidiEnabled || message.length === 0) return;
+    const preset = currentPresetRef.current;
+    if (!preset) return;
+
+    const status = message[0];
+    const type = status & 0xf0;
+    const sourceChannel = status & 0x0f;
+    const isNoteOn = type === 0x90 && message.length >= 3 && message[2] > 0;
+    const isNoteOff = type === 0x80 || (type === 0x90 && message.length >= 3 && message[2] === 0);
+    const isPitch = type === 0xe0 && message.length >= 3;
+    const isAftertouch = (type === 0xd0 || type === 0xa0) && message.length >= 2;
+    const isSustain = type === 0xb0 && message.length >= 3 && message[1] === 64;
+    if (!isNoteOn && !isNoteOff && !isPitch && !isAftertouch && !isSustain) return;
+
+    const selectedName = webMidi.current?.selectedOutputName();
+    for (const assignment of preset.plugins ?? []) {
+      const config = assignment.externalMidi;
+      if (!config || config.enabled === false || config.receiveNotes === false) continue;
+      if (
+        alreadySentToSelected &&
+        selectedName &&
+        config.portName === selectedName &&
+        config.channel === sourceChannel
+      ) {
+        continue;
+      }
+
+      const channel = config.channel & 0x0f;
+      let outgoing: number[] | null = null;
+
+      if (isNoteOn || isNoteOff) {
+        const note = message[1] & 0x7f;
+        const velocity = message[2] & 0x7f;
+        if (note < (assignment.minNote ?? 0) || note > (assignment.maxNote ?? 127)) continue;
+        if (isNoteOn) {
+          const minVelocity = assignment.velocityMin ?? 1;
+          const maxVelocity = assignment.velocityMax ?? 127;
+          if (velocity < minVelocity || velocity > maxVelocity) continue;
+        }
+        outgoing = [
+          (isNoteOn ? 0x90 : 0x80) | channel,
+          note,
+          isNoteOn ? velocity : 0,
+        ];
+      } else if (isPitch) {
+        outgoing = [0xe0 | channel, message[1] & 0x7f, message[2] & 0x7f];
+      } else if (isAftertouch) {
+        outgoing = [type | channel, ...message.slice(1)];
+      } else if (isSustain) {
+        outgoing = [0xb0 | channel, 64, message[2] & 0x7f];
+      }
+
+      if (outgoing) await sendExternalMidi(config.portName, outgoing);
+    }
+  }, [preferences?.externalMidiEnabled, sendExternalMidi]);
 
   /** Envia programa + controles de um timbre MIDI externo. */
   const applyExternalMidiConfig = useCallback(async (config: ExternalMidiConfig): Promise<void> => {
@@ -1279,9 +1420,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const now = performance.now();
       if (now - lastUpdate < 30) return;
       lastUpdate = now;
-      setMidiLastMessage(formatMidiEvent(event));
+      const bytes = rawMidiToBytes(event) ?? [];
+      pushMidiMonitor({
+        direction: 'in',
+        portName: event.deviceId ? service.deviceName(event.deviceId) : 'MIDI In',
+        summary: formatMidiEvent(event),
+        bytes,
+      });
     });
-  }, []);
+  }, [pushMidiMonitor]);
 
   const openMidiPort = useCallback(async (deviceId: string, type: 'input' | 'output'): Promise<boolean> => {
     try {
@@ -1323,19 +1470,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!service) return;
     return service.onRawMessage((event) => {
       const bytes = rawMidiToBytes(event);
-      if (bytes) void sendMidiToEngine(bytes);
+      if (!bytes) return;
+      void sendMidiToEngine(bytes);
+      void sendToExternalTimbres(bytes);
     });
-  }, [sendMidiToEngine]);
+  }, [sendMidiToEngine, sendToExternalTimbres]);
 
   const sendProgramChange = useCallback(
     async (program: number, channel: number = 0) => {
       const sent = await webMidi.current!.sendProgramChange(program, channel);
       if (!sent) return { sent: false };
+      pushMidiMonitor({
+        direction: 'out',
+        portName: webMidi.current!.selectedOutputName() ?? 'MIDI Out',
+        summary: `Program Change ${program} · canal ${channel + 1}`,
+        bytes: [0xc0 | (channel & 0x0f), program & 0x7f],
+      });
       const result = await window.electronAPI.midiProgramChange(program, channel);
       setMidiError(null);
       return { ...result, sent: true };
     },
-    []
+    [pushMidiMonitor]
   );
 
   const sendMidiMessage = useCallback(async (message: number[]) => {
@@ -1346,6 +1501,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (webMidi.current?.hasSelectedOutput()) {
       try {
         externalSent = await webMidi.current.send(message);
+        if (externalSent) {
+          pushMidiMonitor({
+            direction: 'out',
+            portName: webMidi.current.selectedOutputName() ?? 'MIDI Out',
+            summary: formatMidiBytes(message),
+            bytes: message,
+          });
+        }
       } catch (error) {
         externalError = error instanceof Error ? error.message : 'Falha ao enviar MIDI para a saída externa.';
       }
@@ -1355,6 +1518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const engineSent = await window.electronAPI.engineMidi(message);
       if (engineSent) setMidiError(externalError);
       else if (externalError) setMidiError(externalError);
+      void sendToExternalTimbres(message, true);
       return externalSent || engineSent;
     } catch (error) {
       if (!externalSent) {
@@ -1363,9 +1527,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ?? (error instanceof Error ? error.message : 'Falha ao enviar MIDI ao engine.')
         );
       }
+      void sendToExternalTimbres(message, true);
       return externalSent;
     }
-  }, []);
+  }, [pushMidiMonitor, sendToExternalTimbres]);
 
   const subscribeMidiLearn = useCallback((listener: (event: RawMidiEvent) => void) => {
     if (!webMidi.current) return () => undefined;
@@ -2072,6 +2237,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     midiDevices,
     midiError,
     midiLastMessage,
+    midiMonitor,
+    midiOutPulse,
+    clearMidiMonitor,
     openMidiInputs,
     selectedMidiOutputId,
     activeNotes,

@@ -21,6 +21,11 @@ export class EngineProcess extends EventEmitter {
   /** true quando o encerramento foi pedido por nós (não é uma queda). */
   private intentionalStop = false;
 
+  /** PID do processo do motor, quando estiver rodando. */
+  getPid(): number | null {
+    return this.child?.pid ?? null;
+  }
+
   constructor() {
     super();
   }
@@ -142,7 +147,10 @@ export class EngineProcess extends EventEmitter {
           resolve();
           return;
         }
-        if (message.event === 'scan-progress') return;
+        if (message.event === 'scan-progress') {
+          this.emit('scan-progress', typeof message.plugin === 'string' ? message.plugin : '');
+          return;
+        }
 
         const id = message.id;
         if (typeof id !== 'number') return;

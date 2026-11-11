@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
   preferencesGet: () => ipcRenderer.invoke('preferences-get'),
   preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),
+  performanceModeGet: () => ipcRenderer.invoke('performance-mode-get'),
+  performanceModeSet: (enabled: boolean) => ipcRenderer.invoke('performance-mode-set', enabled),
   windowSetFullscreen: (value: boolean) => ipcRenderer.invoke('window-set-fullscreen', value),
   audioStart: (options: unknown) => ipcRenderer.invoke('audio-start', options),
   audioStop: () => ipcRenderer.invoke('audio-stop'),

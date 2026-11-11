@@ -268,8 +268,27 @@ private:
     void finishScan();
     void saveKnownPlugins();
 
+    /** Mede o intervalo entre callbacks para estimar falhas de áudio. */
+    struct AudioTimingCallback final : juce::AudioIODeviceCallback
+    {
+        void audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
+                                               int numInputChannels,
+                                               float* const* outputChannelData,
+                                               int numOutputChannels,
+                                               int numSamples,
+                                               const juce::AudioIODeviceCallbackContext& context) override;
+        void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
+        void audioDeviceStopped() override;
+
+        std::atomic<int> xruns { 0 };
+        double expectedMs = 0.0;
+        double lastCallbackMs = 0.0;
+    };
+
     juce::AudioDeviceManager deviceManager;
     juce::AudioPluginFormatManager formatManager;
+    AudioTimingCallback timingCallback;
+    bool timingCallbackAttached = false;
     juce::KnownPluginList knownPlugins;
     Graph graph;
     juce::AudioProcessorPlayer player;

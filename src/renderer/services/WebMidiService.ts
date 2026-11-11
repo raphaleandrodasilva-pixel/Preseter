@@ -91,6 +91,18 @@ export class WebMidiService {
     return output !== undefined && output.state === 'connected';
   }
 
+  /** Nome da porta pelo id (usado pelo monitor MIDI). */
+  deviceName(deviceId?: string): string {
+    if (!deviceId) return 'MIDI';
+    return this.inputs.get(deviceId)?.name || this.outputs.get(deviceId)?.name || deviceId;
+  }
+
+  /** Nome da saída atualmente selecionada. */
+  selectedOutputName(): string | null {
+    if (!this.selectedOutputId) return null;
+    return this.outputs.get(this.selectedOutputId)?.name ?? null;
+  }
+
   async send(message: number[]): Promise<boolean> {
     const output = this.selectedOutputId
       ? this.outputs.get(this.selectedOutputId)

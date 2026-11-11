@@ -709,9 +709,27 @@ export interface AudioDeviceSnapshot {
     inputChannels: number;
     outputChannels: number;
     outputLatencyMs: number;
+    /** Falhas aproximadas de callback do motor (quando disponível). */
+    xruns?: number;
   };
   audioTypes: Array<{ type: string; outputs: string[]; inputs: string[] }>;
   midiInputs: Array<{ name: string; identifier: string; enabled: boolean }>;
+}
+
+/** Estado do modo de desempenho máximo (Configurações → Áudio). */
+export interface AudioPerformanceStatus {
+  enabled: boolean;
+  onAc: boolean;
+  waitingForAc: boolean;
+  planName: string;
+  planGuid: string | null;
+  processorMax: boolean;
+  appPriority: 'normal' | 'high';
+  enginePriority: 'normal' | 'high';
+  enginePid: number | null;
+  systemCpu: number;
+  appCpu: number;
+  message?: string;
 }
 
 export interface SavedAudioSettings extends AudioStartOptions {
@@ -761,6 +779,10 @@ export interface AppPreferences {
    * externo envia mensagens e o comportamento do app fica igual ao atual.
    */
   externalMidiEnabled: boolean;
+  /** Teclado do PC toca notas (estilo Ableton). Desligado = atalhos normais. */
+  computerKeyboardMidi: boolean;
+  /** Mantém o processador no máximo (só na tomada) e prioriza o áudio. */
+  performanceMode: boolean;
 }
 
 // Configuração de layout da interface

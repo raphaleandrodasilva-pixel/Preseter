@@ -138,13 +138,16 @@ describe('EngineProcess startup and requests', () => {
     expect(state.spawn).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores non-JSON output, scan progress and unknown responses', async () => {
+  it('handles non-JSON output, scan progress and unknown responses', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const engine = new EngineProcess();
+    const progress = vi.fn();
+    engine.on('scan-progress', progress);
     const promise = engine.request('mix', {});
     await tick();
     child.stdout.emit('line', 'not json');
-    child.stdout.emit('line', JSON.stringify({ event: 'scan-progress' }));
+    child.stdout.emit('line', JSON.stringify({ event: 'scan-progress', plugin: 'Surge XT' }));
+    expect(progress).toHaveBeenCalledWith('Surge XT');
     child.stdout.emit('line', JSON.stringify({ ok: true, result: {} }));
     child.stdout.emit('line', JSON.stringify({ id: 999, ok: true, result: {} }));
     respond(lastRequest().id, { ok: true, result: { layers: [] } });

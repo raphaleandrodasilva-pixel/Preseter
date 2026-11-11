@@ -204,6 +204,8 @@ export function createPreferences(overrides: Partial<AppPreferences> = {}): AppP
     recordingFormat: 'wav',
     recordingBitrate: 320,
     externalMidiEnabled: false,
+    computerKeyboardMidi: false,
+    performanceMode: false,
     ...overrides,
   };
 }

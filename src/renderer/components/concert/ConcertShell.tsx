@@ -61,6 +61,7 @@ import { StageControl } from '../stage/StageControl';
 import type { RawMidiEvent } from '../../services/WebMidiService';
 import { setParameterLearnHandler } from '../../services/parameter-learn';
 import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
+import { useComputerKeyboardMidi } from '../../hooks/useComputerKeyboardMidi';
 
 /** Chave única da origem MIDI, para resolver overrides por nível. */
 function mappingSourceKey(source: MidiBinding): string {
@@ -245,7 +246,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const ctx = useAppContext();
   const {
     presets, sets, concertName, setConcertName,
-    currentPreset, scannedPlugins, midiLastMessage, appStatus, setAppStatus,
+    currentPreset, scannedPlugins, midiLastMessage, midiOutPulse, appStatus, setAppStatus,
     createSet, renameSet, deleteSet, toggleSetExpanded, toggleSetSkipped,
     reorderSets, togglePresetSkipped, savePreset, createPreset, updatePatchMaster,
     resetProgramNumbers, deletePreset, activeNotes, enginePanic, subscribeMidiLearn,
@@ -258,11 +259,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     startRecording, stopRecording, loadPlayback, playPlayback, stopPlayback, getPlaybackState,
     setPanLaw,
     concertSettings, updateConcertSettings, midiDevices, listMidiDevices, concertRevision,
-    preferences, sendExternalMidi, applyExternalMidiConfig,
+    preferences, updatePreferences, sendExternalMidi, sendMidiMessage, applyExternalMidiConfig,
     externalMidiSetupPending, clearExternalMidiSetup,
     concertStrips, updateConcertStrips, updateSet, layout, mappings, updateMappings,
     exportPatch, importPatch, exportSet, importSet,
   } = ctx;
+  const computerKeyboardMidi = preferences?.computerKeyboardMidi ?? false;
   const draftRef = useRef(draft);
   draftRef.current = draft;
   type PresetLoadResult = { ok: boolean; message: string };
@@ -295,6 +297,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     name: string;
     config: ExternalMidiConfig | null;
   } | null>(null);
+
+  useComputerKeyboardMidi({
+    enabled: preferences?.computerKeyboardMidi ?? false,
+    resetKey: currentPreset?.id ?? '',
+    onNoteOn: (note, velocity) => {
+      const channel = currentPreset?.midiChannel ?? 0;
+      void sendMidiMessage([0x90 | (channel & 0x0f), note, velocity]);
+    },
+    onNoteOff: (note) => {
+      const channel = currentPreset?.midiChannel ?? 0;
+      void sendMidiMessage([0x80 | (channel & 0x0f), note, 0]);
+    },
+  });
   const [recordingPath, setRecordingPath] = useState<string | null>(null);
   const [recordingStatus, setRecordingStatus] = useState<'idle' | 'recording' | 'converting'>('idle');
   const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([]);
@@ -2507,6 +2522,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       // Atalhos da Patch List (copiar, colar, duplicar, deletar patches) são
       // tratados pelo próprio componente quando ele tem o foco.
       if (target?.closest('[data-patch-list]')) return;
+      // Modo teclado-instrumento: letras viram notas. 0–9, V e M continuam
+      // como atalhos do app.
+      if (
+        computerKeyboardMidi &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        /^[a-z]$/.test(e.key.toLowerCase()) &&
+        !['v', 'm'].includes(e.key.toLowerCase())
+      ) {
+        return;
+      }
       if (e.key.toLowerCase() === 'f') {
         const input = document.querySelector('aside input[placeholder*="Buscar"]') as HTMLInputElement | null;
         if (input) { e.preventDefault(); input.focus(); }
@@ -2590,7 +2617,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors, masterMuted]);
+  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors, masterMuted, computerKeyboardMidi]);
 
   if (mode === 'perform') {
     const elements = performElements;
@@ -2854,6 +2881,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         presetCount={presets.length}
         currentPresetName={currentPreset?.name ?? null}
         midiLastMessage={midiLastMessage}
+        midiOutPulse={midiOutPulse}
+        computerKeyboardMidi={computerKeyboardMidi}
+        onToggleComputerKeyboardMidi={() => void updatePreferences({
+          computerKeyboardMidi: !computerKeyboardMidi,
+        })}
         isMetronomeOn={metronomeOn}
         onToggleMetronome={toggleMetronome}
         onOpenConcertSettings={() => setConcertSettingsTab('metronome')}
@@ -2971,6 +3003,15 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <span className="truncate" style={{ color: '#9A9AA0' }}>
                 {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
               </span>
+              {midiLastMessage && (
+                <span
+                  className="max-w-[320px] truncate rounded px-2 py-0.5 font-mono text-[10px]"
+                  style={{ background: '#1F1F21', color: '#7FB6FF' }}
+                  title={midiLastMessage}
+                >
+                  {midiLastMessage}
+                </span>
+              )}
               {mode === 'layout' && concertSettings && (
                 <button
                   type="button"
@@ -3216,6 +3257,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onRevertStripAttribute={revertStripAttribute}
             onSelectedLayerChange={setSelectedLayerId}
             onOpenEditor={togglePluginEditor}
+            editorOpenLayerIds={openEditors}
             onSetParameter={(layerId, parameterId, value) => void setVstParameter(layerId, parameterId, value)}
             onSetLayerMix={(layerId, update) => void changeLayerMix(layerId, update)}
             onSetMasterMix={(update) => void changeMasterMix(update)}

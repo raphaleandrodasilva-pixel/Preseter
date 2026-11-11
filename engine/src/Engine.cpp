@@ -1390,6 +1390,38 @@ Engine::~Engine()
 }
 
 // ---- Áudio e MIDI -----------------------------------------------------------
+void Engine::AudioTimingCallback::audioDeviceAboutToStart (juce::AudioIODevice* device)
+{
+    xruns.store (0, std::memory_order_relaxed);
+    lastCallbackMs = 0.0;
+    expectedMs = 0.0;
+    if (device != nullptr)
+    {
+        const auto rate = device->getCurrentSampleRate();
+        const auto buffer = device->getCurrentBufferSizeSamples();
+        if (rate > 0.0 && buffer > 0)
+            expectedMs = (1000.0 * buffer) / rate;
+    }
+}
+
+void Engine::AudioTimingCallback::audioDeviceStopped()
+{
+    lastCallbackMs = 0.0;
+}
+
+void Engine::AudioTimingCallback::audioDeviceIOCallbackWithContext (
+    const float* const*, int, float* const*, int, int,
+    const juce::AudioIODeviceCallbackContext&)
+{
+    if (expectedMs <= 0.0)
+        return;
+
+    const auto now = juce::Time::getMillisecondCounterHiRes();
+    if (lastCallbackMs > 0.0 && (now - lastCallbackMs) > expectedMs * 1.75)
+        xruns.fetch_add (1, std::memory_order_relaxed);
+    lastCallbackMs = now;
+}
+
 juce::String Engine::startAudio (const juce::var& options)
 {
     const int numIn  = options.hasProperty ("inputs")  ? (int) options["inputs"]  : 0;
@@ -1435,6 +1467,12 @@ juce::String Engine::startAudio (const juce::var& options)
         audioCallbackAttached = true;
     }
 
+    if (! timingCallbackAttached)
+    {
+        deviceManager.addAudioCallback (&timingCallback);
+        timingCallbackAttached = true;
+    }
+
     if (! midiCallbackAttached)
     {
         deviceManager.addMidiInputDeviceCallback ({}, &player);
@@ -1461,6 +1499,12 @@ void Engine::stopAudio()
     {
         deviceManager.removeAudioCallback (&player);
         audioCallbackAttached = false;
+    }
+
+    if (timingCallbackAttached)
+    {
+        deviceManager.removeAudioCallback (&timingCallback);
+        timingCallbackAttached = false;
     }
 
     deviceManager.closeAudioDevice();
@@ -1507,7 +1551,8 @@ juce::var Engine::describeDevices()
                       .set ("bufferSize", device->getCurrentBufferSizeSamples())
                       .set ("inputChannels", device->getActiveInputChannels().countNumberOfSetBits())
                       .set ("outputChannels", device->getActiveOutputChannels().countNumberOfSetBits())
-                      .set ("outputLatencyMs", rate > 0 ? device->getOutputLatencyInSamples() * 1000.0 / rate : 0.0);
+                      .set ("outputLatencyMs", rate > 0 ? device->getOutputLatencyInSamples() * 1000.0 / rate : 0.0)
+                      .set ("xruns", timingCallback.xruns.load (std::memory_order_relaxed));
     }
 
     juce::Array<juce::var> midiInputs;

@@ -407,6 +407,42 @@ function midiAccessWithOutput(send: ReturnType<typeof vi.fn>): MIDIAccess {
   } as unknown as MIDIAccess;
 }
 
+function midiAccessWithInputAndOutput(send: ReturnType<typeof vi.fn>): {
+  access: MIDIAccess;
+  input: { onmidimessage: ((event: { data: Uint8Array }) => void) | null };
+} {
+  const input = {
+    id: 'fake-in',
+    name: 'Fake MIDI In',
+    type: 'input',
+    state: 'connected',
+    open: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+    onmidimessage: null,
+  };
+  const output = {
+    id: 'fake-out',
+    name: 'Fake MIDI Out',
+    type: 'output',
+    state: 'connected',
+    open: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+    send,
+  };
+  return {
+    access: {
+      inputs: new Map([['fake-in', input]]),
+      outputs: new Map([['fake-out', output]]),
+      sysexEnabled: false,
+      onstatechange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    } as unknown as MIDIAccess,
+    input,
+  };
+}
+
 describe('AppProvider MIDI and VST actions', () => {
   it('sends to an external MIDI output only when enabled', async () => {
     const send = vi.fn();
@@ -421,6 +457,22 @@ describe('AppProvider MIDI and VST actions', () => {
 
     expect(await latest.sendExternalMidi('Fake MIDI Out', [0xb0, 7, 100])).toBe(true);
     expect(send).toHaveBeenCalledWith([0xb0, 7, 100]);
+    await waitFor(() =>
+      expect(latest.midiMonitor).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            direction: 'out',
+            portName: 'Fake MIDI Out',
+            bytes: [0xb0, 7, 100],
+          }),
+        ])
+      )
+    );
+
+    await act(async () => {
+      await latest.sendExternalMidi('Fake MIDI Out', [0x90, 60, 100]);
+    });
+    await waitFor(() => expect(latest.midiOutPulse).toBeGreaterThan(0));
   });
 
   it('does not send external MIDI when the feature is disabled', async () => {
@@ -436,6 +488,137 @@ describe('AppProvider MIDI and VST actions', () => {
 
     expect(await latest.sendExternalMidi('Fake MIDI Out', [0xb0, 7, 100])).toBe(false);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('routes keyboard notes to external MIDI timbres in the patch', async () => {
+    const patch = createPreset({
+      id: 'external-patch',
+      name: 'External',
+      plugins: [
+        {
+          pluginId: 'external-midi:1',
+          layerId: 'layer-ext',
+          name: 'Motif',
+          path: '',
+          role: 'instrument',
+          externalMidi: {
+            portName: 'Fake MIDI Out',
+            channel: 2,
+            receiveNotes: true,
+          },
+        },
+      ],
+    });
+    const send = vi.fn();
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(midiAccessWithOutput(send));
+    vi.mocked(window.electronAPI.concertInit).mockResolvedValue(
+      createConcertState({ patches: [patch] })
+    );
+    vi.mocked(window.electronAPI.presetLoad).mockResolvedValue(true);
+    vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(
+      createPreferences({ externalMidiEnabled: true })
+    );
+
+    await renderProvider();
+    await act(async () => {
+      await latest.listMidiDevices();
+      await latest.loadPreset('external-patch', { preset: patch });
+    });
+    await waitFor(() => expect(latest.currentPreset?.id).toBe('external-patch'));
+
+    await act(async () => {
+      await latest.sendMidiMessage([0x90, 60, 100]);
+    });
+
+    await waitFor(() => expect(send).toHaveBeenCalledWith([0x92, 60, 100]));
+  });
+
+  it('does not route notes to external timbres with receiveNotes off', async () => {
+    const patch = createPreset({
+      id: 'external-muted',
+      name: 'External muted',
+      plugins: [
+        {
+          pluginId: 'external-midi:2',
+          layerId: 'layer-muted',
+          name: 'Motif muted',
+          path: '',
+          role: 'instrument',
+          externalMidi: {
+            portName: 'Fake MIDI Out',
+            channel: 2,
+            receiveNotes: false,
+          },
+        },
+      ],
+    });
+    const send = vi.fn();
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(midiAccessWithOutput(send));
+    vi.mocked(window.electronAPI.concertInit).mockResolvedValue(
+      createConcertState({ patches: [patch] })
+    );
+    vi.mocked(window.electronAPI.presetLoad).mockResolvedValue(true);
+    vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(
+      createPreferences({ externalMidiEnabled: true })
+    );
+
+    await renderProvider();
+    await act(async () => {
+      await latest.listMidiDevices();
+      await latest.loadPreset('external-muted', { preset: patch });
+    });
+    await waitFor(() => expect(latest.currentPreset?.id).toBe('external-muted'));
+
+    await act(async () => {
+      await latest.sendMidiMessage([0x90, 60, 100]);
+    });
+
+    expect(send).not.toHaveBeenCalledWith([0x92, 60, 100]);
+  });
+
+  it('routes hardware MIDI notes to external timbres', async () => {
+    const patch = createPreset({
+      id: 'hw-external',
+      name: 'Hardware external',
+      plugins: [
+        {
+          pluginId: 'external-midi:3',
+          layerId: 'layer-hw',
+          name: 'Motif',
+          path: '',
+          role: 'instrument',
+          externalMidi: {
+            portName: 'Fake MIDI Out',
+            channel: 2,
+            receiveNotes: true,
+          },
+        },
+      ],
+    });
+    const send = vi.fn();
+    const { access, input } = midiAccessWithInputAndOutput(send);
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(access);
+    vi.mocked(window.electronAPI.concertInit).mockResolvedValue(
+      createConcertState({ patches: [patch] })
+    );
+    vi.mocked(window.electronAPI.presetLoad).mockResolvedValue(true);
+    vi.mocked(window.electronAPI.preferencesGet).mockResolvedValue(
+      createPreferences({ externalMidiEnabled: true })
+    );
+
+    await renderProvider();
+    await act(async () => {
+      await latest.listMidiDevices();
+      await latest.openMidiPort('fake-in', 'input');
+      await latest.loadPreset('hw-external', { preset: patch });
+    });
+    await waitFor(() => expect(latest.currentPreset?.id).toBe('hw-external'));
+
+    act(() => {
+      input.onmidimessage?.({ data: new Uint8Array([0x90, 60, 100]) });
+    });
+
+    await waitFor(() => expect(send).toHaveBeenCalledWith([0x92, 60, 100]));
   });
 
   it('sends MIDI to the engine and to a selected output', async () => {

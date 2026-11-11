@@ -64,6 +64,8 @@ export interface ExternalMidiConfig {
   channel: number;
   program?: ExternalMidiProgram;
   controls?: ExternalMidiControl[];
+  /** Receber notas/performance do teclado. Ausente = true. */
+  receiveNotes?: boolean;
   /** Valores salvos dos controles, por id. */
   values?: Record<string, number>;
   /** Mensagens cruas enviadas depois do programa. */
@@ -502,6 +504,7 @@ export function normalizeExternalMidiConfig(value: unknown): ExternalMidiConfig 
     channel: clampMidiChannel(source.channel),
   };
   if (source.enabled === false) config.enabled = false;
+  if (source.receiveNotes === false) config.receiveNotes = false;
 
   const program = normalizeProgram(source.program);
   if (program) config.program = program;

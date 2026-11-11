@@ -99,6 +99,8 @@ interface ChannelStripsProps {
   onRevertStripAttribute: (target: StripEditTarget, stripId: string, attr: StripAttribute) => void;
   onSelectedLayerChange?: (layerId: string | null) => void;
   onOpenEditor?: (layerId: string) => void;
+  /** Layers cuja janela nativa do plugin está aberta. */
+  editorOpenLayerIds: Set<string>;
   onSetParameter: (layerId: string, parameterId: string, value: number) => void;
   onSetLayerMix: (layerId: string, update: LayerMixUpdate) => void;
   onSetMasterMix: (update: MasterMixUpdate) => void;
@@ -248,6 +250,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onRevertStripAttribute,
   onSelectedLayerChange,
   onOpenEditor,
+  editorOpenLayerIds,
   onSetParameter,
   onSetLayerMix,
   onSetMasterMix,
@@ -911,12 +914,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         />
         <button
           className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
-          style={{ background: '#3A3A3C', color: '#E5E5EA' }}
+          style={editorOpenLayerIds.has(strip.id)
+            ? { background: '#0A84FF', color: '#FFFFFF', boxShadow: '0 0 10px rgba(10,132,255,0.35)' }
+            : { background: '#3A3A3C', color: '#E5E5EA' }}
           disabled={!loaded}
-          title="Abrir/fechar a janela do plugin (V)"
+          aria-pressed={editorOpenLayerIds.has(strip.id)}
+          title={editorOpenLayerIds.has(strip.id) ? 'Fechar a janela do plugin (V)' : 'Abrir a janela do plugin (V)'}
           onClick={(event) => { event.stopPropagation(); onOpenEditor?.(strip.id); }}
         >
-          Editor (V)
+          {editorOpenLayerIds.has(strip.id) ? 'Fechar editor (V)' : 'Editor (V)'}
         </button>
         <label className="mt-1.5 flex items-center gap-1 text-[8px]" style={{ color: '#9A9AA0' }}>
           NÍVEL
@@ -1736,16 +1742,19 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 </div>
                 <button
                   className="mt-1 w-full rounded px-1 py-1 text-[9px] font-semibold disabled:opacity-40"
-                  style={{ background: '#3A3A3C', color: '#E5E5EA' }}
+                  style={editorOpenLayerIds.has(layerId)
+                    ? { background: '#0A84FF', color: '#FFFFFF', boxShadow: '0 0 10px rgba(10,132,255,0.35)' }
+                    : { background: '#3A3A3C', color: '#E5E5EA' }}
                   disabled={!loaded}
-                  title="Abrir/fechar a janela do plugin (V)"
+                  aria-pressed={editorOpenLayerIds.has(layerId)}
+                  title={editorOpenLayerIds.has(layerId) ? 'Fechar a janela do plugin (V)' : 'Abrir a janela do plugin (V)'}
                   onClick={(event) => {
                     event.stopPropagation();
                     setSelectedLayerId(layerId);
                     onOpenEditor?.(layerId);
                   }}
                 >
-                  Editor (V)
+                  {editorOpenLayerIds.has(layerId) ? 'Fechar editor (V)' : 'Editor (V)'}
                 </button>
                 {renderFader({
                   label: assignment.name,

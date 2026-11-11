@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import type { RecordingBitrate, RecordingFormat, ScrollSpeed } from '@shared/types';
+import type {
+  AudioPerformanceStatus,
+  RecordingBitrate,
+  RecordingFormat,
+  ScrollSpeed,
+} from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import { CollectionSettings } from './CollectionSettings';
 
@@ -19,6 +24,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
     preferences, updatePreferences, layout, vstScanReport, refreshVstScanReport,
+    midiMonitor, clearMidiMonitor,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
@@ -30,11 +36,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const [bufferSize, setBufferSize] = useState(512);
   const [audioOutputPairs, setAudioOutputPairs] = useState(1);
   const [audioBusy, setAudioBusy] = useState(false);
+  const [performanceStatus, setPerformanceStatus] = useState<AudioPerformanceStatus | null>(null);
 
   useEffect(() => setTab(initialTab), [initialTab]);
   useEffect(() => {
     if (tab === 'audio') void refreshAudioSettings();
   }, [tab, refreshAudioSettings]);
+  useEffect(() => {
+    if (tab !== 'audio') return;
+    let active = true;
+    const load = async () => {
+      try {
+        const status = await window.electronAPI.performanceModeGet();
+        if (active) setPerformanceStatus(status);
+      } catch {
+        /* o painel é opcional */
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 1000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [tab]);
   useEffect(() => {
     if (!audioDevices) return;
     // Ao trocar o driver, não pré-selecionamos o primeiro dispositivo:
@@ -81,9 +106,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     border: '1px solid #0A84FF',
   };
 
+  const currentAudio = audioDevices?.current ?? null;
+  const audioLatencyMs =
+    currentAudio && currentAudio.sampleRate > 0
+      ? (currentAudio.bufferSize / currentAudio.sampleRate) * 1000
+      : 0;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Configurações"
       onClick={onClose}
     >
       <div
@@ -385,6 +419,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   As preferências são salvas e reaplicadas quando o Preseter abre.
                 </p>
               </section>
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Desempenho máximo</h4>
+                <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={preferences?.performanceMode ?? false}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      void (async () => {
+                        await updatePreferences({ performanceMode: enabled });
+                        try {
+                          setPerformanceStatus(
+                            await window.electronAPI.performanceModeSet(enabled)
+                          );
+                        } catch {
+                          /* a mensagem fica no status */
+                        }
+                      })();
+                    }}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">
+                      Manter o processador no máximo
+                    </span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Só na tomada. Ativa o plano Alto Desempenho, tenta 100% no processador,
+                      desativa core parking e sobe a prioridade do Preseter e do motor.
+                    </span>
+                  </span>
+                </label>
+
+                {performanceStatus && (
+                  <div
+                    className="hw-lcd grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 p-2 font-mono text-[10px]"
+                    style={{ color: '#E5E5EA' }}
+                  >
+                    <span style={{ color: '#9A9AA0' }}>Plano</span>
+                    <span>{performanceStatus.planName || '—'}</span>
+                    <span style={{ color: '#9A9AA0' }}>Processador</span>
+                    <span>{performanceStatus.processorMax ? '100%' : 'padrão'}</span>
+                    <span style={{ color: '#9A9AA0' }}>Prioridade</span>
+                    <span>
+                      {performanceStatus.appPriority === 'high' ? 'Alta' : 'Normal'}
+                    </span>
+                    <span style={{ color: '#9A9AA0' }}>Fonte</span>
+                    <span>{performanceStatus.onAc ? 'Na tomada ✔' : 'Na bateria'}</span>
+                    <span style={{ color: '#9A9AA0' }}>CPU do app</span>
+                    <span>{performanceStatus.appCpu.toFixed(0)}%</span>
+                    <span style={{ color: '#9A9AA0' }}>CPU do sistema</span>
+                    <span>{performanceStatus.systemCpu.toFixed(0)}%</span>
+                    <span style={{ color: '#9A9AA0' }}>Buffer</span>
+                    <span>{currentAudio ? `${currentAudio.bufferSize} samples` : '—'}</span>
+                    <span style={{ color: '#9A9AA0' }}>Sample rate</span>
+                    <span>{currentAudio ? `${currentAudio.sampleRate} Hz` : '—'}</span>
+                    <span style={{ color: '#9A9AA0' }}>Latência</span>
+                    <span>{audioLatencyMs > 0 ? `${audioLatencyMs.toFixed(1)} ms` : '—'}</span>
+                    <span style={{ color: '#9A9AA0' }}>Falhas aprox.</span>
+                    <span>{currentAudio?.xruns ?? '—'}</span>
+                  </div>
+                )}
+
+                {performanceStatus?.message && (
+                  <p className="text-[10px]" style={{ color: '#FFD60A' }}>
+                    {performanceStatus.message}
+                  </p>
+                )}
+              </section>
             </div>
           )}
 
@@ -504,11 +607,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   </span>
                 </label>
               </section>
+              <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Teclado do computador</h4>
+                <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={preferences?.computerKeyboardMidi ?? false}
+                    onChange={(event) => void updatePreferences({
+                      computerKeyboardMidi: event.target.checked,
+                    })}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">Teclado do PC como instrumento</span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Ableton-style: A S D F G H J K L ; ' tocam notas; W E T Y U O P
+                      são os sustenidos; Z/X mudam a oitava. 0–9 continuam atalhos.
+                      Nesse modo, F (busca) e P (panic) viram notas; V (editor) e M (mute)
+                      continuam funcionando.
+                    </span>
+                  </span>
+                </label>
+              </section>
               <section>
                 <h4 className="hw-label mb-2">Monitor</h4>
-                <div className="hw-lcd p-3 font-mono text-xs" style={{ color: '#E5E5EA' }}>
-                  {midiLastMessage || 'Aguardando mensagens MIDI…'}
+                <div
+                  className="hw-lcd max-h-40 space-y-1 overflow-auto p-2 font-mono text-[10px]"
+                  style={{ color: '#E5E5EA' }}
+                >
+                  {midiMonitor.length === 0 && <div>Aguardando mensagens MIDI…</div>}
+                  {midiMonitor.map((event) => (
+                    <div key={event.id} className="flex items-start gap-2">
+                      <span
+                        className="shrink-0 font-semibold"
+                        style={{ color: event.direction === 'out' ? '#7FB6FF' : '#30D158' }}
+                      >
+                        {event.direction === 'out' ? 'OUT' : 'IN'}
+                      </span>
+                      <span className="w-24 shrink-0 truncate" title={event.portName}>
+                        {event.portName}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate" title={event.summary}>
+                        {event.summary}
+                      </span>
+                      <span className="shrink-0" style={{ color: '#6E6E73' }}>
+                        {new Date(event.at).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
+                <button
+                  onClick={() => clearMidiMonitor()}
+                  className="hw-squarebtn mt-2 px-2.5 py-1 text-[10px]"
+                  style={{ color: '#9A9AA0' }}
+                >
+                  Limpar monitor
+                </button>
               </section>
               <button
                 onClick={() => void listMidiDevices()}

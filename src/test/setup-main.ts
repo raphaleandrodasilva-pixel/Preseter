@@ -57,6 +57,11 @@ vi.mock('electron', async () => {
         { workArea: { x: 0, y: 0, width: 1920, height: 1080 } },
       ]),
     },
+    powerMonitor: {
+      isOnBatteryPower: vi.fn(() => false),
+      on: vi.fn(),
+      off: vi.fn(),
+    },
     session: {
       defaultSession: {
         setPermissionCheckHandler: vi.fn(),

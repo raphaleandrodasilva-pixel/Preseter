@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { PatchLcd } from '../hardware/PatchLcd';
 import { NumberField } from '../ui/NumberField';
 
@@ -17,6 +17,11 @@ interface ModeToolbarProps {
   presetCount: number;
   currentPresetName: string | null;
   midiLastMessage: string | null;
+  /** Incrementa a cada nota MIDI enviada; acende o LED redondo. */
+  midiOutPulse: number;
+  /** Teclado do PC como instrumento (Ableton). */
+  computerKeyboardMidi: boolean;
+  onToggleComputerKeyboardMidi: () => void;
   isMetronomeOn: boolean;
   onToggleMetronome: () => void;
   /** Abre os ajustes do concert na aba do metrônomo. */
@@ -42,6 +47,9 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
   presetCount,
   currentPresetName,
   midiLastMessage,
+  midiOutPulse,
+  computerKeyboardMidi,
+  onToggleComputerKeyboardMidi,
   isMetronomeOn,
   onToggleMetronome,
   onOpenConcertSettings,
@@ -49,6 +57,14 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
   onOpenSettings,
 }) => {
   const midiActive = !!midiLastMessage;
+  const [midiOutLit, setMidiOutLit] = useState(false);
+
+  useEffect(() => {
+    if (midiOutPulse <= 0) return;
+    setMidiOutLit(true);
+    const timer = window.setTimeout(() => setMidiOutLit(false), 140);
+    return () => window.clearTimeout(timer);
+  }, [midiOutPulse]);
 
   return (
     <header
@@ -104,7 +120,27 @@ export const ModeToolbar: React.FC<ModeToolbarProps> = ({
               boxShadow: midiActive ? '0 0 6px #30D158' : 'none',
             }}
           />
+          <span
+            className="h-1.5 w-1.5 rounded-full transition-shadow"
+            title="Atividade MIDI de saída"
+            style={{
+              background: midiOutLit ? '#0A84FF' : '#3A3A3C',
+              boxShadow: midiOutLit ? '0 0 8px #0A84FF' : 'none',
+            }}
+          />
           Configurações
+        </button>
+
+        <button
+          onClick={onToggleComputerKeyboardMidi}
+          title="Teclado do PC como instrumento (Ableton)"
+          aria-pressed={computerKeyboardMidi}
+          className="hw-squarebtn flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+          style={computerKeyboardMidi
+            ? { background: 'rgba(10,132,255,0.18)', color: '#7FB6FF', border: '1px solid #0A84FF' }
+            : { color: '#9A9AA0' }}
+        >
+          ⌨
         </button>
 
         <label
