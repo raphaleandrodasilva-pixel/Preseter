@@ -86,6 +86,15 @@ function findSoundfont(folder: string, item: CollectionItem): string | null {
   return null;
 }
 
+/** Expande %APPDATA%, %LOCALAPPDATA% e %USERPROFILE% em caminhos do catálogo. */
+function expandUserPath(value: string): string {
+  const home = process.env.USERPROFILE ?? '';
+  return value
+    .replace(/%APPDATA%/gi, process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'))
+    .replace(/%LOCALAPPDATA%/gi, process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'))
+    .replace(/%USERPROFILE%/gi, home);
+}
+
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -361,6 +370,7 @@ export class CollectionInstaller {
       if (copied.length === 0) {
         throw new Error('O pacote não continha um plugin .vst3.');
       }
+      this.copyDataFolders(item, extractDir);
       const found = findInAllPlugins(item) ?? copied[0];
       const done = {
         ...base,
@@ -510,6 +520,13 @@ export class CollectionInstaller {
           }
           continue;
         }
+        // Alguns fabricantes distribuem o VST3 como arquivo único.
+        if (!isDir && name.toLowerCase().endsWith('.vst3')) {
+          const dest = path.join(USER_VST3, name);
+          copyFileSync(full, dest);
+          copied.push(dest);
+          continue;
+        }
         if (isDir) stack.push(full);
       }
     }
@@ -528,5 +545,25 @@ export class CollectionInstaller {
       /* ignora */
     }
     return copied;
+  }
+
+  /** Copia presets/wavetables do pacote para o perfil do usuário. */
+  private copyDataFolders(item: CollectionItem, extractDir: string): void {
+    for (const folder of item.dataFolders ?? []) {
+      const source = path.join(extractDir, folder.from);
+      if (!existsSync(source)) continue;
+      const dest = expandUserPath(folder.to);
+      mkdirSync(dest, { recursive: true });
+      for (const entry of readdirSync(source)) {
+        try {
+          cpSync(path.join(source, entry), path.join(dest, entry), {
+            recursive: true,
+            force: true,
+          });
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível copiar "${entry}" para "${dest}":`, error);
+        }
+      }
+    }
   }
 }

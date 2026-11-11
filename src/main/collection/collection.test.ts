@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildCollectionConcert } from './generateCollection';
+import { COLLECTION_CATALOG } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
 const plugins = [
@@ -11,6 +12,27 @@ const plugins = [
   { id: 'helm', name: 'Helm', isInstrument: true },
   { id: 'odin', name: 'Odin 2', isInstrument: true },
 ];
+
+describe('collection catalog', () => {
+  it('includes TetraOP, Charlatan 3 and Sforzando with the correct licenses', () => {
+    const ids = COLLECTION_CATALOG.items.map((item) => item.id);
+    expect(ids).toEqual(expect.arrayContaining(['tetraop', 'charlatan3', 'sforzando']));
+
+    const tetraop = COLLECTION_CATALOG.items.find((item) => item.id === 'tetraop');
+    expect(tetraop).toMatchObject({ kind: 'vst3-zip', license: 'GPL-3.0' });
+    expect(tetraop?.dataFolders?.map((folder) => folder.to)).toEqual([
+      '%APPDATA%/TetraOP/presets',
+      '%APPDATA%/TetraOP/wavetables',
+    ]);
+
+    const charlatan = COLLECTION_CATALOG.items.find((item) => item.id === 'charlatan3');
+    expect(charlatan).toMatchObject({ kind: 'vst3-zip', license: 'Freeware' });
+    expect(charlatan?.dataFolders).toHaveLength(1);
+
+    const sforzando = COLLECTION_CATALOG.items.find((item) => item.id === 'sforzando');
+    expect(sforzando).toMatchObject({ kind: 'manual', license: 'Freeware' });
+  });
+});
 
 describe('buildCollectionConcert', () => {
   it('creates the 8 sets and 40 patches in order', () => {

@@ -163,6 +163,57 @@
       "defaultSelected": false,
       "vst3Patterns": ["setBfree*.lv2", "b_synth.lv2"],
       "notes": "Alternativa: use o patch Órgão de Igreja do juicysfplugin."
+    },
+    {
+      "id": "tetraop",
+      "name": "TetraOP 1.0.3",
+      "description": "Sintetizador FM/wavetable (GPL-3.0) para baixos, sinos, leads e pads digitais.",
+      "group": "plugin",
+      "kind": "vst3-zip",
+      "url": "https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-win-v1.0.3.zip",
+      "fileName": "tetraop-win-v1.0.3.zip",
+      "approxBytes": 7143966,
+      "license": "GPL-3.0",
+      "licenseUrl": "https://github.com/tiagolr/tetraop/blob/master/LICENSE",
+      "defaultSelected": false,
+      "vst3Patterns": ["TetraOP.vst3"],
+      "dataFolders": [
+        { "from": "tetraop-win/presets", "to": "%APPDATA%/TetraOP/presets" },
+        { "from": "tetraop-win/wavetables", "to": "%APPDATA%/TetraOP/wavetables" }
+      ],
+      "notes": "Presets e wavetables vão para %APPDATA%\\TetraOP."
+    },
+    {
+      "id": "charlatan3",
+      "name": "Charlatan 3.3.2",
+      "description": "Sintetizador virtual-analog freeware para pads, leads, órgão e baixo.",
+      "group": "plugin",
+      "kind": "vst3-zip",
+      "url": "https://www.blaukraut.info/downloads/charlatan3_3.3.2_win.zip",
+      "fileName": "charlatan3_3.3.2_win.zip",
+      "approxBytes": 1230000,
+      "license": "Freeware",
+      "licenseUrl": "https://www.blaukraut.info/",
+      "defaultSelected": false,
+      "vst3Patterns": ["Charlatan3.vst3"],
+      "dataFolders": [
+        { "from": "presets", "to": "%APPDATA%/charlatan/presets" }
+      ],
+      "notes": "Freeware (não é open source). O ZIP traz um VST3 de arquivo único e os presets."
+    },
+    {
+      "id": "sforzando",
+      "name": "Sforzando (Plogue)",
+      "description": "Player SFZ 2.0 freeware; também converte SF2/DLS/WAV.",
+      "group": "manual",
+      "kind": "manual",
+      "page": "https://www.plogue.com/downloads.html#sforzando",
+      "approxBytes": 15000000,
+      "license": "Freeware",
+      "licenseUrl": "https://www.plogue.com/products/sforzando.html",
+      "defaultSelected": false,
+      "vst3Patterns": ["sforzando.vst3", "Sforzando.vst3"],
+      "notes": "Baixe no site oficial da Plogue. O Preseter detecta o VST3 depois de instalar."
     }
   ]
 }

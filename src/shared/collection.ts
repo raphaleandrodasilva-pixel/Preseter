@@ -9,6 +9,14 @@ export type CollectionKind =
   | 'soundfont-zip'
   | 'manual';
 
+/** Pasta de dados que o pacote copia para o perfil do usuário. */
+export interface CollectionDataFolder {
+  /** Caminho relativo dentro do ZIP extraído. */
+  from: string;
+  /** Destino; aceita %APPDATA%, %LOCALAPPDATA% e %USERPROFILE%. */
+  to: string;
+}
+
 export interface CollectionItem {
   id: string;
   name: string;
@@ -25,6 +33,8 @@ export interface CollectionItem {
   defaultSelected: boolean;
   vst3Patterns?: string[];
   soundfontPatterns?: string[];
+  /** Pastas extras copiadas do ZIP para o perfil do usuário. */
+  dataFolders?: CollectionDataFolder[];
   notes?: string;
 }
 
