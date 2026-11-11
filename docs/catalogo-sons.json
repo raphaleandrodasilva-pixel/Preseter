@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "updated": "2026-11-11",
+  "notes": "Rascunho inicial. Todos os itens estão no nível 'indexed' (licença lida na página de origem, ainda não conferida pelo dono). 'download': null = link direto ainda não verificado; abrir a página. Tamanhos vêm das páginas citadas.",
+  "items": [
+    {
+      "id": "salamander-grand-v3",
+      "name": "Salamander Grand Piano V3",
+      "category": "Piano",
+      "author": "Alexander Holm",
+      "license": "CC-BY-3.0",
+      "licenseKind": "free",
+      "attribution": "Salamander Grand Piano by Alexander Holm (CC BY 3.0)",
+      "source": "github+freepats",
+      "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+      "otherPages": ["https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html"],
+      "variants": [
+        { "format": "sfz-flac", "sizeMB": 707, "download": null, "note": "48 kHz 24 bits (melhor qualidade)" },
+        { "format": "sfz-wav", "sizeMB": 394, "download": null, "note": "44,1 kHz 16 bits" },
+        { "format": "sf2", "sizeMB": 296, "download": null, "note": "arquivo único .tar.xz (FreePats)" }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    },
+    {
+      "id": "freepats-upright-piano-kw",
+      "name": "Upright Piano KW",
+      "category": "Piano",
+      "author": "FreePats",
+      "license": "CC0-1.0",
+      "licenseKind": "free",
+      "attribution": null,
+      "source": "freepats",
+      "page": "https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html",
+      "variants": [
+        { "format": "sfz-flac", "sizeMB": 32, "download": null },
+        { "format": "sfz-wav", "sizeMB": 69, "download": null },
+        { "format": "sf2", "sizeMB": 27, "download": null },
+        { "format": "sf2", "sizeMB": 5.8, "download": null, "note": "versão pequena" }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    },
+    {
+      "id": "freepats-ydp-grand-piano",
+      "name": "YDP Grand Piano",
+      "category": "Piano",
+      "author": "FreePats",
+      "license": "CC-BY-3.0",
+      "licenseKind": "free",
+      "attribution": "YDP Grand Piano (FreePats, CC BY 3.0)",
+      "source": "freepats",
+      "page": "https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html",
+      "variants": [
+        { "format": "sf2", "sizeMB": 36, "download": null, "note": "arquivo único .tar.bz2" }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    },
+    {
+      "id": "musescore-general",
+      "name": "MuseScore_General",
+      "category": "Geral (GM)",
+      "author": "S. Christian Collins",
+      "license": "MIT",
+      "licenseKind": "free",
+      "attribution": "MuseScore_General by S. Christian Collins (MIT)",
+      "source": "musescore-handbook",
+      "page": "https://musescore.org/en/handbook/soundfonts",
+      "variants": [
+        { "format": "sf3", "sizeMB": 35.9, "download": null },
+        { "format": "sf2", "sizeMB": 208, "download": null }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    },
+    {
+      "id": "timgm6mb",
+      "name": "TimGM6mb",
+      "category": "Geral (GM)",
+      "author": "Tim Brechbill",
+      "license": "GPL-2.0",
+      "licenseKind": "free",
+      "attribution": "TimGM6mb by Tim Brechbill (GPL v2)",
+      "source": "musescore-handbook",
+      "page": "https://musescore.org/en/handbook/soundfonts",
+      "variants": [
+        { "format": "sf2", "sizeMB": 5.7, "download": null }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    },
+    {
+      "id": "sonatina-symphonic-orchestra",
+      "name": "Sonatina Symphonic Orchestra",
+      "category": "Orquestra",
+      "author": "Mattias Westlund e colaboradores",
+      "license": "CC-Sampling-Plus-1.0",
+      "licenseKind": "restricted",
+      "attribution": null,
+      "source": "musescore-handbook",
+      "page": "https://musescore.org/en/handbook/soundfonts",
+      "otherPages": ["http://sso.mattiaswestlund.net"],
+      "variants": [
+        { "format": "sf2", "sizeMB": 503, "download": null, "note": "o manual lista link http de FTP; verificar se ainda existe" },
+        { "format": "sfz", "sizeMB": null, "download": null }
+      ],
+      "tier": "indexed", "verifiedBy": null
+    }
+  ]
+}
