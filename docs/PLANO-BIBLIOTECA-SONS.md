@@ -124,8 +124,10 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
 
 ## 7. Revisão: lacunas encontradas e tarefas
 
-- [ ] **7.1 Onde mora o catálogo.** Cópia embutida no app (funciona offline) + atualização
-  opcional baixando o JSON do repositório; mostrar a data da última atualização.
+- [ ] **7.1 Onde mora o catálogo e atualização automática.** Cópia embutida no app (funciona offline).
+  **Decisão: o catálogo se atualiza sozinho** ao abrir o app (em segundo plano, com internet),
+  baixando o JSON do repositório; mostrar a data da última atualização e "N novidades".
+  Sem internet ou com erro: usar a última cópia boa, sem mensagem de erro.
 - [ ] **7.2 Segurança do download.** Só `https`; conferir `sha256`; limite de tamanho;
   extrair `.zip` sem permitir caminhos fora da pasta de destino (*zip slip*); nunca executar nada baixado.
 - [ ] **7.3 Hash divergente.** Se o arquivo mudou na fonte, avisar "o autor atualizou este arquivo"
@@ -138,3 +140,13 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
 - [ ] **7.6 Downloads grandes.** Pausar, retomar e cancelar; mostrar o espaço livre antes de começar.
 - [ ] **7.7 Bibliotecas do usuário.** Aceitar pastas extras com `.sfz`/`.sf2` fora do catálogo.
 - [ ] **7.8 Testes.** Catálogo inválido, hash errado, zip malicioso e link fora do ar.
+- [ ] **7.9 Atualização automática das bibliotecas (sem quebrar patches).**
+  **Decisão: as bibliotecas também se atualizam sozinhas.** Para não alterar o som dos patches:
+  cada versão fica em uma pasta própria (`~/PreseterSons/<id>/<versão>/`); os patches continuam
+  apontando para a versão que usavam; a versão nova é baixada ao lado e o app avisa
+  "X atualizada; trocar nos patches?". Opção nas Configurações: atualizar automaticamente (padrão
+  ligado) e apagar versões antigas (padrão desligado). Respeitar espaço livre e conexão
+  (não baixar arquivos grandes em conexão limitada).
+- [ ] **7.10 Segurança da atualização automática.** O catálogo só aceita links de domínios permitidos
+  (lista no próprio app), sempre `https` e com `sha256`; mudança de licença para pior
+  (ex.: livre → só uso pessoal) **não** atualiza sozinha: pede confirmação.
