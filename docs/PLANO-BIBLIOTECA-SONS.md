@@ -11,6 +11,10 @@ baixa com um clique e usa no **sforzando** (player padrão do projeto).
 - **Quem confere os itens novos:** o dono do projeto (Rafael) revisa a licença antes de publicar;
   a comunidade pode propor itens por pull request, e o dono aprova ou recusa. Claude pode ajudar
   resumindo a página da licença, mas a decisão é do dono. O catálogo começa pequeno (cerca de 5 itens).
+- **Conteúdo da loja = o que existe nos sites de origem (decisão do dono).** A loja tem dois níveis:
+  **Verificado** (licença conferida pelo dono; aparece primeiro e é o filtro padrão) e **Indexado**
+  (importado automaticamente do site de origem, com a licença **como o site declara**, selo de
+  aviso "licença não conferida"). Em ambos o app **não hospeda nada**: baixa direto do site do autor.
 - A loja é um **item do próprio app** (uma tela dentro do Preseter), não um site à parte.
   Arquitetura: o **processo principal** (Electron) faz o download, a conferência do hash e a extração;
   a **interface** só mostra a lista e o progresso, pelos canais IPC já usados no app.
@@ -152,3 +156,12 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
   (`scripts/verificar-fontes.js`) olha as fontes aprovadas (GitHub, FreePats etc.), detecta arquivos novos
   ou alterados e gera um **rascunho de item** para revisão humana (licença conferida antes de publicar).
   Publicar não é automático por causa da licença de cada arquivo.
+- [ ] **7.12 Importadores por fonte.** Um importador para cada site aprovado (GitHub, FreePats,
+  Polyphone, Musical Artifacts…) que lê a lista de arquivos SFZ/SF2 e grava no catálogo: nome, autor,
+  licença declarada, link, tamanho. **Antes de escrever cada importador**, ler os termos de uso do site
+  e usar a API oficial quando houver (sem varrer páginas de forma agressiva; respeitar limites e
+  guardar cache). Itens sem licença declarada entram como "desconhecida".
+- [ ] **7.13 Selos e filtros.** Selos: Verificado, Indexado, Licença livre, Com restrição, Desconhecida.
+  Filtro padrão: só Verificado + licença livre; o usuário pode mostrar tudo.
+- [ ] **7.14 Hash dos itens indexados.** Sem hash prévio: calcular no primeiro download e avisar se
+  mudar depois (confiar no primeiro uso).
