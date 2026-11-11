@@ -4,6 +4,10 @@
 baixa com um clique e usa no **sforzando** (player padrão do projeto).
 
 **Decisões:**
+- **Onde fica:** na janela de **Configurações**, como uma nova aba **"Sons"**, ao lado das abas
+  Geral, Visual, MIDI, VST, Áudio e Coleção (`SettingsModal.tsx`). Não é um modo da barra de cima.
+  (A imagem de referência mostra a tela com um botão "Sons" na barra; o conteúdo vale, mas a
+  entrada passa a ser a aba das Configurações.)
 - A loja é um **item do próprio app** (uma tela dentro do Preseter), não um site à parte.
   Arquitetura: o **processo principal** (Electron) faz o download, a conferência do hash e a extração;
   a **interface** só mostra a lista e o progresso, pelos canais IPC já usados no app.
@@ -97,6 +101,7 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
 - **Pronto quando:** fluxo "baixar → usar no patch" está definido e documentado.
 
 ### Fase 4 — Tela "Biblioteca de Sons" no app
+- [ ] **4.0** Nova aba **Sons** em `SettingsModal.tsx` (tipo `SettingsTab` ganha `'sons'`).
 - [ ] **4.1** Lista com busca e filtros (categoria, formato, licença), lendo o catálogo.
 - [ ] **4.2** Botão **Baixar** com barra de progresso, licença e atribuição visíveis.
 - [ ] **4.3** Marca "instalado" lendo `~/PreseterSons`; botão "Mostrar na pasta".
