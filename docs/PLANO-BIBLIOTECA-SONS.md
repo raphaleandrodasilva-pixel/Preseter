@@ -113,3 +113,20 @@ Isto não é aconselhamento jurídico: antes de incluir um item, ler a licença 
 - **Carregar o arquivo no sforzando** pode exigir passo manual (Fase 3).
 - **Tamanho:** bibliotecas grandes (centenas de MB); o app precisa mostrar o espaço e permitir cancelar.
 - Os SF2 muito grandes podem ser pesados no sforzando; testar com os da coleção.
+
+## 7. Revisão: lacunas encontradas e tarefas
+
+- [ ] **7.1 Onde mora o catálogo.** Cópia embutida no app (funciona offline) + atualização
+  opcional baixando o JSON do repositório; mostrar a data da última atualização.
+- [ ] **7.2 Segurança do download.** Só `https`; conferir `sha256`; limite de tamanho;
+  extrair `.zip` sem permitir caminhos fora da pasta de destino (*zip slip*); nunca executar nada baixado.
+- [ ] **7.3 Hash divergente.** Se o arquivo mudou na fonte, avisar "o autor atualizou este arquivo"
+  e oferecer baixar mesmo assim, em vez de só falhar.
+- [ ] **7.4 Verificar cada link antes de entrar no catálogo.** Pendentes: Sonatina (link `http` de
+  FTP do MuseScore, pode estar fora do ar), Salamander (o GitHub não tem pacote pronto: é o repositório
+  com samples em FLAC; confirmar tamanho e se o zip do GitHub traz todos os arquivos),
+  MuseScore_General (confirmar onde está o `.sf2`, que tem cerca de 208 MB).
+- [ ] **7.5 Créditos automáticos.** Gerar `CREDITOS.md` com a atribuição de tudo o que o usuário baixou.
+- [ ] **7.6 Downloads grandes.** Pausar, retomar e cancelar; mostrar o espaço livre antes de começar.
+- [ ] **7.7 Bibliotecas do usuário.** Aceitar pastas extras com `.sfz`/`.sf2` fora do catálogo.
+- [ ] **7.8 Testes.** Catálogo inválido, hash errado, zip malicioso e link fora do ar.
