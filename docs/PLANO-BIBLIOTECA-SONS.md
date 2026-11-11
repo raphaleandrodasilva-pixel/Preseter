@@ -8,6 +8,9 @@ baixa com um clique e usa no **sforzando** (player padrão do projeto).
   Geral, Visual, MIDI, VST, Áudio e Coleção (`SettingsModal.tsx`). Não é um modo da barra de cima.
   (A imagem de referência mostra a tela com um botão "Sons" na barra; o conteúdo vale, mas a
   entrada passa a ser a aba das Configurações.)
+- **Quem confere os itens novos:** o dono do projeto (Rafael) revisa a licença antes de publicar;
+  a comunidade pode propor itens por pull request, e o dono aprova ou recusa. Claude pode ajudar
+  resumindo a página da licença, mas a decisão é do dono. O catálogo começa pequeno (cerca de 5 itens).
 - A loja é um **item do próprio app** (uma tela dentro do Preseter), não um site à parte.
   Arquitetura: o **processo principal** (Electron) faz o download, a conferência do hash e a extração;
   a **interface** só mostra a lista e o progresso, pelos canais IPC já usados no app.
