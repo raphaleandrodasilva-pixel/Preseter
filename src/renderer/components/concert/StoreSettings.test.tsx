@@ -179,6 +179,43 @@ describe('StoreSettings', () => {
     expect(await screen.findByText('Catálogo atualizado.')).toBeInTheDocument();
   });
 
+  it('opens Factory 40 from the store card', async () => {
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(
+      snapshot([
+        storeItem({
+          id: 'preseter-factory-40',
+          name: 'Preseter Factory 40',
+          source: 'official',
+          tier: 'verified',
+          license: 'AGPL-3.0',
+          licenseKind: 'open-source',
+          format: 'Preset',
+          approxBytes: 0,
+          availableFormats: ['Preset'],
+          variant: {
+            ...variant,
+            format: 'Preset',
+            kind: 'manual',
+            url: undefined,
+            page: 'https://github.com/raphaleandrodasilva-pixel/Preseter',
+            manualReason: 'Gerado pelo próprio Preseter no modo Factory 40.',
+          },
+        }),
+      ])
+    );
+    vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    expect(await screen.findAllByText('Preseter Factory 40')).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir Factory 40' }));
+
+    expect(await screen.findByText('Factory 40 · 40 timbres')).toBeInTheDocument();
+  });
+
   it('opens Factory 40 with the collection downloader', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot());
     vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
