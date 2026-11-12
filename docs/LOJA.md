@@ -16,7 +16,10 @@ sites de origem; **o Preseter não hospeda nenhum arquivo de terceiros**.
 4. **O catálogo se atualiza sozinho** ao abrir o app (em segundo plano, com internet; sem internet usa a
    última cópia boa). As **bibliotecas já baixadas não mudam sozinhas**: o app só avisa que há versão nova.
 5. Quem confere os itens novos: o **dono do projeto** (a comunidade pode propor por pull request).
-6. Projeto **open source (AGPL-3.0)**, sem fins lucrativos. Foco de release: Linux (depois); hoje desenvolve no Windows.
+6. **A loja oferece os itens conforme o sistema operacional** (Windows, Linux, macOS) e a arquitetura (x64/arm64) do usuário:
+   só aparecem por padrão os itens com download compatível. Itens de outros sistemas ficam escondidos (ou desabilitados,
+   se o usuário ligar "mostrar de outros sistemas"), com a indicação de onde existem.
+7. Projeto **open source (AGPL-3.0)**, sem fins lucrativos. Foco de release: Linux (depois); hoje desenvolve no Windows.
 
 ## 2. O que JÁ existe (reaproveitar, não duplicar)
 
@@ -53,15 +56,16 @@ repositório para a atualização remota. Cada item **estende** os campos de `Co
   "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
   "attribution": "Salamander Grand Piano by Alexander Holm (CC BY 3.0)",
   "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
-  "os": ["windows", "linux", "mac"],
   "variants": [
-    { "format": "sfz-flac", "kind": "soundfont-zip", "sizeMB": 707, "url": null, "sha256": null }
+    { "os": ["windows", "linux", "mac"], "arch": ["x64", "arm64"], "format": "sfz-flac", "kind": "soundfont-zip", "sizeMB": 707, "url": null, "sha256": null }
   ],
   "version": null,
   "verifiedBy": null
 }
 ```
 
+- **`os` e `arch` ficam em cada variante** (o mesmo plugin pode ter um download por sistema). `os`: `windows`, `linux`, `mac`;
+  `arch`: `x64`, `arm64`. Variante sem `os` = **não oferecer** (nunca assumir "todos").
 - `type`: `plugin` ou `library`. Plugin usa os `kind` existentes e traz `pluginFormat` (`vst3`, `lv2`, `clap`, `vst2`).
 - `licenseKind`: `free` | `restricted` | `unknown`. `tier`: `verified` | `indexed`.
 - `url: null` = link direto **não verificado**; o botão vira "Abrir página". Nunca preencher por palpite.
@@ -126,6 +130,9 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
 - [ ] **L2.3** Hash: verificar `sha256` quando existir; senão calcular no 1º download e avisar se mudar depois.
 - [ ] **L2.4** IPC `store-list`, `store-download`, `store-cancel`, `store-open-folder`, `store-check-updates`
   em `index.ts`, `preload.ts` e `src/renderer/types/electron-api.ts` (+ testes de preload).
+- [ ] **L2.6** **Compatibilidade por sistema:** detectar `process.platform` e `process.arch` e os **formatos de plugin que o motor carrega**
+  (o evento `ready` do motor já informa `formats`, por exemplo `VST3,LV2`). Cada item recebe `compatible: true/false` e,
+  se falso, o motivo ("só existe para Windows e macOS"; "formato CLAP não suportado pelo motor"). Testes com plataformas simuladas.
 - [ ] **L2.5** **Atualização automática do catálogo:** ao abrir o app, em segundo plano, baixar o JSON do repositório,
   validar com `validateStoreCatalog` e só então substituir; erro ou sem internet = manter a última cópia boa, sem alarme.
   Guardar a data e quantos itens são novos.
@@ -136,6 +143,8 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
   barra de baixo com espaço usado). Mesma paleta do app (azul `#0A84FF`, grafite, verde LED `#30D158`).
 - [ ] **L3.3** Busca; filtros por **tipo** (plugin/sample), **categoria**, **formato** (SFZ/SF2/VST3/LV2), **licença** e
   **nível**. Filtro padrão: Verificado + licença livre; opção "mostrar tudo".
+- [ ] **L3.3b** **Filtro por sistema:** por padrão só itens `compatible`; opção "mostrar de outros sistemas" lista os demais
+  **desabilitados**, com "Disponível para: Windows, macOS". Mostrar no topo o sistema detectado (ex.: "Windows 64 bits · VST3, VST2, LV2").
 - [ ] **L3.4** Selos: Verificado, Indexado, Livre, Com restrição, Desconhecida. Botões: Baixar, Baixando N% (cancelar),
   Instalado, Abrir página (quando `url: null`), Mostrar na pasta.
 - [ ] **L3.5** Painel de detalhes com a **atribuição** do autor e a licença; botão "Página do autor".
@@ -151,7 +160,9 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
 - [ ] **L4.5** `CONTRIBUINDO.md` (como propor um item) e validação do catálogo no CI.
 
 ### Fase L5 — Linux (depois)
-- [ ] **L5.1** Campo `os` filtra os itens por sistema; instaladores para Linux (`.deb`/`tar.gz`/Flatpak) e sforzando beta ou sfizz.
+- [ ] **L5.1** Variantes para Linux: instaladores `.deb`/`tar.gz`/Flatpak/AppImage conforme o item; instalar plugins em
+  `~/.vst3`, `~/.lv2` (ou nas pastas configuradas) e samples em `~/PreseterSons`; sforzando (beta) ou sfizz.
+- [ ] **L5.2** Marcar o `os` real de cada item já cadastrado (ex.: Reason Free e ReaPlugs **não** têm Linux).
 
 ## 7. Regras para o agente
 
