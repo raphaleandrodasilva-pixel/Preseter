@@ -71,7 +71,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Pop Piano', [L('SFORZANDO', -1, 0, 127, 'Piano pop', 299)]],
     ['Upright Piano', [L('SFORZANDO', -2, 0, 127, 'Piano vertical', 299)]],
     ['Rhodes Classic', [L('SFORZANDO', -2, 0, 127, 'Rhodes', 4)]],
-    ['Wurlitzer EP', [L('SFORZANDO', -2, 0, 127, 'Wurlitzer', 4)]],
+    ['Wurlitzer EP', [L('SFORZANDO', -2, 0, 127, 'Wurlitzer', 30)]],
     ['FM Electric Piano', [L('DEXED', -2, 0, 127, 'Piano elétrico FM')]],
     ['Clavinet Funk', [L('SFORZANDO', -2, 0, 127, 'Clavinet', 135)]],
   ]],
@@ -85,7 +85,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Solo Violin', [L('SFORZANDO', -2, 0, 127, 'Violino solo', 67)]],
     ['String Ensemble', [
       L('SFORZANDO', -3, 55, 108, 'Violinos', 261, { pan: -0.15 }),
-      L('SFORZANDO', -4, 48, 102, 'Violas', 267, { pan: 0 }),
+      L('SFORZANDO', -4, 48, 102, 'Violas', 269, { pan: 0 }),
       L('SFORZANDO', -3, 36, 82, 'Cellos', 273, { pan: 0.12 }),
       L('SFORZANDO', -5, 24, 66, 'Contrabaixos', 277, { pan: 0.18 }),
     ]],
