@@ -1,5 +1,7 @@
 # Plano — Biblioteca de Sons (loja de downloads SFZ/SF2)
 
+> **Substituído por `docs/LOJA.md`** (loja de samples **e plugins**, com as tarefas para o OpenCode). Este arquivo fica como histórico das decisões.
+
 **Objetivo:** dentro do Preseter, o usuário encontra bibliotecas de sons **SFZ e SF2**,
 baixa com um clique e usa no **sforzando** (player padrão do projeto).
 
