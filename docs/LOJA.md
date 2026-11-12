@@ -113,6 +113,25 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
   são escolhidos dentro da janela do plugin.
 - Os dois são **gratuitos, não open source**: mostrar o aviso da regra de licença "Freeware".
 
+## 5b. Samples SF2 e SFZ: como o app usa o que a loja baixa
+
+**SF2 (SoundFont) — já existe carregamento automático.** O comando `loadSoundFont` do motor (`Engine.cpp`, usado por
+`VstManager.loadSoundFont` e pela geração da coleção) coloca o caminho de um `.sf2` e o número do programa dentro do
+**juicysfplugin** (VST3, GPL-3.0, já está no instalador) sem o usuário abrir o plugin. Portanto:
+- Depois de baixar um SF2, a loja oferece **"Usar num patch"**: escolhe o patch/strip, o **programa** (instrumento do banco) e
+  o app carrega o arquivo no juicysfplugin automaticamente.
+- Só funciona com o **juicysfplugin em VST3**; se não estiver instalado, a loja oferece instalá-lo (já está no catálogo).
+- **SF3** (comprimido) não é oferecido por padrão: não confirmamos suporte no juicysfplugin **(a confirmar)**.
+
+**SFZ — carregamento manual por enquanto.** Para o **sforzando** (e o sfizz) não há comando no motor: o usuário abre o
+plugin e carrega o `.sfz`. A loja mostra o **caminho do arquivo principal** (`entry`) e um botão "Copiar caminho". Se for
+descoberto como o sforzando guarda o arquivo no estado, uma tarefa futura pode automatizar (investigar, não prometer).
+O sforzando também abre SF2 (arrastando o arquivo), mas isso é manual.
+
+**Compatibilidade com a coleção de 40 patches:** `generateCollection.ts` procura os samples em caminhos fixos
+(ex.: `MuseScore_General/MuseScore_General.sf2` dentro da pasta de sons). A loja deve **instalar nas mesmas subpastas**
+(`destSubfolder` do catálogo atual) para não quebrar a coleção.
+
 ## 6. Tarefas (uma de cada vez; só marque `[x]` quando funcionar de verdade)
 
 ### Fase L1 — Modelo e catálogo
@@ -133,6 +152,8 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
 - [ ] **L2.6** **Compatibilidade por sistema:** detectar `process.platform` e `process.arch` e os **formatos de plugin que o motor carrega**
   (o evento `ready` do motor já informa `formats`, por exemplo `VST3,LV2`). Cada item recebe `compatible: true/false` e,
   se falso, o motivo ("só existe para Windows e macOS"; "formato CLAP não suportado pelo motor"). Testes com plataformas simuladas.
+- [ ] **L2.4b** Instalar sempre na subpasta já usada pela coleção (`destSubfolder`), sem mudar os caminhos existentes
+  (há teste em `collection.test.ts`; manter verde).
 - [ ] **L2.5** **Atualização automática do catálogo:** ao abrir o app, em segundo plano, baixar o JSON do repositório,
   validar com `validateStoreCatalog` e só então substituir; erro ou sem internet = manter a última cópia boa, sem alarme.
   Guardar a data e quantos itens são novos.
@@ -148,6 +169,8 @@ Pontos que o agente deve respeitar ao cadastrar os dois:
 - [ ] **L3.4** Selos: Verificado, Indexado, Livre, Com restrição, Desconhecida. Botões: Baixar, Baixando N% (cancelar),
   Instalado, Abrir página (quando `url: null`), Mostrar na pasta.
 - [ ] **L3.5** Painel de detalhes com a **atribuição** do autor e a licença; botão "Página do autor".
+- [ ] **L3.5b** Botão **"Usar num patch"** nos itens SF2 instalados: escolhe patch/strip e programa e chama `loadSoundFont`
+  (juicysfplugin). Para SFZ: mostrar o caminho do arquivo principal e "Copiar caminho".
 - [ ] **L3.6** Aviso "versão nova disponível" nos instalados (só aviso; nunca atualiza sozinho).
 - [ ] **L3.7** `CREDITOS.md` gerado na pasta de sons com a atribuição de tudo o que foi baixado.
 
