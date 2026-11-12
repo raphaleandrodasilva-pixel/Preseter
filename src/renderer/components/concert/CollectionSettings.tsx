@@ -17,6 +17,17 @@ const instrumentLabels: Record<CollectionLayerSpec['inst'], string> = {
   SFIZZ: 'sfizz',
 };
 
+const suggestedSources: Record<string, string> = {
+  'Pianos & Keys': 'BBCSO / SFZ',
+  Organs: 'CollaB3',
+  Strings: 'BBCSO / VSCO 2',
+  Brass: 'BBCSO',
+  Woodwinds: 'BBCSO',
+  'Guitars & Bass': 'Meta Open Sound / Ample',
+  'Drums & Percussion': 'SSD / Sitala / BBCSO',
+  Synthesizers: 'Surge / Vital / Tyrell / Dexed',
+};
+
 const groupLabels: Record<string, string> = {
   plugin: 'Plugins (VST3)',
   library: 'Bibliotecas de som',
@@ -229,7 +240,9 @@ export const CollectionSettings: React.FC = () => {
         <p className="text-[10px] leading-relaxed" style={{ color: '#9A9AA0' }}>
           Prévia da biblioteca que será gravada no concert. Os nomes e as categorias
           seguem o Preseter_Biblioteca_40_Patches.md; os instrumentos usam os plugins
-          disponíveis, com fallback para Sforzando, Surge XT e Dexed.
+          disponíveis, com fallback para Sforzando, Surge XT e Dexed. Os VSTs sugeridos
+          no documento (BBCSO Discover, Vital, Tyrell N6, CollaB3, Ample, SSD, Sitala,
+          Decent Sampler e VSCO 2) estão na aba Loja como instalação manual/conta.
         </p>
         <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
           {COLLECTION_SETS.map(([setName, patches], setIndex) => {
@@ -239,7 +252,12 @@ export const CollectionSettings: React.FC = () => {
             return (
             <div key={setName}>
               <div className="mb-1 flex items-center justify-between text-[10px] font-semibold" style={{ color: '#C6C6CB' }}>
-                <span>{setName}</span>
+                <span>
+                  {setName}
+                  <span className="ml-1 font-normal" style={{ color: '#6E6E73' }}>
+                    · sugerido: {suggestedSources[setName] ?? '—'}
+                  </span>
+                </span>
                 <span style={{ color: '#6E6E73' }}>{patches.length}</span>
               </div>
               <ol className="space-y-1">

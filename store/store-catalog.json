@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-12T03:09:08.536Z",
+  "updatedAt": "2026-11-12T03:39:13.144Z",
   "source": "https://github.com/raphaleandrodasilva-pixel/Preseter",
   "items": [
     {
@@ -2841,6 +2841,725 @@
           "approxBytes": 116391936,
           "manualReason": "Download direto bloqueado pelo Cloudflare.",
           "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        }
+      ]
+    },
+    {
+      "id": "bbcso-discover",
+      "type": "plugin",
+      "name": "BBC Symphony Orchestra Discover",
+      "category": "Orquestra",
+      "author": "Spitfire Audio",
+      "description": "Orquestra sampleada gratuita da Spitfire, usada como fonte sugerida nos patches orquestrais.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta Spitfire)",
+      "licenseKind": "freeware",
+      "page": "https://www.spitfireaudio.com/products/bbc-symphony-orchestra-discover",
+      "tags": [
+        "VST3",
+        "orquestra",
+        "cordas",
+        "metais",
+        "madeiras",
+        "Spitfire"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Instalação pelo Spitfire Audio App; requer conta gratuita. Os samples não são redistribuídos pelo Preseter.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.spitfireaudio.com/products/bbc-symphony-orchestra-discover",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Spitfire exige conta e o Spitfire Audio App para instalar.",
+          "notes": "Abra a página, instale o Spitfire Audio App e baixe a BBCSO Discover."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.spitfireaudio.com/products/bbc-symphony-orchestra-discover",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Spitfire exige conta e o Spitfire Audio App para instalar.",
+          "notes": "Abra a página, instale o Spitfire Audio App e baixe a BBCSO Discover."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.spitfireaudio.com/products/bbc-symphony-orchestra-discover",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Spitfire exige conta e o Spitfire Audio App para instalar.",
+          "notes": "Abra a página, instale o Spitfire Audio App e baixe a BBCSO Discover."
+        }
+      ]
+    },
+    {
+      "id": "decent-sampler",
+      "type": "plugin",
+      "name": "Decent Sampler",
+      "category": "Samples",
+      "author": "Decent Samples",
+      "description": "Player gratuito para bibliotecas .dspreset/.dslibrary, sugerido para os patches sampleados.",
+      "version": "1.41",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware",
+      "licenseKind": "freeware",
+      "page": "https://www.decentsamples.com/product/decent-sampler-plugin/",
+      "tags": [
+        "VST3",
+        "sampler",
+        "Decent Sampler",
+        "samples"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O download oficial pede nome/e-mail. Disponível para Windows, macOS e Linux.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.decentsamples.com/product/decent-sampler-plugin/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O download oficial é liberado após informar nome e e-mail.",
+          "notes": "Escolha a versão do seu sistema e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.decentsamples.com/product/decent-sampler-plugin/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O download oficial é liberado após informar nome e e-mail.",
+          "notes": "Escolha a versão do seu sistema e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.decentsamples.com/product/decent-sampler-plugin/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O download oficial é liberado após informar nome e e-mail.",
+          "notes": "Escolha a versão do seu sistema e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "vital",
+      "type": "plugin",
+      "name": "Vital",
+      "category": "Sintetizadores",
+      "author": "Matt Tytel",
+      "description": "Sintetizador wavetable gratuito, sugerido para leads e baixos modernos.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta Vital)",
+      "licenseKind": "freeware",
+      "page": "https://vital.audio/",
+      "tags": [
+        "VST3",
+        "wavetable",
+        "lead",
+        "baixo",
+        "Vital"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "A versão gratuita exige conta no site da Vital; o download é feito pelo instalador oficial.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://vital.audio/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Vital exige conta gratuita para baixar.",
+          "notes": "Crie a conta, baixe o instalador e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://vital.audio/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Vital exige conta gratuita para baixar.",
+          "notes": "Crie a conta, baixe o instalador e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://vital.audio/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Vital exige conta gratuita para baixar.",
+          "notes": "Crie a conta, baixe o instalador e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "tyrell-n6",
+      "type": "plugin",
+      "name": "Tyrell N6",
+      "category": "Sintetizadores",
+      "author": "u-he",
+      "description": "Sintetizador analógico virtual gratuito, sugerido para o lead vintage.",
+      "version": "3",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware",
+      "licenseKind": "freeware",
+      "page": "https://u-he.com/products/tyrelln6/",
+      "tags": [
+        "VST3",
+        "analógico",
+        "lead",
+        "u-he"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download direto no site da u-he; escolha o instalador do seu sistema.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://u-he.com/products/tyrelln6/",
+          "approxBytes": 0,
+          "manualReason": "O instalador é oferecido diretamente pelo site da u-he.",
+          "notes": "Baixe e instale o Tyrell N6; o Preseter detecta o VST3 depois de escanear."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://u-he.com/products/tyrelln6/",
+          "approxBytes": 0,
+          "manualReason": "O instalador é oferecido diretamente pelo site da u-he.",
+          "notes": "Baixe e instale o Tyrell N6; o Preseter detecta o VST3 depois de escanear."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://u-he.com/products/tyrelln6/",
+          "approxBytes": 0,
+          "manualReason": "O instalador é oferecido diretamente pelo site da u-he.",
+          "notes": "Baixe e instale o Tyrell N6; o Preseter detecta o VST3 depois de escanear."
+        }
+      ]
+    },
+    {
+      "id": "collab3",
+      "type": "plugin",
+      "name": "CollaB3",
+      "category": "Órgãos",
+      "author": "Sampleson / LibreWave",
+      "description": "Órgão tonewheel B3 gratuito, sugerido para os patches Hammond.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://www.gnu.org/licenses/gpl-3.0.html",
+      "page": "https://www.studio427audio.com/product-collab3/",
+      "tags": [
+        "VST3",
+        "órgão",
+        "tonewheel",
+        "Hammond",
+        "CollaB3"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Projeto gratuito e open source; o instalador oficial pode pedir e-mail.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.studio427audio.com/product-collab3/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O downloader oficial pede e-mail antes de liberar o instalador.",
+          "notes": "Baixe o CollaB3 e instale o VST3/standalone."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.studio427audio.com/product-collab3/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O downloader oficial pede e-mail antes de liberar o instalador.",
+          "notes": "Baixe o CollaB3 e instale o VST3/standalone."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.studio427audio.com/product-collab3/",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "O downloader oficial pede e-mail antes de liberar o instalador.",
+          "notes": "Baixe o CollaB3 e instale o VST3/standalone."
+        }
+      ]
+    },
+    {
+      "id": "ample-guitar-m-lite",
+      "type": "plugin",
+      "name": "Ample Guitar M Lite",
+      "category": "Guitarras",
+      "author": "Ample Sound",
+      "description": "Guitarra acústica sampleada gratuita, sugerida para os patches de violão.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta Ample Sound)",
+      "licenseKind": "freeware",
+      "page": "https://www.amplesound.net/en/download.asp",
+      "tags": [
+        "VST3",
+        "guitarra",
+        "violão",
+        "Ample Sound"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "A Ample Sound exige conta e instalador próprio; os samples não são redistribuídos.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Guitar M Lite e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Guitar M Lite e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Guitar M Lite e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "ample-bass-p-lite",
+      "type": "plugin",
+      "name": "Ample Bass P Lite",
+      "category": "Baixos",
+      "author": "Ample Sound",
+      "description": "Baixo Precision sampleado gratuito, sugerido para o patch Precision Bass.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta Ample Sound)",
+      "licenseKind": "freeware",
+      "page": "https://www.amplesound.net/en/download.asp",
+      "tags": [
+        "VST3",
+        "baixo",
+        "Precision",
+        "Ample Sound"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "A Ample Sound exige conta e instalador próprio; os samples não são redistribuídos.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Bass P Lite e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Bass P Lite e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.amplesound.net/en/download.asp",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Ample Sound exige conta para liberar o instalador.",
+          "notes": "Baixe o Ample Bass P Lite e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "steven-slate-drums-free",
+      "type": "plugin",
+      "name": "Steven Slate Drums 5.5 Free",
+      "category": "Baterias",
+      "author": "Steven Slate Drums",
+      "description": "Kit acústico Deluxe 2 gratuito, sugerido para o patch Acoustic Rock Kit.",
+      "version": "5.5",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta/iLok)",
+      "licenseKind": "freeware",
+      "page": "https://stevenslatedrums.com/ssd5/free",
+      "tags": [
+        "VST3",
+        "bateria",
+        "acústico",
+        "Steven Slate"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Requer conta e ativação do fabricante; os samples não são redistribuídos pelo Preseter.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://stevenslatedrums.com/ssd5/free",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Steven Slate Drums exige conta/ativação para instalar.",
+          "notes": "Crie a conta, baixe o SSD5.5 Free e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://stevenslatedrums.com/ssd5/free",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Steven Slate Drums exige conta/ativação para instalar.",
+          "notes": "Crie a conta, baixe o SSD5.5 Free e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://stevenslatedrums.com/ssd5/free",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Steven Slate Drums exige conta/ativação para instalar.",
+          "notes": "Crie a conta, baixe o SSD5.5 Free e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "sitala",
+      "type": "plugin",
+      "name": "Sitala",
+      "category": "Baterias",
+      "author": "Decomposer",
+      "description": "Sampler de bateria com kits de fábrica, sugerido para o patch Electronic Drum Kit.",
+      "version": "1.0 gratuita / 2.x paga",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (versão 1.0; 2.x paga)",
+      "licenseKind": "freeware",
+      "page": "https://decomposer.de/sitala/",
+      "tags": [
+        "VST",
+        "sampler",
+        "bateria",
+        "Sitala"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "A versão 1.0 gratuita é VST/standalone; a versão 2.x atual é paga. Instale o formato VST compatível com o engine.",
+      "format": "VST2",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST2",
+          "kind": "manual",
+          "page": "https://decomposer.de/sitala/",
+          "approxBytes": 0,
+          "manualReason": "A versão gratuita é a 1.0 (VST2/standalone); a 2.x é paga.",
+          "notes": "Baixe a versão 1.0 gratuita e instale o VST de 64 bits."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST2",
+          "kind": "manual",
+          "page": "https://decomposer.de/sitala/",
+          "approxBytes": 0,
+          "manualReason": "A versão gratuita é a 1.0 (VST2/standalone); a 2.x é paga.",
+          "notes": "Baixe a versão 1.0 gratuita e instale o VST de 64 bits."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST2",
+          "kind": "manual",
+          "page": "https://decomposer.de/sitala/",
+          "approxBytes": 0,
+          "manualReason": "A versão gratuita é a 1.0 (VST2/standalone); a 2.x é paga.",
+          "notes": "Baixe a versão 1.0 gratuita e instale o VST de 64 bits."
+        }
+      ]
+    },
+    {
+      "id": "vsco-2-ce",
+      "type": "library",
+      "name": "VSCO 2 Community Edition",
+      "category": "Orquestra",
+      "author": "Versilian Studios / comunidade",
+      "description": "Biblioteca orquestral CC0 em SFZ, alternativa livre para os patches de orquestra.",
+      "version": "2",
+      "tier": "verified",
+      "source": "github",
+      "license": "CC0 1.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page": "https://github.com/sgossner/VSCO-2-CE",
+      "tags": [
+        "SFZ",
+        "orquestra",
+        "cordas",
+        "metais",
+        "madeiras",
+        "CC0"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixe o pacote pelo GitHub e aponte o Sforzando/sfizz para os arquivos SFZ.",
+      "format": "SFZ",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "manual",
+          "page": "https://github.com/sgossner/VSCO-2-CE",
+          "approxBytes": 0,
+          "manualReason": "A biblioteca é distribuída como projeto no GitHub; baixe o pacote e abra no Sforzando/sfizz.",
+          "notes": "O repositório traz os SFZ e samples; confira o README para a estrutura."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "manual",
+          "page": "https://github.com/sgossner/VSCO-2-CE",
+          "approxBytes": 0,
+          "manualReason": "A biblioteca é distribuída como projeto no GitHub; baixe o pacote e abra no Sforzando/sfizz.",
+          "notes": "O repositório traz os SFZ e samples; confira o README para a estrutura."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "manual",
+          "page": "https://github.com/sgossner/VSCO-2-CE",
+          "approxBytes": 0,
+          "manualReason": "A biblioteca é distribuída como projeto no GitHub; baixe o pacote e abra no Sforzando/sfizz.",
+          "notes": "O repositório traz os SFZ e samples; confira o README para a estrutura."
         }
       ]
     },
