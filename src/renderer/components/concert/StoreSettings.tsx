@@ -469,7 +469,7 @@ export const StoreSettings: React.FC = () => {
               onClick={() => setMode('essential')}
               aria-pressed={mode === 'essential'}
             >
-              Kit essencial
+              Factory 40
             </button>
           </div>
           <span className="text-[10px]" style={{ color: '#6E6E73' }}>
@@ -489,11 +489,12 @@ export const StoreSettings: React.FC = () => {
       {mode === 'essential' ? (
         <div className="space-y-3">
           <section className="hw-inset space-y-2 p-3">
-            <h4 className="hw-label">Kit essencial · 40 patches</h4>
+            <h4 className="hw-label">Factory 40 · 40 timbres</h4>
             <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-              Os mesmos instrumentos da coleção, com download em lote e o gerador
-              do concert de 40 patches. Use a Loja para descobrir e instalar itens
-              individuais; use o Kit essencial para montar o concert completo.
+              A biblioteca de fábrica criada a partir da especificação
+              Preseter_Biblioteca_40_Patches.md. Inclui os 40 timbres de palco,
+              download em lote das dependências e o gerador do concert completo.
+              Use a Loja para descobrir e instalar itens individuais.
             </p>
           </section>
           <CollectionSettings />
@@ -814,6 +815,16 @@ export const StoreSettings: React.FC = () => {
                 )}
 
                 <div className="space-y-1.5">
+                  {detail.id === 'preseter-factory-40' && (
+                    <button
+                      type="button"
+                      className="w-full rounded px-3 py-2 text-[11px] font-semibold"
+                      style={{ background: '#FF9F0A', color: '#1A1A1A' }}
+                      onClick={() => setMode('essential')}
+                    >
+                      Abrir Factory 40
+                    </button>
+                  )}
                   {detail.compatible && detail.variant?.kind !== 'manual' && (
                     <button
                       type="button"

@@ -82,7 +82,7 @@ export function buildCollectionConcert(
   for (const [setName, patches] of COLLECTION_SETS) {
     const setId = nextId('set');
     let setOrder = 0;
-    for (const [name, layers] of patches) {
+    for (const [name, layers, meta] of patches) {
       const assignments: PresetPluginAssignment[] = [];
       let blocked: string | null = null;
       layers.forEach((layer, index) => {
@@ -102,8 +102,15 @@ export function buildCollectionConcert(
           role: 'instrument',
           minNote: layer.min,
           maxNote: layer.max,
-          // A coleção nasce em 0 dB; o usuário ajusta os volumes manualmente.
-          mix: { volumeDb: 0, pan: 0, muted: false, solo: false },
+          velocityMin: layer.velocityMin ?? 1,
+          velocityMax: layer.velocityMax ?? 127,
+          mix: {
+            volumeDb: layer.db,
+            pan: layer.pan ?? 0,
+            muted: false,
+            solo: false,
+          },
+          ...(layer.arp ? { arp: layer.arp } : {}),
           ...(layer.programIndex !== undefined ? { programIndex: layer.programIndex } : {}),
           ...(layer.inst === 'SFORZANDO' && options.soundsFolder
             ? (() => {
@@ -121,7 +128,9 @@ export function buildCollectionConcert(
         skipped.push(`${name}: ${blocked ?? 'sem camadas'}`);
         continue;
       }
-      const notes = layers.map((layer) => layer.label).filter(Boolean).join(' + ') || name;
+      const notes = meta?.description
+        || layers.map((layer) => layer.label).filter(Boolean).join(' + ')
+        || name;
       rawPatches.push({
         id: nextId('preset'),
         name,
@@ -130,7 +139,7 @@ export function buildCollectionConcert(
         setId,
         setOrder: setOrder++,
         programNumber: program++,
-        midiChannel: 0,
+        midiChannel: meta?.midiChannel ?? 0,
         plugins: assignments,
         vstStates: {},
         layout: { elements: keyboardRig(notes, tempo), background: null, tempo },

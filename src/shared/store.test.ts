@@ -84,7 +84,7 @@ describe('store catalog', () => {
     expect(ids).toContain('archive-generaluser-gs');
     expect(ids).toContain('polyphone-yamaha-s90-es');
     expect(ids).toContain('ma-jjazzlab');
-    expect(result.catalog.items.filter((entry) => entry.essential)).toHaveLength(14);
+    expect(result.catalog.items.filter((entry) => entry.essential)).toHaveLength(15);
     expect(result.catalog.items.filter((entry) => !entry.essential).length).toBeGreaterThan(15);
     expect(result.catalog.items.every((entry) => entry.thumbnail.kind === 'generated')).toBe(true);
   });

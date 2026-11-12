@@ -15,7 +15,8 @@ export type StoreFormat =
   | 'CLAP'
   | 'SFZ'
   | 'SF2'
-  | 'Instalador';
+  | 'Instalador'
+  | 'Preset';
 export type StoreItemType = 'plugin' | 'library';
 export type StoreTier = 'verified' | 'indexed';
 export type StoreSource =
@@ -182,6 +183,7 @@ const STORE_FORMATS: StoreFormat[] = [
   'SFZ',
   'SF2',
   'Instalador',
+  'Preset',
 ];
 const STORE_ITEM_TYPES: StoreItemType[] = ['plugin', 'library'];
 const STORE_TIERS: StoreTier[] = ['verified', 'indexed'];

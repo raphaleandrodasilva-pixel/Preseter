@@ -180,7 +180,7 @@ export const CollectionSettings: React.FC = () => {
     <div className="space-y-4">
       <section className="hw-inset space-y-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="hw-label">Coleção de instrumentos</h4>
+          <h4 className="hw-label">Factory 40</h4>
           <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'rgba(10,132,255,0.18)', color: '#7FB6FF' }}>
             {window.electronAPI.platform === 'linux'
               ? 'Linux'
@@ -190,7 +190,8 @@ export const CollectionSettings: React.FC = () => {
           </span>
         </div>
         <p className="text-xs leading-relaxed" style={{ color: '#C6C6CB' }}>
-          Baixa os plugins e bibliotecas de fontes oficiais para a coleção de 40 patches.
+          Baixa os plugins e bibliotecas de fontes oficiais para a Factory 40,
+          a coleção de 40 timbres de palco.
           Nada é executado sem aviso: zips são extraídos e instaladores aparecem como “pronto”
           para você abrir.
         </p>
@@ -427,10 +428,10 @@ export const CollectionSettings: React.FC = () => {
       </section>
 
       <section className="hw-inset space-y-2 p-3">
-        <h4 className="hw-label">Concert da coleção</h4>
+        <h4 className="hw-label">Concert da Factory 40</h4>
         <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-          Depois de instalar, gere o concert com os 40 patches. O Full Set e o concert da
-          coleção já carregam os instrumentos e os programas. Nos patches com Sforzando,
+          Depois de instalar, gere o concert com os 40 timbres da Factory 40. O Full Set e o
+          concert da coleção já carregam os instrumentos e os programas. Nos patches com Sforzando,
           carregue o SFZ/SF2 uma vez e salve o patch: o estado VST3 fica guardado no patch.
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -441,7 +442,7 @@ export const CollectionSettings: React.FC = () => {
             onClick={() => void handleGenerate()}
             disabled={busy}
           >
-            Gerar concert da coleção
+            Gerar concert da Factory 40
           </button>
           {generated && (
             <button

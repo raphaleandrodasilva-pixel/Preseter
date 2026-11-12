@@ -179,7 +179,7 @@ describe('StoreSettings', () => {
     expect(await screen.findByText('Catálogo atualizado.')).toBeInTheDocument();
   });
 
-  it('opens the essential kit with the collection downloader', async () => {
+  it('opens Factory 40 with the collection downloader', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot());
     vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
     render(
@@ -189,10 +189,10 @@ describe('StoreSettings', () => {
     );
 
     expect(await screen.findAllByText('Plugin Alfa 1.0')).not.toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Kit essencial' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Factory 40' }));
 
-    expect(await screen.findByText('Kit essencial · 40 patches')).toBeInTheDocument();
-    expect(await screen.findByText('Coleção de instrumentos')).toBeInTheDocument();
+    expect(await screen.findByText('Factory 40 · 40 timbres')).toBeInTheDocument();
+    expect(await screen.findAllByText('Factory 40')).not.toHaveLength(0);
   });
 
   it('shows the license warning and filters by provider', async () => {

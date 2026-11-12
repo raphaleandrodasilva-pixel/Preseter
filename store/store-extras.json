@@ -806,6 +806,40 @@
           "notes": "Abra a página do Musical Artifacts e use o botão de download."
         }
       ]
+    },
+    {
+      "id": "preseter-factory-40",
+      "type": "library",
+      "name": "Preseter Factory 40",
+      "category": "Presets",
+      "author": "Preseter",
+      "description": "40 timbres de palco criados a partir da especificação Preseter_Biblioteca_40_Patches.md.",
+      "version": "1.0",
+      "tier": "verified",
+      "source": "official",
+      "license": "AGPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "page": "https://github.com/raphaleandrodasilva-pixel/Preseter",
+      "tags": ["Factory 40", "Preset", "40 timbres", "Preseter"],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": { "kind": "generated" },
+      "notes": "O Preseter gera os 40 timbres no modo Factory 40. As dependências de plugins e samples aparecem no Kit essencial.",
+      "format": "Preset",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "all",
+          "arch": ["x64", "arm64"],
+          "format": "Preset",
+          "kind": "manual",
+          "page": "https://github.com/raphaleandrodasilva-pixel/Preseter",
+          "approxBytes": 0,
+          "manualReason": "Gerado pelo próprio Preseter no modo Factory 40.",
+          "notes": "Abra Factory 40 na Loja para baixar as dependências e gerar o concert."
+        }
+      ]
     }
   ]
 }

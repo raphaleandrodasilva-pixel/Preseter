@@ -1,16 +1,42 @@
-/** Estrutura dos 40 patches da coleção (docs/PATCHES.md). Só nomes/faixas/volumes. */
+import type { ArpSettings } from './types';
+
+/** Estrutura dos 40 patches da Factory 40. Só nomes, faixas, volumes e fontes. */
 
 export interface CollectionLayerSpec {
   /** Instrumento sugerido (sigla do catálogo). */
-  inst: 'SFORZANDO' | 'FSVR' | 'SURGE' | 'DEXED' | 'ODIN' | 'HELM' | 'MDA' | 'MDA_EP' | 'MDA_JX' | 'ORG' | 'SFIZZ';
+  inst:
+    | 'SFORZANDO'
+    | 'FSVR'
+    | 'SURGE'
+    | 'DEXED'
+    | 'ODIN'
+    | 'HELM'
+    | 'MDA'
+    | 'MDA_EP'
+    | 'MDA_JX'
+    | 'ORG'
+    | 'SFIZZ';
   db: number;
   min: number;
   max: number;
   label: string;
   programIndex?: number;
+  /** Panorama -1..1. */
+  pan?: number;
+  velocityMin?: number;
+  velocityMax?: number;
+  /** Arpejador do layer. */
+  arp?: ArpSettings;
 }
 
-export type CollectionSet = [string, Array<[string, CollectionLayerSpec[]]>];
+export interface CollectionPatchMeta {
+  /** Canal MIDI 0-based (0 = canal 1). */
+  midiChannel?: number;
+  description?: string;
+}
+
+export type CollectionPatch = [string, CollectionLayerSpec[], CollectionPatchMeta?];
+export type CollectionSet = [string, CollectionPatch[]];
 
 export const L = (
   inst: CollectionLayerSpec['inst'],
@@ -18,64 +44,97 @@ export const L = (
   min = 0,
   max = 127,
   label = '',
-  programIndex?: number
-): CollectionLayerSpec => ({ inst, db, min, max, label, programIndex });
+  programIndex?: number,
+  extra: Partial<CollectionLayerSpec> = {}
+): CollectionLayerSpec => ({ inst, db, min, max, label, programIndex, ...extra });
 
+const arp = (mode: ArpSettings['mode'] = 'up'): ArpSettings => ({
+  enabled: true,
+  mode,
+  rate: '1/16',
+  octaves: 2,
+  gate: 50,
+  swing: 0,
+  hold: false,
+});
+
+/**
+ * 40 patches da Factory 40, inspirados na especificação
+ * docs/Preseter_Biblioteca_40_Patches.md. Os instrumentos usam os plugins e
+ * bibliotecas que o Preseter realmente instala; quando a fonte original não
+ * está disponível, o patch usa a alternativa mais próxima do catálogo.
+ */
 export const COLLECTION_SETS: CollectionSet[] = [
-  ['Pianos', [
-    ['Piano de Cauda', [L('SFORZANDO', 0, 0, 127, 'Piano', 0)]],
-    ['Piano de Cauda Brilhante', [L('SFORZANDO', 0, 0, 127, 'Piano + brilho', 0)]],
-    ['Piano Suave', [L('SFORZANDO', 0, 0, 127, 'Piano suave', 0)]],
-    ['Piano Vertical', [L('SFORZANDO', 0, 0, 127, 'Piano vertical', 1)]],
-    ['Piano + Pad', [L('SFORZANDO', -6, 0, 127, 'Piano', 0), L('SURGE', -12, 0, 127, 'Pad quente')]],
+  ['Pianos & Keys', [
+    ['Concert Grand', [L('SFORZANDO', -2, 0, 127, 'Piano', 299)]],
+    ['Soft Grand', [L('SFORZANDO', -3, 0, 127, 'Piano suave', 299)]],
+    ['Pop Piano', [L('SFORZANDO', -1, 0, 127, 'Piano pop', 299)]],
+    ['Upright Piano', [L('SFORZANDO', -2, 0, 127, 'Piano vertical', 299)]],
+    ['Rhodes Classic', [L('SFORZANDO', -2, 0, 127, 'Rhodes', 4)]],
+    ['Wurlitzer EP', [L('SFORZANDO', -2, 0, 127, 'Wurlitzer', 4)]],
+    ['FM Electric Piano', [L('DEXED', -2, 0, 127, 'Piano elétrico FM')]],
+    ['Clavinet Funk', [L('SFORZANDO', -2, 0, 127, 'Clavinet', 135)]],
   ]],
-  ['Teclas elétricas', [
-    ['Elétrico Clássico', [L('MDA_EP', -6, 0, 127, 'ePiano', 1)]],
-    ['Elétrico Suave', [L('MDA_EP', -6, 0, 127, 'E.Piano mellow', 2)]],
-    ['Elétrico com Tremolo', [L('MDA_EP', -6, 0, 127, 'ePiano + tremolo', 4)]],
-    ['Clavinet', [L('SURGE', -6, 0, 127, 'Clav')]],
-    ['Sinos Elétricos', [L('FSVR', -6, 0, 127, 'Sinos FM')]],
+  ['Organs', [
+    ['Hammond Jazz', [L('ORG', -2, 0, 127, 'Hammond jazz', 123)]],
+    ['Hammond Gospel', [L('ORG', -2, 0, 127, 'Hammond gospel', 123)]],
+    ['Hammond Rock', [L('ORG', -2, 0, 127, 'Hammond rock', 112)]],
+    ['Vintage Transistor Organ', [L('SURGE', -2, 0, 127, 'Órgão combo')]],
   ]],
-  ['Órgãos', [
-    ['Órgão Tonewheel', [L('ORG', -6, 0, 127, 'Tonewheel', 16)]],
-    ['Órgão Rock', [L('ORG', -6, 0, 127, 'Leslie rápido', 16)]],
-    ['Órgão de Igreja', [L('SFORZANDO', -6, 0, 127, 'Órgão de tubos', 19)]],
-    ['Órgão Suave', [L('SURGE', -6, 0, 127, 'Órgão')]],
+  ['Strings', [
+    ['Solo Violin', [L('SFORZANDO', -2, 0, 127, 'Violino solo', 67)]],
+    ['String Ensemble', [
+      L('SFORZANDO', -3, 55, 108, 'Violinos', 261, { pan: -0.15 }),
+      L('SFORZANDO', -4, 48, 102, 'Violas', 267, { pan: 0 }),
+      L('SFORZANDO', -3, 36, 82, 'Cellos', 273, { pan: 0.12 }),
+      L('SFORZANDO', -5, 24, 66, 'Contrabaixos', 277, { pan: 0.18 }),
+    ]],
+    ['Cinematic Strings', [
+      L('SFORZANDO', -2, 55, 108, 'Violinos', 262, { pan: -0.12 }),
+      L('SFORZANDO', -3, 36, 84, 'Cellos', 274, { pan: 0.12 }),
+      L('SURGE', -8, 0, 127, 'Pad de cordas'),
+    ]],
+    ['Pizzicato Strings', [L('SFORZANDO', -3, 36, 96, 'Cordas em pizzicato', 253)]],
+    ['Warm String Pad', [L('SURGE', -3, 0, 127, 'Pad de cordas')]],
   ]],
-  ['Cordas e orquestra', [
-    ['Cordas Legato', [L('SFORZANDO', -6, 0, 127, 'Cordas sustain', 48)]],
-    ['Cordas Staccato', [L('SFORZANDO', -6, 0, 127, 'Cordas staccato', 48)]],
-    ['Cordas Sintéticas', [L('SURGE', -6, 0, 127, 'String ensemble')]],
-    ['Metais', [L('SFORZANDO', -6, 0, 127, 'Metais', 61)]],
-    ['Flauta', [L('SFORZANDO', -6, 0, 127, 'Flauta', 73)]],
-    ['Coral', [L('SFORZANDO', -6, 0, 127, 'Coral', 52)]],
+  ['Brass', [
+    ['Solo Trumpet', [L('SFORZANDO', -2, 0, 127, 'Trompete', 170)]],
+    ['Trombone', [L('SFORZANDO', -2, 0, 127, 'Trombone', 171)]],
+    ['French Horn', [L('SFORZANDO', -2, 0, 127, 'Trompa', 173)]],
+    ['Brass Section', [
+      L('SFORZANDO', -3, 60, 108, 'Trompetes', 170, { pan: -0.1 }),
+      L('SFORZANDO', -3, 43, 91, 'Trombones', 171, { pan: 0.05 }),
+      L('SFORZANDO', -4, 36, 84, 'Trompas', 173, { pan: 0.15 }),
+    ]],
   ]],
-  ['Pads', [
-    ['Pad Quente', [L('SURGE', -6, 0, 127, 'Pad')]],
-    ['Pad Ambiente', [L('ODIN', -6, 0, 127, 'Ataque longo')]],
-    ['Pad de Cordas', [L('HELM', -6, 0, 127, 'Pad de cordas', 164)]],
-    ['Pad Brilhante', [L('FSVR', -9, 0, 127, 'Pad formant'), L('SURGE', -6, 0, 127, 'Filtro aberto')]],
-    ['Pad Escuro', [L('ODIN', -6, 0, 127, 'Filtro baixo')]],
+  ['Woodwinds', [
+    ['Concert Flute', [L('SFORZANDO', -2, 0, 127, 'Flauta', 62)]],
+    ['Clarinet', [L('SFORZANDO', -2, 0, 127, 'Clarinete', 182)]],
+    ['Oboe', [L('SFORZANDO', -2, 0, 127, 'Oboé', 150)]],
   ]],
-  ['Leads e sintetizadores', [
-    ['Lead Serra', [L('SURGE', -6, 0, 127, 'Lead saw')]],
-    ['Lead Suave', [L('FSVR', -6, 0, 127, 'Lead FM'), L('ODIN', -9, 0, 127, 'Lead')]],
-    ['Pluck', [L('SURGE', -6, 0, 127, 'Pluck')]],
-    ['Arpejo Brilhante', [L('FSVR', -6, 0, 127, 'Arp FM')]],
-    ['Brass Sintético', [L('FSVR', -6, 0, 127, 'Brass formant')]],
+  ['Guitars & Bass', [
+    ['Acoustic Guitar Nylon', [L('SFORZANDO', -2, 0, 127, 'Violão de nylon', 110)]],
+    ['Acoustic Guitar Steel', [L('SFORZANDO', -2, 0, 127, 'Violão de aço', 109)]],
+    ['Electric Guitar Clean', [L('SFORZANDO', -2, 0, 127, 'Guitarra limpa', 86)]],
+    ['Precision Bass', [L('SFORZANDO', -2, 0, 127, 'Baixo precision', 108)]],
+    ['Synth Bass', [
+      L('SURGE', -2, 0, 127, 'Baixo sintetizado'),
+      L('FSVR', -6, 0, 127, 'FM bass'),
+    ]],
   ]],
-  ['Baixos', [
-    ['Baixo Sintético', [L('FSVR', -6, 0, 127, 'FM bass'), L('SURGE', -9, 0, 127, 'Sub bass')]],
-    ['Baixo Elétrico', [L('SFORZANDO', -6, 0, 127, 'Baixo elétrico', 33)]],
-    ['Baixo Acústico', [L('SFORZANDO', -6, 0, 127, 'Contrabaixo', 32)]],
+  ['Drums & Percussion', [
+    ['Acoustic Rock Kit', [L('SFORZANDO', -2, 0, 127, 'Kit acústico', 120)]],
+    ['Electronic Drum Kit', [L('SFORZANDO', -2, 0, 127, 'Kit eletrônico', 118)]],
+    ['Orchestral Percussion', [L('SFORZANDO', -2, 0, 127, 'Percussão orquestral', 115)]],
   ]],
-  ['Layers e splits', [
-    ['Split Baixo + Piano', [L('SFORZANDO', -6, 0, 59, 'Baixo', 33), L('SFORZANDO', -6, 60, 127, 'Piano', 0)]],
-    ['Split Baixo + Elétrico', [L('SURGE', -6, 0, 53, 'Sub bass'), L('MDA_EP', -6, 54, 127, 'E.Piano', 2)]],
-    ['Piano + Cordas', [L('SFORZANDO', -6, 0, 127, 'Piano', 0), L('SFORZANDO', -9, 0, 127, 'Cordas legato', 48)]],
-    ['Piano + Pad (worship)', [L('SFORZANDO', -6, 0, 127, 'Piano', 0), L('SURGE', -12, 0, 127, 'Pad quente')]],
-    ['Elétrico + Pad', [L('MDA_EP', -6, 0, 127, 'E.Piano', 2), L('SURGE', -12, 0, 127, 'Pad')]],
-    ['Split Cordas / Piano', [L('SFORZANDO', -6, 0, 59, 'Cordas', 48), L('SFORZANDO', -6, 60, 127, 'Piano', 0)]],
-    ['Tripla: Piano + Cordas + Pad', [L('SFORZANDO', -6, 0, 127, 'Piano', 0), L('SFORZANDO', -9, 0, 127, 'Cordas', 48), L('SURGE', -12, 0, 127, 'Pad quente')]],
+  ['Synthesizers', [
+    ['Analog Poly Synth', [L('SURGE', -2, 0, 127, 'Analógico polifônico')]],
+    ['Vintage Analog Lead', [L('ODIN', -2, 0, 127, 'Lead analógico')]],
+    ['Modern Synth Lead', [L('SURGE', -2, 0, 127, 'Lead moderno')]],
+    ['Warm Analog Pad', [L('SURGE', -3, 0, 127, 'Pad analógico')]],
+    ['Digital Bell', [L('DEXED', -2, 0, 127, 'Sino digital')]],
+    ['Arpeggiator', [L('SURGE', -2, 0, 127, 'Arpejo', undefined, { arp: arp() })]],
+    ['Deep Synth Bass', [L('SURGE', -2, 0, 127, 'Baixo profundo')]],
+    ['Ambient Texture', [L('SURGE', -3, 0, 127, 'Textura ambiente')]],
   ]],
 ];
