@@ -195,6 +195,51 @@ describe('StoreSettings', () => {
     expect(await screen.findByText('Coleção de instrumentos')).toBeInTheDocument();
   });
 
+  it('shows the license warning and filters by provider', async () => {
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(
+      snapshot([
+        storeItem({
+          id: 'archive-bank',
+          name: 'Banco do Archive',
+          source: 'archive',
+          license: 'Free use (Archive.org)',
+          licenseKind: 'unknown',
+          tier: 'indexed',
+        }),
+        storeItem({
+          id: 'polyphone-piano',
+          name: 'Piano do Polyphone',
+          source: 'polyphone',
+          license: 'Give credit (Polyphone)',
+          licenseKind: 'free',
+          variant: {
+            ...variant,
+            kind: 'manual',
+            url: undefined,
+            page: 'https://www.polyphone.io/en/soundfonts/pianos/741-yamaha-s90-es-natural-grand',
+            requiresAccount: true,
+            manualReason: 'O Polyphone exige login para baixar.',
+          },
+        }),
+      ])
+    );
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    expect(await screen.findAllByText('Banco do Archive')).not.toHaveLength(0);
+    expect(screen.getByText('Licença não conferida.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Filtrar por provedor'), {
+      target: { value: 'polyphone' },
+    });
+    expect(await screen.findAllByText('Piano do Polyphone')).not.toHaveLength(0);
+    expect(screen.queryAllByText('Banco do Archive')).toHaveLength(0);
+    expect(screen.getByText(/É necessária uma conta gratuita/)).toBeInTheDocument();
+  });
+
   it('hides incompatible items until requested', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(
       snapshot([

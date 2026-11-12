@@ -6,6 +6,7 @@ import {
   type StoreItemView,
   type StoreLicenseKind,
   type StoreSnapshot,
+  type StoreSource,
 } from '@shared/store';
 import { CollectionSettings } from './CollectionSettings';
 
@@ -41,6 +42,25 @@ const licenseLabels: Record<StoreLicenseKind, string> = {
   freeware: 'Freeware',
   free: 'Gratuito',
   restricted: 'Uso restrito',
+  unknown: 'Licença não conferida',
+};
+
+const sourceLabels: Record<StoreSource, string> = {
+  github: 'GitHub',
+  official: 'Site oficial',
+  archive: 'Archive.org',
+  'musical-artifacts': 'Musical Artifacts',
+  polyphone: 'Polyphone',
+  manual: 'Manual',
+};
+
+const sourceColors: Record<StoreSource, string> = {
+  github: '#7FB6FF',
+  official: '#30D158',
+  archive: '#FFB74D',
+  'musical-artifacts': '#C6A0FF',
+  polyphone: '#FF9F0A',
+  manual: '#9A9AA0',
 };
 
 const platformLabels: Record<string, string> = {
@@ -148,6 +168,7 @@ export const StoreSettings: React.FC = () => {
   const [category, setCategory] = useState('Todas');
   const [format, setFormat] = useState<'all' | StoreFormat>('all');
   const [license, setLicense] = useState<'all' | StoreLicenseKind>('all');
+  const [provider, setProvider] = useState<'all' | StoreSource>('all');
   const [showIncompatible, setShowIncompatible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -237,6 +258,14 @@ export const StoreSettings: React.FC = () => {
     return Array.from(values).sort();
   }, [snapshot]);
 
+  const providers = useMemo(() => {
+    const values = new Set<StoreSource>();
+    for (const item of snapshot?.items ?? []) values.add(item.source);
+    return Array.from(values).sort(
+      (a, b) => sourceLabels[a].localeCompare(sourceLabels[b])
+    );
+  }, [snapshot]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return (snapshot?.items ?? []).filter((item) => {
@@ -244,6 +273,7 @@ export const StoreSettings: React.FC = () => {
       if (category !== 'Todas' && item.category !== category) return false;
       if (format !== 'all' && !item.availableFormats.includes(format)) return false;
       if (license !== 'all' && item.licenseKind !== license) return false;
+      if (provider !== 'all' && item.source !== provider) return false;
       if (!showIncompatible && !item.compatible) return false;
       if (needle) {
         const haystack = [
@@ -259,7 +289,7 @@ export const StoreSettings: React.FC = () => {
       }
       return true;
     });
-  }, [snapshot, typeFilter, category, format, license, showIncompatible, query]);
+  }, [snapshot, typeFilter, category, format, license, provider, showIncompatible, query]);
 
   const detail =
     filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
@@ -270,6 +300,7 @@ export const StoreSettings: React.FC = () => {
     setCategory('Todas');
     setFormat('all');
     setLicense('all');
+    setProvider('all');
     setShowIncompatible(false);
   };
 
@@ -564,6 +595,21 @@ export const StoreSettings: React.FC = () => {
               </select>
             </label>
 
+            <label className="block text-[10px]" style={{ color: '#9A9AA0' }}>
+              Provedor
+              <select
+                className="hw-inset mt-1 w-full px-2 py-1.5 text-[11px] text-slate-100"
+                value={provider}
+                onChange={(event) => setProvider(event.target.value as 'all' | StoreSource)}
+                aria-label="Filtrar por provedor"
+              >
+                <option value="all">Todos</option>
+                {providers.map((value) => (
+                  <option key={value} value={value}>{sourceLabels[value]}</option>
+                ))}
+              </select>
+            </label>
+
             <label className="flex items-start gap-2 text-[10px]" style={{ color: '#9A9AA0' }}>
               <input
                 type="checkbox"
@@ -631,6 +677,8 @@ export const StoreSettings: React.FC = () => {
                         {item.author} · {item.category}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5 text-[9px]" style={{ color: '#6E6E73' }}>
+                        <span style={{ color: sourceColors[item.source] }}>{sourceLabels[item.source]}</span>
+                        <span>·</span>
                         <span>{item.format}</span>
                         <span>·</span>
                         <span>{formatStoreBytes(item.approxBytes)}</span>
@@ -677,6 +725,9 @@ export const StoreSettings: React.FC = () => {
                   <p className="mt-0.5 text-[10px]" style={{ color: '#8E8E93' }}>
                     {detail.author} · {detail.category}
                   </p>
+                  <p className="mt-0.5 text-[9px]" style={{ color: sourceColors[detail.source] }}>
+                    {sourceLabels[detail.source]}
+                  </p>
                 </div>
 
                 <p className="text-[11px] leading-relaxed" style={{ color: '#C6C6CB' }}>
@@ -716,6 +767,21 @@ export const StoreSettings: React.FC = () => {
                   <div className="rounded-md border px-2.5 py-2 text-[10px] leading-relaxed" style={{ borderColor: '#3A3A3C', color: '#9A9AA0' }}>
                     <strong style={{ color: '#C6C6CB' }}>Como usar: </strong>
                     {detail.notes}
+                  </div>
+                )}
+
+                {detail.licenseKind === 'unknown' && (
+                  <div className="rounded-md border border-amber-700/60 bg-amber-950/40 px-2.5 py-2 text-[10px] leading-relaxed text-amber-100">
+                    <strong>Licença não conferida.</strong>{' '}
+                    O provedor declara uso livre, mas não foi possível confirmar a
+                    licença. Verifique os termos antes de uso comercial.
+                  </div>
+                )}
+
+                {detail.variant?.manualReason && (
+                  <div className="rounded-md border px-2.5 py-2 text-[10px] leading-relaxed" style={{ borderColor: '#3A3A3C', color: '#C6C6CB' }}>
+                    {detail.variant.manualReason}
+                    {detail.variant.requiresAccount ? ' É necessária uma conta gratuita no site de origem.' : ''}
                   </div>
                 )}
 
@@ -797,7 +863,11 @@ export const StoreSettings: React.FC = () => {
                       className="hw-squarebtn w-full px-3 py-1.5 text-[10px]"
                       onClick={() => void openPage(detail)}
                     >
-                      Página do autor
+                      {detail.variant?.kind === 'manual'
+                        ? detail.variant.requiresAccount
+                          ? `Abrir no ${sourceLabels[detail.source]}`
+                          : 'Abrir página para baixar'
+                        : 'Página do autor'}
                     </button>
                   )}
                   {detail.licenseUrl && (

@@ -313,6 +313,28 @@ describe('StoreService', () => {
     expect(result.snapshot.items[0].id).toBe(before.items[0].id);
   });
 
+  it('keeps a newer embedded catalog when the remote is older', async () => {
+    await fs.writeFile(
+      path.join(appPath, 'store', 'store-catalog.json'),
+      JSON.stringify({
+        ...catalog(item({ name: 'Embutido novo' })),
+        updatedAt: '2026-03-01T00:00:00.000Z',
+      }),
+      'utf8'
+    );
+    const fetcher = vi.fn(async () =>
+      new Response(JSON.stringify(catalog(item({ name: 'Remoto antigo' }))), {
+        status: 200,
+      })
+    ) as unknown as typeof fetch;
+
+    const store = service(createInstaller(), fetcher);
+    const result = await store.checkUpdates(true);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/mais antigo/i);
+    expect(result.snapshot.items[0].name).toBe('Embutido novo');
+  });
+
   it('accepts a 304 response without replacing the catalog', async () => {
     await fs.writeFile(
       path.join(userData, 'store-catalog.json'),

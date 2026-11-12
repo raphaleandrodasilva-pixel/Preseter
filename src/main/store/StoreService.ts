@@ -378,6 +378,9 @@ export class StoreService {
       if (!validation.ok) {
         throw new Error(`Catálogo remoto inválido: ${validation.issues[0]}`);
       }
+      if (catalogUpdatedAt(validation.catalog) < catalogUpdatedAt(this.catalog)) {
+        throw new Error('O catálogo remoto é mais antigo que o local; mantendo o catálogo atual.');
+      }
 
       let catalog = validation.catalog;
       let resolvedLinks = 0;

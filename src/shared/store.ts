@@ -18,8 +18,19 @@ export type StoreFormat =
   | 'Instalador';
 export type StoreItemType = 'plugin' | 'library';
 export type StoreTier = 'verified' | 'indexed';
-export type StoreSource = 'github' | 'official' | 'manual';
-export type StoreLicenseKind = 'open-source' | 'freeware' | 'free' | 'restricted';
+export type StoreSource =
+  | 'github'
+  | 'official'
+  | 'archive'
+  | 'musical-artifacts'
+  | 'polyphone'
+  | 'manual';
+export type StoreLicenseKind =
+  | 'open-source'
+  | 'freeware'
+  | 'free'
+  | 'restricted'
+  | 'unknown';
 export type StoreThumbnailKind = 'generated' | 'official' | 'captured' | 'package';
 export type StoreLinkStatus = 'ok' | 'broken' | 'unknown';
 export type StoreCatalogSource = 'embedded' | 'cache' | 'remote';
@@ -64,6 +75,10 @@ export interface StoreVariant {
   assetPattern?: string;
   /** Repositório `owner/name` do GitHub. */
   repository?: string;
+  /** Download exige conta no site de origem (Polyphone, por exemplo). */
+  requiresAccount?: boolean;
+  /** Explica por que o item é manual (login, Cloudflare, link externo…). */
+  manualReason?: string;
   linkStatus?: StoreLinkStatus;
   linkCheckedAt?: string;
   linkMessage?: string;
@@ -170,12 +185,20 @@ const STORE_FORMATS: StoreFormat[] = [
 ];
 const STORE_ITEM_TYPES: StoreItemType[] = ['plugin', 'library'];
 const STORE_TIERS: StoreTier[] = ['verified', 'indexed'];
-const STORE_SOURCES: StoreSource[] = ['github', 'official', 'manual'];
+const STORE_SOURCES: StoreSource[] = [
+  'github',
+  'official',
+  'archive',
+  'musical-artifacts',
+  'polyphone',
+  'manual',
+];
 const STORE_LICENSE_KINDS: StoreLicenseKind[] = [
   'open-source',
   'freeware',
   'free',
   'restricted',
+  'unknown',
 ];
 const STORE_THUMBNAIL_KINDS: StoreThumbnailKind[] = [
   'generated',
@@ -209,6 +232,7 @@ const STORE_URL_HOSTS = [
   'blaukraut.info',
   'ftp.osuosl.org',
   'osuosl.org',
+  'archive.org',
   'sfz.tools',
   'setbfree.org',
   'software.opensuse.org',
@@ -395,6 +419,12 @@ export function validateStoreCatalog(raw: unknown): StoreValidationResult {
       }
       if (variantRaw.resolve !== undefined && !oneOf(variantRaw.resolve, ['github-latest', 'head'])) {
         fail(`${vpath}.resolve`, 'modo de resolução desconhecido');
+      }
+      if (variantRaw.requiresAccount !== undefined && typeof variantRaw.requiresAccount !== 'boolean') {
+        fail(`${vpath}.requiresAccount`, 'deve ser booleano');
+      }
+      if (variantRaw.manualReason !== undefined && !nonEmptyString(variantRaw.manualReason)) {
+        fail(`${vpath}.manualReason`, 'deve ser texto');
       }
       if (variantRaw.repository !== undefined && !/^[\w.-]+\/[\w.-]+$/.test(String(variantRaw.repository))) {
         fail(`${vpath}.repository`, 'use owner/repositório');

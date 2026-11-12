@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-12T01:06:36.041Z",
+  "updatedAt": "2026-11-12T01:52:37.653Z",
   "source": "https://github.com/raphaleandrodasilva-pixel/Preseter",
   "items": [
     {
@@ -1011,6 +1011,1836 @@
           "resolve": "github-latest",
           "assetPattern": "FSVR-Linux-VST*.zip",
           "repository": "musicastudio/FSVR"
+        }
+      ]
+    },
+    {
+      "id": "archive-generaluser-gs",
+      "type": "library",
+      "name": "GeneralUser GS v1.471",
+      "category": "Gerais (GM)",
+      "author": "S. Christian Collins",
+      "description": "Banco GM/GS leve e equilibrado, muito usado ao vivo.",
+      "version": "1.471",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "GS",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; a licença deste banco não foi conferida. Verifique antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 31281186,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/GeneralUser%20GS%20v1.471.sf2",
+          "fileName": "GeneralUser GS v1.471.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 31281186,
+          "destSubfolder": "Archive/GeneralUserGS",
+          "soundfontPatterns": [
+            "GeneralUser GS v1.471.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/GeneralUser%20GS%20v1.471.sf2",
+          "fileName": "GeneralUser GS v1.471.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 31281186,
+          "destSubfolder": "Archive/GeneralUserGS",
+          "soundfontPatterns": [
+            "GeneralUser GS v1.471.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/GeneralUser%20GS%20v1.471.sf2",
+          "fileName": "GeneralUser GS v1.471.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 31281186,
+          "destSubfolder": "Archive/GeneralUserGS",
+          "soundfontPatterns": [
+            "GeneralUser GS v1.471.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-fluidr3-gm2",
+      "type": "library",
+      "name": "FluidR3 GM2-2",
+      "category": "Gerais (GM)",
+      "author": "Frank Wen",
+      "description": "Banco GM2/GS grande, com bons pianos, cordas e órgão.",
+      "version": "GM2-2",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM2",
+        "GS",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 148345256,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/FluidR3_GM2-2.SF2",
+          "fileName": "FluidR3_GM2-2.SF2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 148345256,
+          "destSubfolder": "Archive/FluidR3",
+          "soundfontPatterns": [
+            "FluidR3_GM2-2.SF2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/FluidR3_GM2-2.SF2",
+          "fileName": "FluidR3_GM2-2.SF2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 148345256,
+          "destSubfolder": "Archive/FluidR3",
+          "soundfontPatterns": [
+            "FluidR3_GM2-2.SF2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/FluidR3_GM2-2.SF2",
+          "fileName": "FluidR3_GM2-2.SF2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 148345256,
+          "destSubfolder": "Archive/FluidR3",
+          "soundfontPatterns": [
+            "FluidR3_GM2-2.SF2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-arachno",
+      "type": "library",
+      "name": "Arachno SoundFont 1.0",
+      "category": "Gerais (GM)",
+      "author": "Maxime Abbey",
+      "description": "Banco GM/GS com som cinematográfico e boa percussão.",
+      "version": "1.0",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "GS",
+        "cinematográfico",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 155405818,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Arachno_SoundFont_Version_1.0.sf2",
+          "fileName": "Arachno_SoundFont_Version_1.0.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 155405818,
+          "destSubfolder": "Archive/Arachno",
+          "soundfontPatterns": [
+            "Arachno_SoundFont_Version_1.0.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Arachno_SoundFont_Version_1.0.sf2",
+          "fileName": "Arachno_SoundFont_Version_1.0.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 155405818,
+          "destSubfolder": "Archive/Arachno",
+          "soundfontPatterns": [
+            "Arachno_SoundFont_Version_1.0.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Arachno_SoundFont_Version_1.0.sf2",
+          "fileName": "Arachno_SoundFont_Version_1.0.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 155405818,
+          "destSubfolder": "Archive/Arachno",
+          "soundfontPatterns": [
+            "Arachno_SoundFont_Version_1.0.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-sgm-v201",
+      "type": "library",
+      "name": "SGM-V2.01",
+      "category": "Gerais (GM)",
+      "author": "Shan",
+      "description": "Banco GM/GS/XG com muitos instrumentos e kits de bateria.",
+      "version": "2.01",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "GS",
+        "XG",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 247406594,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/SGM-V2.01.sf2",
+          "fileName": "SGM-V2.01.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 247406594,
+          "destSubfolder": "Archive/SGM",
+          "soundfontPatterns": [
+            "SGM-V2.01.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/SGM-V2.01.sf2",
+          "fileName": "SGM-V2.01.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 247406594,
+          "destSubfolder": "Archive/SGM",
+          "soundfontPatterns": [
+            "SGM-V2.01.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/SGM-V2.01.sf2",
+          "fileName": "SGM-V2.01.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 247406594,
+          "destSubfolder": "Archive/SGM",
+          "soundfontPatterns": [
+            "SGM-V2.01.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-timbres-of-heaven",
+      "type": "library",
+      "name": "Timbres of Heaven v3.4 Final",
+      "category": "Gerais (GM)",
+      "author": "Don Allen",
+      "description": "Banco GM/GS/XG/SFX grande, com timbres variados.",
+      "version": "3.4",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "GS",
+        "XG",
+        "SFX",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 395249188,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Timbres%20Of%20Heaven%20GM_GS_XG_SFX%20V%203.4%20Final.sf2",
+          "fileName": "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 395249188,
+          "destSubfolder": "Archive/TimbresOfHeaven",
+          "soundfontPatterns": [
+            "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Timbres%20Of%20Heaven%20GM_GS_XG_SFX%20V%203.4%20Final.sf2",
+          "fileName": "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 395249188,
+          "destSubfolder": "Archive/TimbresOfHeaven",
+          "soundfontPatterns": [
+            "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/Timbres%20Of%20Heaven%20GM_GS_XG_SFX%20V%203.4%20Final.sf2",
+          "fileName": "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 395249188,
+          "destSubfolder": "Archive/TimbresOfHeaven",
+          "soundfontPatterns": [
+            "Timbres Of Heaven GM_GS_XG_SFX V 3.4 Final.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-timgm6mb",
+      "type": "library",
+      "name": "TimGM6mb",
+      "category": "Gerais (GM)",
+      "author": "Tim Brechbill",
+      "description": "Banco GM pequeno e leve, ideal para testes e patches simples.",
+      "version": "1.1",
+      "tier": "verified",
+      "source": "archive",
+      "license": "GPL-2.0",
+      "licenseKind": "open-source",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "leve",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Banco GM leve, útil para testes. Licença GPL-2.0 atribuída ao TimGM6mb; o arquivo vem do acervo do Archive.org.",
+      "format": "SF2",
+      "approxBytes": 5969788,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/TimGM6mb.sf2",
+          "fileName": "TimGM6mb.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 5969788,
+          "destSubfolder": "Archive/TimGM6mb",
+          "soundfontPatterns": [
+            "TimGM6mb.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/TimGM6mb.sf2",
+          "fileName": "TimGM6mb.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 5969788,
+          "destSubfolder": "Archive/TimGM6mb",
+          "soundfontPatterns": [
+            "TimGM6mb.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/TimGM6mb.sf2",
+          "fileName": "TimGM6mb.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 5969788,
+          "destSubfolder": "Archive/TimGM6mb",
+          "soundfontPatterns": [
+            "TimGM6mb.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-merlin-grand",
+      "type": "library",
+      "name": "Merlin Grand v5.37",
+      "category": "Gerais (GM)",
+      "author": "Merlin",
+      "description": "Banco GM com foco em pianos e instrumentos acústicos.",
+      "version": "5.37",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "pianos",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 61409722,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_grand%28v5.37%29.sf2",
+          "fileName": "merlin_grand(v5.37).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 61409722,
+          "destSubfolder": "Archive/MerlinGrand",
+          "soundfontPatterns": [
+            "merlin_grand(v5.37).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_grand%28v5.37%29.sf2",
+          "fileName": "merlin_grand(v5.37).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 61409722,
+          "destSubfolder": "Archive/MerlinGrand",
+          "soundfontPatterns": [
+            "merlin_grand(v5.37).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_grand%28v5.37%29.sf2",
+          "fileName": "merlin_grand(v5.37).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 61409722,
+          "destSubfolder": "Archive/MerlinGrand",
+          "soundfontPatterns": [
+            "merlin_grand(v5.37).sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-merlin-orchestra",
+      "type": "library",
+      "name": "Merlin Orchestra v1.40",
+      "category": "Orquestra",
+      "author": "Merlin",
+      "description": "Banco orquestral com cordas, metais e madeiras.",
+      "version": "1.40",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "orquestra",
+        "cordas",
+        "metais",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 70795732,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_orchestra%28v1.40%29.sf2",
+          "fileName": "merlin_orchestra(v1.40).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 70795732,
+          "destSubfolder": "Archive/MerlinOrchestra",
+          "soundfontPatterns": [
+            "merlin_orchestra(v1.40).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_orchestra%28v1.40%29.sf2",
+          "fileName": "merlin_orchestra(v1.40).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 70795732,
+          "destSubfolder": "Archive/MerlinOrchestra",
+          "soundfontPatterns": [
+            "merlin_orchestra(v1.40).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/merlin_orchestra%28v1.40%29.sf2",
+          "fileName": "merlin_orchestra(v1.40).sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 70795732,
+          "destSubfolder": "Archive/MerlinOrchestra",
+          "soundfontPatterns": [
+            "merlin_orchestra(v1.40).sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-airfont-340",
+      "type": "library",
+      "name": "Airfont 340",
+      "category": "Gerais (GM)",
+      "author": "Airfont",
+      "description": "Banco GM/GS com timbres limpos e boa resposta dinâmica.",
+      "version": "340",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "GS",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 80500780,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/airfont_340.sf2",
+          "fileName": "airfont_340.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 80500780,
+          "destSubfolder": "Archive/Airfont340",
+          "soundfontPatterns": [
+            "airfont_340.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/airfont_340.sf2",
+          "fileName": "airfont_340.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 80500780,
+          "destSubfolder": "Archive/Airfont340",
+          "soundfontPatterns": [
+            "airfont_340.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/airfont_340.sf2",
+          "fileName": "airfont_340.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 80500780,
+          "destSubfolder": "Archive/Airfont340",
+          "soundfontPatterns": [
+            "airfont_340.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "archive-weeds-gm3",
+      "type": "library",
+      "name": "WeedsGM3",
+      "category": "Gerais (GM)",
+      "author": "Weeds",
+      "description": "Banco GM alternativo para timbres de banda e pop/rock.",
+      "version": "3",
+      "tier": "indexed",
+      "source": "archive",
+      "license": "Free use (Archive.org)",
+      "licenseKind": "unknown",
+      "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+      "tags": [
+        "SF2",
+        "GM",
+        "pop",
+        "rock",
+        "Archive.org"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixado do acervo free-soundfonts-sf2-2019-04 do Archive.org. O acervo declara apenas \"Free use\"; confira a licença antes de uso comercial.",
+      "format": "SF2",
+      "approxBytes": 54894076,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/WeedsGM3.sf2",
+          "fileName": "WeedsGM3.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 54894076,
+          "destSubfolder": "Archive/WeedsGM3",
+          "soundfontPatterns": [
+            "WeedsGM3.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/WeedsGM3.sf2",
+          "fileName": "WeedsGM3.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 54894076,
+          "destSubfolder": "Archive/WeedsGM3",
+          "soundfontPatterns": [
+            "WeedsGM3.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/free-soundfonts-sf2-2019-04/WeedsGM3.sf2",
+          "fileName": "WeedsGM3.sf2",
+          "page": "https://archive.org/details/free-soundfonts-sf2-2019-04",
+          "approxBytes": 54894076,
+          "destSubfolder": "Archive/WeedsGM3",
+          "soundfontPatterns": [
+            "WeedsGM3.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "polyphone-steinway-grand",
+      "type": "library",
+      "name": "Steinway Grand Piano",
+      "category": "Pianos",
+      "author": "Soeren Bovbjerg",
+      "description": "Piano de cauda Steinway para baladas e música clássica.",
+      "version": "1.2",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Personal use (Polyphone)",
+      "licenseKind": "restricted",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/118-steinway-grand-piano",
+      "tags": [
+        "SF2",
+        "piano",
+        "Steinway",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. Licença marcada como uso pessoal.",
+      "format": "SF2",
+      "approxBytes": 30362190,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/118-steinway-grand-piano",
+          "approxBytes": 30362190,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/118-steinway-grand-piano",
+          "approxBytes": 30362190,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/118-steinway-grand-piano",
+          "approxBytes": 30362190,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-gpo-steinway",
+      "type": "library",
+      "name": "GPO Concert Steinway Piano",
+      "category": "Pianos",
+      "author": "David Shan",
+      "description": "Piano de concerto com timbre amplo, derivado do GPO.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/265-gpo-concert-steinway-piano",
+      "tags": [
+        "SF2",
+        "piano",
+        "concerto",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 34221588,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/265-gpo-concert-steinway-piano",
+          "approxBytes": 34221588,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/265-gpo-concert-steinway-piano",
+          "approxBytes": 34221588,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/265-gpo-concert-steinway-piano",
+          "approxBytes": 34221588,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-yamaha-cfx-studio",
+      "type": "library",
+      "name": "Yamaha CFX Studio Grand V2",
+      "category": "Pianos",
+      "author": "Soundsource Studios",
+      "description": "Piano Yamaha CFX com timbre de estúdio.",
+      "version": "2",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/513-yamaha-cfx-studio-grand-v2",
+      "tags": [
+        "SF2",
+        "piano",
+        "Yamaha",
+        "CFX",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 157026130,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/513-yamaha-cfx-studio-grand-v2",
+          "approxBytes": 157026130,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/513-yamaha-cfx-studio-grand-v2",
+          "approxBytes": 157026130,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/513-yamaha-cfx-studio-grand-v2",
+          "approxBytes": 157026130,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-yamaha-s90-es",
+      "type": "library",
+      "name": "Yamaha S90 ES Natural Grand",
+      "category": "Pianos",
+      "author": "白いチャンネル",
+      "description": "Piano natural do Yamaha S90 ES, muito usado em worship e pop.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/741-yamaha-s90-es-natural-grand",
+      "tags": [
+        "SF2",
+        "piano",
+        "Yamaha",
+        "S90 ES",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 27266858,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/741-yamaha-s90-es-natural-grand",
+          "approxBytes": 27266858,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/741-yamaha-s90-es-natural-grand",
+          "approxBytes": 27266858,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/741-yamaha-s90-es-natural-grand",
+          "approxBytes": 27266858,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-steinway-b-1956",
+      "type": "library",
+      "name": "Steinway B - 1956",
+      "category": "Pianos",
+      "author": "Comunidade Polyphone",
+      "description": "Gravação de um Steinway B de 1956.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/743-steinway-b-1956",
+      "tags": [
+        "SF2",
+        "piano",
+        "Steinway",
+        "vintage",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 38735798,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/743-steinway-b-1956",
+          "approxBytes": 38735798,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/743-steinway-b-1956",
+          "approxBytes": 38735798,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/743-steinway-b-1956",
+          "approxBytes": 38735798,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-nord-stage-gp",
+      "type": "library",
+      "name": "Nord Stage GP Grand Piano",
+      "category": "Pianos",
+      "author": "Comunidade Polyphone",
+      "description": "Piano de palco com timbre Nord, para pop e worship.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/pianos/755-nord-stage-gp-grand-piano",
+      "tags": [
+        "SF2",
+        "piano",
+        "Nord",
+        "palco",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 245196142,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/755-nord-stage-gp-grand-piano",
+          "approxBytes": 245196142,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/755-nord-stage-gp-grand-piano",
+          "approxBytes": 245196142,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/pianos/755-nord-stage-gp-grand-piano",
+          "approxBytes": 245196142,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-orchestral-strings",
+      "type": "library",
+      "name": "Orchestral Strings",
+      "category": "Orquestra",
+      "author": "Comunidade Polyphone",
+      "description": "Cordas orquestrais em SF2, com arco e seções.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Public domain (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/315-orchestral-strings",
+      "tags": [
+        "SF2",
+        "cordas",
+        "orquestra",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. Licença declarada como domínio público.",
+      "format": "SF2",
+      "approxBytes": 12717138,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/315-orchestral-strings",
+          "approxBytes": 12717138,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/315-orchestral-strings",
+          "approxBytes": 12717138,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/315-orchestral-strings",
+          "approxBytes": 12717138,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "polyphone-cello-solo",
+      "type": "library",
+      "name": "Cello solo",
+      "category": "Orquestra",
+      "author": "Ethan Winer",
+      "description": "Violoncelo solo para linhas expressivas e camerísticas.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "polyphone",
+      "license": "Give credit (Polyphone)",
+      "licenseKind": "free",
+      "licenseUrl": "https://www.polyphone.io/en/licenses",
+      "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/289-cello-solo",
+      "tags": [
+        "SF2",
+        "cello",
+        "cordas",
+        "solo",
+        "Polyphone"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Download somente pelo Polyphone; requer conta gratuita. A licença pede crédito ao autor.",
+      "format": "SF2",
+      "approxBytes": 4785662,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/289-cello-solo",
+          "approxBytes": 4785662,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/289-cello-solo",
+          "approxBytes": 4785662,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://www.polyphone.io/en/soundfonts/bowed-strings/289-cello-solo",
+          "approxBytes": 4785662,
+          "requiresAccount": true,
+          "manualReason": "O Polyphone exige login para baixar.",
+          "notes": "Abra a página, entre na sua conta e baixe o SF2."
+        }
+      ]
+    },
+    {
+      "id": "ma-jjazzlab",
+      "type": "library",
+      "name": "JJazzLab SoundFont",
+      "category": "Gerais (GM)",
+      "author": "JL",
+      "description": "Banco GM completo para jazz, com pianos, metais e bateria.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "musical-artifacts",
+      "license": "CC BY 4.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://musical-artifacts.com/artifacts/1036",
+      "tags": [
+        "SF2",
+        "GM",
+        "jazz",
+        "Musical Artifacts"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Metadados e licença conferidos na API do Musical Artifacts. Download pelo mirror do Archive.org.",
+      "format": "SF2",
+      "approxBytes": 356719466,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/jjazz-lab-sound-font/JJazzLab-SoundFont.sf2",
+          "fileName": "JJazzLab-SoundFont.sf2",
+          "page": "https://musical-artifacts.com/artifacts/1036",
+          "approxBytes": 356719466,
+          "destSubfolder": "MusicalArtifacts/JJazzLab",
+          "soundfontPatterns": [
+            "JJazzLab-SoundFont.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/jjazz-lab-sound-font/JJazzLab-SoundFont.sf2",
+          "fileName": "JJazzLab-SoundFont.sf2",
+          "page": "https://musical-artifacts.com/artifacts/1036",
+          "approxBytes": 356719466,
+          "destSubfolder": "MusicalArtifacts/JJazzLab",
+          "soundfontPatterns": [
+            "JJazzLab-SoundFont.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/jjazz-lab-sound-font/JJazzLab-SoundFont.sf2",
+          "fileName": "JJazzLab-SoundFont.sf2",
+          "page": "https://musical-artifacts.com/artifacts/1036",
+          "approxBytes": 356719466,
+          "destSubfolder": "MusicalArtifacts/JJazzLab",
+          "soundfontPatterns": [
+            "JJazzLab-SoundFont.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "ma-baldwin-monarch",
+      "type": "library",
+      "name": "Baldwin Monarch Grand Piano",
+      "category": "Pianos",
+      "author": "JohnSeagull",
+      "description": "Piano Baldwin Monarch com timbre encorpado.",
+      "version": "1.1",
+      "tier": "verified",
+      "source": "musical-artifacts",
+      "license": "CC BY 4.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://musical-artifacts.com/artifacts/9986",
+      "tags": [
+        "SF2",
+        "piano",
+        "Baldwin",
+        "Musical Artifacts"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Metadados e licença conferidos na API do Musical Artifacts. Download pelo release oficial no GitHub.",
+      "format": "SF2",
+      "approxBytes": 189015466,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://github.com/johnseagull3326/soundfonts/releases/download/Piano-v1.1/BalwinMonarch-v1.1.sf2",
+          "fileName": "BalwinMonarch-v1.1.sf2",
+          "page": "https://musical-artifacts.com/artifacts/9986",
+          "approxBytes": 189015466,
+          "destSubfolder": "MusicalArtifacts/BaldwinMonarch",
+          "soundfontPatterns": [
+            "BalwinMonarch-v1.1.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://github.com/johnseagull3326/soundfonts/releases/download/Piano-v1.1/BalwinMonarch-v1.1.sf2",
+          "fileName": "BalwinMonarch-v1.1.sf2",
+          "page": "https://musical-artifacts.com/artifacts/9986",
+          "approxBytes": 189015466,
+          "destSubfolder": "MusicalArtifacts/BaldwinMonarch",
+          "soundfontPatterns": [
+            "BalwinMonarch-v1.1.sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://github.com/johnseagull3326/soundfonts/releases/download/Piano-v1.1/BalwinMonarch-v1.1.sf2",
+          "fileName": "BalwinMonarch-v1.1.sf2",
+          "page": "https://musical-artifacts.com/artifacts/9986",
+          "approxBytes": 189015466,
+          "destSubfolder": "MusicalArtifacts/BaldwinMonarch",
+          "soundfontPatterns": [
+            "BalwinMonarch-v1.1.sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "ma-boop-roblox",
+      "type": "library",
+      "name": "Boop (Roblox Animal Hospital)",
+      "category": "Outros",
+      "author": "TGaming03",
+      "description": "Soundfont curto e divertido do jogo Roblox Animal Hospital.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "musical-artifacts",
+      "license": "CC BY-SA 4.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "page": "https://musical-artifacts.com/artifacts/8866",
+      "tags": [
+        "SF2",
+        "game",
+        "Roblox",
+        "Musical Artifacts"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Metadados e licença conferidos na API do Musical Artifacts. Download pelo mirror do Archive.org.",
+      "format": "SF2",
+      "approxBytes": 246596,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/boop-roblox-animal-hospital/Boop%20%28Roblox%20Animal%20Hospital%29.sf2",
+          "fileName": "Boop (Roblox Animal Hospital).sf2",
+          "page": "https://musical-artifacts.com/artifacts/8866",
+          "approxBytes": 246596,
+          "destSubfolder": "MusicalArtifacts/Boop",
+          "soundfontPatterns": [
+            "Boop (Roblox Animal Hospital).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/boop-roblox-animal-hospital/Boop%20%28Roblox%20Animal%20Hospital%29.sf2",
+          "fileName": "Boop (Roblox Animal Hospital).sf2",
+          "page": "https://musical-artifacts.com/artifacts/8866",
+          "approxBytes": 246596,
+          "destSubfolder": "MusicalArtifacts/Boop",
+          "soundfontPatterns": [
+            "Boop (Roblox Animal Hospital).sf2"
+          ],
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://archive.org/download/boop-roblox-animal-hospital/Boop%20%28Roblox%20Animal%20Hospital%29.sf2",
+          "fileName": "Boop (Roblox Animal Hospital).sf2",
+          "page": "https://musical-artifacts.com/artifacts/8866",
+          "approxBytes": 246596,
+          "destSubfolder": "MusicalArtifacts/Boop",
+          "soundfontPatterns": [
+            "Boop (Roblox Animal Hospital).sf2"
+          ],
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "ma-nanogm",
+      "type": "library",
+      "name": "NanoGM",
+      "category": "Gerais (GM)",
+      "author": "SG studio",
+      "description": "Banco GM compacto para testes rápidos e patches leves.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "musical-artifacts",
+      "license": "CC BY-SA 4.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "page": "https://musical-artifacts.com/artifacts/9683",
+      "tags": [
+        "SF2",
+        "GM",
+        "compacto",
+        "Musical Artifacts"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O download direto do Musical Artifacts é bloqueado pelo Cloudflare; abra a página oficial para baixar.",
+      "format": "SF2",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/9683",
+          "approxBytes": 0,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/9683",
+          "approxBytes": 0,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/9683",
+          "approxBytes": 0,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        }
+      ]
+    },
+    {
+      "id": "ma-mellotron",
+      "type": "library",
+      "name": "Mellotron soundfonts sf2",
+      "category": "Teclas elétricas",
+      "author": "Comunidade Musical Artifacts",
+      "description": "Flauta, cordas, coro e metais do Mellotron em SF2.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "musical-artifacts",
+      "license": "CC BY 4.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://musical-artifacts.com/artifacts/500",
+      "tags": [
+        "SF2",
+        "Mellotron",
+        "vintage",
+        "Musical Artifacts"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O download direto do Musical Artifacts é bloqueado pelo Cloudflare; abra a página oficial para baixar.",
+      "format": "SF2",
+      "approxBytes": 116391936,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/500",
+          "approxBytes": 116391936,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/500",
+          "approxBytes": 116391936,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "manual",
+          "page": "https://musical-artifacts.com/artifacts/500",
+          "approxBytes": 116391936,
+          "manualReason": "Download direto bloqueado pelo Cloudflare.",
+          "notes": "Abra a página do Musical Artifacts e use o botão de download."
         }
       ]
     }

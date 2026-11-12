@@ -81,7 +81,11 @@ describe('store catalog', () => {
     const ids = result.catalog.items.map((entry) => entry.id);
     expect(ids).toContain('sforzando');
     expect(ids).toContain('fsvr');
-    expect(result.catalog.items.every((entry) => entry.essential)).toBe(true);
+    expect(ids).toContain('archive-generaluser-gs');
+    expect(ids).toContain('polyphone-yamaha-s90-es');
+    expect(ids).toContain('ma-jjazzlab');
+    expect(result.catalog.items.filter((entry) => entry.essential)).toHaveLength(14);
+    expect(result.catalog.items.filter((entry) => !entry.essential).length).toBeGreaterThan(15);
     expect(result.catalog.items.every((entry) => entry.thumbnail.kind === 'generated')).toBe(true);
   });
 
@@ -113,6 +117,7 @@ describe('store catalog', () => {
     expect(isAllowedStoreUrl('https://github.com/example/plugin.zip')).toBe(true);
     expect(isAllowedStoreUrl('https://objects.githubusercontent.com/asset')).toBe(true);
     expect(isAllowedStoreUrl('https://sforzando.s3.us-east-1.amazonaws.com/file.zip')).toBe(true);
+    expect(isAllowedStoreUrl('https://archive.org/download/collection/file.sf2')).toBe(true);
     expect(isAllowedStoreUrl('http://github.com/example/plugin.zip')).toBe(false);
     expect(isAllowedStoreUrl('https://malicious.example/plugin.zip')).toBe(false);
   });

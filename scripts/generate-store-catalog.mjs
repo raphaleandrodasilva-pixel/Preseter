@@ -17,6 +17,9 @@ const collection = JSON.parse(
   readFileSync(join(root, 'src', 'shared', 'collection-catalog.json'), 'utf8')
 );
 
+const extrasPath = join(root, 'store', 'store-extras.json');
+const extras = JSON.parse(readFileSync(extrasPath, 'utf8'));
+
 const META = {
   'surge-xt': {
     category: 'Sintetizadores',
@@ -225,7 +228,7 @@ function buildVariants(item, meta) {
   return variants;
 }
 
-const items = collection.items.map((item) => {
+const collectionItems = collection.items.map((item) => {
   const meta = META[item.id] ?? {
     category: item.group === 'library' ? 'Samples' : 'Outros',
     author: 'Autor não informado',
@@ -265,6 +268,40 @@ const items = collection.items.map((item) => {
     ),
   };
 });
+
+function normalizeExtra(item) {
+  const variants = [];
+  for (const variant of item.variants ?? []) {
+    const osList = variant.os === 'all' ? OS_ORDER : [variant.os];
+    for (const os of osList) {
+      variants.push({
+        ...variant,
+        os,
+        arch: variant.arch ?? ['x64', 'arm64'],
+        format: variant.format ?? item.format ?? 'SF2',
+        approxBytes: Math.max(0, variant.approxBytes ?? item.approxBytes ?? 0),
+        ...(variant.url && !variant.resolve ? { resolve: 'head' } : {}),
+      });
+    }
+  }
+  return {
+    ...item,
+    essential: item.essential === true,
+    defaultSelected: item.defaultSelected === true,
+    thumbnail: item.thumbnail ?? { kind: 'generated' },
+    format: item.format ?? variants[0]?.format ?? 'SF2',
+    approxBytes: item.approxBytes ?? variants[0]?.approxBytes ?? 0,
+    variants,
+  };
+}
+
+const extraItems = (extras.items ?? []).map(normalizeExtra);
+const items = [...collectionItems, ...extraItems];
+const seen = new Set();
+for (const item of items) {
+  if (seen.has(item.id)) throw new Error(`ID duplicado no catálogo da Loja: ${item.id}`);
+  seen.add(item.id);
+}
 
 const catalog = {
   version: 1,
