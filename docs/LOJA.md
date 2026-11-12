@@ -76,6 +76,7 @@ repositório para a atualização remota. Cada item **estende** os campos de `Co
 | CC BY, MIT, BSD, GPL, LGPL | Sim | `free`; mostrar atribuição |
 | CC Sampling Plus, CC BY-NC | Só como link, com aviso | `restricted` |
 | "Uso pessoal", sem licença, desconhecida | Só como link, aviso em destaque | `unknown` |
+| **Freeware** (gratuito, mas não open source: sforzando, ReaPlugs, Reason Free) | Sim, como item **manual** | Abre a página oficial; **nunca** espelhar nem redistribuir o instalador; `licenseKind: free` + aviso "gratuito, não é open source" |
 | Proprietária, paga, **precisa de ROM** (ex.: Retromulator, Nuked SC-55) | **Não listar** | — |
 
 O **sforzando** (freeware da Plogue, não redistribuível) entra como item **manual**: abre a página oficial.
@@ -87,6 +88,22 @@ Já no instalador: juicysfplugin, Surge XT, Dexed, Helm, Odin 2 (baixam); sfizz,
 Candidatos a incluir **(a confirmar licença, formatos e links)**: **FSVR** (emulação do Yamaha FS1R; VST3/CLAP;
 GitHub musicastudio/FSVR), **ADLplug/OPNplug** (chips OPL3/OPN2; VST3; GitHub jpcima/ADLplug), **OB-Xd**,
 **sforzando** (manual).
+
+### Plugins gratuitos pedidos pelo dono (conferidos nas páginas oficiais)
+
+| Item | O que é | Formatos / sistemas | Condições |
+|---|---|---|---|
+| **ReaPlugs** (Cockos, o do REAPER) | Pacote de efeitos: ReaComp, ReaXcomp, ReaDelay, ReaEQ, ReaFIR, ReaGate, ReaStream, ReaJS, ReaControlMIDI | **Só VST (VST2)**; páginas citam Windows e WINE; versões 32 e 64 bits. A versão listada é a **2.36, de 2016** | "Livremente utilizável", sem proteção de cópia; **não** informa regras de redistribuição → só link. Página: https://www.reaper.fm/reaplugs/ |
+| **Reason Free** (Reason Studios) | Versão gratuita do Reason Rack Plugin com **15 devices**: Europa, Kong, ID-8, Monotone, Scream 4, The Echo, Audiomatic, RV7000 Mk II, MClass Maximizer, Scales and Chords, Combinator, Pulsar, Spider Audio, Spider CV, MIDI Out. Aceita Rack Extensions de terceiros | **VST3, AU, AAX**; **macOS e Windows** (Linux **não** é mencionado). Inclui também o Reason DAW limitado a 16 tracks | Grátis, sem expiração nem marca d'água; não é open source. Se pede **conta/login** ou instalador próprio: **(a confirmar)**. Página: https://www.reasonstudios.com/reason-free |
+
+Pontos que o agente deve respeitar ao cadastrar os dois:
+- Ambos entram como **`kind: manual`** (abrir a página oficial); `url: null` até o dono verificar o link direto.
+- `os` do **Reason Free** = `["windows", "mac"]` e do **ReaPlugs** = `["windows"]`: **não aparecem na Loja no Linux**
+  (relevante para a versão pública, que é focada em Linux).
+- ReaPlugs é **VST2**: depende do suporte a VST2 do motor (commit `933c499`) e pode precisar da pasta de plugins nas Configurações.
+- O Reason Free é um **rack com vários devices dentro de um plugin**: no Preseter ele aparece como **um** plugin; os devices
+  são escolhidos dentro da janela do plugin.
+- Os dois são **gratuitos, não open source**: mostrar o aviso da regra de licença "Freeware".
 
 ## 6. Tarefas (uma de cada vez; só marque `[x]` quando funcionar de verdade)
 
