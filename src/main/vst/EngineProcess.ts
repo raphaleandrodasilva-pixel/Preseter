@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { ChildProcessWithoutNullStreams, spawn, spawnSync } from 'child_process';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -89,6 +89,19 @@ export class EngineProcess extends EventEmitter {
         });
       }
       if (child.exitCode === null) child.kill();
+      if (child.exitCode === null) {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 1_000);
+          child.once('exit', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+        });
+      }
+      if (child.exitCode === null && child.pid && process.platform === 'win32') {
+        // Alguns drivers ASIO seguram o processo; força a árvore inteira no Windows.
+        spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true });
+      }
       this.child = null;
       this.startup = null;
     })();

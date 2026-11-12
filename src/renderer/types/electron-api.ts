@@ -160,6 +160,8 @@ export interface ElectronAPI {
   windowSetFullscreen: (value: boolean) => Promise<boolean>;
   audioStart: (options: AudioStartOptions) => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
   audioStop: () => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
+  audioRestart: () => Promise<{ devices: AudioDeviceSnapshot; settings: SavedAudioSettings }>;
+  audioOpenLog: () => Promise<boolean>;
   openPluginDialog: () => Promise<any>;
 
   // Preset

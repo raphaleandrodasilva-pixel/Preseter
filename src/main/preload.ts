@@ -150,6 +150,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowSetFullscreen: (value: boolean) => ipcRenderer.invoke('window-set-fullscreen', value),
   audioStart: (options: unknown) => ipcRenderer.invoke('audio-start', options),
   audioStop: () => ipcRenderer.invoke('audio-stop'),
+  audioRestart: () => ipcRenderer.invoke('audio-restart'),
+  audioOpenLog: () => ipcRenderer.invoke('audio-open-log'),
   openPluginDialog: () => ipcRenderer.invoke('open-plugin-dialog'),
 
   // === Preset ===

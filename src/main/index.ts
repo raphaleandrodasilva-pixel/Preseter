@@ -36,6 +36,8 @@ import {
   AudioInputSettings,
   ElectronChannels,
   AudioStartOptions,
+  AudioDeviceSnapshot,
+  AudioSettingsSnapshot,
   BusMixUpdate,
   BusSettings,
   EffectiveStrip,
@@ -124,6 +126,7 @@ class MainWindow {
   private storeUpdateTimer: NodeJS.Timeout | null = null;
   private performanceMode: PerformanceMode;
   private audioSettingsPath: string;
+  private audioLogPath: string;
   private preferencesPath: string;
   /** Último patch carregado, para recarregar após uma queda do motor. */
   private lastLoadedPresetId: string | null = null;
@@ -157,6 +160,7 @@ class MainWindow {
     this.layoutManager = new LayoutManager();
     this.concertManager = new ConcertManager();
     this.audioSettingsPath = path.join(app.getPath('userData'), 'audio-settings.json');
+    this.audioLogPath = path.join(app.getPath('userData'), 'audio-session.log');
     this.preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
     this.collectionInstaller = new CollectionInstaller({
       getSoundsFolder: () => this.soundsFolder(),
@@ -781,7 +785,7 @@ class MainWindow {
         try {
           const devices = await this.vstManager.getAudioDevices();
           restartAudio = devices.running;
-          if (restartAudio) await this.vstManager.stopAudio();
+          if (restartAudio) await this.stopAudioLogged('lv2-unload');
         } catch (error) {
           console.warn('[Preseter] Não foi possível parar o áudio antes de descarregar o LV2:', error);
           restartAudio = false;
@@ -792,7 +796,7 @@ class MainWindow {
       } finally {
         if (restartAudio) {
           try {
-            await this.vstManager.startAudio(this.readAudioSettings());
+            await this.startAudioLogged(this.readAudioSettings(), 'lv2-unload');
           } catch (error) {
             console.warn('[Preseter] Não foi possível reiniciar o áudio após descarregar o LV2:', error);
           }
@@ -1130,17 +1134,20 @@ class MainWindow {
     }));
 
     ipcMain.handle('audio-start', async (_event, options: AudioStartOptions) => {
-      const devices = await this.vstManager.startAudio(options);
+      const devices = await this.startAudioLogged(options, 'settings');
       this.writeAudioSettings({ ...options, enabled: true });
       return { devices, settings: this.readAudioSettings() };
     });
 
     ipcMain.handle('audio-stop', async () => {
-      await this.vstManager.stopAudio();
+      await this.stopAudioLogged('settings');
       const saved = this.readAudioSettings();
       this.writeAudioSettings({ ...saved, enabled: false });
       return { devices: await this.vstManager.getAudioDevices(), settings: this.readAudioSettings() };
     });
+
+    ipcMain.handle('audio-restart', () => this.restartAudioLogged());
+    ipcMain.handle('audio-open-log', () => this.openAudioLog());
 
     // === Preferências gerais ===
     ipcMain.handle('preferences-get', () => this.readPreferences());
@@ -2184,7 +2191,7 @@ class MainWindow {
     const devices = await this.vstManager.getAudioDevices();
     if (!devices.running) {
       try {
-        await this.vstManager.startAudio({ outputs: 2, inputs: 0 });
+        await this.startAudioLogged({ outputs: 2, inputs: 0 }, 'fxp-generation');
       } catch {
         throw new Error('Inicie o áudio antes de gerar os bancos do FSVR.');
       }
@@ -2281,7 +2288,7 @@ class MainWindow {
     const saved = this.readAudioSettings();
     if (saved.enabled) {
       try {
-        await this.vstManager.startAudio(saved);
+        await this.startAudioLogged(saved, 'startup');
       } catch (error) {
         console.warn('[Preseter] Não foi possível restaurar a configuração de áudio:', error);
       }
@@ -2393,7 +2400,7 @@ class MainWindow {
         const saved = this.readAudioSettings();
         if (saved.enabled) {
           try {
-            await this.vstManager.startAudio(saved);
+            await this.startAudioLogged(saved, 'engine-recovery');
           } catch (error) {
             console.warn('[Preseter] Não foi possível reabrir o áudio após a queda do motor:', error);
           }
@@ -2438,6 +2445,102 @@ class MainWindow {
   private writeAudioSettings(settings: SavedAudioSettings): void {
     fs.mkdirSync(path.dirname(this.audioSettingsPath), { recursive: true });
     fs.writeFileSync(this.audioSettingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  }
+
+  /**
+   * Registra cada abertura/fechamento de áudio com os valores solicitados e os
+   * realmente aplicados. É o dado que diferencia chiado do motor, do driver e de
+   * uma taxa/buffer incompatível.
+   */
+  private audioLog(event: string, data: Record<string, unknown> = {}): void {
+    try {
+      fs.mkdirSync(path.dirname(this.audioLogPath), { recursive: true });
+      try {
+        if (fs.statSync(this.audioLogPath).size > 1_000_000) {
+          fs.rmSync(this.audioLogPath, { force: true });
+        }
+      } catch {
+        /* arquivo ainda não existe */
+      }
+      const entry = {
+        at: new Date().toISOString(),
+        event,
+        appPid: process.pid,
+        enginePid: this.vstManager.getEnginePid(),
+        ...data,
+      };
+      fs.appendFileSync(this.audioLogPath, `${JSON.stringify(entry)}\n`, 'utf8');
+    } catch {
+      /* o log nunca deve atrapalhar o áudio */
+    }
+  }
+
+  private async startAudioLogged(
+    options: AudioStartOptions,
+    reason: string
+  ): Promise<AudioDeviceSnapshot> {
+    this.audioLog('start-request', { reason, options });
+    try {
+      const devices = await this.vstManager.startAudio(options);
+      this.audioLog('start-ok', {
+        reason,
+        running: devices.running,
+        current: devices.current,
+        asioDriverAvailable: devices.asioDriverAvailable,
+      });
+      return devices;
+    } catch (error) {
+      this.audioLog('start-error', {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async stopAudioLogged(reason: string): Promise<void> {
+    let before: AudioDeviceSnapshot | null = null;
+    try {
+      before = await this.vstManager.getAudioDevices();
+    } catch {
+      /* o log segue com o que tiver */
+    }
+    this.audioLog('stop-request', { reason, current: before?.current ?? null });
+    try {
+      await this.vstManager.stopAudio();
+      this.audioLog('stop-ok', { reason, previous: before?.current ?? null });
+    } catch (error) {
+      this.audioLog('stop-error', {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /** Fecha e reabre o dispositivo sem reiniciar o app nem recarregar plugins. */
+  private async restartAudioLogged(): Promise<AudioSettingsSnapshot> {
+    const saved = this.readAudioSettings();
+    this.audioLog('restart-begin', { saved });
+    await this.stopAudioLogged('manual-restart');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const { enabled: _enabled, ...startOptions } = saved;
+    const devices = await this.startAudioLogged(startOptions, 'manual-restart');
+    this.writeAudioSettings({ ...saved, enabled: true });
+    this.audioLog('restart-end', { current: devices.current });
+    return { devices, settings: this.readAudioSettings() };
+  }
+
+  private async openAudioLog(): Promise<boolean> {
+    try {
+      fs.mkdirSync(path.dirname(this.audioLogPath), { recursive: true });
+      if (!fs.existsSync(this.audioLogPath)) {
+        fs.writeFileSync(this.audioLogPath, '', 'utf8');
+      }
+      return (await shell.openPath(this.audioLogPath)) === '';
+    } catch {
+      return false;
+    }
   }
 
   private soundsFolder(): string {

@@ -1426,14 +1426,8 @@ juce::String Engine::startAudio (const juce::var& options)
 {
     const int numIn  = options.hasProperty ("inputs")  ? (int) options["inputs"]  : 0;
     const int numOut = options.hasProperty ("outputs") ? (int) options["outputs"] : 2;
-
-    if (! deviceInitialised)
-    {
-        auto error = deviceManager.initialise (numIn, numOut, nullptr, true);
-        if (error.isNotEmpty())
-            return error;
-        deviceInitialised = true;
-    }
+    const bool followDevice = options.hasProperty ("followDevice")
+                              && (bool) options["followDevice"];
 
     juce::String requestedType;
     if (options.hasProperty ("type"))
@@ -1451,23 +1445,29 @@ juce::String Engine::startAudio (const juce::var& options)
             }
         }
 
-        if (requestedAvailable)
-            deviceManager.setCurrentAudioDeviceType (requestedType, true);
-        else if (requestedType.containsIgnoreCase ("JACK"))
-            return utf8 ("JACK não está disponível neste engine. Compile com PRESETER_ENABLE_JACK=ON e instale libjack.");
-        // Tipos salvos em outro sistema (ex.: Windows Audio no Linux) são ignorados;
-        // o engine segue com o dispositivo padrão.
+        if (! requestedAvailable)
+        {
+            if (requestedType.containsIgnoreCase ("JACK"))
+                return utf8 ("JACK não está disponível neste engine. Compile com PRESETER_ENABLE_JACK=ON e instale libjack.");
+            // Tipos salvos em outro sistema (ex.: Windows Audio no Linux) são ignorados;
+            // o engine segue com o dispositivo padrão.
+        }
     }
 
     const bool isJack = requestedAvailable && requestedType.containsIgnoreCase ("JACK");
-    auto setup = deviceManager.getAudioDeviceSetup();
 
-    if (options.hasProperty ("output"))     setup.outputDeviceName = options["output"].toString();
-    if (options.hasProperty ("input"))      setup.inputDeviceName  = options["input"].toString();
+    // Monta a configuração desejada antes de abrir o dispositivo. Abrir o tipo
+    // solicitado diretamente (via XML) evita a sequência antiga: dispositivo
+    // padrão -> fecha -> ASIO -> fecha -> ASIO de novo. Alguns drivers ASIO
+    // ficavam com clock/buffer inconsistentes nessa primeira abertura.
+    juce::AudioDeviceManager::AudioDeviceSetup setup;
+    if (options.hasProperty ("output")) setup.outputDeviceName = options["output"].toString();
+    if (options.hasProperty ("input"))  setup.inputDeviceName  = options["input"].toString();
     // O servidor JACK manda na taxa e no buffer; não sobrescrever.
-    if (! isJack && options.hasProperty ("sampleRate")) setup.sampleRate = (double) options["sampleRate"];
-    if (! isJack && options.hasProperty ("bufferSize")) setup.bufferSize = (int) options["bufferSize"];
-
+    if (! isJack && ! followDevice && options.hasProperty ("sampleRate"))
+        setup.sampleRate = (double) options["sampleRate"];
+    if (! isJack && ! followDevice && options.hasProperty ("bufferSize"))
+        setup.bufferSize = (int) options["bufferSize"];
     setup.useDefaultInputChannels  = false;
     setup.useDefaultOutputChannels = false;
     setup.inputChannels.clear();
@@ -1475,13 +1475,77 @@ juce::String Engine::startAudio (const juce::var& options)
     setup.inputChannels.setRange (0, numIn, true);
     setup.outputChannels.setRange (0, numOut, true);
 
-    auto error = deviceManager.setAudioDeviceSetup (setup, true);
-    if (error.isNotEmpty())
-        return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                      : error;
+    if (! deviceInitialised)
+    {
+        juce::String error;
+        if (requestedAvailable && requestedType.isNotEmpty())
+        {
+            juce::XmlElement xml ("DEVICESETUP");
+            xml.setAttribute ("deviceType", requestedType);
+            if (setup.outputDeviceName.isNotEmpty()
+                && setup.outputDeviceName == setup.inputDeviceName)
+            {
+                xml.setAttribute ("audioDeviceName", setup.outputDeviceName);
+            }
+            else
+            {
+                if (setup.outputDeviceName.isNotEmpty())
+                    xml.setAttribute ("audioOutputDeviceName", setup.outputDeviceName);
+                if (setup.inputDeviceName.isNotEmpty())
+                    xml.setAttribute ("audioInputDeviceName", setup.inputDeviceName);
+            }
+            if (setup.sampleRate > 0.0)
+                xml.setAttribute ("audioDeviceRate", setup.sampleRate);
+            if (setup.bufferSize > 0)
+                xml.setAttribute ("audioDeviceBufferSize", setup.bufferSize);
+            xml.setAttribute ("audioDeviceInChans",  setup.inputChannels.toString (2));
+            xml.setAttribute ("audioDeviceOutChans", setup.outputChannels.toString (2));
+
+            error = deviceManager.initialise (numIn, numOut, &xml, true, {}, &setup);
+        }
+        else
+        {
+            error = deviceManager.initialise (numIn, numOut, nullptr, true);
+        }
+
+        if (error.isNotEmpty())
+            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                          : error;
+        deviceInitialised = true;
+    }
+    else
+    {
+        auto* currentDevice = deviceManager.getCurrentAudioDevice();
+        const bool typeMatches = currentDevice != nullptr
+            && (requestedType.isEmpty()
+                || currentDevice->getTypeName().equalsIgnoreCase (requestedType));
+
+        if (requestedAvailable && requestedType.isNotEmpty() && ! typeMatches)
+            deviceManager.setCurrentAudioDeviceType (requestedType, true);
+
+        currentDevice = deviceManager.getCurrentAudioDevice();
+        const auto current = deviceManager.getAudioDeviceSetup();
+        const bool sameSetup =
+            currentDevice != nullptr
+            && (setup.outputDeviceName.isEmpty() || current.outputDeviceName == setup.outputDeviceName)
+            && (setup.inputDeviceName.isEmpty()  || current.inputDeviceName  == setup.inputDeviceName)
+            && (setup.sampleRate <= 0.0 || std::abs (current.sampleRate - setup.sampleRate) < 0.5)
+            && (setup.bufferSize <= 0  || current.bufferSize == setup.bufferSize)
+            && current.inputChannels  == setup.inputChannels
+            && current.outputChannels == setup.outputChannels;
+
+        if (! sameSetup)
+        {
+            auto error = deviceManager.setAudioDeviceSetup (setup, true);
+            if (error.isNotEmpty())
+                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                              : error;
+        }
+    }
 
     // O JUCE pode devolver "sem erro" mesmo sem nenhum dispositivo aberto.
     if (deviceManager.getCurrentAudioDevice() == nullptr)
+
         return isJack
             ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
             : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");

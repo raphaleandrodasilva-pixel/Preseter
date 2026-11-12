@@ -48,8 +48,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   const [audioOutput, setAudioOutput] = useState('');
   const [sampleRate, setSampleRate] = useState(48000);
   const [bufferSize, setBufferSize] = useState(512);
+  const [followDevice, setFollowDevice] = useState(false);
   const [audioOutputPairs, setAudioOutputPairs] = useState(1);
   const [audioBusy, setAudioBusy] = useState(false);
+  const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [performanceStatus, setPerformanceStatus] = useState<AudioPerformanceStatus | null>(null);
   const platform = window.electronAPI.platform;
   const isWindows = platform === 'win32';
@@ -90,6 +92,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     setAudioOutput('');
     setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
     setBufferSize(audioSettings?.bufferSize ?? audioDevices.current?.bufferSize ?? 512);
+    setFollowDevice(audioSettings?.followDevice === true);
     const channels = audioSettings?.outputs ?? audioDevices.current?.outputChannels ?? 2;
     setAudioOutputPairs(Math.max(1, Math.min(4, Math.ceil(channels / 2))));
   }, [audioDevices, audioSettings]);
@@ -394,17 +397,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   </label>
                   <label className="block text-xs" style={{ color: '#9A9AA0' }}>
                     Taxa de amostragem
-                    <select value={sampleRate} onChange={(event) => setSampleRate(Number(event.target.value))} className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100">
+                    <select
+                      value={sampleRate}
+                      disabled={followDevice || jackSelected}
+                      onChange={(event) => setSampleRate(Number(event.target.value))}
+                      className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100 disabled:opacity-50"
+                    >
                       {[44100, 48000, 88200, 96000, 176400, 192000].map((rate) => <option key={rate} value={rate}>{rate} Hz</option>)}
                     </select>
                   </label>
                   <label className="block text-xs" style={{ color: '#9A9AA0' }}>
                     Tamanho do buffer
-                    <select value={bufferSize} onChange={(event) => setBufferSize(Number(event.target.value))} className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100">
+                    <select
+                      value={bufferSize}
+                      disabled={followDevice || jackSelected}
+                      onChange={(event) => setBufferSize(Number(event.target.value))}
+                      className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100 disabled:opacity-50"
+                    >
                       {[64, 128, 256, 480, 512, 1024, 2048].map((size) => <option key={size} value={size}>{size} samples</option>)}
                     </select>
                   </label>
                 </div>
+                <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={followDevice}
+                    disabled={jackSelected}
+                    onChange={(event) => setFollowDevice(event.target.checked)}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">Seguir o dispositivo</span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Não força taxa nem buffer; usa o que o driver abriu. Recomendado para
+                      ASIO quando a interface trabalha em 48 kHz e o app estava em 44.1 kHz.
+                    </span>
+                  </span>
+                </label>
                 <label className="block text-xs" style={{ color: '#9A9AA0' }}>
                   Saídas estéreo
                   <select
@@ -422,7 +452,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 <p className="text-[10px]" style={{ color: '#8E8E93' }}>
                   Cada par = 2 canais. No Edit, outputs extras só aparecem quando usados ou configurados.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={async () => {
                       setAudioBusy(true);
@@ -432,8 +462,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                         output: audioOutput || undefined,
                         inputs: audioInput ? 2 : 0,
                         outputs: audioOutputPairs * 2,
-                        sampleRate,
-                        bufferSize,
+                        ...(followDevice ? { followDevice: true } : { sampleRate, bufferSize }),
                       });
                       if (!started) {
                         const channels = audioSettings?.outputs ?? audioDevices?.current?.outputChannels ?? 2;
@@ -459,7 +488,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   >
                     Parar
                   </button>
+                  <button
+                    onClick={async () => {
+                      setAudioBusy(true);
+                      setAudioNotice(null);
+                      try {
+                        const result = await window.electronAPI.audioRestart();
+                        await refreshAudioSettings();
+                        setAudioNotice(
+                          result.devices.current
+                            ? `Áudio reiniciado: ${result.devices.current.type} · ${result.devices.current.sampleRate} Hz · buffer ${result.devices.current.bufferSize}.`
+                            : 'Áudio reiniciado, mas nenhum dispositivo abriu.'
+                        );
+                      } catch (error) {
+                        setAudioNotice(
+                          error instanceof Error ? error.message : 'Não foi possível reiniciar o áudio.'
+                        );
+                      } finally {
+                        setAudioBusy(false);
+                      }
+                    }}
+                    disabled={audioBusy}
+                    className="hw-squarebtn px-3 py-2 text-xs disabled:opacity-50"
+                    style={{ color: '#EDEDEF' }}
+                    title="Fecha e reabre o dispositivo sem fechar o app"
+                  >
+                    Reiniciar áudio
+                  </button>
                 </div>
+                <button
+                  onClick={() => void window.electronAPI.audioOpenLog()}
+                  className="hw-squarebtn px-3 py-1.5 text-[10px]"
+                  style={{ color: '#9A9AA0' }}
+                  title="Abre userData/audio-session.log com o que foi pedido e o que o driver aplicou"
+                >
+                  Abrir log de áudio
+                </button>
+                {audioNotice && (
+                  <p className="text-[10px]" style={{ color: '#C6C6CB' }}>{audioNotice}</p>
+                )}
                 <p className="text-[10px]" style={{ color: '#8E8E93' }}>
                   As preferências são salvas e reaplicadas quando o Preseter abre.
                 </p>

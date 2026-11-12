@@ -699,6 +699,8 @@ export interface AudioStartOptions {
   sampleRate?: number;
   bufferSize?: number;
   midi?: boolean;
+  /** Usa a taxa e o buffer atuais do dispositivo, sem forçar valores. */
+  followDevice?: boolean;
 }
 
 export interface AudioDeviceSnapshot {
