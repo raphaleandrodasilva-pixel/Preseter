@@ -11,6 +11,28 @@
     { "action": "glob", "resource": "*pdf*", "effect": "deny" },
     { "action": "glob", "resource": "*.pdf", "effect": "deny" }
   ],
+  // Cap how much of each tool result is kept (lines and bytes).
+  "tool_output": {
+    "max_lines": 600,
+    "max_bytes": 16384
+  },
+  // Summarize older conversation sooner and keep a smaller recent tail.
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 8000
+    },
+    "buffer": "25%"
+  },
+  // Downscale large images before they are sent to the model.
+  "media": {
+    "image": {
+      "auto_resize": true,
+      "max_width": 1280,
+      "max_height": 1280,
+      "max_base64_bytes": 2097152
+    }
+  },
   "watcher": {
     "ignore": ["docs/**", "pdf/**"]
   }
