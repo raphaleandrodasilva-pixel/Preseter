@@ -1,6 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { CollectionItemStatus } from '@shared/collection';
+import { COLLECTION_SETS, type CollectionLayerSpec } from '@shared/collection-presets';
 import { useAppContext } from '../../context/AppContext';
+
+const instrumentLabels: Record<CollectionLayerSpec['inst'], string> = {
+  SFORZANDO: 'Sforzando',
+  FSVR: 'FSVR',
+  SURGE: 'Surge XT',
+  DEXED: 'Dexed',
+  ODIN: 'Odin 2',
+  HELM: 'Helm',
+  MDA: 'MDA',
+  MDA_EP: 'MDA ePiano',
+  MDA_JX: 'MDA JX10',
+  ORG: 'setBfree',
+  SFIZZ: 'sfizz',
+};
 
 const groupLabels: Record<string, string> = {
   plugin: 'Plugins (VST3)',
@@ -200,6 +215,55 @@ export const CollectionSettings: React.FC = () => {
           sfizz (BSD-2), MuseScore_General (MIT), Sonatina (CC Sampling Plus 1.0) e Salamander
           (CC BY 3.0 — atribuição a Alexander Holm). Os arquivos são baixados dos sites oficiais
           e não são redistribuídos pelo Preseter.
+        </div>
+      </section>
+
+      <section className="hw-inset space-y-2 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="hw-label">Os 40 timbres</h4>
+          <span className="text-[10px]" style={{ color: '#8E8E93' }}>
+            {COLLECTION_SETS.reduce((total, [, patches]) => total + patches.length, 0)} patches ·{' '}
+            {COLLECTION_SETS.length} sets
+          </span>
+        </div>
+        <p className="text-[10px] leading-relaxed" style={{ color: '#9A9AA0' }}>
+          Prévia da biblioteca que será gravada no concert. Os nomes e as categorias
+          seguem o Preseter_Biblioteca_40_Patches.md; os instrumentos usam os plugins
+          disponíveis, com fallback para Sforzando, Surge XT e Dexed.
+        </p>
+        <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+          {COLLECTION_SETS.map(([setName, patches], setIndex) => {
+            const offset = COLLECTION_SETS
+              .slice(0, setIndex)
+              .reduce((total, [, previous]) => total + previous.length, 0);
+            return (
+            <div key={setName}>
+              <div className="mb-1 flex items-center justify-between text-[10px] font-semibold" style={{ color: '#C6C6CB' }}>
+                <span>{setName}</span>
+                <span style={{ color: '#6E6E73' }}>{patches.length}</span>
+              </div>
+              <ol className="space-y-1">
+                {patches.map(([name, layers], index) => (
+                  <li
+                    key={name}
+                    className="flex items-start gap-2 rounded px-2 py-1 text-[10px]"
+                    style={{ background: 'rgba(255,255,255,0.03)' }}
+                  >
+                    <span className="w-5 shrink-0 tabular-nums" style={{ color: '#6E6E73' }}>
+                      {String(offset + index + 1).padStart(2, '0')}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px]" style={{ color: '#EDEDEF' }}>{name}</span>
+                      <span className="block truncate" style={{ color: '#8E8E93' }}>
+                        {layers.map((layer) => `${instrumentLabels[layer.inst]}${layer.label ? ` · ${layer.label}` : ''}`).join(' + ')}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            );
+          })}
         </div>
       </section>
 

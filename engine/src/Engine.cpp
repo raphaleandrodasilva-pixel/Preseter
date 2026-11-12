@@ -1475,10 +1475,37 @@ juce::String Engine::startAudio (const juce::var& options)
     setup.inputChannels.setRange (0, numIn, true);
     setup.outputChannels.setRange (0, numOut, true);
 
+    // Sem dispositivo explícito, usa o primeiro do backend escolhido. Isso
+    // permite abrir o ASIO direto pelo XML (uma única abertura) em vez de abrir
+    // o dispositivo padrão e trocar de backend depois.
+    if (requestedAvailable && requestedType.isNotEmpty() && setup.outputDeviceName.isEmpty())
+    {
+        for (auto* type : deviceManager.getAvailableDeviceTypes())
+        {
+            if (! type->getTypeName().equalsIgnoreCase (requestedType))
+                continue;
+
+            type->scanForDevices();
+            const auto outputs = type->getDeviceNames (false);
+            if (! outputs.isEmpty())
+                setup.outputDeviceName = outputs[0];
+
+            if (numIn > 0 && setup.inputDeviceName.isEmpty())
+            {
+                const auto inputs = type->getDeviceNames (true);
+                if (! inputs.isEmpty())
+                    setup.inputDeviceName = inputs[0];
+            }
+            break;
+        }
+    }
+
     if (! deviceInitialised)
     {
         juce::String error;
-        if (requestedAvailable && requestedType.isNotEmpty())
+        bool opened = false;
+        if (requestedAvailable && requestedType.isNotEmpty()
+            && setup.outputDeviceName.isNotEmpty())
         {
             juce::XmlElement xml ("DEVICESETUP");
             xml.setAttribute ("deviceType", requestedType);
@@ -1502,15 +1529,34 @@ juce::String Engine::startAudio (const juce::var& options)
             xml.setAttribute ("audioDeviceOutChans", setup.outputChannels.toString (2));
 
             error = deviceManager.initialise (numIn, numOut, &xml, true, {}, &setup);
-        }
-        else
-        {
-            error = deviceManager.initialise (numIn, numOut, nullptr, true);
+            auto* openedDevice = deviceManager.getCurrentAudioDevice();
+            opened = error.isEmpty() && openedDevice != nullptr
+                && openedDevice->getTypeName().equalsIgnoreCase (requestedType);
         }
 
-        if (error.isNotEmpty())
-            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                          : error;
+        if (! opened)
+        {
+            // Plano B: caminho clássico do JUCE. Alguns drivers ASIO recusam a
+            // abertura por XML quando o nome do dispositivo vem vazio.
+            error = deviceManager.initialise (numIn, numOut, nullptr, true);
+            if (error.isNotEmpty())
+                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                              : error;
+
+            if (requestedAvailable && requestedType.isNotEmpty())
+                deviceManager.setCurrentAudioDeviceType (requestedType, true);
+
+            if (deviceManager.getCurrentAudioDevice() == nullptr)
+                return isJack
+                    ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
+                    : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
+
+            error = deviceManager.setAudioDeviceSetup (setup, true);
+            if (error.isNotEmpty())
+                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                              : error;
+        }
+
         deviceInitialised = true;
     }
     else
