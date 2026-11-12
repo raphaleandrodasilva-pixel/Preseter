@@ -1,0 +1,1018 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-12T01:06:36.041Z",
+  "source": "https://github.com/raphaleandrodasilva-pixel/Preseter",
+  "items": [
+    {
+      "id": "surge-xt",
+      "type": "plugin",
+      "name": "Surge XT 1.3.4",
+      "category": "Sintetizadores",
+      "author": "Surge Synth Team",
+      "description": "Sintetizador para pads, leads, órgão suave e cordas sintéticas.",
+      "version": "1.3.4",
+      "tier": "verified",
+      "source": "github",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/surge-synthesizer/surge/blob/main/LICENSE.md",
+      "page": "https://surge-synthesizer.github.io/",
+      "tags": [
+        "híbrido",
+        "pads",
+        "leads",
+        "subtractive"
+      ],
+      "essential": true,
+      "defaultSelected": true,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Presets de fábrica já vêm no pacote.",
+      "format": "VST3",
+      "approxBytes": 80000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-pluginsonly.zip",
+          "fileName": "surge-xt-win64-1.3.4-pluginsonly.zip",
+          "page": "https://surge-synthesizer.github.io/",
+          "approxBytes": 80000000,
+          "vst3Patterns": [
+            "Surge XT.vst3",
+            "Surge.vst3"
+          ],
+          "notes": "Presets de fábrica já vêm no pacote.",
+          "resolve": "github-latest",
+          "assetPattern": "surge-xt-win*-pluginsonly.zip",
+          "repository": "surge-synthesizer/releases-xt"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "installer",
+          "url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-x64-1.3.4.deb",
+          "fileName": "surge-xt-linux-x64-1.3.4.deb",
+          "page": "https://surge-synthesizer.github.io/",
+          "approxBytes": 223300000,
+          "vst3Patterns": [
+            "Surge XT.vst3",
+            "Surge.vst3"
+          ],
+          "notes": "Instalador .deb oficial. Traz o VST3 e os presets de fábrica em /usr/share/surge-xt.",
+          "resolve": "github-latest",
+          "assetPattern": "surge-xt-linux-x*.deb",
+          "repository": "surge-synthesizer/releases-xt"
+        }
+      ]
+    },
+    {
+      "id": "dexed",
+      "type": "plugin",
+      "name": "Dexed 1.1.0",
+      "category": "Sintetizadores",
+      "author": "asb2m10",
+      "description": "Sintetizador FM estilo DX7 para pianos elétricos, sinos e baixos.",
+      "version": "1.1.0",
+      "tier": "verified",
+      "source": "github",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/asb2m10/dexed/blob/master/LICENSE",
+      "page": "https://asb2m10.github.io/dexed/",
+      "tags": [
+        "FM",
+        "DX7",
+        "pianos elétricos",
+        "sinos"
+      ],
+      "essential": true,
+      "defaultSelected": true,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Presets de fábrica em .syx podem ser carregados no editor do plugin.",
+      "format": "VST3",
+      "approxBytes": 15000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-win.zip",
+          "fileName": "Dexed-1.1.0-win.zip",
+          "page": "https://asb2m10.github.io/dexed/",
+          "approxBytes": 15000000,
+          "vst3Patterns": [
+            "Dexed.vst3"
+          ],
+          "notes": "Presets de fábrica em .syx podem ser carregados no editor do plugin.",
+          "resolve": "github-latest",
+          "assetPattern": "Dexed-*-win.zip",
+          "repository": "asb2m10/dexed"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-lnx.zip",
+          "fileName": "Dexed-1.1.0-lnx.zip",
+          "page": "https://asb2m10.github.io/dexed/",
+          "approxBytes": 12206213,
+          "vst3Patterns": [
+            "Dexed.vst3"
+          ],
+          "notes": "ZIP oficial com VST3, CLAP e standalone para Linux.",
+          "resolve": "github-latest",
+          "assetPattern": "Dexed-*-lnx.zip",
+          "repository": "asb2m10/dexed"
+        }
+      ]
+    },
+    {
+      "id": "sfizz",
+      "type": "plugin",
+      "name": "sfizz 1.2.3",
+      "category": "Samples",
+      "author": "SFZTools",
+      "description": "Player SFZ opcional, usado com o Salamander Grand Piano.",
+      "version": "1.2.3",
+      "tier": "indexed",
+      "source": "official",
+      "license": "BSD-2-Clause",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/sfztools/sfizz/blob/develop/LICENSE.md",
+      "page": "https://sfz.tools/sfizz/downloads",
+      "tags": [
+        "SFZ",
+        "sampler",
+        "orquestra"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O release win64 oficial é um build de desenvolvimento; baixe o VST3 pela página do projeto.",
+      "format": "VST3",
+      "approxBytes": 8000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://sfz.tools/sfizz/downloads",
+          "approxBytes": 8000000,
+          "vst3Patterns": [
+            "sfizz.vst3"
+          ],
+          "notes": "Baixe o VST3 pela página oficial do sfizz."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://software.opensuse.org/download.html?project=home%3Asfztools%3Asfizz&package=sfizz",
+          "approxBytes": 8000000,
+          "vst3Patterns": [
+            "sfizz.vst3",
+            "sfizz.lv2"
+          ],
+          "notes": "No Linux, instale pelos pacotes oficiais do repositório SFZTools/openSUSE."
+        }
+      ]
+    },
+    {
+      "id": "helm",
+      "type": "plugin",
+      "name": "Helm 0.9.0",
+      "category": "Sintetizadores",
+      "author": "Matt Tytel",
+      "description": "Sintetizador semi-modular para pads de cordas.",
+      "version": "0.9.0",
+      "tier": "verified",
+      "source": "official",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/mtytel/helm/blob/master/COPYING",
+      "page": "https://tytel.org/helm/",
+      "tags": [
+        "semi-modular",
+        "pads",
+        "cordas"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O app extrai o MSI sem pedir administrador e copia o VST3.",
+      "format": "VST3",
+      "approxBytes": 18000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-msi",
+          "url": "https://tytel.org/static/dist/Helm_64bit_v0_9_0_r.msi",
+          "fileName": "Helm_64bit_v0_9_0_r.msi",
+          "page": "https://tytel.org/helm/",
+          "approxBytes": 18000000,
+          "vst3Patterns": [
+            "Helm.vst3"
+          ],
+          "notes": "O app extrai o MSI sem pedir administrador e copia o VST3.",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "LV2",
+          "kind": "installer",
+          "url": "https://tytel.org/static/dist/helm_0.9.0_amd64_r.deb",
+          "fileName": "helm_0.9.0_amd64_r.deb",
+          "page": "https://tytel.org/helm/",
+          "approxBytes": 8325000,
+          "vst3Patterns": [
+            "helm.lv2",
+            "Helm.lv2",
+            "helm.vst3"
+          ],
+          "notes": "Instalador .deb com LV2/VST2/standalone. O Preseter carrega o LV2 em /usr/lib/lv2.",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "odin2",
+      "type": "plugin",
+      "name": "Odin 2.4.1",
+      "category": "Sintetizadores",
+      "author": "TheWaveWarden",
+      "description": "Sintetizador para pads e leads (instalador separado).",
+      "version": "2.4.1",
+      "tier": "verified",
+      "source": "github",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/TheWaveWarden/odin2/blob/master/LICENSE",
+      "page": "https://github.com/TheWaveWarden/odin2",
+      "tags": [
+        "analógico virtual",
+        "pads",
+        "leads"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "O app baixa e abre o instalador; siga as telas (pode pedir administrador).",
+      "format": "VST3",
+      "approxBytes": 30000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "installer",
+          "url": "https://github.com/TheWaveWarden/odin2/releases/download/NightlyDevel/Odin2.4.1WinInstaller.exe",
+          "fileName": "Odin2.4.1WinInstaller.exe",
+          "page": "https://github.com/TheWaveWarden/odin2",
+          "approxBytes": 30000000,
+          "vst3Patterns": [
+            "Odin2.vst3",
+            "Odin 2.vst3"
+          ],
+          "notes": "O app baixa e abre o instalador; siga as telas (pode pedir administrador).",
+          "resolve": "github-latest",
+          "assetPattern": "Odin*WinInstaller.exe",
+          "repository": "TheWaveWarden/odin2"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/TheWaveWarden/odin2/releases/download/NightlyDevel/Odin2.4.1Linux.zip",
+          "fileName": "Odin2.4.1Linux.zip",
+          "page": "https://github.com/TheWaveWarden/odin2",
+          "approxBytes": 66588004,
+          "vst3Patterns": [
+            "Odin2.vst3",
+            "Odin 2.vst3"
+          ],
+          "notes": "ZIP oficial com VST3 para Linux.",
+          "resolve": "github-latest",
+          "assetPattern": "Odin*Linux.zip",
+          "repository": "TheWaveWarden/odin2"
+        }
+      ]
+    },
+    {
+      "id": "musescore-general",
+      "type": "library",
+      "name": "MuseScore_General.sf2",
+      "category": "Gerais (GM)",
+      "author": "MuseScore",
+      "description": "SoundFont GM (MIT) com piano, órgão de igreja, cordas, metais, coral e baixo.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "MIT",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General_License.md",
+      "page": "https://musescore.org/",
+      "tags": [
+        "GM",
+        "SoundFont",
+        "piano",
+        "órgão",
+        "coral"
+      ],
+      "essential": true,
+      "defaultSelected": true,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Carregue este arquivo dentro do Sforzando (tecla V).",
+      "format": "SF2",
+      "approxBytes": 216000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",
+          "fileName": "MuseScore_General.sf2",
+          "page": "https://musescore.org/",
+          "approxBytes": 216000000,
+          "destSubfolder": "MuseScore_General",
+          "soundfontPatterns": [
+            "MuseScore_General.sf2"
+          ],
+          "notes": "Carregue este arquivo dentro do Sforzando (tecla V).",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",
+          "fileName": "MuseScore_General.sf2",
+          "page": "https://musescore.org/",
+          "approxBytes": 216000000,
+          "destSubfolder": "MuseScore_General",
+          "soundfontPatterns": [
+            "MuseScore_General.sf2"
+          ],
+          "notes": "Carregue este arquivo dentro do Sforzando (tecla V).",
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2",
+          "fileName": "MuseScore_General.sf2",
+          "page": "https://musescore.org/",
+          "approxBytes": 216000000,
+          "destSubfolder": "MuseScore_General",
+          "soundfontPatterns": [
+            "MuseScore_General.sf2"
+          ],
+          "notes": "Carregue este arquivo dentro do Sforzando (tecla V).",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "sonatina",
+      "type": "library",
+      "name": "Sonatina Symphonic Orchestra (SF2)",
+      "category": "Orquestra",
+      "author": "Sonatina Symphonic Orchestra",
+      "description": "Cordas, metais, flauta e coral para o Sforzando.",
+      "version": "1.0",
+      "tier": "verified",
+      "source": "official",
+      "license": "CC Sampling Plus 1.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "http://www.sonatina.org/",
+      "page": "http://www.sonatina.org/",
+      "tags": [
+        "orquestra",
+        "cordas",
+        "metais",
+        "flauta",
+        "coral"
+      ],
+      "essential": true,
+      "defaultSelected": true,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Depois de extrair, carregue o .sf2 no Sforzando.",
+      "format": "SF2",
+      "approxBytes": 520000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont-zip",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip",
+          "fileName": "Sonatina_Symphonic_Orchestra_SF2.zip",
+          "page": "http://www.sonatina.org/",
+          "approxBytes": 520000000,
+          "destSubfolder": "Sonatina",
+          "soundfontPatterns": [
+            "*.sf2"
+          ],
+          "notes": "Depois de extrair, carregue o .sf2 no Sforzando.",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont-zip",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip",
+          "fileName": "Sonatina_Symphonic_Orchestra_SF2.zip",
+          "page": "http://www.sonatina.org/",
+          "approxBytes": 520000000,
+          "destSubfolder": "Sonatina",
+          "soundfontPatterns": [
+            "*.sf2"
+          ],
+          "notes": "Depois de extrair, carregue o .sf2 no Sforzando.",
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SF2",
+          "kind": "soundfont-zip",
+          "url": "https://ftp.osuosl.org/pub/musescore/soundfont/Sonatina_Symphonic_Orchestra_SF2.zip",
+          "fileName": "Sonatina_Symphonic_Orchestra_SF2.zip",
+          "page": "http://www.sonatina.org/",
+          "approxBytes": 520000000,
+          "destSubfolder": "Sonatina",
+          "soundfontPatterns": [
+            "*.sf2"
+          ],
+          "notes": "Depois de extrair, carregue o .sf2 no Sforzando.",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "salamander",
+      "type": "library",
+      "name": "Salamander Grand Piano V3 (SFZ)",
+      "category": "Pianos",
+      "author": "Alexander Holm",
+      "description": "Piano de cauda em SFZ, alternativa de alta qualidade (muito grande).",
+      "version": "V3",
+      "tier": "verified",
+      "source": "github",
+      "license": "CC BY 3.0",
+      "licenseKind": "free",
+      "licenseUrl": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+      "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+      "tags": [
+        "piano de cauda",
+        "SFZ",
+        "acústico"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Opcional e grande. Funciona no Sforzando ou no sfizz.",
+      "format": "SFZ",
+      "approxBytes": 750000000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "soundfont-zip",
+          "url": "https://github.com/sfzinstruments/SalamanderGrandPiano/archive/refs/heads/master.zip",
+          "fileName": "SalamanderGrandPiano-master.zip",
+          "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+          "approxBytes": 750000000,
+          "destSubfolder": "Salamander",
+          "soundfontPatterns": [
+            "*.sfz"
+          ],
+          "notes": "Opcional e grande. Funciona no Sforzando ou no sfizz.",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "soundfont-zip",
+          "url": "https://github.com/sfzinstruments/SalamanderGrandPiano/archive/refs/heads/master.zip",
+          "fileName": "SalamanderGrandPiano-master.zip",
+          "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+          "approxBytes": 750000000,
+          "destSubfolder": "Salamander",
+          "soundfontPatterns": [
+            "*.sfz"
+          ],
+          "notes": "Opcional e grande. Funciona no Sforzando ou no sfizz.",
+          "resolve": "head"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "SFZ",
+          "kind": "soundfont-zip",
+          "url": "https://github.com/sfzinstruments/SalamanderGrandPiano/archive/refs/heads/master.zip",
+          "fileName": "SalamanderGrandPiano-master.zip",
+          "page": "https://github.com/sfzinstruments/SalamanderGrandPiano",
+          "approxBytes": 750000000,
+          "destSubfolder": "Salamander",
+          "soundfontPatterns": [
+            "*.sfz"
+          ],
+          "notes": "Opcional e grande. Funciona no Sforzando ou no sfizz.",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "mda",
+      "type": "plugin",
+      "name": "MDA (ePiano, JX10)",
+      "category": "Teclas elétricas",
+      "author": "MDA / elk-audio",
+      "description": "Plugins clássicos da MDA.",
+      "version": "atual",
+      "tier": "indexed",
+      "source": "github",
+      "license": "GPL / MIT",
+      "licenseKind": "open-source",
+      "page": "https://github.com/elk-audio/mda-vst3",
+      "tags": [
+        "ePiano",
+        "JX10",
+        "clássicos"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Instale manualmente ou use Dexed/Surge como alternativa nos patches.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://github.com/elk-audio/mda-vst3",
+          "approxBytes": 0,
+          "vst3Patterns": [
+            "mda*.vst3"
+          ],
+          "notes": "Instale manualmente ou use Dexed/Surge como alternativa."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://github.com/elk-audio/mda-vst3",
+          "approxBytes": 0,
+          "vst3Patterns": [
+            "mda*.vst3",
+            "mda*.lv2"
+          ],
+          "notes": "No Linux, instale o pacote mda-lv2 da sua distro ou compile o mda-vst3."
+        }
+      ]
+    },
+    {
+      "id": "setbfree",
+      "type": "plugin",
+      "name": "setBfree (órgão, LV2)",
+      "category": "Órgãos",
+      "author": "setBfree",
+      "description": "Órgão tonewheel em LV2, nativo no Linux.",
+      "version": "atual",
+      "tier": "indexed",
+      "source": "official",
+      "license": "GPL-2.0",
+      "licenseKind": "open-source",
+      "page": "https://setbfree.org/",
+      "tags": [
+        "tonewheel",
+        "órgão",
+        "LV2",
+        "Linux"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Alternativa: use o patch Órgão de Igreja do Sforzando.",
+      "format": "LV2",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "LV2",
+          "kind": "manual",
+          "page": "https://setbfree.org/",
+          "approxBytes": 0,
+          "vst3Patterns": [
+            "setBfree*.lv2",
+            "b_synth.lv2"
+          ],
+          "notes": "Instale pelo gerenciador de pacotes da distro (setbfree) ou compile do site oficial."
+        }
+      ]
+    },
+    {
+      "id": "tetraop",
+      "type": "plugin",
+      "name": "TetraOP 1.0.3",
+      "category": "Sintetizadores",
+      "author": "Tiago Lr",
+      "description": "Sintetizador FM/wavetable (GPL-3.0) para baixos, sinos, leads e pads digitais.",
+      "version": "1.0.3",
+      "tier": "verified",
+      "source": "github",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/tiagolr/tetraop/blob/master/LICENSE",
+      "page": "https://github.com/tiagolr/tetraop",
+      "tags": [
+        "FM",
+        "wavetable",
+        "baixos",
+        "sinos"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Presets e wavetables vão para %APPDATA%\\TetraOP.",
+      "format": "VST3",
+      "approxBytes": 7143966,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-win-v1.0.3.zip",
+          "fileName": "tetraop-win-v1.0.3.zip",
+          "page": "https://github.com/tiagolr/tetraop",
+          "approxBytes": 7143966,
+          "vst3Patterns": [
+            "TetraOP.vst3"
+          ],
+          "dataFolders": [
+            {
+              "from": "tetraop-win/presets",
+              "to": "%APPDATA%/TetraOP/presets"
+            },
+            {
+              "from": "tetraop-win/wavetables",
+              "to": "%APPDATA%/TetraOP/wavetables"
+            }
+          ],
+          "notes": "Presets e wavetables vão para %APPDATA%\\TetraOP.",
+          "resolve": "github-latest",
+          "assetPattern": "tetraop-win-v*.zip",
+          "repository": "tiagolr/tetraop"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/tiagolr/tetraop/releases/download/v1.0.3/tetraop-linux-v1.0.3.zip",
+          "fileName": "tetraop-linux-v1.0.3.zip",
+          "page": "https://github.com/tiagolr/tetraop",
+          "approxBytes": 9680499,
+          "vst3Patterns": [
+            "TetraOP.vst3",
+            "TetraOP.lv2"
+          ],
+          "dataFolders": [
+            {
+              "from": "tetraop-linux/presets",
+              "to": "~/.config/TetraOP/presets"
+            },
+            {
+              "from": "tetraop-linux/wavetables",
+              "to": "~/.config/TetraOP/wavetables"
+            }
+          ],
+          "notes": "VST3 e LV2. Presets/wavetables vão para ~/.config/TetraOP.",
+          "resolve": "github-latest",
+          "assetPattern": "tetraop-linux-v*.zip",
+          "repository": "tiagolr/tetraop"
+        }
+      ]
+    },
+    {
+      "id": "charlatan3",
+      "type": "plugin",
+      "name": "Charlatan 3.3.2",
+      "category": "Sintetizadores",
+      "author": "BlauKraut Engineering",
+      "description": "Sintetizador virtual-analog freeware para pads, leads, órgão e baixo.",
+      "version": "3.3.2",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware",
+      "licenseKind": "freeware",
+      "licenseUrl": "https://www.blaukraut.info/",
+      "page": "https://www.blaukraut.info/",
+      "tags": [
+        "analógico virtual",
+        "freeware",
+        "pads",
+        "leads"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Freeware (não é open source). O ZIP traz um VST3 de arquivo único e os presets.",
+      "format": "VST3",
+      "approxBytes": 1997790,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://www.blaukraut.info/downloads/charlatan3_3.3.2_win.zip",
+          "fileName": "charlatan3_3.3.2_win.zip",
+          "page": "https://www.blaukraut.info/",
+          "approxBytes": 1997790,
+          "vst3Patterns": [
+            "Charlatan3.vst3"
+          ],
+          "dataFolders": [
+            {
+              "from": "presets",
+              "to": "%APPDATA%/charlatan/presets"
+            }
+          ],
+          "notes": "Freeware (não é open source). O ZIP traz um VST3 de arquivo único e os presets.",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://www.blaukraut.info/downloads/charlatan3_3.3.2_linux.zip",
+          "fileName": "charlatan3_3.3.2_linux.zip",
+          "page": "https://www.blaukraut.info/",
+          "approxBytes": 1337542,
+          "vst3Patterns": [
+            "Charlatan3.vst3"
+          ],
+          "dataFolders": [
+            {
+              "from": "presets",
+              "to": "~/.local/share/charlatan/presets"
+            }
+          ],
+          "vst3Bundle": {
+            "source": "Charlatan3.so",
+            "name": "Charlatan3.vst3"
+          },
+          "notes": "O ZIP traz Charlatan3.so e presets. O Preseter monta o bundle VST3 e copia os presets para ~/.local/share/charlatan.",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "sforzando",
+      "type": "plugin",
+      "name": "Sforzando (Plogue)",
+      "category": "Utilidades",
+      "author": "Plogue",
+      "description": "Player SFZ 2.0 e conversor de SF2/DLS/WAV para SFZ.",
+      "version": "1.982",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware",
+      "licenseKind": "freeware",
+      "licenseUrl": "https://www.plogue.com/products/sforzando.html",
+      "page": "https://www.plogue.com/products/sforzando.html",
+      "tags": [
+        "SFZ",
+        "SF2",
+        "sampler",
+        "player"
+      ],
+      "essential": true,
+      "defaultSelected": true,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Baixe no site oficial da Plogue. O Preseter detecta o VST3 depois de instalar.",
+      "format": "VST3",
+      "approxBytes": 20001624,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "installer",
+          "url": "https://s3.amazonaws.com/sforzando/WIN_sforzando_v1.982.exe",
+          "fileName": "WIN_sforzando_v1.982.exe",
+          "page": "https://www.plogue.com/products/sforzando.html",
+          "approxBytes": 20001624,
+          "vst3Patterns": [
+            "sforzando.vst3",
+            "Sforzando.vst3"
+          ],
+          "notes": "Baixe no site oficial da Plogue. O Preseter detecta o VST3 depois de instalar.",
+          "resolve": "head"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "installer",
+          "url": "https://sforzando.s3.us-east-1.amazonaws.com/LINUX_plogue-sforzando_1.982_x86_64.zip",
+          "fileName": "LINUX_plogue-sforzando_1.982_x86_64.zip",
+          "page": "https://www.plogue.com/products/sforzando.html",
+          "approxBytes": 9489176,
+          "vst3Patterns": [
+            "sforzando.vst3",
+            "Sforzando.vst3",
+            "plogue-sforzando.vst3"
+          ],
+          "notes": "Beta Linux oficial. O ZIP contém instaladores .deb e um install_sforzando.sh.",
+          "resolve": "head"
+        }
+      ]
+    },
+    {
+      "id": "fsvr",
+      "type": "plugin",
+      "name": "FSVR 0.8.4",
+      "category": "Sintetizadores",
+      "author": "musica.studio",
+      "description": "Reconstrução do Yamaha FS1R: sintetizador FM/formant com 4 parts e 32 canais.",
+      "version": "0.8.4",
+      "tier": "verified",
+      "source": "github",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://github.com/musicastudio/FSVR/blob/main/LICENSE",
+      "page": "https://github.com/musicastudio/FSVR",
+      "tags": [
+        "FM",
+        "formant",
+        "FS1R",
+        "vocal"
+      ],
+      "essential": true,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Releases: https://github.com/musicastudio/FSVR/releases",
+      "format": "VST3",
+      "approxBytes": 31857835,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/musicastudio/FSVR/releases/download/v0.8.4/FSVR-Windows-VST3.zip",
+          "fileName": "FSVR-Windows-VST3.zip",
+          "page": "https://github.com/musicastudio/FSVR",
+          "approxBytes": 31857835,
+          "vst3Patterns": [
+            "FSVR.vst3"
+          ],
+          "notes": "Releases: https://github.com/musicastudio/FSVR/releases",
+          "resolve": "github-latest",
+          "assetPattern": "FSVR-Windows-VST*.zip",
+          "repository": "musicastudio/FSVR"
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "vst3-zip",
+          "url": "https://github.com/musicastudio/FSVR/releases/download/v0.8.4/FSVR-Linux-VST3.zip",
+          "fileName": "FSVR-Linux-VST3.zip",
+          "page": "https://github.com/musicastudio/FSVR",
+          "approxBytes": 32164626,
+          "vst3Patterns": [
+            "FSVR.vst3"
+          ],
+          "notes": "ZIP oficial com o VST3. O instalador completo (CLAP/VST2/standalone) está na página de releases.",
+          "resolve": "github-latest",
+          "assetPattern": "FSVR-Linux-VST*.zip",
+          "repository": "musicastudio/FSVR"
+        }
+      ]
+    }
+  ]
+}

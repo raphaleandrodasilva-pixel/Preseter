@@ -35,6 +35,7 @@ import type {
   CollectionItemStatus,
   CollectionProgress,
 } from '@shared/collection';
+import type { StoreSnapshot, StoreUpdateResult } from '@shared/store';
 import type { ArpSettings, EngineArpState } from '@shared/types';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
@@ -74,6 +75,16 @@ export interface ElectronAPI {
   collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;
   collectionGenerate: () => Promise<CollectionGenerateResult | null>;
+  storeList: () => Promise<StoreSnapshot>;
+  storeDownload: (ids: string[], force?: boolean) => Promise<CollectionDownloadResult>;
+  storeCancel: () => Promise<boolean>;
+  storeCheckUpdates: (force?: boolean) => Promise<StoreUpdateResult>;
+  storeOpenFolder: (kind?: 'sounds' | 'plugins' | 'downloads') => Promise<boolean>;
+  storeOpenInstaller: (filePath: string) => Promise<boolean>;
+  storeOpenUrl: (url: string) => Promise<boolean>;
+  storeGenerate: () => Promise<CollectionGenerateResult | null>;
+  onStoreProgress: (callback: (progress: CollectionProgress) => void) => () => void;
+  onStoreCatalogUpdated: (callback: (result: StoreUpdateResult) => void) => () => void;
   onCollectionProgress: (callback: (progress: CollectionProgress) => void) => () => void;
   vstGetState: (pluginId: string) => Promise<any>;
   vstSetState: (pluginId: string, state: any) => Promise<boolean>;

@@ -32,7 +32,21 @@ const EVENT_METHODS = [
   'onEngineCrashed',
   'onEngineRecovered',
   'onMenuAction',
+  'onStoreProgress',
+  'onStoreCatalogUpdated',
 ] as const;
+
+const emptyStoreSnapshot = () => ({
+  catalogVersion: 1,
+  source: 'embedded' as const,
+  platform: 'windows' as const,
+  arch: 'x64' as const,
+  items: [],
+  installedCount: 0,
+  missingCount: 0,
+  totalCount: 0,
+  installedBytes: 0,
+});
 
 /**
  * Full Electron preload API double. Event subscriptions are captured so tests
@@ -88,6 +102,24 @@ export function createElectronApiMock(): ElectronApiMock {
     collectionOpenFolder: vi.fn(async () => true),
     collectionOpenInstaller: vi.fn(async () => true),
     collectionGenerate: vi.fn(async () => null),
+    storeList: vi.fn(async () => emptyStoreSnapshot()),
+    storeDownload: vi.fn(async () => ({
+      ok: true,
+      statuses: [],
+      summary: { total: 0, downloaded: 0, installed: 0, skipped: 0, failed: 0, cancelled: 0, manual: 0 },
+    })),
+    storeCancel: vi.fn(async () => true),
+    storeCheckUpdates: vi.fn(async () => ({
+      ok: true,
+      updated: false,
+      source: 'embedded' as const,
+      checkedAt: new Date(0).toISOString(),
+      snapshot: emptyStoreSnapshot(),
+    })),
+    storeOpenFolder: vi.fn(async () => true),
+    storeOpenInstaller: vi.fn(async () => true),
+    storeOpenUrl: vi.fn(async () => true),
+    storeGenerate: vi.fn(async () => null),
     onCollectionProgress: vi.fn(() => () => undefined),
     vstGetState: vi.fn(async () => null),
     vstSetState: vi.fn(async () => true),

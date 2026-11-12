@@ -10,7 +10,9 @@ import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
 import { listTemplates } from './concert/templates';
 import { serializeConcertFile } from './concert/ConcertFile';
 import { COLLECTION_CATALOG, resolveCollectionItems, type CollectionItem } from '../shared/collection';
+import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
+import { StoreService } from './store/StoreService';
 import { buildCollectionConcert } from './collection/generateCollection';
 import { PerformanceMode } from './performance/PerformanceMode';
 import {
@@ -118,6 +120,8 @@ class MainWindow {
   private layoutManager: LayoutManager;
   private concertManager: ConcertManager;
   private collectionInstaller: CollectionInstaller;
+  private storeService: StoreService;
+  private storeUpdateTimer: NodeJS.Timeout | null = null;
   private performanceMode: PerformanceMode;
   private audioSettingsPath: string;
   private preferencesPath: string;
@@ -166,6 +170,15 @@ class MainWindow {
       getEnginePid: () => this.vstManager.getEnginePid(),
       platform: process.platform,
     });
+    this.storeService = new StoreService({
+      appPath: app.getAppPath(),
+      userData: app.getPath('userData'),
+      platform: process.platform as SupportedPlatform,
+      arch: process.arch,
+      installer: this.collectionInstaller,
+      onProgress: (progress) => this.sendToRenderer('store-progress', progress),
+      onCatalogUpdated: (result) => this.sendToRenderer('store-catalog-updated', result),
+    });
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
@@ -200,6 +213,20 @@ class MainWindow {
         this.performanceMode.initialize(this.readPreferences().performanceMode);
         void this.initializeEngine();
       });
+      // A Loja usa o catálogo embutido imediatamente e tenta atualizar os links
+      // sem bloquear a abertura do app.
+      void this.storeService.initialize();
+      setTimeout(() => {
+        void this.storeService.checkUpdates().then((result) => {
+          if (result.ok && result.updated) {
+            this.sendToRenderer('store-catalog-updated', result);
+          }
+        });
+      }, 8000);
+      this.storeUpdateTimer = setInterval(() => {
+        void this.storeService.checkUpdates();
+      }, STORE_CHECK_INTERVAL_MS);
+      this.storeUpdateTimer.unref?.();
     });
 
     app.on('window-all-closed', () => {
@@ -225,6 +252,11 @@ class MainWindow {
       this.vstWatchers = [];
       if (this.splash && !this.splash.isDestroyed()) this.splash.close();
       this.splash = null;
+      if (this.storeUpdateTimer) {
+        clearInterval(this.storeUpdateTimer);
+        this.storeUpdateTimer = null;
+      }
+      this.storeService.dispose();
       this.performanceMode.dispose();
       void this.vstManager.shutdown().finally(() => app.quit());
     });
@@ -812,34 +844,58 @@ class MainWindow {
       return error === '';
     });
 
-    ipcMain.handle('collection-generate', async () => {
-      let plugins = this.vstManager.getScannedPlugins();
-      if (plugins.length === 0) {
-        try {
-          plugins = await this.vstManager.scanDefaultDirectories();
-        } catch (error) {
-          console.warn('[Preseter] Não foi possível escanear os plugins da coleção:', error);
-        }
-      }
-      const { file, skipped, missing } = buildCollectionConcert(plugins, {
-        tempo: 100,
-        soundsFolder: this.soundsFolder(),
-      });
-      const result = await dialog.showSaveDialog({
-        title: 'Salvar concert da coleção',
-        defaultPath: path.join(app.getPath('documents'), 'Colecao.preseter'),
-        filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
-      });
-      if (result.canceled || !result.filePath) return null;
-      fs.writeFileSync(result.filePath, serializeConcertFile(file), 'utf8');
-      return {
-        path: result.filePath,
-        sets: file.sets.length,
-        patches: file.patches.length,
-        skipped,
-        missing,
-      };
+    ipcMain.handle('collection-generate', () => this.generateCollectionConcert());
+
+    // === Loja ===
+
+    ipcMain.handle('store-list', () => this.storeService.snapshot());
+
+    ipcMain.handle('store-download', async (_event, ids: string[], force?: boolean) => {
+      const selected = Array.isArray(ids)
+        ? ids.filter((id): id is string => typeof id === 'string')
+        : [];
+      return this.storeService.download(selected, force === true);
     });
+
+    ipcMain.handle('store-cancel', () => {
+      this.storeService.cancel();
+      return true;
+    });
+
+    ipcMain.handle('store-check-updates', (_event, force?: boolean) =>
+      this.storeService.checkUpdates(force !== false)
+    );
+
+    ipcMain.handle('store-open-folder', async (_event, kind?: 'sounds' | 'plugins' | 'downloads') => {
+      const folder = kind === 'plugins'
+        ? getPlatformPaths().userVst3
+        : kind === 'downloads'
+          ? getPlatformPaths().downloads
+          : this.soundsFolder();
+      fs.mkdirSync(folder, { recursive: true });
+      const error = await shell.openPath(folder);
+      return error === '';
+    });
+
+    ipcMain.handle('store-open-installer', async (_event, filePath: string) => {
+      if (typeof filePath !== 'string' || !fs.existsSync(filePath)) return false;
+      const error = await shell.openPath(filePath);
+      return error === '';
+    });
+
+    ipcMain.handle('store-open-url', async (_event, url: string) => {
+      if (typeof url !== 'string') return false;
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+      } catch {
+        return false;
+      }
+      await shell.openExternal(url);
+      return true;
+    });
+
+    ipcMain.handle('store-generate', () => this.generateCollectionConcert());
 
     ipcMain.handle('vst-get-state', (_event, pluginId: string) => {
       return this.vstManager.getPluginState(pluginId);
@@ -2025,6 +2081,42 @@ class MainWindow {
       COLLECTION_CATALOG.items,
       process.platform as SupportedPlatform
     );
+  }
+
+  /** Gera o concert de 40 patches usado pelo Kit essencial e pela Loja. */
+  private async generateCollectionConcert(): Promise<{
+    path: string;
+    sets: number;
+    patches: number;
+    skipped: string[];
+    missing: string[];
+  } | null> {
+    let plugins = this.vstManager.getScannedPlugins();
+    if (plugins.length === 0) {
+      try {
+        plugins = await this.vstManager.scanDefaultDirectories();
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível escanear os plugins da coleção:', error);
+      }
+    }
+    const { file, skipped, missing } = buildCollectionConcert(plugins, {
+      tempo: 100,
+      soundsFolder: this.soundsFolder(),
+    });
+    const result = await dialog.showSaveDialog({
+      title: 'Salvar concert da coleção',
+      defaultPath: path.join(app.getPath('documents'), 'Colecao.preseter'),
+      filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    fs.writeFileSync(result.filePath, serializeConcertFile(file), 'utf8');
+    return {
+      path: result.filePath,
+      sets: file.sets.length,
+      patches: file.patches.length,
+      skipped,
+      missing,
+    };
   }
 
   /** Pastas que o app sempre varre: padrões do sistema + extras do usuário. */

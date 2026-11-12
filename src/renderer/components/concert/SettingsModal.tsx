@@ -8,9 +8,9 @@ import type {
   ScrollSpeed,
 } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
-import { CollectionSettings } from './CollectionSettings';
+import { StoreSettings } from './StoreSettings';
 
-export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'collection';
+export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'store';
 
 /** Mostra apenas os backends de áudio que existem na plataforma atual. */
 function filterAudioTypes(
@@ -111,8 +111,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
         ? 'Geral'
         : tab === 'view'
           ? 'Visualização'
-          : tab === 'collection'
-            ? 'Coleção'
+          : tab === 'store'
+            ? 'Loja'
             : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
   const selectedAudioType = audioTypes.find((item) => item.type === audioType);
   const asioAvailable = isWindows && audioDevices?.asioSupported === true;
@@ -142,13 +142,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
       onClick={onClose}
     >
       <div
-        className="hw-panel flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden"
+        className={`hw-panel flex max-h-[82vh] w-full flex-col overflow-hidden ${tab === 'store' ? 'max-w-6xl' : 'max-w-2xl'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-5 pt-4">
           <div>
             <div className="hw-label">Configurações</div>
-            <div className="text-sm font-semibold" style={{ color: '#EDEDEF' }}>MIDI, plugins e coleção</div>
+            <div className="text-sm font-semibold" style={{ color: '#EDEDEF' }}>MIDI, plugins e loja</div>
           </div>
           <div className="hw-lcd ml-auto px-3 py-1.5 font-mono text-[11px] font-semibold tracking-wide">
             {lcdText}
@@ -210,18 +210,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             Áudio
           </button>
           <button
-            onClick={() => setTab('collection')}
+            onClick={() => setTab('store')}
             className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
-            style={tab === 'collection'
+            style={tab === 'store'
               ? { background: '#1F1F21', color: '#fff', borderColor: '#FF9F0A' }
               : { color: '#9A9AA0' }}
           >
-            Coleção
+            Loja
           </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          {tab === 'collection' && <CollectionSettings />}
+          {tab === 'store' && <StoreSettings />}
           {tab === 'general' && (
             <div className="space-y-4">
               <section className="hw-inset space-y-3 p-3">

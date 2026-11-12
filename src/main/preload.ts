@@ -54,6 +54,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   collectionOpenInstaller: (filePath: string) =>
     ipcRenderer.invoke('collection-open-installer', filePath),
   collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
+  storeList: () => ipcRenderer.invoke('store-list'),
+  storeDownload: (ids: string[], force?: boolean) =>
+    ipcRenderer.invoke('store-download', ids, force),
+  storeCancel: () => ipcRenderer.invoke('store-cancel'),
+  storeCheckUpdates: (force?: boolean) =>
+    ipcRenderer.invoke('store-check-updates', force),
+  storeOpenFolder: (kind?: 'sounds' | 'plugins' | 'downloads') =>
+    ipcRenderer.invoke('store-open-folder', kind),
+  storeOpenInstaller: (filePath: string) =>
+    ipcRenderer.invoke('store-open-installer', filePath),
+  storeOpenUrl: (url: string) => ipcRenderer.invoke('store-open-url', url),
+  storeGenerate: () => ipcRenderer.invoke('store-generate'),
   vstGetState: (pluginId: string) => ipcRenderer.invoke('vst-get-state', pluginId),
   vstSetState: (pluginId: string, state: any) =>
     ipcRenderer.invoke('vst-set-state', pluginId, state),
@@ -201,6 +213,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('engine-recovered', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data as { presetId: string | null })),
   onCollectionProgress: (callback: (progress: any) => void) =>
     ipcRenderer.on('collection-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
+  onStoreProgress: (callback: (progress: any) => void) =>
+    ipcRenderer.on('store-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
+  onStoreCatalogUpdated: (callback: (result: any) => void) =>
+    ipcRenderer.on('store-catalog-updated', (_event: Electron.IpcRendererEvent, result: unknown) => callback(result)),
 
   // === Menu nativo (Arquivo) ===
   onMenuAction: (callback: (action: unknown) => void) =>

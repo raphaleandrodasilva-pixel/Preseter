@@ -86,6 +86,8 @@ export class CollectionInstaller {
   private readonly options: CollectionInstallerOptions;
   private readonly platform: SupportedPlatform;
   private readonly paths: ReturnType<typeof getPlatformPaths>;
+  /** Ouvintes extras (a Loja usa o mesmo instalador da coleção). */
+  private readonly progressListeners = new Set<(progress: CollectionProgress) => void>();
   private abortController: AbortController | null = null;
   private running = false;
   /** Contexto do lote atual, usado para calcular a barra geral. */
@@ -103,6 +105,13 @@ export class CollectionInstaller {
     this.options = options;
     this.platform = options.platform ?? (process.platform as SupportedPlatform);
     this.paths = getPlatformPaths(this.platform);
+    if (options.onProgress) this.progressListeners.add(options.onProgress);
+  }
+
+  /** Inscreve um ouvinte de progresso sem substituir o da coleção. */
+  subscribe(listener: (progress: CollectionProgress) => void): () => void {
+    this.progressListeners.add(listener);
+    return () => this.progressListeners.delete(listener);
   }
 
   private findInAllPlugins(item: CollectionItem): string | null {
@@ -196,7 +205,14 @@ export class CollectionInstaller {
         phase: this.batch.phase,
       };
     }
-    this.options.onProgress?.({ item: status, done, overall });
+    const progress: CollectionProgress = { item: status, done, overall };
+    for (const listener of this.progressListeners) {
+      try {
+        listener(progress);
+      } catch {
+        /* um ouvinte não pode interromper o download */
+      }
+    }
   }
 
   async install(
