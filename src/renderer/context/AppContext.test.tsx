@@ -613,6 +613,7 @@ describe('AppProvider MIDI and VST actions', () => {
       await latest.loadPreset('hw-external', { preset: patch });
     });
     await waitFor(() => expect(latest.currentPreset?.id).toBe('hw-external'));
+    expect(latest.openMidiInputs.has('fake-in')).toBe(true);
 
     act(() => {
       input.onmidimessage?.({ data: new Uint8Array([0x90, 60, 100]) });

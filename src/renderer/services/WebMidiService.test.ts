@@ -206,15 +206,40 @@ describe('WebMidiService output', () => {
 
   it('loses the selected output when the port disappears', async () => {
     const output = port('out', 'Out', 'output');
-    vi.mocked(navigator.requestMIDIAccess)
-      .mockResolvedValueOnce(accessWith([], [output]))
-      .mockResolvedValueOnce(accessWith([], []));
+    const access = accessWith([], [output]);
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(access);
     const { midi } = service();
     await midi.listDevices();
     await midi.openPort('out', 'output');
     expect(midi.hasSelectedOutput()).toBe(true);
+    (access.outputs as Map<string, FakePort>).clear();
     await midi.listDevices();
     expect(midi.hasSelectedOutput()).toBe(false);
+    expect(navigator.requestMIDIAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('reabre e rearma a entrada quando o sistema troca a porta', async () => {
+    const first = port('keyboard', 'Keys', 'input');
+    const access = accessWith([first], []);
+    vi.mocked(navigator.requestMIDIAccess).mockResolvedValue(access);
+    const { midi } = service();
+    const events: RawMidiEvent[] = [];
+    midi.onRawMessage((event) => events.push(event));
+
+    await midi.listDevices();
+    await midi.openPort('keyboard', 'input');
+    first.onmidimessage?.({ data: new Uint8Array([0x90, 60, 100]) });
+    expect(events).toHaveLength(1);
+
+    const second = port('keyboard', 'Keys', 'input');
+    (access.inputs as Map<string, FakePort>).set('keyboard', second);
+    (access as unknown as { onstatechange: (() => void) | null }).onstatechange?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(midi.openedInputIds()).toContain('keyboard');
+    second.onmidimessage?.({ data: new Uint8Array([0x90, 64, 100]) });
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({ kind: 'note', number: 64, deviceId: 'keyboard' });
   });
 
   it('treats a disconnected selected output as unavailable', async () => {

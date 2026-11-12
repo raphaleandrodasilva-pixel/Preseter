@@ -22,10 +22,16 @@ export interface RawMidiEvent {
 
 export class WebMidiService {
   private access: MIDIAccess | null = null;
+  private accessPromise: Promise<MIDIAccess> | null = null;
   private readonly inputs = new Map<string, MIDIInput>();
   private readonly outputs = new Map<string, MIDIOutput>();
   private selectedOutputId: string | null = null;
   private readonly rawListeners = new Set<(event: RawMidiEvent) => void>();
+  private readonly deviceChangeListeners = new Set<() => void>();
+  /** Entradas que o app quer manter abertas, mesmo após desconectar. */
+  private readonly wantedInputIds = new Set<string>();
+  /** Entradas que estão realmente abertas/recebendo agora. */
+  private readonly openedInputs = new Set<string>();
   private readonly bankMsb = new Array<number>(16).fill(0);
   private readonly bankLsb = new Array<number>(16).fill(0);
 
@@ -42,20 +48,69 @@ export class WebMidiService {
     };
   }
 
-  async listDevices(): Promise<MidiDeviceInfo[]> {
+  /** Avisa quando uma porta é conectada/desconectada ou trocada pelo sistema. */
+  onDevicesChanged(listener: () => void): () => void {
+    this.deviceChangeListeners.add(listener);
+    return () => {
+      this.deviceChangeListeners.delete(listener);
+    };
+  }
+
+  /** IDs das entradas realmente abertas/recebendo neste instante. */
+  openedInputIds(): string[] {
+    return [...this.openedInputs];
+  }
+
+  private async ensureAccess(): Promise<MIDIAccess> {
+    if (this.access) return this.access;
+    if (this.accessPromise) return this.accessPromise;
     if (!navigator.requestMIDIAccess) {
       throw new Error('Web MIDI não está disponível nesta versão do Electron.');
     }
 
     // SysEx é opcional: alguns dispositivos só aceitam parâmetros por SysEx.
     // Se a permissão for negada, cai de volta para o acesso sem SysEx.
-    try {
-      this.access = await navigator.requestMIDIAccess({ sysex: true });
-    } catch {
-      this.access = await navigator.requestMIDIAccess({ sysex: false });
-    }
-    this.refreshPorts();
+    this.accessPromise = (async () => {
+      try {
+        return await navigator.requestMIDIAccess({ sysex: true });
+      } catch {
+        return await navigator.requestMIDIAccess({ sysex: false });
+      }
+    })()
+      .then((access) => {
+        this.access = access;
+        access.onstatechange = () => {
+          void this.handleDeviceChange();
+        };
+        return access;
+      })
+      .catch((error) => {
+        this.accessPromise = null;
+        throw error;
+      })
+      .finally(() => {
+        this.accessPromise = null;
+      });
 
+    return this.accessPromise;
+  }
+
+  async listDevices(): Promise<MidiDeviceInfo[]> {
+    await this.ensureAccess();
+    this.refreshPorts();
+    await this.reopenWantedInputs();
+    return this.deviceList();
+  }
+
+  /** Reconsulta as portas sem pedir um novo acesso ao Web MIDI. */
+  async rescan(): Promise<MidiDeviceInfo[]> {
+    await this.ensureAccess();
+    this.refreshPorts();
+    await this.reopenWantedInputs();
+    return this.deviceList();
+  }
+
+  private deviceList(): MidiDeviceInfo[] {
     return [
       ...Array.from(this.inputs.values(), (port) => this.toDeviceInfo(port, 'input')),
       ...Array.from(this.outputs.values(), (port) => this.toDeviceInfo(port, 'output')),
@@ -68,10 +123,11 @@ export class WebMidiService {
       if (!input) {
         throw new Error('A entrada MIDI não está mais disponível. Atualize a lista.');
       }
-      await input.open();
-      input.onmidimessage = (event) => {
-        if (event.data) this.handleMessage(event.data, deviceId);
-      };
+      this.wantedInputIds.add(deviceId);
+      const opened = await this.armInput(input, deviceId);
+      if (!opened) {
+        throw new Error('A entrada MIDI está conectada, mas não pôde ser aberta. Reconecte o controlador.');
+      }
       return true;
     }
 
@@ -82,6 +138,54 @@ export class WebMidiService {
     await output.open();
     this.selectedOutputId = deviceId;
     return true;
+  }
+
+  private async armInput(input: MIDIInput, deviceId: string): Promise<boolean> {
+    if (input.state === 'disconnected') {
+      this.openedInputs.delete(deviceId);
+      return false;
+    }
+
+    // Instala o handler antes de abrir: algumas portas entregam mensagens
+    // imediatamente ao abrir.
+    input.onmidimessage = (event) => {
+      if (event.data) this.handleMessage(event.data, deviceId);
+    };
+    input.onstatechange = () => {
+      void this.handleDeviceChange();
+    };
+
+    try {
+      await input.open();
+      this.openedInputs.add(deviceId);
+      return true;
+    } catch {
+      this.openedInputs.delete(deviceId);
+      return false;
+    }
+  }
+
+  private async reopenWantedInputs(): Promise<void> {
+    for (const deviceId of [...this.wantedInputIds]) {
+      const input = this.inputs.get(deviceId);
+      if (!input) {
+        this.openedInputs.delete(deviceId);
+        continue;
+      }
+      await this.armInput(input, deviceId);
+    }
+  }
+
+  private async handleDeviceChange(): Promise<void> {
+    this.refreshPorts();
+    await this.reopenWantedInputs();
+    for (const listener of this.deviceChangeListeners) {
+      try {
+        listener();
+      } catch {
+        /* um listener com defeito não pode derrubar o MIDI */
+      }
+    }
   }
 
   hasSelectedOutput(): boolean {

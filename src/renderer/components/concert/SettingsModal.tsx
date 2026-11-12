@@ -600,9 +600,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 </div>
               )}
               <section>
-                <h4 className="hw-label mb-2">Entradas ({inputs.length})</h4>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h4 className="hw-label">Entradas ({inputs.length})</h4>
+                  <button
+                    type="button"
+                    onClick={() => void listMidiDevices()}
+                    className="hw-squarebtn px-2 py-1 text-[10px]"
+                    style={{ color: '#9AD1FF' }}
+                  >
+                    Reconectar MIDI
+                  </button>
+                </div>
                 <div className="space-y-1.5">
-                  {inputs.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhuma entrada encontrada. Clique em atualizar.</p>}
+                  {inputs.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhuma entrada encontrada. Conecte o controlador; o app tenta de novo automaticamente.</p>}
                   {inputs.map((d) => {
                     const connected = openMidiInputs.has(d.id);
                     return (
@@ -617,14 +627,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                             ? { background: 'rgba(48,209,88,0.14)', color: '#30D158', border: '1px solid rgba(48,209,88,0.45)' }
                             : accentBtn}
                         >
-                          {connected ? 'Conectado' : 'Conectar'}
+                          {connected ? 'Aberta' : 'Conectar'}
                         </button>
                       </div>
                     );
                   })}
                 </div>
                 <p className="mt-2 text-[10px]" style={{ color: '#8E8E93' }}>
-                  As entradas são abertas automaticamente para tocar e usar o MIDI Learn.
+                  O Preseter verifica no boot, tenta reabrir sozinho e mantém um watchdog.
+                  Se uma porta aparecer conectada mas não receber notas, use Reconectar MIDI.
                 </p>
               </section>
               <section>

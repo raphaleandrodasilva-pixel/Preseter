@@ -1375,39 +1375,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [sets, materializePatchLayout]);
 
   // === MIDI Actions ===
-  const listMidiDevices = useCallback(async () => {
+  const midiListInFlight = useRef<Promise<any[]> | null>(null);
+
+  const listMidiDevices = useCallback(async (): Promise<any[]> => {
+    if (midiListInFlight.current) return midiListInFlight.current;
+    const task = (async () => {
+      try {
+        const service = webMidi.current!;
+        const devices = await service.listDevices();
+        // As entradas ficam abertas para tocar, o MIDI Learn e os assignments (Fase 4.2).
+        await Promise.all(
+          devices
+            .filter((device) => device.type === 'input')
+            .map((device) => service.openPort(device.id, 'input').catch(() => false))
+        );
+        setOpenMidiInputs(new Set(service.openedInputIds()));
+        setSelectedMidiOutputId((previous) =>
+          previous && devices.some((device) => device.type === 'output' && device.id === previous)
+            ? previous
+            : null
+        );
+        setMidiDevices(devices);
+        setMidiError(null);
+        return devices;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Falha ao acessar MIDI.';
+        setMidiError(message);
+        setOpenMidiInputs(new Set());
+        setSelectedMidiOutputId(null);
+        return [];
+      }
+    })();
+    midiListInFlight.current = task;
     try {
-      const devices = await webMidi.current!.listDevices();
-      // As entradas ficam abertas para tocar, o MIDI Learn e os assignments (Fase 4.2).
-      const opened: string[] = [];
-      await Promise.all(
-        devices
-          .filter((device) => device.type === 'input')
-          .map(async (device) => {
-            const ok = await webMidi.current!.openPort(device.id, 'input').catch(() => false);
-            if (ok) opened.push(device.id);
-          })
-      );
-      setOpenMidiInputs(new Set(opened));
-      setSelectedMidiOutputId((previous) =>
-        previous && devices.some((device) => device.type === 'output' && device.id === previous)
-          ? previous
-          : null
-      );
-      setMidiDevices(devices);
-      setMidiError(null);
-      return devices;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao acessar MIDI.';
-      setMidiError(message);
-      setOpenMidiInputs(new Set());
-      setSelectedMidiOutputId(null);
-      return [];
+      return await task;
+    } finally {
+      midiListInFlight.current = null;
     }
   }, []);
 
+  // Verificação de boot + hotplug: tenta abrir o MIDI agora, repete algumas
+  // vezes se o controlador ainda não estiver pronto e mantém um watchdog.
   useEffect(() => {
-    void listMidiDevices();
+    const service = webMidi.current;
+    if (!service) return;
+    let cancelled = false;
+
+    const refresh = () => {
+      if (cancelled) return;
+      void listMidiDevices();
+    };
+
+    refresh();
+    const retryTimers = [800, 2000, 5000, 10000].map((delay) =>
+      window.setTimeout(() => {
+        if (!cancelled && service.openedInputIds().length === 0) refresh();
+      }, delay)
+    );
+    const watchdog = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 3000);
+    const unsubscribe = service.onDevicesChanged(refresh);
+    window.addEventListener('focus', refresh);
+
+    return () => {
+      cancelled = true;
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      window.clearInterval(watchdog);
+      unsubscribe();
+      window.removeEventListener('focus', refresh);
+    };
   }, [listMidiDevices]);
 
   // Monitor MIDI: mostra notas/CC/pitch/aftertouch no rodapé e na aba MIDI.
