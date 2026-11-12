@@ -93,11 +93,13 @@ GitHub musicastudio/FSVR), **ADLplug/OPNplug** (chips OPL3/OPN2; VST3; GitHub jp
 
 | Item | O que é | Formatos / sistemas | Condições |
 |---|---|---|---|
-| **ReaPlugs** (Cockos, o do REAPER) | Pacote de efeitos: ReaComp, ReaXcomp, ReaDelay, ReaEQ, ReaFIR, ReaGate, ReaStream, ReaJS, ReaControlMIDI | **Só VST (VST2)**; páginas citam Windows e WINE; versões 32 e 64 bits. A versão listada é a **2.36, de 2016** | "Livremente utilizável", sem proteção de cópia; **não** informa regras de redistribuição → só link. Página: https://www.reaper.fm/reaplugs/ |
+| **ReaPlugs** (Cockos, o do REAPER) | Pacote de efeitos: ReaComp, ReaXcomp, ReaDelay, ReaEQ, ReaFIR, ReaGate, ReaStream, ReaJS, ReaControlMIDI | **Só VST (VST2)**; páginas citam Windows e WINE; versões 32 e 64 bits. A versão listada é a **2.36, de 2016** | "Livremente utilizável", sem proteção de cópia; **não** informa regras de redistribuição → o app só baixa do site oficial para o PC do usuário, nunca hospeda. Página: https://www.reaper.fm/reaplugs/. **Links diretos (lidos na página, instaladores `.exe`):** 64 bits `https://www.reaper.fm/reaplugs/reaplugs236_x64-install.exe` (usar este) e 32 bits `https://www.reaper.fm/reaplugs/reaplugs236-install.exe` (não usar: o motor é 64 bits). A página diz que também é "portátil (copiar os arquivos instalados e rodar)" |
 | **Reason Free** (Reason Studios) | Versão gratuita do Reason Rack Plugin com **15 devices**: Europa, Kong, ID-8, Monotone, Scream 4, The Echo, Audiomatic, RV7000 Mk II, MClass Maximizer, Scales and Chords, Combinator, Pulsar, Spider Audio, Spider CV, MIDI Out. Aceita Rack Extensions de terceiros | **VST3, AU, AAX**; **macOS e Windows** (Linux **não** é mencionado). Inclui também o Reason DAW limitado a 16 tracks | Grátis, sem expiração nem marca d'água; não é open source. Se pede **conta/login** ou instalador próprio: **(a confirmar)**. Página: https://www.reasonstudios.com/reason-free |
 
 Pontos que o agente deve respeitar ao cadastrar os dois:
-- Ambos entram como **`kind: manual`** (abrir a página oficial); `url: null` até o dono verificar o link direto.
+- **Reason Free:** `kind: manual` (abrir a página oficial); `url: null` até o dono verificar o link direto.
+- **ReaPlugs:** `kind: vst3-exe` (mesmo tipo do Odin 2: baixa o instalador e o usuário o abre) com o link de 64 bits acima.
+  Testar no Windows se o instalador coloca os `.dll` numa pasta que o motor varre (pastas de VST2 nas Configurações).
 - `os` do **Reason Free** = `["windows", "mac"]` e do **ReaPlugs** = `["windows"]`: **não aparecem na Loja no Linux**
   (relevante para a versão pública, que é focada em Linux).
 - ReaPlugs é **VST2**: depende do suporte a VST2 do motor (commit `933c499`) e pode precisar da pasta de plugins nas Configurações.
