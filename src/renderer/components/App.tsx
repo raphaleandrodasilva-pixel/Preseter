@@ -120,7 +120,7 @@ const AppContent: React.FC = () => {
     setDraft(null);
     setSelectedId(null);
     try {
-      const loaded = await loadPreset(preset.id);
+      const loaded = await loadPreset(preset.id, { silent: mode === 'perform' });
       if (!loaded) {
         setError(`Não foi possível carregar o patch "${preset.name}".`);
       }

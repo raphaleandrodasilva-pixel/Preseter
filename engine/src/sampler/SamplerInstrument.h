@@ -5,6 +5,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace preseter
@@ -64,6 +65,8 @@ public:
     bool load (const juce::File& file, juce::String& error);
     void selectProgram (int bank, int program);
     void selectProgramByIndex (int index);
+    /** Cópia leve para outro programa, compartilhando os samples mapeados. */
+    std::shared_ptr<Instrument> cloneForProgram (int bank, int program) const;
 
     const std::vector<Region>& getRegions() const noexcept { return regions; }
     const Sample* getSample (int index) const noexcept
@@ -137,9 +140,28 @@ private:
         std::shared_ptr<Instrument> instrument;
     };
 
-    static constexpr int kMaxEntries = 12;
+    struct FileEntry
+    {
+        juce::String key;
+        std::shared_ptr<Instrument> instrument;
+    };
+
+    struct PreloadJob
+    {
+        juce::File file;
+        int bank = 0;
+        int program = 0;
+    };
+
+    static constexpr int kMaxFiles = 16;
+    static constexpr int kMaxEntries = 128;
     juce::CriticalSection lock;
+    juce::CriticalSection preloadLock;
     std::vector<Entry> entries;
+    std::vector<FileEntry> files;
+    std::vector<PreloadJob> preloadQueue;
+    std::set<juce::String> preloadQueued;
+    bool preloadRunning = false;
 };
 } // namespace sampler
 } // namespace preseter

@@ -91,7 +91,7 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
                 Abrir arquivo…
               </span>
               <span className="block text-[11px]" style={{ color: '#9A9AA0' }}>
-                Abrir um concert .preseter já existente
+                Abrir um concert .pst já existente
               </span>
             </span>
             <span style={{ color: '#9A9AA0' }}>›</span>

@@ -23,7 +23,7 @@ describe('shared constants', () => {
     expect(DEFAULT_TIME_SIGNATURE).toEqual({ numerator: 4, denominator: 4 });
     expect(CONCERT_FILE_FORMAT).toBe('preseter.concert');
     expect(CONCERT_FILE_VERSION).toBe(2);
-    expect(CONCERT_FILE_EXTENSION).toBe('.preseter');
+    expect(CONCERT_FILE_EXTENSION).toBe('.pst');
   });
 
   it('lists the preset categories in order', () => {

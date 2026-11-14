@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Gera um concert `.preseter` com a coleção de 40 patches.
+ * Gera um concert `.pst` com a coleção de 40 patches.
  *
  * Usa a mesma estrutura do app (Configurações → Coleção): monta sets, patches,
  * camadas, faixas de teclas, volumes e programas. Instrumentos sampleados usam
@@ -9,7 +9,7 @@
  *
  * Uso (precisa do motor compilado e de `npm run build:main`):
  *   node scripts/gerar-colecao.js
- *   node scripts/gerar-colecao.js --out=Colecao.preseter
+ *   node scripts/gerar-colecao.js --out=Colecao.pst
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
  *   node scripts/gerar-colecao.js --listar=surge       # mostra o que o motor enxerga
@@ -35,7 +35,7 @@ const { parseConcertFile, serializeConcertFile } = require(path.join(dist, 'main
 const { buildCollectionConcert } = require(path.join(dist, 'main', 'collection', 'generateCollection.js'));
 
 function findEngine() {
-  const explicit = first('engine', process.env.PRESETER_ENGINE);
+  const explicit = first('engine', process.env.pst_ENGINE);
   if (explicit) return explicit;
   const exe = process.platform === 'win32' ? 'PreseterEngine.exe' : 'PreseterEngine';
   const base = path.join(__dirname, '..', 'engine', 'build', 'PreseterEngine_artefacts');
@@ -106,7 +106,7 @@ async function main() {
   });
   const text = serializeConcertFile(file);
   const back = parseConcertFile(text);
-  const out = path.resolve(first('out', 'Colecao.preseter'));
+  const out = path.resolve(first('out', 'Colecao.pst'));
   fs.writeFileSync(out, text);
 
   console.log(`\nGerado: ${out}`);

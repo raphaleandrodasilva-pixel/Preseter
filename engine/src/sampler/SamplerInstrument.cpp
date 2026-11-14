@@ -242,23 +242,52 @@ InstrumentCache& InstrumentCache::get()
 std::shared_ptr<Instrument> InstrumentCache::load (const juce::File& file, int bank, int program,
                                                    juce::String& error)
 {
-    const auto key = file.getFullPathName()
-                   + "|" + juce::String (file.getLastModificationTime().toMilliseconds())
-                   + "|" + juce::String (bank) + ":" + juce::String (program);
+    const auto fileKey = file.getFullPathName()
+                       + "|" + juce::String (file.getSize())
+                       + "|" + juce::String (file.getLastModificationTime().toMilliseconds());
+    const auto key = fileKey + "|" + juce::String (bank) + ":" + juce::String (program);
 
     {
         const juce::ScopedLock scopedLock (lock);
         for (const auto& entry : entries)
             if (entry.key == key)
                 return entry.instrument;
+        for (const auto& entry : files)
+            if (entry.key == fileKey)
+            {
+                auto instrument = entry.instrument->cloneForProgram (bank, program);
+                entries.push_back ({ key, instrument });
+                if ((int) entries.size() > kMaxEntries)
+                    entries.erase (entries.begin());
+                return instrument;
+            }
     }
 
-    auto instrument = std::make_shared<Instrument>();
-    if (! instrument->load (file, error))
+    auto base = std::make_shared<Instrument>();
+    if (! base->load (file, error))
         return nullptr;
-    instrument->selectProgram (bank, program);
 
     const juce::ScopedLock scopedLock (lock);
+    for (const auto& entry : entries)
+        if (entry.key == key)
+            return entry.instrument;
+
+    std::shared_ptr<Instrument> instrument;
+    for (const auto& entry : files)
+        if (entry.key == fileKey)
+        {
+            instrument = entry.instrument->cloneForProgram (bank, program);
+            break;
+        }
+
+    if (instrument == nullptr)
+    {
+        files.push_back ({ fileKey, base });
+        if ((int) files.size() > kMaxFiles)
+            files.erase (files.begin());
+        instrument = base->cloneForProgram (bank, program);
+    }
+
     entries.push_back ({ key, instrument });
     if ((int) entries.size() > kMaxEntries)
         entries.erase (entries.begin());
@@ -267,18 +296,59 @@ std::shared_ptr<Instrument> InstrumentCache::load (const juce::File& file, int b
 
 void InstrumentCache::preloadAsync (const juce::File& file, int bank, int program)
 {
-    const auto fileCopy = file;
-    juce::Thread::launch ([this, fileCopy, bank, program]
+    const auto key = file.getFullPathName()
+                   + "|" + juce::String (file.getSize())
+                   + "|" + juce::String (file.getLastModificationTime().toMilliseconds())
+                   + "|" + juce::String (bank) + ":" + juce::String (program);
+
+    bool startWorker = false;
     {
-        juce::String error;
-        load (fileCopy, bank, program, error);
+        const juce::ScopedLock scopedLock (preloadLock);
+        if (preloadQueued.count (key) != 0)
+            return;
+        preloadQueued.insert (key);
+        preloadQueue.push_back ({ file, bank, program });
+        if (! preloadRunning)
+        {
+            preloadRunning = true;
+            startWorker = true;
+        }
+    }
+
+    if (! startWorker)
+        return;
+
+    juce::Thread::launch ([this]
+    {
+        for (;;)
+        {
+            PreloadJob job;
+            {
+                const juce::ScopedLock scopedLock (preloadLock);
+                if (preloadQueue.empty())
+                {
+                    preloadRunning = false;
+                    return;
+                }
+                job = preloadQueue.front();
+                preloadQueue.erase (preloadQueue.begin());
+            }
+            juce::String error;
+            load (job.file, job.bank, job.program, error);
+        }
     });
 }
 
 void InstrumentCache::clear()
 {
-    const juce::ScopedLock scopedLock (lock);
-    entries.clear();
+    {
+        const juce::ScopedLock scopedLock (lock);
+        entries.clear();
+        files.clear();
+    }
+    const juce::ScopedLock scopedLock (preloadLock);
+    preloadQueue.clear();
+    preloadQueued.clear();
 }
 
 int Instrument::addSf2Sample (const juce::int16* pcm, juce::int64 frames,
@@ -440,6 +510,26 @@ void Instrument::selectProgramByIndex (int index)
         return;
     selectedProgram = juce::jlimit (0, (int) presets.size() - 1, index);
     regions = presets[(size_t) selectedProgram].regions;
+}
+
+std::shared_ptr<Instrument> Instrument::cloneForProgram (int bank, int program) const
+{
+    auto copy = std::make_shared<Instrument>();
+    copy->source = source;
+    copy->name = name;
+    copy->format = format;
+    copy->loaded = loaded;
+    copy->selectedProgram = selectedProgram;
+    copy->presets = presets;
+    copy->regions = regions;
+    copy->samples.reserve (samples.size());
+    for (const auto& sample : samples)
+        copy->samples.push_back (sample != nullptr ? std::make_unique<Sample> (*sample) : nullptr);
+    copy->sampleByPath = sampleByPath;
+    copy->programs = programs;
+    copy->missingSamples = missingSamples;
+    copy->selectProgram (bank, program);
+    return copy;
 }
 
 juce::var Instrument::getPresetList() const

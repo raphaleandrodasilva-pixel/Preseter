@@ -131,4 +131,15 @@ describe('SamplerWindow', () => {
       )
     );
   });
+
+  it('abre vazio sem erro quando o layer ainda não tem sample', async () => {
+    vi.mocked(window.electronAPI.samplerInfo).mockRejectedValue(
+      new Error('Nenhum sampler carregado neste layer.')
+    );
+    renderWindow({
+      assignment: { ...assignment, samplePath: '', sampler: { loop: true, polyphony: 64 } },
+    });
+    expect(await screen.findByText('Nenhum sample carregado')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum sampler carregado neste layer.')).not.toBeInTheDocument();
+  });
 });

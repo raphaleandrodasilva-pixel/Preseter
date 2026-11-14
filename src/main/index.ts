@@ -1307,10 +1307,12 @@ class MainWindow {
           console.warn('[Preseter] Não foi possível escanear os plugins do Full Set:', error);
         }
       }
-      return this.concertManager.newConcert(templateId, {
+      const state = this.concertManager.newConcert(templateId, {
         plugins,
         soundsFolder: this.soundsFolder(),
       });
+      this.preloadConcertSamplers();
+      return state;
     });
 
     ipcMain.handle('concert-templates', () => listTemplates());
@@ -1591,6 +1593,7 @@ class MainWindow {
     this.concertManager.setLastPatchId(preset.id);
 
     const assignments = preset.plugins ?? [];
+    const activeLayerIds = new Set<string>();
 
     const silencePrevious = this.readPreferences().silencePreviousPatch;
 
@@ -1614,6 +1617,10 @@ class MainWindow {
             ? assignment.samplePath
             : path.join(this.soundsFolder(), assignment.samplePath))
         : '';
+      if (nativeSampler && !samplePath) {
+        // Sampler criado vazio: a janela permite escolher o arquivo depois.
+        continue;
+      }
       const plugin = await this.vstManager.stageLoad(
         nativeSampler ? 'preseter.sampler' : assignment.path,
         layerId,
@@ -1629,6 +1636,7 @@ class MainWindow {
             }
           : {}
       );
+      activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
       const savedStateKeys = [
         `loaded_${layerId}`,
@@ -1670,28 +1678,32 @@ class MainWindow {
     }
 
     await this.vstManager.commitPatchSwap(silencePrevious);
-    await this.applyCurrentTranspose(preset);
-    await this.applyCurrentAudioInput(preset);
-    // Faixa de velocity por layer (Fase 3.4).
-    for (const [index, assignment] of assignments.entries()) {
-      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-      if (assignment.externalMidi) continue;
-      try {
-        await this.vstManager.setLayerVelocityRange(
-          layerId,
-          assignment.velocityMin ?? 1,
-          assignment.velocityMax ?? 127
-        );
-      } catch (error) {
-        console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
-      }
-    }
-    await this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false });
+
+    // Depois da troca de áudio, o restante é configuração independente. Rodar em
+    // paralelo evita segurar a interface em 90% enquanto cada CC é aplicado.
+    await Promise.all([
+      this.applyCurrentTranspose(preset),
+      this.applyCurrentAudioInput(preset),
+      this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false }),
+      ...assignments.map(async (assignment, index) => {
+        const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+        if (assignment.externalMidi || !activeLayerIds.has(layerId)) return;
+        try {
+          await this.vstManager.setLayerVelocityRange(
+            layerId,
+            assignment.velocityMin ?? 1,
+            assignment.velocityMax ?? 127
+          );
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
+        }
+      }),
+    ]);
 
     // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-      if (assignment.externalMidi) continue;
+      if (assignment.externalMidi || !activeLayerIds.has(layerId)) continue;
       const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
       for (const insert of inserts) {
         try {
@@ -1708,22 +1720,24 @@ class MainWindow {
     }
 
     // Sends (Aux) e saída (Output) de cada channel strip (Fase 3.2).
-    for (const [index, assignment] of assignments.entries()) {
-      const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-      if (assignment.externalMidi) continue;
-      try {
-        // Todos os layers vão para o Master do Patch (bus interno do patch).
-        await this.vstManager.setLayerOutput(layerId, 1);
-        await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
-        await this.vstManager.setArp(layerId, { ...DEFAULT_ARP, ...assignment.arp });
-        // Aux desativado: nenhum layer manda send.
-        for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
-          await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
+    await Promise.all(
+      assignments.map(async (assignment, index) => {
+        const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
+        if (assignment.externalMidi || !activeLayerIds.has(layerId)) return;
+        try {
+          // Todos os layers vão para o Master do Patch (bus interno do patch).
+          await this.vstManager.setLayerOutput(layerId, 1);
+          await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
+          await this.vstManager.setArp(layerId, { ...DEFAULT_ARP, ...assignment.arp });
+          // Aux desativado: nenhum layer manda send.
+          for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
+            await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
+          }
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível aplicar sends/saída do layer "${layerId}":`, error);
         }
-      } catch (error) {
-        console.warn(`[Preseter] Não foi possível aplicar sends/saída do layer "${layerId}":`, error);
-      }
-    }
+      })
+    );
 
     // Channel strips do concert/set (Fase 3.3): ficam carregados fora da troca de
     // patch e recebem os overrides deste patch; o estado dos inserts volta abaixo.
@@ -2023,16 +2037,21 @@ class MainWindow {
       const state = this.concertManager.migrateLegacy(legacyPresets, legacy);
       // Grava a migração para não repeti-la na próxima abertura.
       try {
-        return this.concertManager.saveTo(this.defaultConcertPath(state.name));
+        const saved = this.concertManager.saveTo(this.defaultConcertPath(state.name));
+        this.preloadConcertSamplers();
+        return saved;
       } catch (error) {
         console.warn('[Preseter] Não foi possível gravar o concert migrado:', error);
+        this.preloadConcertSamplers();
         return state;
       }
     }
 
     // Usa o template vazio como padrão inicial. O usuário pode escolher outro
     // ao criar um novo concert pelo seletor de templates.
-    return this.concertManager.newConcert('vazio');
+    const state = this.concertManager.newConcert('vazio');
+    this.preloadConcertSamplers();
+    return state;
   }
 
   private defaultConcertPath(name: string): string {
@@ -2044,7 +2063,7 @@ class MainWindow {
     if (!this.window) return null;
     const result = await dialog.showOpenDialog(this.window, {
       title: 'Abrir Concert',
-      filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+      filters: [{ name: 'Concert do Preseter', extensions: ['pst', 'preseter'] }],
       properties: ['openFile'],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -2052,7 +2071,9 @@ class MainWindow {
   }
 
   private openConcertPath(filePath: string): ConcertState {
-    return this.concertManager.openFromPath(filePath);
+    const state = this.concertManager.openFromPath(filePath);
+    this.preloadConcertSamplers();
+    return state;
   }
 
   /** Salva o concert (pedindo o caminho quando necessário). null = cancelado. */
@@ -2065,15 +2086,17 @@ class MainWindow {
       const result = await dialog.showSaveDialog(this.window, {
         title: 'Salvar Concert',
         defaultPath: path.join(app.getPath('documents'), `${current.name}${CONCERT_FILE_EXTENSION}`),
-        filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+        filters: [{ name: 'Concert do Preseter', extensions: ['pst', 'preseter'] }],
       });
       if (result.canceled || !result.filePath) return null;
       target = result.filePath;
     }
 
-    const finalPath = target.toLowerCase().endsWith(CONCERT_FILE_EXTENSION)
-      ? target
-      : `${target}${CONCERT_FILE_EXTENSION}`;
+    const lowerTarget = target.toLowerCase();
+    const finalPath =
+      lowerTarget.endsWith(CONCERT_FILE_EXTENSION) || lowerTarget.endsWith('.preseter')
+        ? target
+        : `${target}${CONCERT_FILE_EXTENSION}`;
     return this.concertManager.saveTo(finalPath);
   }
 
@@ -2108,13 +2131,22 @@ class MainWindow {
 
   private buildMenu(): void {
     const recent = this.concertManager.getRecent();
+    const recentNameCounts = new Map<string, number>();
+    for (const entry of recent) {
+      const name = path.basename(entry.path);
+      recentNameCounts.set(name, (recentNameCounts.get(name) ?? 0) + 1);
+    }
     const recentSubmenu: MenuItemConstructorOptions[] = recent.length
       ? [
-          ...recent.map((entry) => ({
-            label: entry.name,
-            toolTip: entry.path,
-            click: () => this.sendMenuAction({ action: 'open-recent', path: entry.path }),
-          })),
+          ...recent.map((entry) => {
+            const name = path.basename(entry.path);
+            const duplicate = (recentNameCounts.get(name) ?? 0) > 1;
+            return {
+              label: duplicate ? `${name} — ${path.basename(path.dirname(entry.path))}` : name,
+              toolTip: entry.path,
+              click: () => this.sendMenuAction({ action: 'open-recent', path: entry.path }),
+            };
+          }),
           { type: 'separator' },
           {
             label: 'Limpar lista de recentes',
@@ -2136,6 +2168,8 @@ class MainWindow {
           { type: 'separator' },
           { label: 'Salvar', accelerator: 'CmdOrCtrl+S', click: () => this.sendMenuAction({ action: 'save' }) },
           { label: 'Salvar Como…', accelerator: 'CmdOrCtrl+Shift+S', click: () => this.sendMenuAction({ action: 'save-as' }) },
+          { type: 'separator' },
+          { label: 'Fechar Concert', accelerator: 'CmdOrCtrl+W', click: () => this.sendMenuAction({ action: 'close' }) },
           { type: 'separator' },
           { role: 'quit', label: 'Sair' },
         ],
@@ -2210,8 +2244,8 @@ class MainWindow {
     });
     const result = await dialog.showSaveDialog({
       title: 'Salvar concert da coleção',
-      defaultPath: path.join(app.getPath('documents'), 'Colecao.preseter'),
-      filters: [{ name: 'Concert do Preseter', extensions: ['preseter'] }],
+      defaultPath: path.join(app.getPath('documents'), 'Colecao.pst'),
+      filters: [{ name: 'Concert do Preseter', extensions: ['pst', 'preseter'] }],
     });
     if (result.canceled || !result.filePath) return null;
     fs.writeFileSync(result.filePath, serializeConcertFile(file), 'utf8');
@@ -2644,6 +2678,43 @@ class MainWindow {
   private soundsFolder(): string {
     const preferences = this.readPreferences();
     return preferences.soundsFolder?.trim() || path.join(app.getPath('home'), 'PreseterSons');
+  }
+
+  /**
+   * Pré-carrega em segundo plano todos os instrumentos do sampler usados pelo
+   * concert. Depois desse aquecimento, a troca de patch vira cache hit.
+   */
+  private preloadConcertSamplers(): void {
+    const items = new Map<string, { path: string; bank: number; program: number }>();
+    const presets = [...this.concertManager.getPresets()].sort(
+      (a, b) => a.programNumber - b.programNumber
+    );
+    for (const preset of presets) {
+      for (const assignment of preset.plugins ?? []) {
+        if (!isNativeSamplerAssignment(assignment) || !assignment.samplePath) continue;
+        const filePath = path.isAbsolute(assignment.samplePath)
+          ? assignment.samplePath
+          : path.join(this.soundsFolder(), assignment.samplePath);
+        const bank = assignment.bank ?? 0;
+        const program = assignment.programIndex ?? 0;
+        const key = `${filePath}|${bank}|${program}`;
+        if (!items.has(key)) items.set(key, { path: filePath, bank, program });
+      }
+    }
+    if (items.size === 0) return;
+    const timer = setTimeout(() => {
+      void this.vstManager
+        .preloadSamplers([...items.values()])
+        .then((queued) => {
+          if (queued > 0) {
+            console.log(`[Preseter] Pré-carregando ${queued} instrumento(s) do sampler.`);
+          }
+        })
+        .catch((error) => {
+          console.warn('[Preseter] Falha ao pré-carregar os samplers do concert:', error);
+        });
+    }, 1200);
+    timer.unref?.();
   }
 
   /** Pasta das gravações: preferência do usuário ou Música (fallback Documentos). */

@@ -349,10 +349,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   /** Abre/fecha a janela nativa do plugin do layer (tecla V ou botão do channel strip). */
   const togglePluginEditor = (layerId: string) => {
-    const assignment = (draft?.plugins ?? []).find(
-      (item, index) => (item.layerId ?? `${draft?.id}:layer:${index}`) === layerId
+    const activePreset = draft ?? currentPreset;
+    const assignment = (activePreset?.plugins ?? []).find(
+      (item, index) => (item.layerId ?? `${activePreset?.id}:layer:${index}`) === layerId
     );
     if (assignment && isNativeSamplerAssignment(assignment)) {
+      // Patch salvo em modo de visualização: abre uma cópia editável para que
+      // os controles do sampler possam ser salvos no .preseter.
+      if (!draft && activePreset) onEditPreset(activePreset);
       setSamplerWindowLayerId((current) => (current === layerId ? null : layerId));
       return;
     }
@@ -1049,7 +1053,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
-    if (plugin.id === 'preseter.sampler') return addSamplerFromDialog();
+    if (plugin.id === 'preseter.sampler') return createEmptySamplerLayer();
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
@@ -1070,6 +1074,37 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     };
     onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), assignment], updatedAt: Date.now() });
     setFocusLayerId(layerId);
+    onError('');
+    return true;
+  };
+
+  /** Cria um layer de sampler vazio e abre a janela, sem pedir arquivo. */
+  const createEmptySamplerLayer = async (): Promise<boolean> => {
+    const base = draft ?? currentPreset;
+    if (!base) return false;
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const assignment: PresetPluginAssignment = {
+      pluginId: 'preseter.sampler',
+      layerId,
+      name: 'Preseter Sampler',
+      path: 'preseter.sampler',
+      role: 'instrument',
+      sourceKind: 'sampler',
+      samplePath: '',
+      sampler: { loop: true, polyphony: 64 },
+      minNote: 0,
+      maxNote: 127,
+      patchSendDb: 0,
+    };
+    onDraftChange({
+      ...base,
+      plugins: [...(base.plugins ?? []), assignment],
+      updatedAt: Date.now(),
+    });
+    setFocusLayerId(layerId);
+    setSamplerWindowLayerId(layerId);
     onError('');
     return true;
   };
@@ -1106,13 +1141,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     setFocusLayerId(layerId);
     onError('');
     return true;
-  };
-
-  /** Abre o diálogo de arquivo e cria um layer de sampler. */
-  const addSamplerFromDialog = async () => {
-    const filePath = await window.electronAPI.samplerPickFile();
-    if (!filePath) return false;
-    return addSamplerLayer(filePath);
   };
 
   /** Abre o editor para criar um timbre MIDI externo no patch. */
@@ -3336,7 +3364,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
             onDropSampleFile={addSamplerLayer}
-            onAddSampler={addSamplerFromDialog}
+            onAddSampler={createEmptySamplerLayer}
             onAddSplit={addSplitLayer}
             onLearnSplitNote={learnSplitNote}
             onRemove={removeLayer}
@@ -3390,10 +3418,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
       )}
       {samplerWindowLayerId && (() => {
-        const assignment = (draft?.plugins ?? []).find(
-          (item, index) => (item.layerId ?? `${draft?.id}:layer:${index}`) === samplerWindowLayerId
+        const targetPreset = draft ?? currentPreset;
+        const assignment = (targetPreset?.plugins ?? []).find(
+          (item, index) => (item.layerId ?? `${targetPreset?.id}:layer:${index}`) === samplerWindowLayerId
         );
-        if (!assignment || !draft) return null;
+        if (!assignment || !targetPreset) return null;
         return (
           <SamplerWindow
             assignment={assignment}
@@ -3405,16 +3434,32 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               setSettingsTab('store');
             }}
             onUseInPatch={async () => {
-              const next = { ...draft, updatedAt: Date.now() };
+              const next = { ...targetPreset, updatedAt: Date.now() };
               onDraftChange(next);
               const saved = await onSaveDraft(next);
               setActionNotice(saved === false ? 'Não foi possível salvar o patch' : 'Som salvo no patch');
             }}
+            onLoadFile={async (path) => {
+              const loaded = await loadVstPlugin(
+                'preseter.sampler',
+                samplerWindowLayerId,
+                assignment.minNote ?? 0,
+                assignment.maxNote ?? 127,
+                false,
+                {
+                  samplePath: path,
+                  loop: assignment.sampler?.loop ?? true,
+                  polyphony: assignment.sampler?.polyphony ?? 64,
+                  ...(assignment.sampler ?? {}),
+                }
+              );
+              return Boolean(loaded);
+            }}
             onUpdate={(patch) => {
               onDraftChange({
-                ...draft,
-                plugins: (draft.plugins ?? []).map((item, index) =>
-                  (item.layerId ?? `${draft.id}:layer:${index}`) === samplerWindowLayerId
+                ...targetPreset,
+                plugins: (targetPreset.plugins ?? []).map((item, index) =>
+                  (item.layerId ?? `${targetPreset.id}:layer:${index}`) === samplerWindowLayerId
                     ? { ...item, ...patch }
                     : item
                 ),

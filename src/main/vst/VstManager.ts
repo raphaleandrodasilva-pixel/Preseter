@@ -444,6 +444,25 @@ export class VstManager extends EventEmitter {
     return this.engine.request('samplerInfo', { layerId });
   }
 
+  /** Coloca instrumentos do sampler na fila de pré-carga do motor. */
+  async preloadSamplers(
+    items: Array<{ path: string; bank?: number; program?: number }>
+  ): Promise<number> {
+    if (items.length === 0) return 0;
+    const result = await this.engine.request(
+      'samplerPreload',
+      {
+        paths: items.map((item) => ({
+          path: item.path,
+          bank: item.bank ?? 0,
+          program: item.program ?? 0,
+        })),
+      },
+      120_000
+    );
+    return typeof result.queued === 'number' ? result.queued : 0;
+  }
+
   async reloadSampler(
     layerId: string,
     samplePath: string,

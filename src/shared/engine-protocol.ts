@@ -259,6 +259,11 @@ export interface EngineCommands {
     args: { layerId: string };
     result: Record<string, unknown>;
   };
+  /** Pré-carrega instrumentos do sampler em segundo plano. */
+  samplerPreload: {
+    args: { paths: Array<{ path: string; bank?: number; program?: number }> };
+    result: { queued: number };
+  };
   /** Troca o arquivo de um layer de sampler já carregado. */
   samplerReload: {
     args: {

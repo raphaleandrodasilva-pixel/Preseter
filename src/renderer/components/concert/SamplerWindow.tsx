@@ -47,6 +47,8 @@ interface SamplerWindowProps {
   onUpdate: (patch: Partial<PresetPluginAssignment>) => void;
   onOpenStore: () => void;
   onUseInPatch: () => void | Promise<void>;
+  /** Carrega o arquivo no motor quando o layer ainda não existe. */
+  onLoadFile?: (filePath: string) => Promise<boolean>;
 }
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -100,6 +102,7 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
   onUpdate,
   onOpenStore,
   onUseInPatch,
+  onLoadFile,
 }) => {
   const { getVstParameters, setVstParameter, setVstLayerMix, setVstSend } = useAppContext();
   const [info, setInfo] = useState<SamplerInfo | null>(null);
@@ -152,11 +155,17 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
       setParams(rawParams ?? []);
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Falha ao ler o instrumento.');
+      setInfo(null);
+      setParams([]);
+      if (assignment.samplePath) {
+        setError(cause instanceof Error ? cause.message : 'Falha ao ler o instrumento.');
+      } else {
+        setError(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, [getVstParameters, layerId]);
+  }, [assignment.samplePath, getVstParameters, layerId]);
 
   useEffect(() => {
     void refresh();
@@ -256,12 +265,20 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
     async (path: string, program = 0) => {
       try {
         setLoading(true);
-        await window.electronAPI.samplerReload(layerId, path, {
-          loop: assignment.sampler?.loop ?? true,
-          polyphony: assignment.sampler?.polyphony ?? 64,
-          programIndex: program,
-          bank: 0,
-        });
+        try {
+          await window.electronAPI.samplerReload(layerId, path, {
+            loop: assignment.sampler?.loop ?? true,
+            polyphony: assignment.sampler?.polyphony ?? 64,
+            programIndex: program,
+            bank: 0,
+          });
+        } catch (reloadError) {
+          // Layer ainda não existe no motor (sampler criado vazio): carrega agora.
+          if (!onLoadFile) throw reloadError;
+          const loaded = await onLoadFile(path);
+          if (!loaded) throw reloadError;
+          if (program > 0) await window.electronAPI.vstSetProgram(layerId, program);
+        }
         onUpdate({ samplePath: path, programIndex: program, bank: 0 });
         await refresh();
         setNotice('Arquivo carregado.');
@@ -271,7 +288,7 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
         setLoading(false);
       }
     },
-    [assignment.sampler?.loop, assignment.sampler?.polyphony, layerId, onUpdate, refresh]
+    [assignment.sampler?.loop, assignment.sampler?.polyphony, layerId, onLoadFile, onUpdate, refresh]
   );
 
   const openFile = async () => {
@@ -530,6 +547,25 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
                 {isFavorite ? '★ Favorito' : '☆ Favoritar'}
               </button>
             </div>
+
+            {!file && (
+              <section className="flex flex-wrap items-center gap-3 rounded-lg px-3 py-3" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold text-white">Nenhum sample carregado</div>
+                  <div className="text-[10px]" style={{ color: '#8E8E93' }}>
+                    Escolha um arquivo .sf2 ou .sfz para começar. Você também pode arrastar o arquivo para o channel strip.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg px-3 py-1.5 text-[11px] font-semibold"
+                  style={{ background: '#0A84FF', color: '#FFFFFF' }}
+                  onClick={() => void openFile()}
+                >
+                  Abrir arquivo…
+                </button>
+              </section>
+            )}
 
             {/* Teclado */}
             <section className="rounded-lg p-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>

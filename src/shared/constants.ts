@@ -29,7 +29,7 @@ export const CONCERT_FILE_FORMAT = 'preseter.concert';
  * 1 → 2 (Fase 3.3): channel strips do concert/set e sobreposições por set/patch.
  */
 export const CONCERT_FILE_VERSION = 2;
-export const CONCERT_FILE_EXTENSION = '.preseter';
+export const CONCERT_FILE_EXTENSION = '.pst';
 export const DEFAULT_TIME_SIGNATURE: TimeSignature = { numerator: 4, denominator: 4 };
 
 // Cores padrão para elementos de UI

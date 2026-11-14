@@ -151,6 +151,7 @@ export interface AppContextType {
     layout?: LayoutConfig | null;
     mappings?: ConcertMapping[];
     sets?: PresetSet[];
+    silent?: boolean;
   }) => Promise<boolean>;
   /** Atualiza o Master do Patch de um patch e mantém o patch atual em sincronia. */
   updatePatchMaster: (presetId: string, master: PatchMasterSettings) => void;
@@ -847,17 +848,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadPreset = useCallback(async (
     presetId: string,
-    options: { preset?: Preset; layout?: LayoutConfig | null; mappings?: ConcertMapping[]; sets?: PresetSet[] } = {}
+    options: {
+      preset?: Preset;
+      layout?: LayoutConfig | null;
+      mappings?: ConcertMapping[];
+      sets?: PresetSet[];
+      /** Em performance, troca o patch sem mostrar o cartão de carregamento. */
+      silent?: boolean;
+    } = {}
   ): Promise<boolean> => {
     const targetPreset = options.preset ?? presets.find((p) => p.id === presetId);
-    setLoadProgress({
-      active: true,
-      title: 'Carregando patch',
-      detail: targetPreset?.name ?? 'Lendo instrumentos…',
-      current: 0,
-      total: targetPreset?.plugins?.length ?? 0,
-      percent: 3,
-    });
+    if (!options.silent) {
+      setLoadProgress({
+        active: true,
+        title: 'Carregando patch',
+        detail: targetPreset?.name ?? 'Lendo instrumentos…',
+        current: 0,
+        total: targetPreset?.plugins?.length ?? 0,
+        percent: 3,
+      });
+    }
     pendingExternalPresetRef.current = targetPreset ?? null;
     let result: boolean;
     try {
@@ -865,13 +875,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao carregar o preset.';
       setMidiError(message);
-      setLoadProgress({
-        active: true,
-        title: 'Falha ao carregar o patch',
-        detail: targetPreset?.name,
-        error: message,
-        percent: 0,
-      });
+      if (!options.silent) {
+        setLoadProgress({
+          active: true,
+          title: 'Falha ao carregar o patch',
+          detail: targetPreset?.name,
+          error: message,
+          percent: 0,
+        });
+      }
       // Repassa a mensagem real para a tela em vez de só "não foi possível carregar".
       throw error;
     }
@@ -1180,6 +1192,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConcertPath(state.path);
             setConcertDirty(state.dirty);
           }
+        } else if (action.action === 'close') {
+          const state = await window.electronAPI.concertNew('vazio');
+          await openConcertState(state);
+          setConcertPath(null);
+          setConcertDirty(false);
         } else if (action.action === 'undo') {
           undo();
         } else if (action.action === 'redo') {
