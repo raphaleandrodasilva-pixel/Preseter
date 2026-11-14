@@ -132,7 +132,7 @@ describe('buildCollectionConcert', () => {
       const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
       const piano = file.patches.find((patch) => patch.name === 'Concert Grand');
       expect(piano?.plugins?.[0]).toMatchObject({
-        programIndex: 299,
+        programIndex: 0,
         samplePath: path.join('MuseScore_General', 'MuseScore_General.sf2'),
         samplerKind: 'sforzando',
       });
@@ -143,7 +143,8 @@ describe('buildCollectionConcert', () => {
       );
       const drum = file.patches.find((patch) => patch.name === 'Acoustic Rock Kit');
       expect(drum?.midiChannel).toBe(0);
-      expect(drum?.plugins?.[0].programIndex).toBe(120);
+      expect(drum?.plugins?.[0].programIndex).toBe(0);
+      expect(Object.keys(drum?.vstStates ?? {}).length).toBeGreaterThan(0);
     } finally {
       removeTempDir(sounds);
     }

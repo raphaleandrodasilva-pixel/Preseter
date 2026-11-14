@@ -8,6 +8,7 @@ import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { COLLECTION_SETS, type CollectionLayerSpec } from '../../shared/collection-presets';
+import sforzandoStates from './sforzando-states.json';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
 export interface CollectionPlugin {
@@ -47,6 +48,7 @@ let counter = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${++counter}`;
 
 const surgeStateCache = new Map<string, { data: string; parameters: Record<string, number>; bypass: false } | null>();
+const sforzandoStateMap = sforzandoStates as Record<string, string>;
 
 /** Pastas onde o Surge XT instala os presets de fábrica. */
 function surgePresetRoots(): string[] {
@@ -177,6 +179,12 @@ export function buildCollectionConcert(
         if (layer.factoryPreset && /surge/i.test(plugin.name)) {
           const state = loadSurgePresetState(layer.factoryPreset);
           if (state) vstStates[layerId] = state;
+        }
+        if (layer.inst === 'SFORZANDO') {
+          const data = sforzandoStateMap[`${layer.bank ?? 0}:${layer.programIndex ?? 0}`];
+          if (data) {
+            vstStates[layerId] = { data, parameters: {}, bypass: false };
+          }
         }
       });
       if (blocked || !assignments || assignments.length === 0) {

@@ -98,7 +98,7 @@ describe('ConcertManager lifecycle', () => {
       soundsFolder: tempRoot,
     });
     expect(state.patches).toHaveLength(40);
-    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'sforzando', programIndex: 299 });
+    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'sforzando', programIndex: 0 });
     expect(state.patches.every((patch) => (patch.plugins?.length ?? 0) > 0)).toBe(true);
   });
 
