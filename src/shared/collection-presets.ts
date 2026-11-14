@@ -27,6 +27,8 @@ export interface CollectionLayerSpec {
   velocityMax?: number;
   /** Arpejador do layer. */
   arp?: ArpSettings;
+  /** Preset de fábrica do Surge XT (caminho relativo em patches_factory). */
+  factoryPreset?: string;
 }
 
 export interface CollectionPatchMeta {
@@ -72,14 +74,14 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Upright Piano', [L('SFORZANDO', -2, 0, 127, 'Piano vertical', 299)]],
     ['Rhodes Classic', [L('SFORZANDO', -2, 0, 127, 'Rhodes', 4)]],
     ['Wurlitzer EP', [L('SFORZANDO', -2, 0, 127, 'Wurlitzer', 30)]],
-    ['FM Electric Piano', [L('DEXED', -2, 0, 127, 'Piano elétrico FM')]],
+    ['FM Electric Piano', [L('SURGE', -2, 0, 127, 'Piano elétrico FM', undefined, { factoryPreset: 'Keys/DX EP.fxp' })]],
     ['Clavinet Funk', [L('SFORZANDO', -2, 0, 127, 'Clavinet', 135)]],
   ]],
   ['Organs', [
     ['Hammond Jazz', [L('ORG', -2, 0, 127, 'Hammond jazz', 123)]],
     ['Hammond Gospel', [L('ORG', -2, 0, 127, 'Hammond gospel', 123)]],
     ['Hammond Rock', [L('ORG', -2, 0, 127, 'Hammond rock', 112)]],
-    ['Vintage Transistor Organ', [L('SURGE', -2, 0, 127, 'Órgão combo')]],
+    ['Vintage Transistor Organ', [L('SURGE', -2, 0, 127, 'Órgão combo', undefined, { factoryPreset: 'Keys/House Organ.fxp' })]],
   ]],
   ['Strings', [
     ['Solo Violin', [L('SFORZANDO', -2, 0, 127, 'Violino solo', 67)]],
@@ -92,10 +94,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Cinematic Strings', [
       L('SFORZANDO', -2, 55, 108, 'Violinos', 262, { pan: -0.12 }),
       L('SFORZANDO', -3, 36, 84, 'Cellos', 274, { pan: 0.12 }),
-      L('SURGE', -8, 0, 127, 'Pad de cordas'),
+      L('SURGE', -8, 0, 127, 'Pad de cordas', undefined, { factoryPreset: 'Pads/Subtle Comb Strings.fxp' }),
     ]],
     ['Pizzicato Strings', [L('SFORZANDO', -3, 36, 96, 'Cordas em pizzicato', 253)]],
-    ['Warm String Pad', [L('SURGE', -3, 0, 127, 'Pad de cordas')]],
+    ['Warm String Pad', [L('SURGE', -3, 0, 127, 'Pad de cordas', undefined, { factoryPreset: 'Pads/Subtle Comb Strings.fxp' })]],
   ]],
   ['Brass', [
     ['Solo Trumpet', [L('SFORZANDO', -2, 0, 127, 'Trompete', 170)]],
@@ -118,7 +120,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Electric Guitar Clean', [L('SFORZANDO', -2, 0, 127, 'Guitarra limpa', 86)]],
     ['Precision Bass', [L('SFORZANDO', -2, 0, 127, 'Baixo precision', 108)]],
     ['Synth Bass', [
-      L('SURGE', -2, 0, 127, 'Baixo sintetizado'),
+      L('SURGE', -2, 0, 127, 'Baixo sintetizado', undefined, { factoryPreset: 'Basses/Sub 1.fxp' }),
       L('FSVR', -6, 0, 127, 'FM bass'),
     ]],
   ]],
@@ -128,13 +130,13 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Orchestral Percussion', [L('SFORZANDO', -2, 0, 127, 'Percussão orquestral', 115)]],
   ]],
   ['Synthesizers', [
-    ['Analog Poly Synth', [L('SURGE', -2, 0, 127, 'Analógico polifônico')]],
-    ['Vintage Analog Lead', [L('ODIN', -2, 0, 127, 'Lead analógico')]],
-    ['Modern Synth Lead', [L('SURGE', -2, 0, 127, 'Lead moderno')]],
-    ['Warm Analog Pad', [L('SURGE', -3, 0, 127, 'Pad analógico')]],
-    ['Digital Bell', [L('DEXED', -2, 0, 127, 'Sino digital')]],
-    ['Arpeggiator', [L('SURGE', -2, 0, 127, 'Arpejo', undefined, { arp: arp() })]],
-    ['Deep Synth Bass', [L('SURGE', -2, 0, 127, 'Baixo profundo')]],
-    ['Ambient Texture', [L('SURGE', -3, 0, 127, 'Textura ambiente')]],
+    ['Analog Poly Synth', [L('SURGE', -2, 0, 127, 'Analógico polifônico', undefined, { factoryPreset: 'Polysynths/Jupiter-8.fxp' })]],
+    ['Vintage Analog Lead', [L('SURGE', -2, 0, 127, 'Lead analógico', undefined, { factoryPreset: 'Leads/Moogy Saw.fxp' })]],
+    ['Modern Synth Lead', [L('SURGE', -2, 0, 127, 'Lead moderno', undefined, { factoryPreset: 'Leads/Classic Lead 1.fxp' })]],
+    ['Warm Analog Pad', [L('SURGE', -3, 0, 127, 'Pad analógico', undefined, { factoryPreset: 'Pads/MKS-70 Warm Pad.fxp' })]],
+    ['Digital Bell', [L('SURGE', -2, 0, 127, 'Sino digital', undefined, { factoryPreset: 'Plucks/Fantasy Bell.fxp' })]],
+    ['Arpeggiator', [L('SURGE', -2, 0, 127, 'Arpejo', undefined, { arp: arp(), factoryPreset: 'Plucks/FM Pluck.fxp' })]],
+    ['Deep Synth Bass', [L('SURGE', -2, 0, 127, 'Baixo profundo', undefined, { factoryPreset: 'Basses/Deep End.fxp' })]],
+    ['Ambient Texture', [L('SURGE', -3, 0, 127, 'Textura ambiente', undefined, { factoryPreset: 'Pads/Computers In Space.fxp' })]],
   ]],
 ];

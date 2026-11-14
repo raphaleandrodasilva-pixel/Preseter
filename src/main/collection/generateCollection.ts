@@ -1,6 +1,7 @@
 import type { Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
 import type { CollectionReadiness } from '../../shared/collection';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultKeyboardLayout } from '../../shared/default-layout';
@@ -45,6 +46,53 @@ export interface BuildCollectionResult {
 let counter = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${++counter}`;
 
+const surgeStateCache = new Map<string, { data: string; parameters: Record<string, number>; bypass: false } | null>();
+
+/** Pastas onde o Surge XT instala os presets de fábrica. */
+function surgePresetRoots(): string[] {
+  if (process.platform === 'win32') {
+    return [path.join(process.env.ProgramData ?? 'C:\\ProgramData', 'Surge XT', 'patches_factory')];
+  }
+  if (process.platform === 'darwin') {
+    return [path.join(os.homedir(), 'Library', 'Application Support', 'Surge XT', 'patches_factory')];
+  }
+  return [
+    path.join(os.homedir(), '.local', 'share', 'Surge XT', 'patches_factory'),
+    '/usr/share/surge-xt/patches_factory',
+  ];
+}
+
+/**
+ * Lê um preset de fábrica do Surge XT (.fxp) e devolve o estado no formato que
+ * o VST3 aceita. O estado fica embutido no concert, sem depender do caminho do
+ * preset na máquina de destino.
+ */
+function loadSurgePresetState(
+  relativePath: string
+): { data: string; parameters: Record<string, number>; bypass: false } | null {
+  if (surgeStateCache.has(relativePath)) return surgeStateCache.get(relativePath) ?? null;
+  for (const root of surgePresetRoots()) {
+    const fullPath = path.join(root, relativePath);
+    if (!existsSync(fullPath)) continue;
+    try {
+      const buffer = readFileSync(fullPath);
+      const xmlStart = buffer.indexOf(Buffer.from('<?xml'));
+      if (xmlStart < 0) continue;
+      const state = {
+        data: buffer.subarray(xmlStart).toString('base64'),
+        parameters: {},
+        bypass: false as const,
+      };
+      surgeStateCache.set(relativePath, state);
+      return state;
+    } catch {
+      /* tenta a próxima pasta */
+    }
+  }
+  surgeStateCache.set(relativePath, null);
+  return null;
+}
+
 function keyboardRig(notes: string, tempo: number): UiElement[] {
   return createDefaultKeyboardLayout(tempo, { title: notes }).elements;
 }
@@ -85,6 +133,7 @@ export function buildCollectionConcert(
     let setOrder = 0;
     for (const [name, layers, meta] of patches) {
       const assignments: PresetPluginAssignment[] = [];
+      const vstStates: Record<string, any> = {};
       let blocked: string | null = null;
       layers.forEach((layer, index) => {
         const plugin = options.test
@@ -95,9 +144,10 @@ export function buildCollectionConcert(
           missing.add(COLLECTION_INSTRUMENTS[layer.inst]?.label ?? layer.inst);
           return;
         }
+        const layerId = `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`;
         assignments.push({
           pluginId: plugin.id,
-          layerId: `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`,
+          layerId,
           name: layers.length > 1 && layer.label ? `${plugin.name} — ${layer.label}` : plugin.name,
           path: plugin.id,
           role: 'instrument',
@@ -124,6 +174,10 @@ export function buildCollectionConcert(
               })()
             : {}),
         });
+        if (layer.factoryPreset && /surge/i.test(plugin.name)) {
+          const state = loadSurgePresetState(layer.factoryPreset);
+          if (state) vstStates[layerId] = state;
+        }
       });
       if (blocked || !assignments || assignments.length === 0) {
         skipped.push(`${name}: ${blocked ?? 'sem camadas'}`);
@@ -142,7 +196,7 @@ export function buildCollectionConcert(
         programNumber: program++,
         midiChannel: meta?.midiChannel ?? 0,
         plugins: assignments,
-        vstStates: {},
+        vstStates,
         layout: { elements: keyboardRig(notes, tempo), background: null, tempo },
         createdAt: now,
         updatedAt: now,

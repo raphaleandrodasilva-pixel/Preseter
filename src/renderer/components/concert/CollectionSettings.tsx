@@ -296,7 +296,7 @@ export const CollectionSettings: React.FC = () => {
             className="rounded px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
             style={{ background: '#30D158', color: '#0B1A10' }}
             onClick={() => void handleGenerate()}
-            disabled={busy || (readiness !== null && !readiness.readyToGenerate)}
+            disabled={busy || checking || (readiness !== null && !readiness.readyToGenerate)}
             title={readiness && !readiness.readyToGenerate ? 'Resolva as dependências pendentes primeiro.' : undefined}
           >
             Gerar concert da Factory 40
