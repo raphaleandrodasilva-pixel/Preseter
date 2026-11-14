@@ -4,11 +4,14 @@ import * as path from 'path';
 import {
   DEFAULT_STORE_SOURCES,
   DEFAULT_STORE_SOURCES_TEXT,
+  formatStoreConfig,
   formatStoreSources,
   isLocalStoreSource,
   mergeStoreCatalogs,
+  parseStoreConfig,
   parseStoreSources,
   resolveStoreSourcePath,
+  seedStoreConfig,
   STORE_BPB_CATALOG_PATH,
 } from './store-sources';
 import { validateStoreCatalog, type StoreCatalog, type StoreItem } from './store';
@@ -64,8 +67,8 @@ bpb2 ./store/extra.json
   it('aponta ids repetidos e linhas inválidas', () => {
     const parsed = parseStoreSources('main https://a.example/c.json\nmain https://b.example/c.json\nlinha quebrada');
     expect(parsed.sources).toHaveLength(1);
-    expect(parsed.issues[0]).toContain('id repetido');
-    expect(parsed.issues[1]).toContain('use "<id> <endereço>"');
+    expect(parsed.issues[0]).toContain('fonte repetida');
+    expect(parsed.issues[1]).toContain('use "source');
   });
 
   it('faz round-trip do formato', () => {
@@ -110,8 +113,54 @@ bpb2 ./store/extra.json
     expect(result.catalog.items.every((entry) => entry.source === 'bedroomproducersblog')).toBe(true);
   });
 
-  it('mantém as fontes padrão com o catálogo principal e o BPB', () => {
-    expect(DEFAULT_STORE_SOURCES.map((source) => source.id)).toEqual(['main', 'bpb']);
+  it('mantém a fonte padrão apenas com o catálogo principal', () => {
+    expect(DEFAULT_STORE_SOURCES.map((source) => source.id)).toEqual(['main']);
     expect(parseStoreSources(DEFAULT_STORE_SOURCES_TEXT).issues).toEqual([]);
+  });
+
+  it('lê source, page e address com linhas desativadas', () => {
+    const parsed = parseStoreConfig(`
+source main https://example.com/catalog.json
+page surge-xt https://surge-synthesizer.github.io/
+# address dexed windows https://github.com/asx2m10/dexed/releases/download/v1/Dexed.zip
+address dexed linux https://github.com/asb2m10/dexed/releases/download/v1/Dexed-lnx.zip
+`);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.sources).toEqual([
+      { id: 'main', url: 'https://example.com/catalog.json', enabled: true },
+    ]);
+    expect(parsed.pages).toEqual([
+      { itemId: 'surge-xt', url: 'https://surge-synthesizer.github.io/', enabled: true },
+    ]);
+    expect(parsed.addresses).toEqual([
+      {
+        itemId: 'dexed',
+        os: 'windows',
+        url: 'https://github.com/asx2m10/dexed/releases/download/v1/Dexed.zip',
+        enabled: false,
+      },
+      {
+        itemId: 'dexed',
+        os: 'linux',
+        url: 'https://github.com/asb2m10/dexed/releases/download/v1/Dexed-lnx.zip',
+        enabled: true,
+      },
+    ]);
+  });
+
+  it('gera a configuração completa com página e downloads por sistema', () => {
+    const seeded = seedStoreConfig({
+      sources: DEFAULT_STORE_SOURCES,
+      catalogs: [{ sourceId: 'main', catalog: catalog('a', 'b') }],
+    });
+    expect(seeded.sources).toEqual(DEFAULT_STORE_SOURCES);
+    expect(seeded.pages.map((page) => page.itemId)).toEqual([]);
+    expect(seeded.addresses).toHaveLength(2);
+    expect(seeded.addresses[0]).toMatchObject({ itemId: 'a', os: 'windows' });
+
+    const text = formatStoreConfig(seeded);
+    const parsed = parseStoreConfig(text);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.addresses).toHaveLength(2);
   });
 });

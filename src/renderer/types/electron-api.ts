@@ -94,8 +94,18 @@ export interface ElectronAPI {
     os?: string;
     page?: string;
     url?: string;
-  }) => Promise<{ ok: boolean; error?: string; snapshot: StoreSnapshot }>;
-  storeAddressesReset: () => Promise<{ ok: boolean; snapshot: StoreSnapshot }>;
+  }) => Promise<{
+    ok: boolean;
+    error?: string;
+    snapshot: StoreSnapshot;
+    state: import('@shared/store-sources').StoreSourcesState;
+  }>;
+  storeAddressesReset: () => Promise<{
+    ok: boolean;
+    snapshot: StoreSnapshot;
+    state: import('@shared/store-sources').StoreSourcesState;
+  }>;
+  storeSourcesOpen: () => Promise<boolean>;
   storeDownload: (ids: string[], force?: boolean) => Promise<CollectionDownloadResult>;
   storeCancel: () => Promise<boolean>;
   storeCheckUpdates: (force?: boolean) => Promise<StoreUpdateResult>;

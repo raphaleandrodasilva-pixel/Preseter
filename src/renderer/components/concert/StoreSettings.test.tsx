@@ -336,17 +336,17 @@ describe('StoreSettings', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Endereços' }));
-    const textarea = await screen.findByLabelText('Fontes da Loja no formato sources.list') as HTMLTextAreaElement;
-    expect(textarea.value).toContain('bpb store/store-catalog-bpb.json');
-    expect(await screen.findByText(/bpb · 0 itens/)).toBeInTheDocument();
+    const textarea = await screen.findByLabelText('Configuração da Loja') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('source main');
+    expect(await screen.findByText(/main · 0 itens/)).toBeInTheDocument();
 
     const pageInput = await screen.findByLabelText('Página oficial de Plugin Alfa 1.0') as HTMLInputElement;
     expect(pageInput.value).toBe('https://github.com/example/plugin');
 
-    fireEvent.change(textarea, { target: { value: 'main https://example.com/catalog.json' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar fontes' }));
+    fireEvent.change(textarea, { target: { value: 'source main https://example.com/catalog.json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar configuração' }));
     await waitFor(() =>
-      expect(window.electronAPI.storeSourcesSet).toHaveBeenCalledWith('main https://example.com/catalog.json')
+      expect(window.electronAPI.storeSourcesSet).toHaveBeenCalledWith('source main https://example.com/catalog.json')
     );
   });
 });

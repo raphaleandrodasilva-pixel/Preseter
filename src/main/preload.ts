@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   storeAddressSet: (input: { itemId: string; os?: string; page?: string; url?: string }) =>
     ipcRenderer.invoke('store-address-set', input),
   storeAddressesReset: () => ipcRenderer.invoke('store-addresses-reset'),
+  storeSourcesOpen: () => ipcRenderer.invoke('store-sources-open'),
   storeDownload: (ids: string[], force?: boolean) =>
     ipcRenderer.invoke('store-download', ids, force),
   storeCancel: () => ipcRenderer.invoke('store-cancel'),

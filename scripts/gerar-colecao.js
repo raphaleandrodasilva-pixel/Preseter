@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Gera um concert `.preseter` com a coleção de 40 patches de docs/PATCHES.md.
+ * Gera um concert `.preseter` com a coleção de 40 patches.
  *
- * Usa a mesma estrutura do app (Configurações → Coleção): só monta sets,
- * patches, camadas, faixas de teclas, volumes, programa e teclado. O SOM de
- * cada patch é escolhido dentro do plugin (tecla V) e salvo no patch.
+ * Usa a mesma estrutura do app (Configurações → Coleção): monta sets, patches,
+ * camadas, faixas de teclas, volumes e programas. Instrumentos sampleados usam
+ * o sampler nativo (preseter.sampler) com os SF2/SFZ da pasta de sons; os
+ * sintetizadores continuam em plugins (Surge XT).
  *
  * Uso (precisa do motor compilado e de `npm run build:main`):
  *   node scripts/gerar-colecao.js
  *   node scripts/gerar-colecao.js --out=Colecao.preseter
- *   node scripts/gerar-colecao.js --test               # tudo vira "Preseter Test Synth"
  *   node scripts/gerar-colecao.js --path=PASTA         # pasta extra de plugins (pode repetir)
  *   node scripts/gerar-colecao.js --engine=CAMINHO
- *   node scripts/gerar-colecao.js --listar=sforzando  # mostra o que o motor enxerga
+ *   node scripts/gerar-colecao.js --listar=surge       # mostra o que o motor enxerga
  *
  * Patches cujo plugin não foi encontrado são PULADOS e listados no final.
  */
@@ -101,17 +101,12 @@ async function main() {
     return;
   }
 
-  if (flag('test') && !plugins.some((p) => /test synth/i.test(p.name))) {
-    throw new Error('Modo --test: "Preseter Test Synth" não apareceu na varredura.');
-  }
-
   const { file, skipped, missing } = buildCollectionConcert(plugins, {
     tempo: 100,
-    test: flag('test'),
   });
   const text = serializeConcertFile(file);
   const back = parseConcertFile(text);
-  const out = path.resolve(first('out', flag('test') ? 'colecao-teste.preseter' : 'Colecao.preseter'));
+  const out = path.resolve(first('out', 'Colecao.preseter'));
   fs.writeFileSync(out, text);
 
   console.log(`\nGerado: ${out}`);
@@ -123,8 +118,9 @@ async function main() {
   if (missing.length) {
     console.log(`\nInstale para completar: ${missing.join(', ')} (veja docs/PATCHES.md)`);
   }
-  console.log('\nPróximo passo: abra o arquivo no Preseter, entre em cada patch, abra o plugin (tecla V),');
-  console.log('escolha o preset/SF2 e salve o concert (o estado do plugin fica gravado no patch).');
+  console.log('\nPróximo passo: abra o arquivo no Preseter. Os layers sampleados já vêm com o SF2/SFZ');
+  console.log('no sampler nativo; os patches de sintetizador usam o preset de fábrica do Surge.');
+  console.log('Ajuste o som se quiser e salve o concert (o estado fica gravado no patch).');
 }
 
 main().catch((e) => {

@@ -391,7 +391,20 @@ describe('StoreService', () => {
     expect(result.updated).toBe(false);
   });
 
-  it('merges the local BPB catalog from sources.list', async () => {
+  it('generates a complete config with all links on first run', async () => {
+    const store = service(createInstaller());
+    const state = await store.getSources();
+    expect(state.sources.map((source) => source.id)).toEqual(['main']);
+    expect(state.addressCount).toBe(1);
+    expect(state.text).toContain(
+      'address plugin windows https://github.com/example/plugin/releases/download/v1.0/Plugin-Windows.zip'
+    );
+    await expect(fs.readFile(path.join(userData, 'store-sources.list'), 'utf8')).resolves.toContain(
+      'source main'
+    );
+  });
+
+  it('merges the local BPB catalog as internal metadata', async () => {
     await fs.writeFile(
       path.join(appPath, 'store', 'store-catalog-bpb.json'),
       JSON.stringify(
@@ -401,6 +414,7 @@ describe('StoreService', () => {
             name: 'Instrumento BPB',
             source: 'bedroomproducersblog',
             tier: 'indexed',
+            page: 'https://example.com/bpb-local',
           })
         )
       ),
@@ -410,15 +424,15 @@ describe('StoreService', () => {
     const snapshot = await store.snapshot();
     expect(snapshot.items.map((entry) => entry.id)).toEqual(['plugin', 'bpb-local']);
     expect(snapshot.items[1].catalogSource).toBe('bpb');
-    expect(snapshot.sources?.map((source) => source.id)).toEqual(['main', 'bpb']);
-    expect(snapshot.sources?.find((source) => source.id === 'bpb')?.itemCount).toBe(1);
+    expect(snapshot.sources?.map((source) => source.id)).toEqual(['main']);
 
     const state = await store.getSources();
     expect(state.path.endsWith('store-sources.list')).toBe(true);
-    expect(state.sources.find((source) => source.id === 'bpb')?.local).toBe(true);
+    expect(state.text).toContain('page bpb-local https://example.com/bpb-local');
+    expect(state.sources.find((source) => source.id === 'bpb')).toBeUndefined();
   });
 
-  it('saves sources.list and drops disabled catalogs', async () => {
+  it('saves the config and keeps BPB metadata available', async () => {
     await fs.writeFile(
       path.join(appPath, 'store', 'store-catalog-bpb.json'),
       JSON.stringify(catalog(item({ id: 'bpb-local', source: 'bedroomproducersblog' }))),
@@ -427,19 +441,17 @@ describe('StoreService', () => {
     const store = service(createInstaller());
     await store.snapshot();
 
-    const result = await store.saveSources(
-      '# main https://example.com/main.json\n# bpb store/store-catalog-bpb.json\n'
-    );
+    const result = await store.saveSources('source main https://example.com/main.json\n');
     expect(result.ok).toBe(true);
-    expect(result.snapshot.items.map((entry) => entry.id)).toEqual(['plugin']);
-    expect(result.state.sources).toHaveLength(2);
-    expect(result.state.sources.every((source) => !source.enabled)).toBe(true);
+    expect(result.snapshot.items.map((entry) => entry.id)).toEqual(['plugin', 'bpb-local']);
+    expect(result.state.sources).toHaveLength(1);
+    expect(result.state.sources[0].enabled).toBe(true);
     await expect(fs.readFile(path.join(userData, 'store-sources.list'), 'utf8')).resolves.toContain(
-      '# bpb'
+      'source main https://example.com/main.json'
     );
   });
 
-  it('edits item addresses and persists them', async () => {
+  it('edits item addresses and persists them in the config file', async () => {
     const store = service(createInstaller());
     const before = await store.snapshot();
     expect(before.items[0].variant?.url).toContain('v1.0');
@@ -460,11 +472,37 @@ describe('StoreService', () => {
     expect(result.ok).toBe(true);
     expect(result.snapshot.items[0].page).toBe('https://example.com/plugin');
     expect(result.snapshot.items[0].variant?.url).toContain('v2.0');
+    expect(result.state.text).toContain('page plugin https://example.com/plugin');
+    expect(result.state.text).toContain('address plugin windows');
 
-    const saved = JSON.parse(
-      await fs.readFile(path.join(userData, 'store-addresses.json'), 'utf8')
-    ) as { overrides: Record<string, { page?: string; urls?: Record<string, string> }> };
-    expect(saved.overrides.plugin.page).toBe('https://example.com/plugin');
-    expect(saved.overrides.plugin.urls?.windows).toContain('v2.0');
+    const saved = await fs.readFile(path.join(userData, 'store-sources.list'), 'utf8');
+    expect(saved).toContain('page plugin https://example.com/plugin');
+    expect(saved).toContain('releases/download/v2.0/Plugin-Windows.zip');
+  });
+
+  it('removes a download when its address line is deleted', async () => {
+    const store = service(createInstaller());
+    await store.snapshot();
+    const result = await store.saveSources('source main https://example.com/main.json\n');
+    expect(result.ok).toBe(true);
+    expect(result.snapshot.items[0].variant?.url).toBeUndefined();
+  });
+
+  it('seeds the real catalog with all downloads and BPB pages', async () => {
+    const store = new StoreService({
+      appPath: process.cwd(),
+      userData,
+      platform: 'win32',
+      arch: 'x64',
+      installer: createInstaller(),
+      now: () => NOW,
+      autoResolveLinks: false,
+    });
+    const state = await store.getSources();
+    expect(state.sources.map((source) => source.id)).toEqual(['main']);
+    expect(state.addressCount).toBeGreaterThanOrEqual(60);
+    expect(state.pageCount).toBeGreaterThanOrEqual(20);
+    expect(state.text).not.toContain('source bpb');
+    expect(state.text).toContain('page bpb-surge-xt');
   });
 });

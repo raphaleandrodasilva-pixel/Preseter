@@ -304,7 +304,7 @@
       "approxBytes": 20001624,
       "license": "Freeware",
       "licenseUrl": "https://www.plogue.com/products/sforzando.html",
-      "defaultSelected": true,
+      "defaultSelected": false,
       "vst3Patterns": ["sforzando.vst3", "Sforzando.vst3"],
       "platforms": {
         "linux": {

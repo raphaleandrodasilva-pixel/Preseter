@@ -119,12 +119,12 @@ export function createElectronApiMock(): ElectronApiMock {
     storeList: vi.fn(async () => emptyStoreSnapshot()),
     storeSourcesGet: vi.fn(async () => ({
       path: '',
-      text: 'main https://example.com/store-catalog.json\nbpb store/store-catalog-bpb.json\n',
+      text: 'source main https://example.com/store-catalog.json\n',
       sources: [
         { id: 'main', url: 'https://example.com/store-catalog.json', enabled: true, local: false, itemCount: 0 },
-        { id: 'bpb', url: 'store/store-catalog-bpb.json', enabled: true, local: true, itemCount: 0 },
       ],
-      addressesPath: '',
+      pageCount: 0,
+      addressCount: 0,
     })),
     storeSourcesSet: vi.fn(async (text: string) => ({
       ok: true,
@@ -133,12 +133,22 @@ export function createElectronApiMock(): ElectronApiMock {
         path: '',
         text,
         sources: [],
-        addressesPath: '',
+        pageCount: 0,
+        addressCount: 0,
       },
       snapshot: emptyStoreSnapshot(),
     })),
-    storeAddressSet: vi.fn(async () => ({ ok: true, snapshot: emptyStoreSnapshot() })),
-    storeAddressesReset: vi.fn(async () => ({ ok: true, snapshot: emptyStoreSnapshot() })),
+    storeAddressSet: vi.fn(async () => ({
+      ok: true,
+      snapshot: emptyStoreSnapshot(),
+      state: { path: '', text: '', sources: [], pageCount: 0, addressCount: 0 },
+    })),
+    storeAddressesReset: vi.fn(async () => ({
+      ok: true,
+      snapshot: emptyStoreSnapshot(),
+      state: { path: '', text: '', sources: [], pageCount: 0, addressCount: 0 },
+    })),
+    storeSourcesOpen: vi.fn(async () => true),
     storeDownload: vi.fn(async () => ({
       ok: true,
       statuses: [],

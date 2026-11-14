@@ -117,4 +117,18 @@ describe('SamplerWindow', () => {
       )
     );
   });
+
+  it('não mostra o histograma de zonas e permite mudar a polifonia', async () => {
+    const { onUpdate } = renderWindow();
+    expect(screen.queryByText('Camadas de velocity')).not.toBeInTheDocument();
+
+    const select = await screen.findByLabelText('Polifonia') as HTMLSelectElement;
+    expect(select.value).toBe('64');
+    fireEvent.change(select, { target: { value: '128' } });
+    await waitFor(() =>
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ sampler: expect.objectContaining({ polyphony: 128 }) })
+      )
+    );
+  });
 });

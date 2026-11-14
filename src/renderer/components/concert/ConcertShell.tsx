@@ -22,7 +22,7 @@ import type {
   MidiBinding,
   PlaybackState,
 } from '@shared/types';
-import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB } from '@shared/types';
+import { MAX_AUX_BUSES, MAX_OUTPUT_BUSES, SEND_OFF_DB, isNativeSamplerAssignment } from '@shared/types';
 import type { ExternalMidiConfig } from '@shared/external-midi';
 import { defaultAudioInput } from '@shared/audio-input';
 import { buildDuplicatedElements, moveElementsWithGroup, newGroupId } from '@shared/element-groups';
@@ -352,7 +352,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     const assignment = (draft?.plugins ?? []).find(
       (item, index) => (item.layerId ?? `${draft?.id}:layer:${index}`) === layerId
     );
-    if (assignment?.sourceKind === 'sampler') {
+    if (assignment && isNativeSamplerAssignment(assignment)) {
       setSamplerWindowLayerId((current) => (current === layerId ? null : layerId));
       return;
     }
@@ -1519,6 +1519,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if (state?.data) insertStates.push({ slot: insert.slot, data: state.data });
     }
 
+    const isSamplerTarget = plugin.id === 'preseter.sampler' || plugin.path === 'preseter.sampler';
+    let samplerPath: string | undefined;
+    if (isSamplerTarget) {
+      const picked = await window.electronAPI.samplerPickFile();
+      if (!picked) return false;
+      samplerPath = picked;
+    }
+
     const unloaded = await unloadVstPlugin(layerId);
     if (!unloaded) {
       onError(`Não foi possível descarregar "${assignment.name}" para trocar o VST.`);
@@ -1526,7 +1534,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
 
     try {
-      const loaded = await loadVstPlugin(plugin.path, layerId, minNote, maxNote);
+      const loaded = isSamplerTarget
+        ? await loadVstPlugin('preseter.sampler', layerId, minNote, maxNote, false, {
+            samplePath: samplerPath,
+            loop: assignment.sampler?.loop ?? true,
+            polyphony: assignment.sampler?.polyphony ?? 64,
+            ...(assignment.sampler ?? {}),
+          })
+        : await loadVstPlugin(plugin.path, layerId, minNote, maxNote);
       if (!loaded) throw new Error('O engine não confirmou o carregamento do novo plugin.');
 
       await setVstLayerMix(layerId, assignment.mix ?? {});
@@ -1559,7 +1574,35 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         ...draft,
         plugins: (draft.plugins ?? []).map((item) =>
           item.layerId === layerId
-            ? { ...item, pluginId: plugin.id, name: plugin.name, path: plugin.path }
+            ? isSamplerTarget
+              ? {
+                  ...item,
+                  pluginId: 'preseter.sampler',
+                  name: loaded.name || 'Preseter Sampler',
+                  path: 'preseter.sampler',
+                  sourceKind: 'sampler' as const,
+                  samplePath: samplerPath,
+                  sampler: {
+                    loop: true,
+                    polyphony: 64,
+                    ...(item.sampler ?? {}),
+                  },
+                  programIndex: 0,
+                  bank: 0,
+                  samplerKind: undefined,
+                }
+              : {
+                  ...item,
+                  pluginId: plugin.id,
+                  name: plugin.name,
+                  path: plugin.path,
+                  sourceKind: 'vst3' as const,
+                  samplePath: undefined,
+                  sampler: undefined,
+                  programIndex: undefined,
+                  bank: undefined,
+                  samplerKind: undefined,
+                }
             : item
         ),
         mappings,

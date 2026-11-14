@@ -24,7 +24,7 @@ interface InstrumentSpec {
 
 /** Siglas da coleção → nomes procurados no scan do motor. */
 export const COLLECTION_INSTRUMENTS: Record<CollectionLayerSpec['inst'], InstrumentSpec> = {
-  SFORZANDO: { label: 'Sforzando', match: [/sforzando/i] },
+  NATIVE: { label: 'Preseter Sampler', match: [/preseter sampler/i] },
   FSVR: { label: 'FSVR', match: [/fsvr/i], fallback: 'DEXED' },
   SURGE: { label: 'Surge XT', match: [/surge/i], fallback: 'DEXED' },
   DEXED: { label: 'Dexed', match: [/dexed/i] },
@@ -33,8 +33,6 @@ export const COLLECTION_INSTRUMENTS: Record<CollectionLayerSpec['inst'], Instrum
   MDA: { label: 'MDA', match: [/mda/i], fallback: 'DEXED' },
   MDA_EP: { label: 'MDA ePiano', match: [/mda\s*epiano|mdaepiano/i], fallback: 'MDA' },
   MDA_JX: { label: 'MDA JX10', match: [/mda\s*jx\s*10|mdajx10/i], fallback: 'MDA' },
-  ORG: { label: 'setBfree', match: [/setbfree/i], fallback: 'SFORZANDO' },
-  SFIZZ: { label: 'sfizz', match: [/sfizz/i], fallback: 'SFORZANDO' },
 };
 
 export interface BuildCollectionResult {
@@ -118,7 +116,7 @@ function resolvePlugin(
  */
 export function buildCollectionConcert(
   plugins: CollectionPlugin[],
-  options: { tempo?: number; test?: boolean; name?: string; soundsFolder?: string } = {}
+  options: { tempo?: number; name?: string; soundsFolder?: string } = {}
 ): BuildCollectionResult {
   const tempo = options.tempo ?? DEFAULT_TEMPO;
   const now = Date.now();
@@ -186,9 +184,7 @@ export function buildCollectionConcert(
           return;
         }
 
-        const plugin = options.test
-          ? plugins.find((entry) => /test synth/i.test(entry.name))
-          : resolvePlugin(layer.inst, plugins);
+        const plugin = resolvePlugin(layer.inst, plugins);
         if (!plugin) {
           blocked ??= `${COLLECTION_INSTRUMENTS[layer.inst]?.label ?? layer.inst} não encontrado`;
           missing.add(COLLECTION_INSTRUMENTS[layer.inst]?.label ?? layer.inst);
@@ -259,7 +255,7 @@ export function buildCollectionConcert(
     version: CONCERT_FILE_VERSION,
     concert: {
       id: nextId('concert'),
-      name: options.name ?? (options.test ? 'Coleção (teste)' : 'Coleção Preseter'),
+      name: options.name ?? 'Coleção Preseter',
       tempo,
       settings: createDefaultConcertSettings(),
       strips: [],
@@ -277,7 +273,7 @@ export function buildCollectionConcert(
 /** Confere se os 40 timbres podem ser gerados sem pular nenhum patch. */
 export function analyzeCollectionConcert(
   plugins: CollectionPlugin[],
-  options: { tempo?: number; test?: boolean; name?: string; soundsFolder?: string } = {}
+  options: { tempo?: number; name?: string; soundsFolder?: string } = {}
 ): Omit<CollectionReadiness, 'missingIds'> {
   const { skipped, missing } = buildCollectionConcert(plugins, options);
   const total = COLLECTION_SETS.reduce((sum, [, patches]) => sum + patches.length, 0);

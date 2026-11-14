@@ -50,6 +50,7 @@ interface SamplerWindowProps {
 }
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const POLYPHONY_CHOICES = [8, 16, 32, 64, 128, 256];
 const noteName = (note: number) => `${NOTE_NAMES[note % 12]}${Math.floor(note / 12) - 1}`;
 const isBlack = (note: number) => [1, 3, 6, 8, 10].includes(note % 12);
 
@@ -176,18 +177,6 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
     [regions, assignment.maxNote]
   );
 
-  const velocityBuckets = useMemo(() => {
-    const buckets = new Array(8).fill(0);
-    for (const region of regions) {
-      const from = Math.max(0, Math.min(7, Math.floor(((region.velLow - 1) / 127) * 8)));
-      const to = Math.max(0, Math.min(7, Math.floor(((region.velHigh - 1) / 127) * 8)));
-      for (let index = from; index <= to; index += 1) buckets[index] += 1;
-    }
-    return buckets;
-  }, [regions]);
-
-  const maxBucket = Math.max(1, ...velocityBuckets);
-
   const filteredPresets = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = term ? presets.filter((preset) => preset.name.toLowerCase().includes(term)) : presets;
@@ -222,6 +211,28 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
     },
     [layerId, param, setVstParameter]
   );
+
+  const polyphonyParam = param('Vozes');
+  const polyphonyIndex = polyphonyParam
+    ? Math.round(polyphonyParam.value * (POLYPHONY_CHOICES.length - 1))
+    : POLYPHONY_CHOICES.indexOf(
+        assignment.sampler?.polyphony ?? info?.maxVoices ?? 64
+      );
+  const polyphonyValue =
+    POLYPHONY_CHOICES[Math.max(0, Math.min(POLYPHONY_CHOICES.length - 1, polyphonyIndex))];
+
+  const changePolyphony = async (value: number) => {
+    const choice = POLYPHONY_CHOICES.indexOf(value);
+    if (choice < 0) return;
+    await setParam('Vozes', choice / (POLYPHONY_CHOICES.length - 1));
+    onUpdate({
+      sampler: {
+        ...(assignment.sampler ?? {}),
+        polyphony: value,
+      },
+    });
+    setInfo((previous) => (previous ? { ...previous, maxVoices: value } : previous));
+  };
 
   const loadPreset = useCallback(
     async (index: number) => {
@@ -346,9 +357,19 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
           border: '1px solid #3A3A3C',
         }}
       >
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-md text-[12px] hover:bg-white/10"
+          style={{ color: '#8E8E93' }}
+          onClick={onClose}
+          aria-label="Fechar janela"
+          title="Fechar (Esc)"
+        >
+          ✕
+        </button>
         {/* Cabeçalho */}
         <header
-          className="flex flex-wrap items-center gap-2 px-4 py-3"
+          className="flex flex-wrap items-center gap-2 py-3 pl-4 pr-12"
           style={{ borderBottom: '1px solid #3A3A3C', cursor: 'move', touchAction: 'none' }}
           onPointerDown={(event) => {
             if ((event.target as HTMLElement).closest('button,input,select,textarea')) return;
@@ -388,7 +409,6 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
           <button type="button" className="rounded-lg px-3 py-1.5 text-[11px] font-semibold" style={{ background: '#0A84FF', color: '#FFFFFF' }} onClick={onUseInPatch}>
             Usar meu patch
           </button>
-          <button type="button" className="rounded-lg px-2 py-1.5 text-[11px]" style={{ color: '#8E8E93' }} onClick={onClose} title="Fechar (Esc)">✕</button>
         </header>
 
         <div className="flex min-h-0 flex-1">
@@ -560,35 +580,37 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
             </section>
 
             {/* Controles */}
-            <section className="flex gap-2">
+            <section className="flex flex-wrap gap-2">
               {renderControl('Volume', 'Ganho', -24, 12, (value) => `${value.toFixed(1)} dB`)}
-              <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
+              <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
                 <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Pan</span>
                 <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan" onChange={(event) => { const value = Number(event.target.value); setPan(value); void setVstLayerMix(layerId, { pan: value }); onUpdate({ mix: { volumeDb: 0, muted: false, solo: false, ...(assignment.mix ?? {}), pan: value } }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
                 <span className="text-[10px] font-semibold text-white">{pan === 0 ? 'C' : `${Math.round(pan * 100)}`}</span>
               </div>
+              <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
+                <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Polifonia</span>
+                <select
+                  aria-label="Polifonia"
+                  value={polyphonyValue}
+                  onChange={(event) => void changePolyphony(Number(event.target.value))}
+                  className="hw-inset w-full px-1 py-0.5 text-[10px] text-white outline-none"
+                >
+                  {POLYPHONY_CHOICES.map((choice) => (
+                    <option key={choice} value={choice}>{choice} vozes</option>
+                  ))}
+                </select>
+                <span className="text-[10px] font-semibold text-white">
+                  {info?.voices ?? 0}/{polyphonyValue}
+                </span>
+              </div>
               {renderControl('Ataque', 'Ataque', 0, 2, (value) => `${value.toFixed(2)} s`)}
               {renderControl('Release', 'Release', 0, 5, (value) => `${value.toFixed(2)} s`)}
-              <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
+              <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
                 <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Reverb</span>
                 <input type="range" min={-60} max={0} step={0.5} value={reverbDb} aria-label="Reverb" onChange={(event) => { const value = Number(event.target.value); setReverbDb(value); void setVstSend(layerId, 1, value); onUpdate({ sends: [value, ...(assignment.sends ?? []).slice(1)] }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
                 <span className="text-[10px] font-semibold text-white">{reverbDb <= SEND_OFF_DB ? 'Off' : `${reverbDb.toFixed(1)} dB`}</span>
               </div>
               {renderControl('Sustain', 'Sustain', 0, 1, (value) => `${Math.round(value * 100)}%`)}
-            </section>
-
-            {/* Camadas de velocity */}
-            <section className="rounded-lg p-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
-              <div className="mb-2 flex items-center justify-between text-[9px]" style={{ color: '#8E8E93' }}>
-                <span>Camadas de velocity</span>
-                <span>{regions.length} regiões</span>
-              </div>
-              <div className="flex h-[54px] items-end gap-1">
-                {velocityBuckets.map((count, index) => (
-                  <div key={index} className="flex-1 rounded-t" style={{ height: `${Math.max(4, (count / maxBucket) * 100)}%`, background: '#0A84FF', opacity: count ? 0.9 : 0.25 }} title={`${index * 16 + 1}–${(index + 1) * 16}: ${count} regiões`} />
-                ))}
-              </div>
-              <div className="mt-1 text-[9px]" style={{ color: '#8E8E93' }}>pp ← velocity → ff</div>
             </section>
 
             {/* Licença */}

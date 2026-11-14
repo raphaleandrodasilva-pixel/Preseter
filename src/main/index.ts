@@ -58,6 +58,7 @@ import {
   SEND_OFF_DB,
   MAX_AUX_BUSES,
   MAX_OUTPUT_BUSES,
+  isNativeSamplerAssignment,
 } from '../shared/types';
 import type { EngineInsertState } from '../shared/engine-protocol';
 import { resolveStrips } from '../shared/concert-strips';
@@ -927,6 +928,11 @@ class MainWindow {
 
     ipcMain.handle('store-addresses-reset', () => this.storeService.resetAddresses());
 
+    ipcMain.handle('store-sources-open', async () => {
+      const result = await shell.openPath(this.storeService.getConfigPath());
+      return result === '';
+    });
+
     ipcMain.handle('store-download', async (_event, ids: string[], force?: boolean) => {
       const selected = Array.isArray(ids)
         ? ids.filter((id): id is string => typeof id === 'string')
@@ -1602,7 +1608,7 @@ class MainWindow {
         name: assignment.name,
         phase: 'loading',
       });
-      const nativeSampler = assignment.sourceKind === 'sampler' || !!assignment.sampler;
+      const nativeSampler = isNativeSamplerAssignment(assignment);
       const samplePath = assignment.samplePath
         ? (path.isAbsolute(assignment.samplePath)
             ? assignment.samplePath
@@ -1639,7 +1645,7 @@ class MainWindow {
       } else {
         // Sonoplastia inicial de layers antigos (juicysfplugin). O sampler
         // nativo já recebe o arquivo em `stageLoad`, então não repete aqui.
-        const legacySample = assignment.sourceKind !== 'sampler';
+        const legacySample = !nativeSampler;
         const autoLoadSample =
           legacySample && assignment.samplePath && assignment.samplerKind !== 'sforzando';
         if (autoLoadSample) {

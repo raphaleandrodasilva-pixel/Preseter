@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  DEFAULT_STORE_SOURCES_TEXT,
-  type StoreSourcesState,
-} from '@shared/store-sources';
+import type { StoreSourcesState } from '@shared/store-sources';
 import type { StoreItemView, StoreSnapshot, StoreOs } from '@shared/store';
 
 interface StoreAddressesProps {
@@ -12,7 +9,7 @@ interface StoreAddressesProps {
 
 interface AddressRowProps {
   item: StoreItemView;
-  onSaved: (snapshot: StoreSnapshot) => void;
+  onSaved: (snapshot: StoreSnapshot, state: StoreSourcesState) => void;
 }
 
 const AddressRow: React.FC<AddressRowProps> = ({ item, onSaved }) => {
@@ -43,7 +40,7 @@ const AddressRow: React.FC<AddressRowProps> = ({ item, onSaved }) => {
         setMessage(result.error ?? 'Endereço inválido.');
         return;
       }
-      onSaved(result.snapshot);
+      onSaved(result.snapshot, result.state);
       setMessage('Salvo.');
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Falha ao salvar o endereço.');
@@ -144,6 +141,15 @@ export const StoreAddresses: React.FC<StoreAddressesProps> = ({ snapshot, onSnap
     void refresh();
   }, [refresh]);
 
+  const handleSaved = useCallback(
+    (next: StoreSnapshot, nextState: StoreSourcesState) => {
+      onSnapshot(next);
+      setState(nextState);
+      setText(nextState.text);
+    },
+    [onSnapshot]
+  );
+
   const saveSources = async () => {
     setBusy(true);
     setNotice(null);
@@ -167,6 +173,8 @@ export const StoreAddresses: React.FC<StoreAddressesProps> = ({ snapshot, onSnap
     try {
       const result = await window.electronAPI.storeAddressesReset();
       onSnapshot(result.snapshot);
+      setState(result.state);
+      setText(result.state.text);
       setNotice('Endereços restaurados para os valores do catálogo.');
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Falha ao restaurar os endereços.');
@@ -194,25 +202,27 @@ export const StoreAddresses: React.FC<StoreAddressesProps> = ({ snapshot, onSnap
       <section className="hw-inset space-y-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h4 className="hw-label">Fontes da Loja</h4>
+            <h4 className="hw-label">Configuração da Loja</h4>
             <p className="mt-1 text-[11px]" style={{ color: '#9A9AA0' }}>
-              Arquivo no estilo <code>sources.list</code>: uma fonte por linha no
-              formato <code>&lt;id&gt; &lt;endereço&gt;</code>. Use <code>#</code> no
-              início para desativar uma fonte.
+              Arquivo <code>store-sources.list</code>: catálogos, páginas oficiais
+              e links de download. Use <code>source</code>, <code>page</code> e{' '}
+              <code>address</code>. Um <code>#</code> no início desativa a linha.
             </p>
           </div>
           <div className="flex items-center gap-2 text-[10px]" style={{ color: '#6E6E73' }}>
-            <span>{remoteCount} remota(s)</span>
+            <span>{state?.pageCount ?? 0} página(s)</span>
             <span>·</span>
-            <span>{localCount} local(is)</span>
+            <span>{state?.addressCount ?? 0} download(s)</span>
+            <span>·</span>
+            <span>{remoteCount + localCount} fonte(s)</span>
           </div>
         </div>
         <textarea
-          className="hw-inset min-h-[104px] w-full px-2 py-1.5 font-mono text-[10px] text-slate-100"
+          className="hw-inset min-h-[180px] w-full px-2 py-1.5 font-mono text-[10px] text-slate-100"
           value={text}
           onChange={(event) => setText(event.target.value)}
           spellCheck={false}
-          aria-label="Fontes da Loja no formato sources.list"
+          aria-label="Configuração da Loja"
         />
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -221,14 +231,14 @@ export const StoreAddresses: React.FC<StoreAddressesProps> = ({ snapshot, onSnap
             onClick={() => void saveSources()}
             disabled={busy}
           >
-            {busy ? 'Salvando…' : 'Salvar fontes'}
+            {busy ? 'Salvando…' : 'Salvar configuração'}
           </button>
           <button
             type="button"
             className="hw-squarebtn px-3 py-1.5 text-[10px]"
-            onClick={() => { setText(DEFAULT_STORE_SOURCES_TEXT); setIssues([]); }}
+            onClick={() => void window.electronAPI.storeSourcesOpen()}
           >
-            Restaurar padrão
+            Abrir arquivo
           </button>
           <button
             type="button"
@@ -304,14 +314,9 @@ export const StoreAddresses: React.FC<StoreAddressesProps> = ({ snapshot, onSnap
             <p className="text-[10px]" style={{ color: '#9A9AA0' }}>Nenhum item para mostrar.</p>
           )}
           {items.map((item) => (
-            <AddressRow key={item.id} item={item} onSaved={onSnapshot} />
+            <AddressRow key={item.id} item={item} onSaved={handleSaved} />
           ))}
         </div>
-        {state && (
-          <p className="truncate text-[9px]" style={{ color: '#6E6E73' }} title={state.addressesPath}>
-            Endereços salvos em {state.addressesPath}
-          </p>
-        )}
       </section>
     </div>
   );

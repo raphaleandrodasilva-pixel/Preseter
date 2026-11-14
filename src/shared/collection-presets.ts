@@ -30,7 +30,7 @@ export interface SampleSpec {
 export interface CollectionLayerSpec {
   /** Instrumento sugerido (sigla do catálogo de plugins). */
   inst:
-    | 'SFORZANDO'
+    | 'NATIVE'
     | 'FSVR'
     | 'SURGE'
     | 'DEXED'
@@ -38,9 +38,7 @@ export interface CollectionLayerSpec {
     | 'HELM'
     | 'MDA'
     | 'MDA_EP'
-    | 'MDA_JX'
-    | 'ORG'
-    | 'SFIZZ';
+    | 'MDA_JX';
   db: number;
   min: number;
   max: number;
@@ -86,7 +84,7 @@ export const S = (
   label: string,
   sample: SampleSpec,
   extra: Partial<CollectionLayerSpec> = {}
-): CollectionLayerSpec => ({ inst: 'SFORZANDO', db, min, max, label, sample, ...extra });
+): CollectionLayerSpec => ({ inst: 'NATIVE', db, min, max, label, sample, ...extra });
 
 /** Arquivos das bibliotecas, relativos à pasta de sons. */
 export const SAMPLE_LIBRARY_FILES: Record<SampleLibrary, { path: string; name: string }> = {

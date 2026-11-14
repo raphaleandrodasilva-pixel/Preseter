@@ -475,6 +475,21 @@ export interface PresetPluginAssignment {
   externalMidi?: ExternalMidiConfig;
 }
 
+/**
+ * Layer usa o sampler nativo? Considera o campo moderno e também patches
+ * antigos que carregam o plugin nativo pelo id/caminho.
+ */
+export function isNativeSamplerAssignment(
+  assignment: Pick<PresetPluginAssignment, 'sourceKind' | 'pluginId' | 'path'>
+): boolean {
+  // O id/caminho do plugin é a identidade real. Se ele aponta para um VST,
+  // um sourceKind residual de sampler não deve sequestrar o layer.
+  if (assignment.pluginId || assignment.path) {
+    return assignment.pluginId === 'preseter.sampler' || assignment.path === 'preseter.sampler';
+  }
+  return assignment.sourceKind === 'sampler';
+}
+
 export type ArpMode = 'up' | 'down' | 'updown' | 'random' | 'played';
 export type ArpRate = '1/4' | '1/8' | '1/8T' | '1/16' | '1/16T' | '1/32';
 
