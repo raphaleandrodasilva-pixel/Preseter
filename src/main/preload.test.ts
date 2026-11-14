@@ -66,9 +66,9 @@ describe('preload electronAPI', () => {
       ],
       [
         'vstLoad',
-        ['C:/p.vst3', 'layer', 0, 127, true],
+        ['C:/p.vst3', 'layer', 0, 127, true, undefined],
         'vst-load',
-        ['C:/p.vst3', 'layer', 0, 127, true],
+        ['C:/p.vst3', 'layer', 0, 127, true, undefined],
       ],
       [
         'vstPresetSaveSnapshot',

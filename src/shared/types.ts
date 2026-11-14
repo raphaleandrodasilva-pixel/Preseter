@@ -440,8 +440,30 @@ export interface PresetPluginAssignment {
   arp?: ArpSettings;
   /** Programa interno do plugin a aplicar ao carregar (ex.: GM/SF2). */
   programIndex?: number;
+  /** Banco do preset (SF2). */
+  bank?: number;
   /** Arquivo SFZ/SF2 associado ao layer de sampler. */
   samplePath?: string;
+  /**
+   * Origem do layer: VST3 (padrão) ou o sampler nativo do Preseter.
+   * No sampler, `samplePath` é o arquivo e `programIndex`/`bank` escolhem o preset.
+   */
+  sourceKind?: 'vst3' | 'sampler';
+  /** Ajustes do sampler nativo (vozes, loop, envelope, filtro, velocity). */
+  sampler?: {
+    polyphony?: number;
+    loop?: boolean;
+    attack?: number;
+    decay?: number;
+    sustain?: number;
+    release?: number;
+    cutoff?: number;
+    resonance?: number;
+    velocity?: number;
+    transpose?: number;
+    fineTune?: number;
+    gain?: number;
+  };
   /** Sampler usado pelo layer; ausente = comportamento legado. */
   samplerKind?: 'sforzando' | 'juicysfplugin';
   /** Preset nomeado do acervo de VST presets a aplicar ao carregar. */

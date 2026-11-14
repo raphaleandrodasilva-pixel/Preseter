@@ -767,9 +767,8 @@ class MainWindow {
       return true;
     });
 
-    ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => {
-      const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true);
-      // Todo layer novo entra direto no Master do Patch (Output 1 interno).
+    ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) => {
+      const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true, extra ?? {});      // Todo layer novo entra direto no Master do Patch (Output 1 interno).
       if (loaded.layerId) {
         try {
           await this.vstManager.setLayerOutput(loaded.layerId, 1);
@@ -778,6 +777,19 @@ class MainWindow {
         }
       }
       return loaded;
+    });
+
+    ipcMain.handle('sampler-pick-file', async () => {
+      const result = await dialog.showOpenDialog({
+        title: 'Carregar sample (SF2 ou SFZ)',
+        properties: ['openFile'],
+        filters: [
+          { name: 'Sampler', extensions: ['sf2', 'sfz'] },
+          { name: 'Todos os arquivos', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return result.filePaths[0];
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
@@ -1561,11 +1573,26 @@ class MainWindow {
         name: assignment.name,
         phase: 'loading',
       });
+      const nativeSampler = assignment.sourceKind === 'sampler' || !!assignment.sampler;
+      const samplePath = assignment.samplePath
+        ? (path.isAbsolute(assignment.samplePath)
+            ? assignment.samplePath
+            : path.join(this.soundsFolder(), assignment.samplePath))
+        : '';
       const plugin = await this.vstManager.stageLoad(
-        assignment.path,
+        nativeSampler ? 'preseter.sampler' : assignment.path,
         layerId,
         assignment.minNote ?? 0,
-        assignment.maxNote ?? 127
+        assignment.maxNote ?? 127,
+        nativeSampler
+          ? {
+              samplePath,
+              programIndex: assignment.programIndex ?? 0,
+              bank: assignment.bank ?? 0,
+              loop: assignment.sampler?.loop ?? true,
+              ...(assignment.sampler ?? {}),
+            }
+          : {}
       );
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
       const savedStateKeys = [
@@ -1581,11 +1608,11 @@ class MainWindow {
         await this.vstManager.setPluginState(layerId, preset.vstStates[savedStateKey]);
         restoredStateKeys.add(savedStateKey);
       } else {
-        // Sonoplastia inicial do fullset/coleção. O Sforzando guarda o SFZ/SF2
-        // no estado VST3 do patch; não tentamos injetar o arquivo como no
-        // juicysfplugin legado.
+        // Sonoplastia inicial de layers antigos (juicysfplugin). O sampler
+        // nativo já recebe o arquivo em `stageLoad`, então não repete aqui.
+        const legacySample = assignment.sourceKind !== 'sampler';
         const autoLoadSample =
-          assignment.samplePath && assignment.samplerKind !== 'sforzando';
+          legacySample && assignment.samplePath && assignment.samplerKind !== 'sforzando';
         if (autoLoadSample) {
           try {
             const samplePath = path.isAbsolute(assignment.samplePath!)
@@ -1596,7 +1623,7 @@ class MainWindow {
             console.warn(`[Preseter] Não foi possível carregar o SoundFont do layer "${layerId}":`, error);
           }
         }
-        if (!autoLoadSample && assignment.programIndex !== undefined
+        if (!autoLoadSample && legacySample && assignment.programIndex !== undefined
             && assignment.samplerKind !== 'sforzando') {
           try {
             await this.vstManager.setPluginProgram(layerId, assignment.programIndex);

@@ -2212,15 +2212,46 @@ juce::AudioPluginInstance* Engine::getPlugin (const juce::String& requestedLayer
     return dynamic_cast<juce::AudioPluginInstance*> (node->getProcessor());
 }
 
+juce::AudioProcessor* Engine::getProcessor (const juce::String& requestedLayerId,
+                                            int insertSlot) const
+{
+    if (insertSlot >= 0 && requestedLayerId.isNotEmpty())
+    {
+        if (const int busIndex = findBus (requestedLayerId); busIndex >= 0)
+        {
+            if (insertSlot >= kMaxInserts)
+                return nullptr;
+            const auto& node = buses[(size_t) busIndex].insertNodes[(size_t) insertSlot];
+            return node != nullptr ? node->getProcessor() : nullptr;
+        }
+    }
+
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return nullptr;
+
+    const auto& layer = layers[(size_t) index];
+    Graph::Node::Ptr node;
+    if (insertSlot < 0)
+    {
+        node = layer.pluginNode;
+    }
+    else if (insertSlot < kMaxInserts)
+    {
+        node = layer.insertNodes[(size_t) insertSlot];
+    }
+
+    return node != nullptr ? node->getProcessor() : nullptr;
+}
+
 int Engine::findBus (const juce::String& busId) const
 {
     for (size_t i = 0; i < buses.size(); ++i)
         if (buses[i].id == busId)
             return (int) i;
     return -1;
-}
-
-juce::String Engine::outputBusId (int output) const
+}juce::String Engine::outputBusId (int output) const
 {
     return "output" + juce::String (juce::jlimit (1, kOutputBuses, output));
 }
@@ -2409,6 +2440,78 @@ void Engine::stagePlugin (const juce::String& idOrPath, const juce::String& laye
                           int minNote, int maxNote, Done done)
 {
     loadPlugin (idOrPath, layerId, minNote, maxNote, std::move (done), true);
+}
+
+void Engine::loadSampler (const juce::String& filePath, const juce::String& requestedLayerId,
+                          int bank, int program, int minNote, int maxNote,
+                          const juce::var& options, Done done, bool staged)
+{
+    if (minNote < 0 || maxNote > 127 || minNote > maxNote)
+    {
+        done ({}, utf8 ("A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim."));
+        return;
+    }
+
+    const auto layerId = requestedLayerId.isNotEmpty() ? requestedLayerId : juce::Uuid().toString();
+    if (findLayer (layerId) >= 0 || loadingLayerIds.contains (layerId))
+    {
+        done ({}, utf8 ("Já existe um instrumento com este identificador de layer."));
+        return;
+    }
+
+    const juce::File file (filePath);
+    auto processor = std::make_unique<SamplerProcessor>();
+    juce::String error;
+    if (! processor->loadFile (file, bank, program, error))
+    {
+        done ({}, error.isNotEmpty() ? error : juce::String (utf8 ("Não foi possível carregar o sample.")));
+        return;
+    }
+
+    auto* sampler = processor.get();
+
+    Layer layer;
+    layer.id = layerId;
+    layer.pluginId = "preseter.sampler";
+    layer.minNote = minNote;
+    layer.maxNote = maxNote;
+    layer.role = staged ? Layer::Role::staged : Layer::Role::active;
+    layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+    layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
+    layer.pluginNode = graph.addNode (std::move (processor));
+    layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+    layer.sampler = sampler;
+
+    if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
+        || layer.pluginNode == nullptr || layer.stripNode == nullptr)
+    {
+        if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+        if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
+        if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
+        if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+        done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
+        return;
+    }
+
+    if (auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor()))
+        arp->setTempo (playHead.getTempo());
+    if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+    {
+        filter->setRange (minNote, maxNote);
+        filter->setTranspose (transposeSemitones.load());
+    }
+
+    if (options.isObject())
+    {
+        const auto text = juce::JSON::toString (options);
+        if (text.length() > 2)
+            sampler->setStateInformation (text.toRawUTF8(), text.getNumBytesAsUTF8());
+    }
+
+    layers.push_back (std::move (layer));
+    updateSoloState();
+    rebuildConnections();
+    done (describeLoadedPlugin (layerId), {});
 }
 
 juce::var Engine::commitPatchSwap (bool silencePrevious)
@@ -3147,11 +3250,46 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
 {
     const auto layerId = resolveLayerId (requestedLayerId);
     const int index = findLayer (layerId);
-    auto* plugin = getPlugin (layerId);
-    if (index < 0 || plugin == nullptr)
+    if (index < 0)
         return {};
 
     const auto& layer = layers[(size_t) index];
+
+    if (layer.sampler != nullptr)
+    {
+        int automatableCount = 0;
+        for (auto* parameter : layer.sampler->getParameters())
+            if (parameter->isAutomatable())
+                ++automatableCount;
+
+        return Obj()
+            .set ("layerId", layer.id)
+            .set ("id", "preseter.sampler")
+            .set ("name", layer.sampler->getName())
+            .set ("manufacturer", "Preseter")
+            .set ("version", "1.0")
+            .set ("category", "Instrument")
+            .set ("format", "Native")
+            .set ("path", layer.sampler->getSourcePath())
+            .set ("isInstrument", true)
+            .set ("inputs", 0)
+            .set ("outputs", 2)
+            .set ("minNote", layer.minNote)
+            .set ("maxNote", layer.maxNote)
+            .set ("pinned", layer.pinned)
+            .set ("parameterCount", automatableCount)
+            .set ("parameterCountTotal", layer.sampler->getParameters().size())
+            .set ("program", layer.sampler->getCurrentProgram())
+            .set ("programCount", layer.sampler->getNumPrograms())
+            .set ("sampler", layer.sampler->describe())
+            .set ("voices", layer.sampler->getActiveVoices())
+            .set ("maxVoices", layer.sampler->getMaxVoices());
+    }
+
+    auto* plugin = getPlugin (layerId);
+    if (plugin == nullptr)
+        return {};
+
     const auto description = plugin->getPluginDescription();
     int automatableCount = 0;
     for (auto* parameter : plugin->getParameters())
@@ -3186,12 +3324,23 @@ juce::var Engine::describeLoadedPlugins() const
     return juce::var (list);
 }
 
+juce::var Engine::describeSampler (const juce::String& requestedLayerId) const
+{
+    const int index = findLayer (resolveLayerId (requestedLayerId));
+    if (index < 0)
+        return {};
+    const auto& layer = layers[(size_t) index];
+    if (layer.sampler == nullptr)
+        return {};
+    return layer.sampler->describeRegions();
+}
+
 juce::var Engine::listParameters (const juce::String& requestedLayerId, bool includeNonAutomatable, int slot) const
 {
     juce::Array<juce::var> list;
-    if (auto* plugin = getPlugin (requestedLayerId, slot))
+    if (auto* processor = getProcessor (requestedLayerId, slot))
     {
-        const auto& params = plugin->getParameters();
+        const auto& params = processor->getParameters();
         for (int i = 0; i < params.size(); ++i)
             if (includeNonAutomatable || params[i]->isAutomatable())
                 list.add (parameterToVar (*params[i], i));
@@ -3201,9 +3350,9 @@ juce::var Engine::listParameters (const juce::String& requestedLayerId, bool inc
 
 juce::String Engine::setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result, int slot)
 {
-    auto* plugin = getPlugin (layerId, slot);
-    if (plugin == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
-    const auto& params = plugin->getParameters();
+    auto* processor = getProcessor (layerId, slot);
+    if (processor == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
+    const auto& params = processor->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
     auto* parameter = params[index];
@@ -3214,9 +3363,9 @@ juce::String Engine::setParameter (const juce::String& layerId, int index, float
 
 juce::String Engine::getParameter (const juce::String& layerId, int index, juce::var& result, int slot) const
 {
-    auto* plugin = getPlugin (layerId, slot);
-    if (plugin == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
-    const auto& params = plugin->getParameters();
+    auto* processor = getProcessor (layerId, slot);
+    if (processor == nullptr) return utf8 ("Nenhum plugin carregado neste channel strip.");
+    const auto& params = processor->getParameters();
     if (! juce::isPositiveAndBelow (index, params.size()))
         return utf8 ("Índice de parâmetro inválido: ") + juce::String (index);
     result = parameterToVar (*params[index], index);
@@ -3226,16 +3375,17 @@ juce::String Engine::getParameter (const juce::String& layerId, int index, juce:
 juce::String Engine::getPluginState (const juce::String& layerId, juce::var& result,
                                      int insertSlot) const
 {
-    auto* plugin = getPlugin (layerId, insertSlot);
-    if (plugin == nullptr)
+    auto* processor = getProcessor (layerId, insertSlot);
+    if (processor == nullptr)
         return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
                               : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
-    if (plugin->getPluginDescription().pluginFormatName == "LV2")
-        return utf8 ("Estado de plugins LV2 não é suportado.");
+    if (auto* plugin = getPlugin (layerId, insertSlot))
+        if (plugin->getPluginDescription().pluginFormatName == "LV2")
+            return utf8 ("Estado de plugins LV2 não é suportado.");
 
     juce::MemoryBlock state;
-    plugin->getStateInformation (state);
+    processor->getStateInformation (state);
     auto out = Obj()
         .set ("layerId", resolveLayerId (layerId))
         .set ("data", juce::Base64::toBase64 (state.getData(), state.getSize()));
@@ -3248,19 +3398,20 @@ juce::String Engine::getPluginState (const juce::String& layerId, juce::var& res
 juce::String Engine::setPluginState (const juce::String& layerId, const juce::String& base64,
                                      juce::var& result, int insertSlot)
 {
-    auto* plugin = getPlugin (layerId, insertSlot);
-    if (plugin == nullptr)
+    auto* processor = getProcessor (layerId, insertSlot);
+    if (processor == nullptr)
         return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))
                               : juce::String (utf8 ("Nenhum efeito carregado neste slot."));
 
-    if (plugin->getPluginDescription().pluginFormatName == "LV2")
-        return utf8 ("Estado de plugins LV2 não é suportado.");
+    if (auto* plugin = getPlugin (layerId, insertSlot))
+        if (plugin->getPluginDescription().pluginFormatName == "LV2")
+            return utf8 ("Estado de plugins LV2 não é suportado.");
 
     juce::MemoryOutputStream decoded;
     if (! juce::Base64::convertFromBase64 (decoded, base64))
         return utf8 ("Estado do plugin inválido (base64).");
 
-    plugin->setStateInformation (decoded.getData(), (int) decoded.getDataSize());
+    processor->setStateInformation (decoded.getData(), (int) decoded.getDataSize());
     auto out = Obj()
         .set ("layerId", resolveLayerId (layerId))
         .set ("bytes", (int) decoded.getDataSize());
@@ -3770,8 +3921,8 @@ void Engine::rebuildConnections()
 
     for (const auto& layer : layers)
     {
-        auto* plugin = getPlugin (layer.id);
-        if (plugin == nullptr || layer.stripNode == nullptr)
+        auto* processor = getProcessor (layer.id);
+        if (processor == nullptr || layer.stripNode == nullptr)
             continue;
 
         const bool audible = layer.role != Layer::Role::staged;
@@ -3826,8 +3977,8 @@ void Engine::rebuildConnections()
                 connectToBus (sendNode, buses[(size_t) auxBusIndex]);
         }
 
-        if (! plugin->getPluginDescription().isInstrument)
-            for (int ch = 0; ch < juce::jmin (plugin->getMainBusNumInputChannels(), graphIn); ++ch)
+        if (processor->getMainBusNumInputChannels() > 0)
+            for (int ch = 0; ch < juce::jmin (processor->getMainBusNumInputChannels(), graphIn); ++ch)
                 graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } });
 
         // Só o patch atual (e os strips do concert/set) recebem MIDI; o anterior

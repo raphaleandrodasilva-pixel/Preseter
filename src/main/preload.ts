@@ -38,8 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstShowPlugin: (idOrPath: string) => ipcRenderer.invoke('vst-show-plugin', idOrPath),
   vstAddPluginFolder: () => ipcRenderer.invoke('vst-add-plugin-folder'),
   vstRemovePluginFolder: (folder: string) => ipcRenderer.invoke('vst-remove-plugin-folder', folder),
-  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) =>
-    ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned),
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) =>
+    ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned, extra),
+  samplerPickFile: () => ipcRenderer.invoke('sampler-pick-file'),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) =>
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value, slot),

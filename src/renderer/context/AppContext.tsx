@@ -196,7 +196,7 @@ export interface AppContextType {
   hiddenPluginIds: string[];
   addVstPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
   removeVstPluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
-  loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo | null>;
+  loadVstPlugin: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) => Promise<VstPluginInfo | null>;
   unloadVstPlugin: (pluginId: string) => Promise<boolean>;
   setVstParameter: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   /** Lista os parâmetros de um layer/barrramento ou de um insert. */
@@ -1670,9 +1670,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127, pinned = false) => {
+  const loadVstPlugin = useCallback(async (pluginPath: string, layerId?: string, minNote = 0, maxNote = 127, pinned = false, extra?: Record<string, unknown>) => {
     try {
-      const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote, pinned);
+      const plugin = await window.electronAPI.vstLoad(pluginPath, layerId, minNote, maxNote, pinned, extra);
       if (plugin) {
         setLoadedPlugins((previous) => [
           ...previous.filter((current) => current.layerId !== plugin.layerId),

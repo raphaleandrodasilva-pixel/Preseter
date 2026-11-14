@@ -82,6 +82,16 @@ describe('ConcertManager lifecycle', () => {
   });
 
   it('cria o Full Set já com instrumentos nos 40 patches', () => {
+    fs.mkdirSync(path.join(tempRoot, 'MuseScore_General'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'MuseScore_General', 'MuseScore_General.sf2'), 'fake');
+    fs.mkdirSync(path.join(tempRoot, 'Sonatina'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'Sonatina', 'Sonatina_Symphonic_Orchestra.sf2'), 'fake');
+    fs.mkdirSync(path.join(tempRoot, 'Salamander', 'SalamanderGrandPiano-master'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'Salamander', 'SalamanderGrandPiano-master', 'Salamander Grand Piano V3.sfz'),
+      '// fake'
+    );
+
     const concert = manager();
     const state = concert.newConcert('fullset', {
       plugins: [
@@ -98,7 +108,11 @@ describe('ConcertManager lifecycle', () => {
       soundsFolder: tempRoot,
     });
     expect(state.patches).toHaveLength(40);
-    expect(state.patches[0].plugins?.[0]).toMatchObject({ pluginId: 'sforzando', programIndex: 0 });
+    expect(state.patches[0].plugins?.[0]).toMatchObject({
+      pluginId: 'preseter.sampler',
+      sourceKind: 'sampler',
+      programIndex: 0,
+    });
     expect(state.patches.every((patch) => (patch.plugins?.length ?? 0) > 0)).toBe(true);
   });
 

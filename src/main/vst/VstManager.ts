@@ -131,10 +131,11 @@ export class VstManager extends EventEmitter {
     layerId = `layer_${randomUUID()}`,
     minNote = 0,
     maxNote = 127,
-    pinned = false
+    pinned = false,
+    extra: Record<string, unknown> = {}
   ): Promise<VstPluginInfo> {
     return this.enqueueLoad(() =>
-      this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote, pinned)
+      this.loadWithCommand('load', pluginPathOrId, layerId, minNote, maxNote, pinned, extra)
     );
   }
 
@@ -143,9 +144,12 @@ export class VstManager extends EventEmitter {
     pluginPathOrId: string,
     layerId = `layer_${randomUUID()}`,
     minNote = 0,
-    maxNote = 127
+    maxNote = 127,
+    extra: Record<string, unknown> = {}
   ): Promise<VstPluginInfo> {
-    return this.enqueueLoad(() => this.loadWithCommand('stageLoad', pluginPathOrId, layerId, minNote, maxNote));
+    return this.enqueueLoad(() =>
+      this.loadWithCommand('stageLoad', pluginPathOrId, layerId, minNote, maxNote, false, extra)
+    );
   }
 
   /**
@@ -170,7 +174,8 @@ export class VstManager extends EventEmitter {
     layerId: string,
     minNote: number,
     maxNote: number,
-    pinned = false
+    pinned = false,
+    extra: Record<string, unknown> = {}
   ): Promise<VstPluginInfo> {
     const scanned = this.scannedPlugins.find(
       (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
@@ -181,8 +186,8 @@ export class VstManager extends EventEmitter {
       );
     }
     const request = scanned
-      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned }
-      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned };
+      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...extra }
+      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...extra };
 
     const requestLoad = () => this.engine.request(command, request, 60_000);
     let enginePlugin: EngineLoadedPlugin;

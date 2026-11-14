@@ -54,7 +54,9 @@ juce_add_console_app(PreseterEngine
 target_sources(PreseterEngine PRIVATE
     src/Main.cpp
     src/Engine.cpp
-    src/CommandRouter.cpp)
+    src/CommandRouter.cpp
+    src/sampler/SamplerInstrument.cpp
+    src/sampler/SamplerProcessor.cpp)
 
 target_include_directories(PreseterEngine PRIVATE src)
 

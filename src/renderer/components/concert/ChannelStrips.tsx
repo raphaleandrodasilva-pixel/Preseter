@@ -107,6 +107,10 @@ interface ChannelStripsProps {
   /** Timbre MIDI externo: criar, editar, atualizar e enviar ao vivo. */
   externalMidiEnabled: boolean;
   onAddExternalMidi: () => void;
+  /** Carrega um SF2/SFZ arrastado para a área de layers. */
+  onDropSampleFile: (filePath: string) => Promise<boolean>;
+  /** Abre o diálogo de arquivo do sampler e cria um layer. */
+  onAddSampler: () => Promise<boolean>;
   onEditExternalMidi: (layerId: string) => void;
   onUpdateExternalMidi: (layerId: string, config: ExternalMidiConfig) => void;
   onSendExternalMidi: (portName: string, message: number[]) => void;
@@ -256,6 +260,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   onSetMasterMix,
   externalMidiEnabled,
   onAddExternalMidi,
+  onDropSampleFile,
+  onAddSampler,
   onEditExternalMidi,
   onUpdateExternalMidi,
   onSendExternalMidi,
@@ -274,7 +280,20 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
         unavailable: value > outputPairLimit,
       }));
   };
-  const instruments = scannedPlugins.filter((plugin) => plugin.isInstrument);
+  const samplerEntry: VstPluginInfo = {
+    id: 'preseter.sampler',
+    name: 'Preseter Sampler (SF2/SFZ)',
+    path: 'preseter.sampler',
+    isLoaded: false,
+    isInstrument: true,
+    parameters: [],
+    manufacturer: 'Preseter',
+    version: '1.0',
+    category: 'Sampler',
+    format: 'Native',
+    arch: 'x64',
+  };
+  const instruments = [samplerEntry, ...scannedPlugins.filter((plugin) => plugin.isInstrument)];
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   /** Último layer recebido por `focusLayerId`; evita reaplicar o foco a cada render. */
@@ -1288,7 +1307,22 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   };
 
   return (
-    <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}>
+    <aside className="relative flex shrink-0 flex-col border-l" style={{ borderColor: '#303032', background: '#242426', width }}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={(event) => {
+        const files = Array.from(event.dataTransfer.files ?? []) as Array<File & { path?: string }>;
+        const sample = files.find((file) => /\.(sf2|sfz)$/i.test(file.name));
+        if (!sample?.path) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void onDropSampleFile(sample.path);
+      }}
+    >
       <div
         className="absolute bottom-0 left-[-4px] top-0 w-[7px] cursor-ew-resize"
         title="Arrastar para redimensionar"
@@ -1351,6 +1385,17 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   }}
                 >
                   Novo layer
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-[11px] text-slate-100 hover:bg-white/10"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    void withLoadingMessage(() => onAddSampler());
+                  }}
+                  title="Abrir um arquivo SF2 ou SFZ no sampler nativo"
+                >
+                  🎹 Sampler (SF2/SFZ)…
                 </button>
                 <button
                   type="button"

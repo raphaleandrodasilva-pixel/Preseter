@@ -66,7 +66,8 @@ export interface ElectronAPI {
   vstShowPlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstAddPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
   vstRemovePluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
-  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean) => Promise<VstPluginInfo>;
+  vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) => Promise<VstPluginInfo>;
+  samplerPickFile: () => Promise<string | null>;
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;

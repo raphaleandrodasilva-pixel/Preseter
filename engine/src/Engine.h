@@ -2,6 +2,8 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include "sampler/SamplerProcessor.h"
+
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -110,6 +112,14 @@ public:
     /** Carrega um instrumento em modo encadeado, para troca de patch sem corte. */
     void stagePlugin (const juce::String& idOrPath, const juce::String& layerId,
                       int minNote, int maxNote, Done done);
+    /**
+     * Carrega o sampler nativo (SF2/SFZ) num layer. `options` aceita
+     * polyphony, attack, decay, sustain, release, cutoff, resonance,
+     * velocity, transpose, fineTune e gain.
+     */
+    void loadSampler (const juce::String& filePath, const juce::String& layerId,
+                      int bank, int program, int minNote, int maxNote,
+                      const juce::var& options, Done done, bool staged = false);
     /** Efetiva a troca de patch: ativa os layers encadeados e silencia (ou drena) o patch anterior. */
     juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});
@@ -143,6 +153,8 @@ public:
 
     juce::var describeLoadedPlugin (const juce::String& layerId = {}) const;
     juce::var describeLoadedPlugins() const;
+    /** Regiões/programa do sampler nativo (para a UI e para depuração). */
+    juce::var describeSampler (const juce::String& layerId) const;
     /** Por padrão só os automatizáveis (esconde os ~2000 "MIDI CC" do wrapper VST3). */
     juce::var listParameters (const juce::String& layerId, bool includeNonAutomatable = false, int slot = -1) const;
     juce::String setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result, int slot = -1);
@@ -237,6 +249,9 @@ private:
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
     juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {},
                                           int insertSlot = -1) const;
+    /** Processador do layer: plugin VST3 ou instrumento nativo (sampler). */
+    juce::AudioProcessor* getProcessor (const juce::String& layerId = {},
+                                        int insertSlot = -1) const;
     /** Ponteiro para o nó do slot de insert do host (layer ou barramento), ou nullptr. */
     Graph::Node::Ptr* insertSlotNode (const juce::String& ownerId, int slot);
     /** Ponteiro para o estado de bypass do slot de insert do host (layer ou barramento). */
@@ -306,6 +321,8 @@ private:
 
         juce::String id;
         juce::String pluginId;
+        /** Instrumento nativo do Preseter (sampler SF2/SFZ); nulo para VST3. */
+        SamplerProcessor* sampler = nullptr;
         Graph::Node::Ptr midiFilterNode;
         /** MIDI FX (arpejador) antes do instrumento; sempre existe, mas fica bypassado quando desligado. */
         Graph::Node::Ptr midiFxNode;

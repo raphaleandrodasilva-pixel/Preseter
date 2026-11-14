@@ -14,6 +14,21 @@ const plugins = [
   { id: 'odin', name: 'Odin 2', isInstrument: true },
 ];
 
+/** Cria a pasta de sons com as três bibliotecas usadas pela Factory 40. */
+function makeSoundsFolder(): string {
+  const sounds = makeTempDir();
+  fs.mkdirSync(path.join(sounds, 'MuseScore_General'), { recursive: true });
+  fs.writeFileSync(path.join(sounds, 'MuseScore_General', 'MuseScore_General.sf2'), 'fake');
+  fs.mkdirSync(path.join(sounds, 'Sonatina'), { recursive: true });
+  fs.writeFileSync(path.join(sounds, 'Sonatina', 'Sonatina_Symphonic_Orchestra.sf2'), 'fake');
+  fs.mkdirSync(path.join(sounds, 'Salamander', 'SalamanderGrandPiano-master'), { recursive: true });
+  fs.writeFileSync(
+    path.join(sounds, 'Salamander', 'SalamanderGrandPiano-master', 'Salamander Grand Piano V3.sfz'),
+    '// fake'
+  );
+  return sounds;
+}
+
 describe('collection catalog', () => {
   it('includes TetraOP, Charlatan 3 and Sforzando with the correct licenses', () => {
     const ids = COLLECTION_CATALOG.items.map((item) => item.id);
@@ -84,67 +99,90 @@ describe('collection catalog', () => {
 
 describe('buildCollectionConcert', () => {
   it('creates the 8 sets and 40 patches in order', () => {
-    const { file, skipped, missing } = buildCollectionConcert(plugins, { tempo: 100 });
-    expect(file.sets.map((set) => set.name)).toEqual([
-      'Pianos & Keys',
-      'Organs',
-      'Strings',
-      'Brass',
-      'Woodwinds',
-      'Guitars & Bass',
-      'Drums & Percussion',
-      'Synthesizers',
-    ]);
-    expect(file.patches).toHaveLength(40);
-    expect(file.patches.map((patch) => patch.programNumber)).toEqual(
-      Array.from({ length: 40 }, (_, index) => index)
-    );
-    expect(skipped).toEqual([]);
-    expect(missing).toEqual([]);
-    expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
-    expect(file.layout.elements.filter((element) => element.patchSendAux !== undefined)).toHaveLength(4);
-    expect(file.layout.elements.filter((element) => element.type === 'pedal')).toHaveLength(2);
-    expect(file.patches.every((patch) => patch.icon)).toBe(true);
-    expect(file.patches.find((patch) => patch.name === 'Warm Analog Pad')?.icon).toBe('pad');
-    expect(
-      file.patches.find((patch) => patch.name === 'Synth Bass')?.plugins?.some((layer) => /FSVR/i.test(layer.name))
-    ).toBe(true);
-    expect(
-      file.patches.flatMap((patch) => patch.plugins ?? []).every((layer) => typeof layer.mix?.volumeDb === 'number')
-    ).toBe(true);
+    const sounds = makeSoundsFolder();
+    try {
+      const { file, skipped, missing } = buildCollectionConcert(plugins, { tempo: 100, soundsFolder: sounds });
+      expect(file.sets.map((set) => set.name)).toEqual([
+        'Pianos & Keys',
+        'Organs',
+        'Strings',
+        'Brass',
+        'Woodwinds',
+        'Guitars & Bass',
+        'Drums & Percussion',
+        'Synthesizers',
+      ]);
+      expect(file.patches).toHaveLength(40);
+      expect(file.patches.map((patch) => patch.programNumber)).toEqual(
+        Array.from({ length: 40 }, (_, index) => index)
+      );
+      expect(skipped).toEqual([]);
+      expect(missing).toEqual([]);
+      expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
+      expect(file.layout.elements.filter((element) => element.patchSendAux !== undefined)).toHaveLength(4);
+      expect(file.layout.elements.filter((element) => element.type === 'pedal')).toHaveLength(2);
+      expect(file.patches.every((patch) => patch.icon)).toBe(true);
+      expect(file.patches.find((patch) => patch.name === 'Warm Analog Pad')?.icon).toBe('pad');
+      expect(
+        file.patches.find((patch) => patch.name === 'Synth Bass')?.plugins?.[0]?.pluginId
+      ).toBe('surge');
+      expect(
+        file.patches.flatMap((patch) => patch.plugins ?? []).every((layer) => typeof layer.mix?.volumeDb === 'number')
+      ).toBe(true);
+      expect(
+        file.patches.find((patch) => patch.name === 'Concert Grand')?.plugins?.[0]
+      ).toMatchObject({ sourceKind: 'sampler', pluginId: 'preseter.sampler' });
+    } finally {
+      removeTempDir(sounds);
+    }
   });
 
   it('uses fallbacks when an optional instrument is missing', () => {
-    const { file, skipped } = buildCollectionConcert(
-      plugins.filter((plugin) => plugin.id !== 'odin' && plugin.id !== 'helm'),
-      { tempo: 100 }
-    );
-    expect(file.patches).toHaveLength(40);
-    expect(skipped).toEqual([]);
-    expect(file.patches.find((patch) => patch.name === 'Vintage Analog Lead')?.plugins?.[0]?.name).toMatch(/Surge/i);
+    const sounds = makeSoundsFolder();
+    try {
+      const { file, skipped } = buildCollectionConcert(
+        plugins.filter((plugin) => plugin.id !== 'odin' && plugin.id !== 'helm'),
+        { tempo: 100, soundsFolder: sounds }
+      );
+      expect(file.patches).toHaveLength(40);
+      expect(skipped).toEqual([]);
+      expect(file.patches.find((patch) => patch.name === 'Vintage Analog Lead')?.plugins?.[0]?.name).toMatch(/Surge/i);
+    } finally {
+      removeTempDir(sounds);
+    }
   });
 
-  it('anexa programa e SoundFont nos layers da Factory 40', () => {
-    const sounds = makeTempDir();
+  it('aponta cada timbre sampleado para a biblioteca e o programa certos', () => {
+    const sounds = makeSoundsFolder();
     try {
-      fs.mkdirSync(path.join(sounds, 'MuseScore_General'), { recursive: true });
-      fs.writeFileSync(path.join(sounds, 'MuseScore_General', 'MuseScore_General.sf2'), 'fake');
       const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+
       const piano = file.patches.find((patch) => patch.name === 'Concert Grand');
       expect(piano?.plugins?.[0]).toMatchObject({
+        sourceKind: 'sampler',
+        samplePath: 'Salamander/SalamanderGrandPiano-master/Salamander Grand Piano V3.sfz',
         programIndex: 0,
-        samplePath: path.join('MuseScore_General', 'MuseScore_General.sf2'),
-        samplerKind: 'sforzando',
       });
+      expect(piano?.plugins?.[0]?.sampler?.loop).toBe(false);
+
       const electric = file.patches.find((patch) => patch.name === 'Rhodes Classic');
-      expect(electric?.plugins?.[0].programIndex).toBe(4);
-      expect(electric?.plugins?.[0].samplePath).toBe(
-        path.join('MuseScore_General', 'MuseScore_General.sf2')
-      );
+      expect(electric?.plugins?.[0]).toMatchObject({
+        samplePath: 'MuseScore_General/MuseScore_General.sf2',
+        programIndex: 4,
+        bank: 0,
+      });
+
+      const strings = file.patches.find((patch) => patch.name === 'String Ensemble');
+      expect(strings?.plugins).toHaveLength(4);
+      expect(strings?.plugins?.[0]).toMatchObject({
+        samplePath: 'Sonatina/Sonatina_Symphonic_Orchestra.sf2',
+        programIndex: 2,
+      });
+
       const drum = file.patches.find((patch) => patch.name === 'Acoustic Rock Kit');
       expect(drum?.midiChannel).toBe(0);
-      expect(drum?.plugins?.[0].programIndex).toBe(0);
-      expect(Object.keys(drum?.vstStates ?? {}).length).toBeGreaterThan(0);
+      expect(drum?.plugins?.[0]).toMatchObject({ programIndex: 0, bank: 128 });
+      expect(Object.keys(drum?.vstStates ?? {})).toHaveLength(0);
     } finally {
       removeTempDir(sounds);
     }
@@ -161,18 +199,23 @@ describe('buildCollectionConcert', () => {
   });
 
   it('analisa a prontidão dos 40 timbres', () => {
-    const ready = analyzeCollectionConcert(plugins, { tempo: 100 });
-    expect(ready.total).toBe(40);
-    expect(ready.ready).toBe(40);
-    expect(ready.blocked).toBe(0);
-    expect(ready.readyToGenerate).toBe(true);
+    const sounds = makeSoundsFolder();
+    try {
+      const ready = analyzeCollectionConcert(plugins, { tempo: 100, soundsFolder: sounds });
+      expect(ready.total).toBe(40);
+      expect(ready.ready).toBe(40);
+      expect(ready.blocked).toBe(0);
+      expect(ready.readyToGenerate).toBe(true);
 
-    const blocked = analyzeCollectionConcert(
-      [{ id: 'sforzando', name: 'Sforzando', isInstrument: true }],
-      { tempo: 100 }
-    );
-    expect(blocked.readyToGenerate).toBe(false);
-    expect(blocked.blocked).toBeGreaterThan(0);
-    expect(blocked.missing.length).toBeGreaterThan(0);
+      const blocked = analyzeCollectionConcert(
+        [{ id: 'sforzando', name: 'Sforzando', isInstrument: true }],
+        { tempo: 100 }
+      );
+      expect(blocked.readyToGenerate).toBe(false);
+      expect(blocked.blocked).toBeGreaterThan(0);
+      expect(blocked.missing.length).toBeGreaterThan(0);
+    } finally {
+      removeTempDir(sounds);
+    }
   });
 });

@@ -200,6 +200,21 @@ void CommandRouter::handleLine (const juce::String& line)
         const int minNote = intArg (message, "minNote", 0);
         const int maxNote = intArg (message, "maxNote", 127);
         const bool pinned = boolArg (message, "pinned", false);
+
+        if (key == "preseter.sampler")
+        {
+            const auto samplePath = message["samplePath"].toString();
+            const int bank = intArg (message, "bank", 0);
+            const int program = intArg (message, "programIndex", 0);
+            engine.loadSampler (samplePath, layerId, bank, program, minNote, maxNote, message,
+                                [this, id] (juce::var result, juce::String error)
+                                {
+                                    if (error.isNotEmpty()) fail (id, error);
+                                    else                    ok (id, result);
+                                }, false);
+            return;
+        }
+
         engine.loadPlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
         {
             if (error.isNotEmpty()) fail (id, error);
@@ -211,6 +226,12 @@ void CommandRouter::handleLine (const juce::String& line)
     if (cmd == "unload")
     {
         ok (id, Obj().set ("unloaded", engine.unloadPlugin (message["layerId"].toString())));
+        return;
+    }
+
+    if (cmd == "samplerInfo")
+    {
+        ok (id, engine.describeSampler (message["layerId"].toString()));
         return;
     }
 
@@ -228,6 +249,21 @@ void CommandRouter::handleLine (const juce::String& line)
         auto layerId = message["layerId"].toString();
         const int minNote = intArg (message, "minNote", 0);
         const int maxNote = intArg (message, "maxNote", 127);
+
+        if (key == "preseter.sampler")
+        {
+            const auto samplePath = message["samplePath"].toString();
+            const int bank = intArg (message, "bank", 0);
+            const int program = intArg (message, "programIndex", 0);
+            engine.loadSampler (samplePath, layerId, bank, program, minNote, maxNote, message,
+                                [this, id] (juce::var result, juce::String error)
+                                {
+                                    if (error.isNotEmpty()) fail (id, error);
+                                    else                    ok (id, result);
+                                }, true);
+            return;
+        }
+
         engine.stagePlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
         {
             if (error.isNotEmpty()) fail (id, error);

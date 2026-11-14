@@ -1040,6 +1040,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const addLayer = async (plugin: VstPluginInfo) => {
     if (!draft) return false;
+    if (plugin.id === 'preseter.sampler') return addSamplerFromDialog();
     const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
@@ -1062,6 +1063,47 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     setFocusLayerId(layerId);
     onError('');
     return true;
+  };
+
+  /** Carrega um SF2/SFZ no sampler nativo e cria o layer no patch. */
+  const addSamplerLayer = async (filePath: string) => {
+    if (!draft) return false;
+    const layerId = `layer_${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`;
+    const loaded = await loadVstPlugin('preseter.sampler', layerId, 0, 127, false, {
+      samplePath: filePath,
+      loop: true,
+      polyphony: 64,
+    });
+    if (!loaded) {
+      onError('Não foi possível carregar o sample. Veja se o arquivo e os samples existem.');
+      return false;
+    }
+    const assignment: PresetPluginAssignment = {
+      pluginId: 'preseter.sampler',
+      layerId,
+      name: loaded.name || 'Preseter Sampler',
+      path: 'preseter.sampler',
+      role: 'instrument',
+      sourceKind: 'sampler',
+      samplePath: filePath,
+      sampler: { loop: true, polyphony: 64 },
+      minNote: 0,
+      maxNote: 127,
+      patchSendDb: 0,
+    };
+    onDraftChange({ ...draft, plugins: [...(draft.plugins ?? []), assignment], updatedAt: Date.now() });
+    setFocusLayerId(layerId);
+    onError('');
+    return true;
+  };
+
+  /** Abre o diálogo de arquivo e cria um layer de sampler. */
+  const addSamplerFromDialog = async () => {
+    const filePath = await window.electronAPI.samplerPickFile();
+    if (!filePath) return false;
+    return addSamplerLayer(filePath);
   };
 
   /** Abre o editor para criar um timbre MIDI externo no patch. */
@@ -3230,6 +3272,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             availableOutputPairs={availableOutputPairs}
             onRequestScan={scanVstPlugins}
             onAdd={addLayer}
+            onDropSampleFile={addSamplerLayer}
+            onAddSampler={addSamplerFromDialog}
             onAddSplit={addSplitLayer}
             onLearnSplitNote={learnSplitNote}
             onRemove={removeLayer}
