@@ -256,7 +256,7 @@ bool SamplerProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 int SamplerProcessor::getNumPrograms()
 {
-    return juce::jmax (1, instrument.getProgramCount());
+    return juce::jmax (1, instrument ? instrument->getProgramCount() : 1);
 }
 
 int SamplerProcessor::getCurrentProgram()
@@ -266,18 +266,34 @@ int SamplerProcessor::getCurrentProgram()
 
 void SamplerProcessor::setCurrentProgram (int index)
 {
-    const int count = instrument.getProgramCount();
+    if (instrument == nullptr)
+        return;
+    const int count = instrument->getProgramCount();
     if (count <= 0)
         return;
-    currentProgram = juce::jlimit (0, count - 1, index);
-    instrument.selectProgramByIndex (currentProgram);
+
+    index = juce::jlimit (0, count - 1, index);
+    const int bank = instrument->getPresetBank (index);
+    const int program = instrument->getPresetProgram (index);
+
+    juce::String error;
+    auto loaded = sampler::InstrumentCache::get().load (
+        juce::File (instrument->getSourcePath()), bank, program, error);
+    if (loaded == nullptr)
+        return;
+
+    instrument = loaded;
+    currentBank = bank;
+    currentProgram = loaded->getSelectedProgram();
     resetVoices();
 }
 
 const juce::String SamplerProcessor::getProgramName (int index)
 {
-    if (index >= 0 && index < instrument.getPrograms().size())
-        return instrument.getPrograms()[index];
+    if (instrument == nullptr)
+        return {};
+    if (index >= 0 && index < instrument->getPrograms().size())
+        return instrument->getPrograms()[index];
     return {};
 }
 
@@ -286,13 +302,19 @@ void SamplerProcessor::changeProgramName (int, const juce::String&) {}
 bool SamplerProcessor::loadFile (const juce::File& file, int bank, int program, juce::String& error)
 {
     resetVoices();
-    if (! instrument.load (file, error))
-        return false;
 
+    juce::String cacheError;
+    auto loaded = sampler::InstrumentCache::get().load (file, bank, program, cacheError);
+    if (loaded == nullptr)
+    {
+        error = cacheError.isNotEmpty() ? cacheError
+                                        : juce::String ("Nao foi possivel carregar o instrumento.");
+        return false;
+    }
+
+    instrument = loaded;
     currentBank = bank;
-    currentProgram = program;
-    instrument.selectProgram (bank, program);
-    currentProgram = instrument.getSelectedProgram();
+    currentProgram = instrument->getSelectedProgram();
     return true;
 }
 
@@ -303,18 +325,23 @@ void SamplerProcessor::setPolyphonyLimit (int count) noexcept
 
 juce::String SamplerProcessor::describe() const
 {
-    return instrument.getFormat() + " · " + instrument.getName()
-         + " · " + juce::String (instrument.getRegionCount()) + " regiões"
-         + " · " + juce::String (instrument.getSampleCount()) + " samples";
+    if (instrument == nullptr)
+        return "Nenhum sample carregado";
+    return instrument->getFormat() + " · " + instrument->getName()
+         + " · " + juce::String (instrument->getRegionCount()) + " regiões"
+         + " · " + juce::String (instrument->getSampleCount()) + " samples";
 }
 
 juce::var SamplerProcessor::describeRegions() const
 {
+    if (instrument == nullptr)
+        return {};
+
     juce::Array<juce::var> list;
-    const int count = juce::jmin (512, (int) instrument.getRegions().size());
+    const int count = juce::jmin (512, (int) instrument->getRegions().size());
     for (int i = 0; i < count; ++i)
     {
-        const auto& region = instrument.getRegions()[(size_t) i];
+        const auto& region = instrument->getRegions()[(size_t) i];
         list.add (juce::var (new juce::DynamicObject()));
         auto* item = list.getReference (list.size() - 1).getDynamicObject();
         item->setProperty ("keyLow", region.keyLow);
@@ -339,21 +366,26 @@ juce::var SamplerProcessor::describeRegions() const
 
     auto result = juce::var (new juce::DynamicObject());
     auto* object = result.getDynamicObject();
-    object->setProperty ("format", instrument.getFormat());
-    object->setProperty ("name", instrument.getName());
+    object->setProperty ("format", instrument != nullptr ? instrument->getFormat() : juce::String());
+    object->setProperty ("name", instrument->getName());
     object->setProperty ("program", currentProgram);
-    const auto& programs = instrument.getPrograms();
+    const auto& programs = instrument->getPrograms();
     object->setProperty ("programName",
                          currentProgram >= 0 && currentProgram < programs.size()
                              ? programs[currentProgram] : juce::String());
     object->setProperty ("regions", juce::var (list));
-    object->setProperty ("missing", juce::var (instrument.getMissingSamples().joinIntoString ("\n")));
+    object->setProperty ("missing", juce::var (instrument->getMissingSamples().joinIntoString ("\n")));
+    object->setProperty ("file", instrument->getSourcePath());
+    const juce::File sourceFile (instrument->getSourcePath());
+    object->setProperty ("fileSize", sourceFile.existsAsFile() ? (double) sourceFile.getSize() : 0.0);
+    object->setProperty ("voices", getActiveVoices());
+    object->setProperty ("maxVoices", getMaxVoices());
 
     juce::Array<juce::var> presets;
-    for (const auto& program : instrument.getPrograms())
+    for (const auto& program : instrument->getPrograms())
         presets.add (program);
     object->setProperty ("programs", juce::var (presets));
-    object->setProperty ("presetList", instrument.getPresetList());
+    object->setProperty ("presetList", instrument->getPresetList());
     return result;
 }
 
@@ -409,20 +441,20 @@ void SamplerProcessor::resetVoices()
 
 const sampler::Sample* SamplerProcessor::voiceRegionSample (const Voice& voice) const
 {
-    if (voice.regionIndex < 0)
+    if (instrument == nullptr || voice.regionIndex < 0)
         return nullptr;
-    const auto& regions = instrument.getRegions();
+    const auto& regions = instrument->getRegions();
     if (voice.regionIndex >= (int) regions.size())
         return nullptr;
-    return instrument.getSample (regions[(size_t) voice.regionIndex].sample);
+    return instrument->getSample (regions[(size_t) voice.regionIndex].sample);
 }
 
 void SamplerProcessor::startNote (int note, int channel, float velocity)
 {
-    if (! instrument.isLoaded())
+    if (instrument == nullptr || ! instrument->isLoaded())
         return;
 
-    const auto& regions = instrument.getRegions();
+    const auto& regions = instrument->getRegions();
     const int velocityValue = juce::jlimit (1, 127, juce::roundToInt (velocity * 127.0f));
     const float transposeValue = values[ParamIndex::transpose].load();
     const float fine = values[ParamIndex::fineTune].load();
@@ -489,6 +521,8 @@ void SamplerProcessor::startNote (int note, int channel, float velocity)
 
 void SamplerProcessor::releaseNote (int note, int channel)
 {
+    if (instrument == nullptr)
+        return;
     for (auto& voice : voices)
     {
         if (! voice.active || voice.note != note)
@@ -496,7 +530,7 @@ void SamplerProcessor::releaseNote (int note, int channel)
         if (channel > 0 && voice.channel != channel)
             continue;
 
-        const auto& regions = instrument.getRegions();
+        const auto& regions = instrument->getRegions();
         if (voice.regionIndex < 0 || voice.regionIndex >= (int) regions.size())
             continue;
         const auto& region = regions[(size_t) voice.regionIndex];
@@ -512,7 +546,9 @@ void SamplerProcessor::releaseNote (int note, int channel)
 
 void SamplerProcessor::releaseAll (bool sustainedOnly)
 {
-    const auto& regions = instrument.getRegions();
+    if (instrument == nullptr)
+        return;
+    const auto& regions = instrument->getRegions();
     for (auto& voice : voices)
     {
         if (! voice.active)
@@ -528,14 +564,37 @@ void SamplerProcessor::releaseAll (bool sustainedOnly)
     }
 }
 
+void SamplerProcessor::killAll() noexcept
+{
+    for (auto& voice : voices)
+    {
+        voice.active = false;
+        voice.sustained = false;
+        voice.envelope.stage = Envelope::Stage::idle;
+        voice.filter.reset();
+    }
+    activeVoices.store (0);
+    sustainPedal = false;
+}
+
+void SamplerProcessor::panicNow() noexcept
+{
+    killAll();
+}
+
 void SamplerProcessor::handleMidi (const juce::MidiMessage& message)
 {
     if (message.isNoteOn())
         startNote (message.getNoteNumber(), message.getChannel(), (float) message.getVelocity() / 127.0f);
     else if (message.isNoteOff())
         releaseNote (message.getNoteNumber(), message.getChannel());
-    else if (message.isAllNotesOff() || message.isAllSoundOff())
+    else if (message.isAllSoundOff())
+        killAll();
+    else if (message.isAllNotesOff())
+    {
+        sustainPedal = false;
         releaseAll (false);
+    }
     else if (message.isSustainPedalOn())
         sustainPedal = true;
     else if (message.isSustainPedalOff())
@@ -557,7 +616,12 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
     midi.clear();
 
     const int numSamples = audio.getNumSamples();
-    const auto& regions = instrument.getRegions();
+    if (instrument == nullptr)
+    {
+        activeVoices.store (0);
+        return;
+    }
+    const auto& regions = instrument->getRegions();
     if (numSamples <= 0 || regions.empty())
     {
         activeVoices.store (0);
@@ -581,7 +645,7 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
         }
 
         const auto& region = regions[(size_t) voice.regionIndex];
-        const auto* sample = instrument.getSample (region.sample);
+        const auto* sample = instrument->getSample (region.sample);
         if (sample == nullptr || sample->pcm == nullptr)
         {
             voice.active = false;
@@ -666,7 +730,7 @@ void SamplerProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = juce::var (new juce::DynamicObject());
     auto* object = state.getDynamicObject();
-    object->setProperty ("file", instrument.getSourcePath());
+    object->setProperty ("file", instrument != nullptr ? instrument->getSourcePath() : juce::String());
     object->setProperty ("bank", currentBank);
     object->setProperty ("program", currentProgram);
     object->setProperty ("attack", (double) values[ParamIndex::attack].load());
@@ -680,7 +744,7 @@ void SamplerProcessor::getStateInformation (juce::MemoryBlock& destData)
     object->setProperty ("fineTune", (double) values[ParamIndex::fineTune].load());
     object->setProperty ("polyphony", (double) values[ParamIndex::polyphony].load());
     object->setProperty ("gain", (double) values[ParamIndex::outputGain].load());
-    object->setProperty ("format", instrument.getFormat());
+    object->setProperty ("format", instrument->getFormat());
     object->setProperty ("loop", loopsEnabled.load());
 
     const auto text = juce::JSON::toString (state);

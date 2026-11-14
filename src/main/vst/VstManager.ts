@@ -440,6 +440,18 @@ export class VstManager extends EventEmitter {
   }
 
   /** Troca o programa interno de um layer carregado e atualiza o cache. */
+  async getSamplerInfo(layerId: string): Promise<Record<string, unknown>> {
+    return this.engine.request('samplerInfo', { layerId });
+  }
+
+  async reloadSampler(
+    layerId: string,
+    samplePath: string,
+    options: Record<string, unknown> = {}
+  ): Promise<EngineLoadedPlugin> {
+    return this.engine.request('samplerReload', { layerId, samplePath, ...options }, 120_000);
+  }
+
   async setPluginProgram(layerOrPluginId: string, programIndex: number): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;

@@ -158,6 +158,11 @@ export const Inspector: React.FC<InspectorProps> = ({
       if (!shortcut) return;
       event.preventDefault();
       event.stopPropagation();
+      if (shortcut === 'Space' || shortcut.endsWith('+Space')) {
+        setShortcutError('A barra de espaço é reservada para o panic.');
+        setLearningShortcut(false);
+        return;
+      }
       const conflict = presets.find(
         (preset) => preset.id !== draft.id && (preset.shortcut ?? '') === shortcut
       );

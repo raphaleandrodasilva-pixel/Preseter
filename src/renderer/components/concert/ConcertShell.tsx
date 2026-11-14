@@ -48,6 +48,7 @@ import { ConcertSettingsPanel } from './ConcertSettingsPanel';
 import type { ConcertSettingsTab } from './ConcertSettingsPanel';
 import { ConcertSettingsModal } from './ConcertSettingsModal';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
+import { SamplerWindow } from './SamplerWindow';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
 import { TunerModal } from './TunerModal';
@@ -109,7 +110,7 @@ interface ConcertShellProps {  mode: ConcertMode;
   onSelectPreset: (preset: Preset) => void;
   onNewPatch: (setId?: string) => void;
   onEditPreset: (preset: Preset) => void;
-  onSaveDraft: () => void;
+  onSaveDraft: (preset?: Preset) => Promise<boolean> | boolean | void;
   onMidiMessage: (message: number[]) => void;
   onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
   onError: (message: string) => void;
@@ -319,6 +320,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [focusLayerId, setFocusLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
+  const [samplerWindowLayerId, setSamplerWindowLayerId] = useState<string | null>(null);
   const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
   const [editZoom, setEditZoom] = useState<CanvasZoom>(() => {
     try {
@@ -347,6 +349,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   /** Abre/fecha a janela nativa do plugin do layer (tecla V ou botão do channel strip). */
   const togglePluginEditor = (layerId: string) => {
+    const assignment = (draft?.plugins ?? []).find(
+      (item, index) => (item.layerId ?? `${draft?.id}:layer:${index}`) === layerId
+    );
+    if (assignment?.sourceKind === 'sampler') {
+      setSamplerWindowLayerId((current) => (current === layerId ? null : layerId));
+      return;
+    }
     if (openEditors.has(layerId)) {
       void closeVstEditor(layerId).then((closed) => {
         if (!closed) return;
@@ -2561,6 +2570,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         return;
       }
       if (target?.closest('input,select,textarea')) return;
+
+      // Barra de espaço = panic em qualquer modo. Fica reservada: atalhos de
+      // patch com "Space" são ignorados.
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.code === 'Space' || e.key === ' ')) {
+        e.preventDefault();
+        if (!e.repeat) {
+          panic();
+          setActionNotice('Panic');
+        }
+        return;
+      }
       // Atalhos da Patch List (copiar, colar, duplicar, deletar patches) são
       // tratados pelo próprio componente quando ele tem o foco.
       if (target?.closest('[data-patch-list]')) return;
@@ -3069,7 +3089,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   type="button"
                   className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
                   style={{ background: '#0A84FF', color: '#FFFFFF' }}
-                  onClick={onSaveDraft}
+                  onClick={() => void onSaveDraft()}
                   disabled={!draft || saving}
                   title={draft ? 'Salvar o patch em edição (Ctrl+S)' : 'Nenhum patch em edição'}
                 >
@@ -3326,6 +3346,41 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
       )}
+      {samplerWindowLayerId && (() => {
+        const assignment = (draft?.plugins ?? []).find(
+          (item, index) => (item.layerId ?? `${draft?.id}:layer:${index}`) === samplerWindowLayerId
+        );
+        if (!assignment || !draft) return null;
+        return (
+          <SamplerWindow
+            assignment={assignment}
+            layerId={samplerWindowLayerId}
+            activeNotes={activeNotes}
+            onClose={() => setSamplerWindowLayerId(null)}
+            onOpenStore={() => {
+              setSamplerWindowLayerId(null);
+              setSettingsTab('store');
+            }}
+            onUseInPatch={async () => {
+              const next = { ...draft, updatedAt: Date.now() };
+              onDraftChange(next);
+              const saved = await onSaveDraft(next);
+              setActionNotice(saved === false ? 'Não foi possível salvar o patch' : 'Som salvo no patch');
+            }}
+            onUpdate={(patch) => {
+              onDraftChange({
+                ...draft,
+                plugins: (draft.plugins ?? []).map((item, index) =>
+                  (item.layerId ?? `${draft.id}:layer:${index}`) === samplerWindowLayerId
+                    ? { ...item, ...patch }
+                    : item
+                ),
+                updatedAt: Date.now(),
+              });
+            }}
+          />
+        );
+      })()}
       {concertSettingsTab && concertSettings && (
         <ConcertSettingsModal
           settings={concertSettings}

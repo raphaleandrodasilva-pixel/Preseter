@@ -254,6 +254,33 @@ export interface EngineCommands {
   };
   /** Troca o programa interno de um layer carregado. */
   setProgram: { args: { layerId?: string; index: number }; result: EngineLoadedPlugin };
+  /** Metadados do sampler nativo (regiões, presets, arquivo). */
+  samplerInfo: {
+    args: { layerId: string };
+    result: Record<string, unknown>;
+  };
+  /** Troca o arquivo de um layer de sampler já carregado. */
+  samplerReload: {
+    args: {
+      layerId: string;
+      samplePath: string;
+      bank?: number;
+      programIndex?: number;
+      loop?: boolean;
+      polyphony?: number;
+      attack?: number;
+      decay?: number;
+      sustain?: number;
+      release?: number;
+      cutoff?: number;
+      resonance?: number;
+      velocity?: number;
+      transpose?: number;
+      fineTune?: number;
+      gain?: number;
+    };
+    result: EngineLoadedPlugin;
+  };
   /** Carrega um SF2 num juicysfplugin e opcionalmente seleciona o programa. */
   loadSoundFont: {
     args: { layerId: string; path: string; programIndex?: number };

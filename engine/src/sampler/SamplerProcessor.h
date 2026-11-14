@@ -57,8 +57,8 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     bool loadFile (const juce::File& file, int bank, int program, juce::String& error);
-    bool isLoaded() const noexcept { return instrument.isLoaded(); }
-    juce::String getSourcePath() const { return instrument.getSourcePath(); }
+    bool isLoaded() const noexcept { return instrument != nullptr && instrument->isLoaded(); }
+    juce::String getSourcePath() const { return instrument != nullptr ? instrument->getSourcePath() : juce::String(); }
     juce::String describe() const;
     juce::var describeRegions() const;
     int getActiveVoices() const noexcept { return activeVoices.load(); }
@@ -66,6 +66,8 @@ public:
     void setPolyphonyLimit (int voices) noexcept;
     void setLoopsEnabled (bool enabled) noexcept { loopsEnabled.store (enabled); }
     bool areLoopsEnabled() const noexcept { return loopsEnabled.load(); }
+    /** Corta todas as vozes na hora (panic). */
+    void panicNow() noexcept;
 
 private:
     class SamplerParameter;
@@ -115,6 +117,7 @@ private:
     };
 
     void handleMidi (const juce::MidiMessage& message);
+    void killAll() noexcept;
     void startNote (int note, int channel, float velocity);
     void releaseNote (int note, int channel);
     void releaseAll (bool sustainedOnly);
@@ -123,7 +126,7 @@ private:
     void resetVoices();
     const sampler::Sample* voiceRegionSample (const Voice& voice) const;
 
-    sampler::Instrument instrument;
+    std::shared_ptr<sampler::Instrument> instrument;
     std::vector<Voice> voices;
     juce::uint32 voiceOrder = 0;
 

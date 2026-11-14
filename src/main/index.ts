@@ -792,6 +792,19 @@ class MainWindow {
       return result.filePaths[0];
     });
 
+    ipcMain.handle('sampler-info', (_event, layerId: string) => {
+      return this.vstManager.getSamplerInfo(layerId);
+    });
+
+    ipcMain.handle('sampler-reload', (_event, layerId: string, samplePath: string, options?: Record<string, unknown>) => {
+      return this.vstManager.reloadSampler(layerId, samplePath, options ?? {});
+    });
+
+    ipcMain.handle('vst-set-program', async (_event, layerId: string, index: number) => {
+      await this.vstManager.setPluginProgram(layerId, index);
+      return this.vstManager.getLoadedPlugins().find((item) => item.layerId === layerId) ?? null;
+    });
+
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
       const plugin = this.vstManager
         .getLoadedPlugins()
@@ -897,6 +910,22 @@ class MainWindow {
     // === Loja ===
 
     ipcMain.handle('store-list', () => this.storeService.snapshot());
+
+    ipcMain.handle('store-sources-get', () => this.storeService.getSources());
+
+    ipcMain.handle('store-sources-set', (_event, text: string) =>
+      this.storeService.saveSources(String(text ?? ''))
+    );
+
+    ipcMain.handle(
+      'store-address-set',
+      (
+        _event,
+        input: { itemId: string; os?: string; page?: string; url?: string }
+      ) => this.storeService.setAddress(input)
+    );
+
+    ipcMain.handle('store-addresses-reset', () => this.storeService.resetAddresses());
 
     ipcMain.handle('store-download', async (_event, ids: string[], force?: boolean) => {
       const selected = Array.isArray(ids)

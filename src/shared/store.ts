@@ -132,6 +132,8 @@ export interface StoreItemView extends StoreItem {
   totalBytes?: number;
   percent?: number;
   message?: string;
+  /** Id da fonte do `sources.list` de onde o item veio (main, bpb…). */
+  catalogSource?: string;
 }
 
 export interface StoreSnapshot {
@@ -146,6 +148,8 @@ export interface StoreSnapshot {
   missingCount: number;
   totalCount: number;
   installedBytes: number;
+  /** Fontes carregadas (sources.list) e contagem de itens de cada uma. */
+  sources?: import('./store-sources').StoreSourceSummary[];
   error?: string;
 }
 

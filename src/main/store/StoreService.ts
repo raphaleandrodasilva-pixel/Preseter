@@ -26,6 +26,20 @@ import {
   type StoreUpdateResult,
   type StoreVariant,
 } from '../../shared/store';
+import {
+  DEFAULT_STORE_SOURCES,
+  DEFAULT_STORE_SOURCES_TEXT,
+  formatStoreSources,
+  isLocalStoreSource,
+  mergeStoreCatalogs,
+  parseStoreSources,
+  readStoreCatalog,
+  resolveStoreSourcePath,
+  STORE_SOURCES_FILE,
+  type StoreSourceEntry,
+  type StoreSourceSummary,
+  type StoreSourcesState,
+} from '../../shared/store-sources';
 import type { SupportedPlatform } from '../platform/paths';
 
 /** Parte do CollectionInstaller usada pela Loja (facilita testes). */
@@ -78,8 +92,19 @@ interface StoreImageCacheFile {
   images: Record<string, StoreImageEntry>;
 }
 
+interface StoreAddressOverride {
+  page?: string;
+  /** URL de download por sistema operacional. */
+  urls?: Record<string, string>;
+}
+
+interface StoreAddressCacheFile {
+  overrides: Record<string, StoreAddressOverride>;
+}
+
 const CACHE_FILE = 'store-catalog.json';
 const IMAGE_CACHE_FILE = 'store-thumbnails.json';
+const ADDRESS_FILE = 'store-addresses.json';
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 const REMOTE_TIMEOUT_MS = 15_000;
 const HEAD_TIMEOUT_MS = 8_000;
@@ -106,7 +131,16 @@ export class StoreService {
   private readonly arch: StoreArch;
   private readonly cachePath: string;
   private readonly imageCachePath: string;
+  private readonly sourcesPath: string;
+  private readonly addressesPath: string;
+  private baseCatalog: StoreCatalog = { version: 1, items: [] };
   private catalog: StoreCatalog = { version: 1, items: [] };
+  private sources: StoreSourceEntry[] = [...DEFAULT_STORE_SOURCES];
+  private sourcesText = DEFAULT_STORE_SOURCES_TEXT;
+  private sourceCatalogs = new Map<string, StoreCatalog>();
+  private sourceErrors = new Map<string, string>();
+  private sourceIds = new Map<string, string>();
+  private addresses: Record<string, StoreAddressOverride> = {};
   private images: Record<string, StoreImageEntry> = {};
   private source: StoreCatalogSource = 'embedded';
   private catalogError?: string;
@@ -123,6 +157,8 @@ export class StoreService {
     this.arch = storeArchForProcess(options.arch);
     this.cachePath = path.join(options.userData, CACHE_FILE);
     this.imageCachePath = path.join(options.userData, IMAGE_CACHE_FILE);
+    this.sourcesPath = path.join(options.userData, STORE_SOURCES_FILE);
+    this.addressesPath = path.join(options.userData, ADDRESS_FILE);
     if (options.installer.subscribe) {
       this.unsubscribe = options.installer.subscribe((progress) => {
         this.progressById.set(progress.item.id, progress.item);
@@ -166,11 +202,269 @@ export class StoreService {
     } else {
       throw new Error(embedded.error ?? cached.error ?? 'Catálogo da Loja não encontrado.');
     }
+    this.baseCatalog = this.catalog;
     this.lastCheckedAt = cached.checkedAt;
     this.etag = cached.etag;
     await this.loadImages();
+    await this.loadSources();
+    await this.loadAddresses();
+    this.mergeCatalogs();
     if (this.catalog.items.length === 0) {
       this.catalogError = embedded.error ?? cached.error ?? 'Catálogo da Loja vazio.';
+    }
+  }
+
+  /** Carrega o `sources.list`; cria o arquivo padrão na primeira execução. */
+  private async loadSources(): Promise<void> {
+    try {
+      if (existsSync(this.sourcesPath)) {
+        const text = await fs.readFile(this.sourcesPath, 'utf8');
+        const parsed = parseStoreSources(text);
+        this.sourcesText = text;
+        this.sources = parsed.sources.length > 0 ? parsed.sources : [...DEFAULT_STORE_SOURCES];
+        if (parsed.sources.length === 0) this.sourcesText = DEFAULT_STORE_SOURCES_TEXT;
+      } else {
+        this.sources = [...DEFAULT_STORE_SOURCES];
+        this.sourcesText = DEFAULT_STORE_SOURCES_TEXT;
+        await this.writeSourcesFile();
+      }
+    } catch (error) {
+      this.sources = [...DEFAULT_STORE_SOURCES];
+      this.sourcesText = DEFAULT_STORE_SOURCES_TEXT;
+      this.sourceErrors.set('main', errorMessage(error));
+    }
+    await this.loadLocalSources();
+  }
+
+  private async writeSourcesFile(): Promise<void> {
+    await fs.mkdir(this.options.userData, { recursive: true });
+    await fs.writeFile(this.sourcesPath, this.sourcesText, 'utf8');
+  }
+
+  /** Lê as fontes locais (por exemplo, o catálogo BPB embutido). */
+  private async loadLocalSources(): Promise<void> {
+    this.sourceCatalogs.clear();
+    this.sourceErrors.clear();
+    for (const source of this.sources) {
+      if (!source.enabled || !isLocalStoreSource(source.url)) continue;
+      const filePath = resolveStoreSourcePath(source.url, this.options.appPath);
+      try {
+        const raw = await fs.readFile(filePath, 'utf8');
+        const catalog = readStoreCatalog(raw);
+        if (!catalog) {
+          this.sourceErrors.set(source.id, `Catálogo inválido: ${filePath}`);
+          continue;
+        }
+        this.sourceCatalogs.set(source.id, catalog);
+      } catch (error) {
+        this.sourceErrors.set(source.id, `Não foi possível ler ${filePath}: ${errorMessage(error)}`);
+      }
+    }
+  }
+
+  /** Mescla catálogo principal + fontes locais/remotas. */
+  private mergeCatalogs(): void {
+    const extras: Array<{ sourceId: string; catalog: StoreCatalog }> = [];
+    for (const source of this.sources) {
+      if (!source.enabled) continue;
+      const catalog = this.sourceCatalogs.get(source.id);
+      if (catalog) extras.push({ sourceId: source.id, catalog });
+    }
+    const merged = mergeStoreCatalogs(this.baseCatalog, extras);
+    this.catalog = {
+      ...merged.catalog,
+      items: merged.catalog.items.map((item) => this.applyAddresses(item)),
+    };
+    this.sourceIds = merged.sourceIds;
+  }
+
+  private applyAddresses(item: StoreItem): StoreItem {
+    const override = this.addresses[item.id];
+    if (!override) return item;
+    return {
+      ...item,
+      page: override.page ?? item.page,
+      variants: item.variants.map((variant) =>
+        override.urls?.[variant.os]
+          ? { ...variant, url: override.urls[variant.os], linkStatus: 'unknown' }
+          : variant
+      ),
+    };
+  }
+
+  private async loadAddresses(): Promise<void> {
+    try {
+      const raw = await fs.readFile(this.addressesPath, 'utf8');
+      const parsed = JSON.parse(raw) as Partial<StoreAddressCacheFile>;
+      const overrides = parsed.overrides;
+      if (!overrides || typeof overrides !== 'object') return;
+      for (const [id, entry] of Object.entries(overrides)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const page =
+          typeof entry.page === 'string' && /^https?:\/\//i.test(entry.page)
+            ? entry.page
+            : undefined;
+        const urls: Record<string, string> = {};
+        if (entry.urls && typeof entry.urls === 'object') {
+          for (const [os, url] of Object.entries(entry.urls)) {
+            if (typeof url === 'string' && /^https:\/\//i.test(url)) urls[os] = url;
+          }
+        }
+        if (page || Object.keys(urls).length > 0) {
+          this.addresses[id] = { ...(page ? { page } : {}), ...(Object.keys(urls).length ? { urls } : {}) };
+        }
+      }
+    } catch {
+      /* arquivo de endereços ainda não existe */
+    }
+  }
+
+  private async writeAddresses(): Promise<void> {
+    await fs.mkdir(this.options.userData, { recursive: true });
+    const payload: StoreAddressCacheFile = { overrides: this.addresses };
+    await fs.writeFile(this.addressesPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  }
+
+  /** Estado editável das fontes e dos endereços da Loja. */
+  async getSources(): Promise<StoreSourcesState> {
+    await this.initialize();
+    return this.sourcesState();
+  }
+
+  private sourcesState(): StoreSourcesState {
+    const sources: StoreSourceSummary[] = this.sources.map((source) => ({
+      ...source,
+      local: isLocalStoreSource(source.url),
+      itemCount:
+        source.id === 'main'
+          ? this.baseCatalog.items.length
+          : this.sourceCatalogs.get(source.id)?.items.length ?? 0,
+      ...(this.sourceErrors.get(source.id) ? { error: this.sourceErrors.get(source.id) } : {}),
+    }));
+    return {
+      path: this.sourcesPath,
+      text: this.sourcesText,
+      sources,
+      addressesPath: this.addressesPath,
+    };
+  }
+
+  /** Salva o `sources.list` e recarrega as fontes locais. */
+  async saveSources(text: string): Promise<{
+    ok: boolean;
+    issues: string[];
+    state: StoreSourcesState;
+    snapshot: StoreSnapshot;
+  }> {
+    await this.initialize();
+    const parsed = parseStoreSources(text);
+    if (parsed.sources.length === 0) {
+      return {
+        ok: false,
+        issues: ['Adicione pelo menos uma fonte no formato "<id> <endereço>".'],
+        state: this.sourcesState(),
+        snapshot: await this.snapshot(),
+      };
+    }
+    const issues = [...parsed.issues];
+    for (const source of parsed.sources) {
+      if (!isLocalStoreSource(source.url) && !/^https?:\/\//i.test(source.url)) {
+        issues.push(`fonte ${source.id}: use um endereço http(s) ou um caminho local`);
+      }
+    }
+    if (issues.length > 0) {
+      return { ok: false, issues, state: this.sourcesState(), snapshot: await this.snapshot() };
+    }
+
+    this.sources = parsed.sources;
+    this.sourcesText = text.trimEnd() + '\n';
+    await this.writeSourcesFile();
+    await this.loadLocalSources();
+    await this.fetchRemoteSources();
+    this.mergeCatalogs();
+    const snapshot = await this.snapshot();
+    this.options.onCatalogUpdated?.({
+      ok: true,
+      updated: true,
+      source: this.source,
+      checkedAt: new Date(this.now()).toISOString(),
+      snapshot,
+    });
+    return { ok: true, issues: [], state: this.sourcesState(), snapshot };
+  }
+
+  /**
+   * Salva um endereço editado manualmente. `url` vale para a variante do
+   * sistema informado; `page` vale para o item inteiro.
+   */
+  async setAddress(input: {
+    itemId: string;
+    os?: string;
+    page?: string;
+    url?: string;
+  }): Promise<{ ok: boolean; error?: string; snapshot: StoreSnapshot }> {
+    await this.initialize();
+    const item = this.catalog.items.find((entry) => entry.id === input.itemId);
+    if (!item) {
+      return { ok: false, error: 'Item não encontrado no catálogo.', snapshot: await this.snapshot() };
+    }
+    const entry: StoreAddressOverride = { ...(this.addresses[item.id] ?? {}) };
+    if (input.page !== undefined) {
+      if (!/^https?:\/\//i.test(input.page.trim())) {
+        return { ok: false, error: 'A página precisa ser um endereço http(s).', snapshot: await this.snapshot() };
+      }
+      entry.page = input.page.trim();
+    }
+    if (input.url !== undefined) {
+      const url = input.url.trim();
+      if (!isAllowedStoreUrl(url)) {
+        return {
+          ok: false,
+          error: 'O endereço de download precisa ser HTTPS de um host oficial.',
+          snapshot: await this.snapshot(),
+        };
+      }
+      const os = input.os ?? this.os;
+      if (!item.variants.some((variant) => variant.os === os)) {
+        return { ok: false, error: 'Este item não tem variante para esse sistema.', snapshot: await this.snapshot() };
+      }
+      entry.urls = { ...(entry.urls ?? {}), [os]: url };
+    }
+    if (!entry.page && !entry.urls) delete this.addresses[item.id];
+    else this.addresses[item.id] = entry;
+    await this.writeAddresses();
+    this.mergeCatalogs();
+    return { ok: true, snapshot: await this.snapshot() };
+  }
+
+  /** Remove todos os endereços editados manualmente. */
+  async resetAddresses(): Promise<{ ok: boolean; snapshot: StoreSnapshot }> {
+    await this.initialize();
+    this.addresses = {};
+    await this.writeAddresses();
+    this.mergeCatalogs();
+    return { ok: true, snapshot: await this.snapshot() };
+  }
+
+  /** Baixa fontes remotas extras (o catálogo principal tem fluxo próprio). */
+  private async fetchRemoteSources(): Promise<void> {
+    for (const source of this.sources) {
+      if (!source.enabled || source.id === 'main' || isLocalStoreSource(source.url)) continue;
+      try {
+        const response = await this.fetchWithTimeout(source.url, {
+          headers: { Accept: 'application/json', 'User-Agent': 'Preseter' },
+          timeoutMs: REMOTE_TIMEOUT_MS,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        if (text.length > MAX_CATALOG_BYTES) throw new Error('catálogo grande demais');
+        const catalog = readStoreCatalog(text);
+        if (!catalog) throw new Error('catálogo inválido');
+        this.sourceCatalogs.set(source.id, catalog);
+        this.sourceErrors.delete(source.id);
+      } catch (error) {
+        this.sourceErrors.set(source.id, errorMessage(error));
+      }
     }
   }
 
@@ -371,6 +665,7 @@ export class StoreService {
       approxBytes: description.approxBytes,
       availablePlatforms: description.availablePlatforms,
       availableFormats: description.availableFormats,
+      catalogSource: this.sourceIds.get(description.item.id) ?? 'main',
       status: status?.status ?? (description.compatible ? 'missing' : 'unsupported'),
     };
     if (status) {
@@ -422,6 +717,7 @@ export class StoreService {
       missingCount: items.filter((item) => item.status === 'missing').length,
       totalCount: items.filter((item) => item.compatible).length,
       installedBytes: installed.reduce((sum, item) => sum + Math.max(0, item.approxBytes), 0),
+      sources: this.sourcesState().sources,
       error: this.catalogError,
     };
   }
@@ -488,7 +784,10 @@ export class StoreService {
 
       if (response.status === 304) {
         this.lastCheckedAt = checkedAt;
-        await this.writeCache(this.catalog, this.etag ?? null);
+        await this.writeCache(this.baseCatalog, this.etag ?? null);
+        await this.loadLocalSources();
+        await this.fetchRemoteSources();
+        this.mergeCatalogs();
         const result: StoreUpdateResult = {
           ok: true,
           updated: false,
@@ -515,7 +814,7 @@ export class StoreService {
       if (!validation.ok) {
         throw new Error(`Catálogo remoto inválido: ${validation.issues[0]}`);
       }
-      if (catalogUpdatedAt(validation.catalog) < catalogUpdatedAt(this.catalog)) {
+      if (catalogUpdatedAt(validation.catalog) < catalogUpdatedAt(this.baseCatalog)) {
         throw new Error('O catálogo remoto é mais antigo que o local; mantendo o catálogo atual.');
       }
 
@@ -530,12 +829,15 @@ export class StoreService {
       }
       if (!catalog.updatedAt) catalog = { ...catalog, updatedAt: checkedAt };
 
-      this.catalog = catalog;
+      this.baseCatalog = catalog;
       this.source = 'remote';
       this.catalogError = undefined;
       this.etag = response.headers.get('etag');
       this.lastCheckedAt = checkedAt;
       await this.writeCache(catalog, this.etag ?? null);
+      await this.loadLocalSources();
+      await this.fetchRemoteSources();
+      this.mergeCatalogs();
       const result: StoreUpdateResult = {
         ok: true,
         updated: true,

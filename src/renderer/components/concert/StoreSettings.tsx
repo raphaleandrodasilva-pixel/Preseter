@@ -9,6 +9,7 @@ import {
   type StoreSource,
 } from '@shared/store';
 import { CollectionSettings } from './CollectionSettings';
+import { StoreAddresses } from './StoreAddresses';
 
 type StoreMode = 'store' | 'essential';
 type TypeFilter = 'all' | 'plugin' | 'library';
@@ -163,6 +164,7 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
 /** Substitui a antiga aba Coleção: Loja de plugins/samples + Kit essencial. */
 export const StoreSettings: React.FC = () => {
   const [mode, setMode] = useState<StoreMode>('store');
+  const [view, setView] = useState<'catalog' | 'addresses'>('catalog');
   const [snapshot, setSnapshot] = useState<StoreSnapshot | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -496,7 +498,7 @@ export const StoreSettings: React.FC = () => {
               style={mode === 'store'
                 ? { background: '#0A84FF', color: '#FFFFFF' }
                 : { color: '#9A9AA0' }}
-              onClick={() => setMode('store')}
+              onClick={() => { setMode('store'); setView('catalog'); }}
               aria-pressed={mode === 'store'}
             >
               Loja
@@ -511,6 +513,17 @@ export const StoreSettings: React.FC = () => {
               aria-pressed={mode === 'essential'}
             >
               Factory 40
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-3 py-1 text-[11px] font-semibold"
+              style={mode === 'store' && view === 'addresses'
+                ? { background: '#30D158', color: '#0B1A10' }
+                : { color: '#9A9AA0' }}
+              onClick={() => { setMode('store'); setView('addresses'); }}
+              aria-pressed={mode === 'store' && view === 'addresses'}
+            >
+              Endereços
             </button>
           </div>
           <span className="text-[10px]" style={{ color: '#6E6E73' }}>
@@ -540,6 +553,8 @@ export const StoreSettings: React.FC = () => {
           </section>
           <CollectionSettings />
         </div>
+      ) : view === 'addresses' ? (
+        <StoreAddresses snapshot={snapshot} onSnapshot={setSnapshot} />
       ) : (
         <div className="grid gap-3 xl:grid-cols-[190px_minmax(0,1fr)_310px]">
           <aside className="hw-inset space-y-3 p-3">
@@ -795,6 +810,9 @@ export const StoreSettings: React.FC = () => {
                   </p>
                   <p className="mt-0.5 text-[9px]" style={{ color: sourceColors[detail.source] }}>
                     {sourceLabels[detail.source]}
+                    {detail.catalogSource && detail.catalogSource !== 'main'
+                      ? ` · fonte ${detail.catalogSource}`
+                      : ''}
                   </p>
                 </div>
 

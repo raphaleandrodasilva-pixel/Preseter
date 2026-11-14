@@ -235,6 +235,42 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "samplerPreload")
+    {
+        int queued = 0;
+        if (auto* array = message["paths"].getArray())
+        {
+            for (const auto& item : *array)
+            {
+                const auto path = item["path"].toString();
+                if (path.isEmpty())
+                    continue;
+                sampler::InstrumentCache::get().preloadAsync (
+                    juce::File (path),
+                    intArg (item, "bank", 0),
+                    intArg (item, "program", 0));
+                ++queued;
+            }
+        }
+        ok (id, Obj().set ("queued", queued));
+        return;
+    }
+
+    if (cmd == "samplerReload")
+    {
+        juce::var result;
+        const auto error = engine.reloadSampler (
+            message["layerId"].toString(),
+            message["samplePath"].toString(),
+            intArg (message, "bank", 0),
+            intArg (message, "programIndex", 0),
+            message,
+            result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "stageLoad")
     {
         auto key = message["plugin"].toString();

@@ -68,6 +68,9 @@ export interface ElectronAPI {
   vstRemovePluginFolder: (folder: string) => Promise<{ folders: string[]; plugins: VstPluginInfo[] }>;
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) => Promise<VstPluginInfo>;
   samplerPickFile: () => Promise<string | null>;
+  samplerInfo: (layerId: string) => Promise<Record<string, unknown>>;
+  samplerReload: (layerId: string, samplePath: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  vstSetProgram: (layerId: string, index: number) => Promise<VstPluginInfo | null>;
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;
@@ -79,6 +82,20 @@ export interface ElectronAPI {
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;
   collectionGenerate: () => Promise<CollectionGenerateResult | null>;
   storeList: () => Promise<StoreSnapshot>;
+  storeSourcesGet: () => Promise<import('@shared/store-sources').StoreSourcesState>;
+  storeSourcesSet: (text: string) => Promise<{
+    ok: boolean;
+    issues: string[];
+    state: import('@shared/store-sources').StoreSourcesState;
+    snapshot: StoreSnapshot;
+  }>;
+  storeAddressSet: (input: {
+    itemId: string;
+    os?: string;
+    page?: string;
+    url?: string;
+  }) => Promise<{ ok: boolean; error?: string; snapshot: StoreSnapshot }>;
+  storeAddressesReset: () => Promise<{ ok: boolean; snapshot: StoreSnapshot }>;
   storeDownload: (ids: string[], force?: boolean) => Promise<CollectionDownloadResult>;
   storeCancel: () => Promise<boolean>;
   storeCheckUpdates: (force?: boolean) => Promise<StoreUpdateResult>;

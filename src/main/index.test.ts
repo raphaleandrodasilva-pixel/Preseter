@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(117);
+    expect(handlers.size).toBe(124);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -56,6 +56,14 @@ describe('main process IPC wiring', () => {
       'ui-element-add',
       'open-plugin-dialog',
       'store-list',
+      'store-sources-get',
+      'store-sources-set',
+      'store-address-set',
+      'store-addresses-reset',
+      'sampler-pick-file',
+      'sampler-info',
+      'sampler-reload',
+      'vst-set-program',
       'collection-readiness',
       'store-download',
       'store-cancel',

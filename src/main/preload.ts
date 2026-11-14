@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstLoad: (pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) =>
     ipcRenderer.invoke('vst-load', pluginPath, layerId, minNote, maxNote, pinned, extra),
   samplerPickFile: () => ipcRenderer.invoke('sampler-pick-file'),
+  samplerInfo: (layerId: string) => ipcRenderer.invoke('sampler-info', layerId),
+  samplerReload: (layerId: string, samplePath: string, options?: Record<string, unknown>) =>
+    ipcRenderer.invoke('sampler-reload', layerId, samplePath, options),
+  vstSetProgram: (layerId: string, index: number) => ipcRenderer.invoke('vst-set-program', layerId, index),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) =>
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value, slot),
@@ -57,6 +61,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('collection-open-installer', filePath),
   collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
   storeList: () => ipcRenderer.invoke('store-list'),
+  storeSourcesGet: () => ipcRenderer.invoke('store-sources-get'),
+  storeSourcesSet: (text: string) => ipcRenderer.invoke('store-sources-set', text),
+  storeAddressSet: (input: { itemId: string; os?: string; page?: string; url?: string }) =>
+    ipcRenderer.invoke('store-address-set', input),
+  storeAddressesReset: () => ipcRenderer.invoke('store-addresses-reset'),
   storeDownload: (ids: string[], force?: boolean) =>
     ipcRenderer.invoke('store-download', ids, force),
   storeCancel: () => ipcRenderer.invoke('store-cancel'),

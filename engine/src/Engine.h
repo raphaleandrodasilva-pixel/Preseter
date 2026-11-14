@@ -120,6 +120,9 @@ public:
     void loadSampler (const juce::String& filePath, const juce::String& layerId,
                       int bank, int program, int minNote, int maxNote,
                       const juce::var& options, Done done, bool staged = false);
+    /** Troca o arquivo de um layer de sampler já carregado, sem mexer no grafo. */
+    juce::String reloadSampler (const juce::String& layerId, const juce::String& filePath,
+                                int bank, int program, const juce::var& options, juce::var& result);
     /** Efetiva a troca de patch: ativa os layers encadeados e silencia (ou drena) o patch anterior. */
     juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});

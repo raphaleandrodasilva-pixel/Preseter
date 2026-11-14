@@ -93,6 +93,10 @@ export function createElectronApiMock(): ElectronApiMock {
     vstUnload: vi.fn(async () => true),
     vstSetParam: vi.fn(async () => true),
     vstParams: vi.fn(async () => []),
+    samplerInfo: vi.fn(async () => ({})),
+    samplerReload: vi.fn(async () => ({})),
+    samplerPickFile: vi.fn(async () => null),
+    vstSetProgram: vi.fn(async () => null),
     collectionStatus: vi.fn(async () => []),
     collectionReadiness: vi.fn(async () => ({
       total: 40,
@@ -113,6 +117,28 @@ export function createElectronApiMock(): ElectronApiMock {
     collectionOpenInstaller: vi.fn(async () => true),
     collectionGenerate: vi.fn(async () => null),
     storeList: vi.fn(async () => emptyStoreSnapshot()),
+    storeSourcesGet: vi.fn(async () => ({
+      path: '',
+      text: 'main https://example.com/store-catalog.json\nbpb store/store-catalog-bpb.json\n',
+      sources: [
+        { id: 'main', url: 'https://example.com/store-catalog.json', enabled: true, local: false, itemCount: 0 },
+        { id: 'bpb', url: 'store/store-catalog-bpb.json', enabled: true, local: true, itemCount: 0 },
+      ],
+      addressesPath: '',
+    })),
+    storeSourcesSet: vi.fn(async (text: string) => ({
+      ok: true,
+      issues: [],
+      state: {
+        path: '',
+        text,
+        sources: [],
+        addressesPath: '',
+      },
+      snapshot: emptyStoreSnapshot(),
+    })),
+    storeAddressSet: vi.fn(async () => ({ ok: true, snapshot: emptyStoreSnapshot() })),
+    storeAddressesReset: vi.fn(async () => ({ ok: true, snapshot: emptyStoreSnapshot() })),
     storeDownload: vi.fn(async () => ({
       ok: true,
       statuses: [],

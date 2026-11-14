@@ -326,4 +326,27 @@ describe('StoreSettings', () => {
     fireEvent.click(screen.getByLabelText('Mostrar itens de outros sistemas'));
     expect(await screen.findAllByText('Plugin Mac')).not.toHaveLength(0);
   });
+
+  it('edits sources.list and item addresses', async () => {
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot([storeItem()]));
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Endereços' }));
+    const textarea = await screen.findByLabelText('Fontes da Loja no formato sources.list') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('bpb store/store-catalog-bpb.json');
+    expect(await screen.findByText(/bpb · 0 itens/)).toBeInTheDocument();
+
+    const pageInput = await screen.findByLabelText('Página oficial de Plugin Alfa 1.0') as HTMLInputElement;
+    expect(pageInput.value).toBe('https://github.com/example/plugin');
+
+    fireEvent.change(textarea, { target: { value: 'main https://example.com/catalog.json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar fontes' }));
+    await waitFor(() =>
+      expect(window.electronAPI.storeSourcesSet).toHaveBeenCalledWith('main https://example.com/catalog.json')
+    );
+  });
 });

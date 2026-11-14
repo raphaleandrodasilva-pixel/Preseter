@@ -2442,8 +2442,7 @@ void Engine::stagePlugin (const juce::String& idOrPath, const juce::String& laye
     loadPlugin (idOrPath, layerId, minNote, maxNote, std::move (done), true);
 }
 
-void Engine::loadSampler (const juce::String& filePath, const juce::String& requestedLayerId,
-                          int bank, int program, int minNote, int maxNote,
+void Engine::loadSampler (const juce::String& filePath, const juce::String& requestedLayerId,                          int bank, int program, int minNote, int maxNote,
                           const juce::var& options, Done done, bool staged)
 {
     if (minNote < 0 || maxNote > 127 || minNote > maxNote)
@@ -2512,6 +2511,30 @@ void Engine::loadSampler (const juce::String& filePath, const juce::String& requ
     updateSoloState();
     rebuildConnections();
     done (describeLoadedPlugin (layerId), {});
+}
+
+juce::String Engine::reloadSampler (const juce::String& layerId, const juce::String& filePath,
+                                    int bank, int program, const juce::var& options,
+                                    juce::var& result)
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0 || layers[(size_t) index].sampler == nullptr)
+        return utf8 ("Nenhum sampler carregado neste layer.");
+
+    auto* sampler = layers[(size_t) index].sampler;
+    juce::String error;
+    if (! sampler->loadFile (juce::File (filePath), bank, program, error))
+        return error.isNotEmpty() ? error : juce::String (utf8 ("Nao foi possivel carregar o sample."));
+
+    if (options.isObject())
+    {
+        const auto text = juce::JSON::toString (options);
+        if (text.length() > 2)
+            sampler->setStateInformation (text.toRawUTF8(), text.getNumBytesAsUTF8());
+    }
+
+    result = describeLoadedPlugin (layerId);
+    return {};
 }
 
 juce::var Engine::commitPatchSwap (bool silencePrevious)
@@ -3614,6 +3637,18 @@ void Engine::scanPluginPrograms (const juce::String& idOrPath, Done done)
 juce::String Engine::setPluginProgram (const juce::String& layerId, int programIndex,
                                        juce::var& result)
 {
+    const int layerIndex = findLayer (resolveLayerId (layerId));
+    if (layerIndex >= 0 && layers[(size_t) layerIndex].sampler != nullptr)
+    {
+        auto* sampler = layers[(size_t) layerIndex].sampler;
+        if (! juce::isPositiveAndBelow (programIndex, sampler->getNumPrograms()))
+            return utf8 ("Programa inválido: ") + juce::String (programIndex)
+                 + utf8 (" (o sampler tem ") + juce::String (sampler->getNumPrograms()) + utf8 (" instrumentos).");
+        sampler->setCurrentProgram (programIndex);
+        result = describeLoadedPlugin (layerId);
+        return {};
+    }
+
     auto* plugin = getPlugin (layerId);
     if (plugin == nullptr)
         return utf8 ("Nenhum instrumento carregado neste layer.");
@@ -4061,12 +4096,22 @@ juce::String Engine::sendMidi (const juce::MidiMessage& message)
 
 juce::String Engine::panic()
 {
+    // Samplers nativos cortam na hora, mesmo se o áudio estiver parado.
+    for (auto& layer : layers)
+        if (layer.sampler != nullptr)
+            layer.sampler->panicNow();
+
+    if (! isAudioRunning())
+        return {};
+
     for (int channel = 1; channel <= 16; ++channel)
     {
-        if (auto error = sendMidi (juce::MidiMessage::allNotesOff (channel)); error.isNotEmpty())
-            return error;
-
         sendMidi (juce::MidiMessage::allSoundOff (channel));
+        sendMidi (juce::MidiMessage::allNotesOff (channel));
+        sendMidi (juce::MidiMessage::controllerEvent (channel, 1, 0));
+        sendMidi (juce::MidiMessage::controllerEvent (channel, 11, 127));
+        sendMidi (juce::MidiMessage::controllerEvent (channel, 64, 0));
+        sendMidi (juce::MidiMessage::pitchWheel (channel, 8192));
     }
 
     return {};

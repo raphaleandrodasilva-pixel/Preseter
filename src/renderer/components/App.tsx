@@ -162,17 +162,17 @@ const AppContent: React.FC = () => {
     }).filter((strip) => strip.level !== 'patch');
   };
 
-  const saveDraft = async () => {
-    if (!draft) return;
-    if (!draft.name.trim()) {
+  const saveDraft = async (target: Preset | null = draft): Promise<boolean> => {
+    if (!target) return false;
+    if (!target.name.trim()) {
       setError('Informe um nome para o patch antes de salvar.');
-      return;
+      return false;
     }
     setSaving(true);
     try {
-      const vstStates = { ...draft.vstStates };
-      for (const [index, assignment] of (draft.plugins ?? []).entries()) {
-        const layerId = assignment.layerId ?? `${draft.id}:layer:${index}`;
+      const vstStates = { ...target.vstStates };
+      for (const [index, assignment] of (target.plugins ?? []).entries()) {
+        const layerId = assignment.layerId ?? `${target.id}:layer:${index}`;
         const loaded = loadedPlugins.some((plugin) => plugin.layerId === layerId);
         if (loaded) vstStates[`loaded_${layerId}`] = await window.electronAPI.vstGetState(layerId);
         for (const insert of assignment.inserts ?? []) {
@@ -183,7 +183,7 @@ const AppContent: React.FC = () => {
       // Master do Patch: patches antigos usam o mix/inserts do Output 1 do
       // concert como fallback na primeira vez que forem salvos.
       const output1 = concertSettings?.buses.outputs[0];
-      const master = draft.master ?? {
+      const master = target.master ?? {
         volumeDb: output1?.volumeDb ?? 0,
         pan: output1?.pan ?? 0,
         muted: output1?.muted ?? false,
@@ -207,7 +207,7 @@ const AppContent: React.FC = () => {
       }
       // Channel strips do concert/set: o estado do plugin e dos inserts fica no
       // patch que está sendo salvo (Fase 3.3).
-      for (const strip of inheritedStrips(draft)) {
+      for (const strip of inheritedStrips(target)) {
         if (loadedPlugins.some((plugin) => plugin.layerId === strip.id)) {
           vstStates[`loaded_${strip.id}`] = await window.electronAPI.vstGetState(strip.id);
         }
@@ -216,15 +216,17 @@ const AppContent: React.FC = () => {
           if (state) vstStates[`insert_${strip.id}_${insert.slot}`] = state;
         }
       }
-      const saved = await savePreset({ ...draft, master, vstStates, updatedAt: Date.now() });
+      const saved = await savePreset({ ...target, master, vstStates, updatedAt: Date.now() });
       if (!saved) setError('O armazenamento não confirmou que o patch foi salvo.');
       else {
         setError(null);
         showToast('Patch salvo.');
       }
+      return saved;
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : 'Erro desconhecido.';
       setError(`Falha ao salvar: ${detail}`);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -264,7 +266,7 @@ const AppContent: React.FC = () => {
           onSelectPreset={(preset) => void selectPreset(preset)}
           onNewPatch={startNewPatch}
           onEditPreset={editPreset}
-          onSaveDraft={() => void saveDraft()}
+          onSaveDraft={(preset) => saveDraft(preset ?? null)}
           onMidiMessage={(message) => void sendMidiMessage(message)}
           onSetVstParameter={(pluginPath, parameterId, value) => void updatePresetVstParameter(pluginPath, parameterId, value)}
           onError={(message) => setError(message || null)}

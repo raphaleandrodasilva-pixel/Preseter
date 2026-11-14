@@ -80,6 +80,8 @@ public:
     int getRegionCount() const noexcept { return (int) regions.size(); }
     int getSampleCount() const noexcept { return (int) samples.size(); }
     juce::var getPresetList() const;
+    int getPresetBank (int index) const;
+    int getPresetProgram (int index) const;
     bool isLoaded() const noexcept { return loaded; }
 
 private:
@@ -113,5 +115,31 @@ private:
 
 /** Pasta de cache dos samples convertidos. */
 juce::File getSampleCacheFolder();
+
+/**
+ * Cache de instrumentos já lidos. A troca de patch fica instantânea quando o
+ * arquivo (e o programa) já foi carregado nesta sessão.
+ */
+class InstrumentCache
+{
+public:
+    static InstrumentCache& get();
+
+    std::shared_ptr<Instrument> load (const juce::File& file, int bank, int program,
+                                      juce::String& error);
+    void preloadAsync (const juce::File& file, int bank, int program);
+    void clear();
+
+private:
+    struct Entry
+    {
+        juce::String key;
+        std::shared_ptr<Instrument> instrument;
+    };
+
+    static constexpr int kMaxEntries = 12;
+    juce::CriticalSection lock;
+    std::vector<Entry> entries;
+};
 } // namespace sampler
 } // namespace preseter

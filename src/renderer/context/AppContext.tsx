@@ -1575,6 +1575,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const enginePanic = useCallback(async (): Promise<boolean> => {
+    // Limpa o teclado na tela mesmo que o motor esteja parado.
+    setActiveNotes(new Set());
     try {
       return await window.electronAPI.enginePanic();
     } catch (error) {
