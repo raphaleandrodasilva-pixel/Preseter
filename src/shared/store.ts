@@ -25,6 +25,7 @@ export type StoreSource =
   | 'archive'
   | 'musical-artifacts'
   | 'polyphone'
+  | 'bedroomproducersblog'
   | 'manual';
 export type StoreLicenseKind =
   | 'open-source'
@@ -161,6 +162,12 @@ export interface StoreUpdateResult {
   error?: string;
 }
 
+export interface StoreImageRefreshResult {
+  updated: number;
+  failed: number;
+  snapshot: StoreSnapshot;
+}
+
 export interface StoreValidationSuccess {
   ok: true;
   catalog: StoreCatalog;
@@ -193,6 +200,7 @@ const STORE_SOURCES: StoreSource[] = [
   'archive',
   'musical-artifacts',
   'polyphone',
+  'bedroomproducersblog',
   'manual',
 ];
 const STORE_LICENSE_KINDS: StoreLicenseKind[] = [

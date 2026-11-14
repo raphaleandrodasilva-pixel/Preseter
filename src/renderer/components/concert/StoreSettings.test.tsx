@@ -179,6 +179,29 @@ describe('StoreSettings', () => {
     expect(await screen.findByText('Catálogo atualizado.')).toBeInTheDocument();
   });
 
+  it('filters installed and not installed items', async () => {
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(
+      snapshot([
+        storeItem({ id: 'installed', name: 'Plugin Instalado', status: 'installed' }),
+        storeItem({ id: 'missing', name: 'Plugin Faltando', status: 'missing' }),
+      ])
+    );
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    expect(await screen.findAllByText('Plugin Instalado')).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /Instalados \(1\)/ }));
+    expect(screen.queryAllByText('Plugin Faltando')).toHaveLength(0);
+    expect(screen.getAllByText('Plugin Instalado').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /Não instalados \(1\)/ }));
+    expect(await screen.findAllByText('Plugin Faltando')).not.toHaveLength(0);
+    expect(screen.queryAllByText('Plugin Instalado')).toHaveLength(0);
+  });
+
   it('opens Factory 40 from the store card', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(
       snapshot([
@@ -213,7 +236,7 @@ describe('StoreSettings', () => {
     expect(await screen.findAllByText('Preseter Factory 40')).not.toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Factory 40' }));
 
-    expect(await screen.findByText('Factory 40 · 40 timbres')).toBeInTheDocument();
+    expect(await screen.findByText('Prontidão da Factory 40')).toBeInTheDocument();
   });
 
   it('opens Factory 40 with the collection downloader', async () => {
@@ -228,7 +251,7 @@ describe('StoreSettings', () => {
     expect(await screen.findAllByText('Plugin Alfa 1.0')).not.toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Factory 40' }));
 
-    expect(await screen.findByText('Factory 40 · 40 timbres')).toBeInTheDocument();
+    expect(await screen.findByText('Prontidão da Factory 40')).toBeInTheDocument();
     expect(await screen.findAllByText('Factory 40')).not.toHaveLength(0);
   });
 

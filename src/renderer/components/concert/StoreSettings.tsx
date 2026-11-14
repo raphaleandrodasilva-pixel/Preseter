@@ -51,6 +51,7 @@ const sourceLabels: Record<StoreSource, string> = {
   archive: 'Archive.org',
   'musical-artifacts': 'Musical Artifacts',
   polyphone: 'Polyphone',
+  bedroomproducersblog: 'Bedroom Producers Blog',
   manual: 'Manual',
 };
 
@@ -60,6 +61,7 @@ const sourceColors: Record<StoreSource, string> = {
   archive: '#FFB74D',
   'musical-artifacts': '#C6A0FF',
   polyphone: '#FF9F0A',
+  bedroomproducersblog: '#FF6482',
   manual: '#9A9AA0',
 };
 
@@ -165,6 +167,7 @@ export const StoreSettings: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [installation, setInstallation] = useState<'all' | 'installed' | 'missing'>('all');
   const [category, setCategory] = useState('Todas');
   const [format, setFormat] = useState<'all' | StoreFormat>('all');
   const [license, setLicense] = useState<'all' | StoreLicenseKind>('all');
@@ -172,6 +175,7 @@ export const StoreSettings: React.FC = () => {
   const [showIncompatible, setShowIncompatible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [forceReinstall, setForceReinstall] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -218,9 +222,13 @@ export const StoreSettings: React.FC = () => {
     const offUpdated = window.electronAPI.onStoreCatalogUpdated((result) => {
       if (result.snapshot) setSnapshot(result.snapshot);
     });
+    const offImages = window.electronAPI.onStoreImagesUpdated((next) => {
+      setSnapshot(next);
+    });
     return () => {
       if (typeof offProgress === 'function') offProgress();
       if (typeof offUpdated === 'function') offUpdated();
+      if (typeof offImages === 'function') offImages();
     };
   }, []);
 
@@ -270,6 +278,8 @@ export const StoreSettings: React.FC = () => {
     const needle = query.trim().toLowerCase();
     return (snapshot?.items ?? []).filter((item) => {
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
+      if (installation === 'installed' && item.status !== 'installed') return false;
+      if (installation === 'missing' && item.status === 'installed') return false;
       if (category !== 'Todas' && item.category !== category) return false;
       if (format !== 'all' && !item.availableFormats.includes(format)) return false;
       if (license !== 'all' && item.licenseKind !== license) return false;
@@ -289,14 +299,17 @@ export const StoreSettings: React.FC = () => {
       }
       return true;
     });
-  }, [snapshot, typeFilter, category, format, license, provider, showIncompatible, query]);
+  }, [snapshot, typeFilter, installation, category, format, license, provider, showIncompatible, query]);
 
   const detail =
     filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+  const installedExact = snapshot?.items.filter((item) => item.status === 'installed').length ?? 0;
+  const notInstalledExact = (snapshot?.items.length ?? 0) - installedExact;
 
   const clearFilters = () => {
     setQuery('');
     setTypeFilter('all');
+    setInstallation('all');
     setCategory('Todas');
     setFormat('all');
     setLicense('all');
@@ -384,6 +397,26 @@ export const StoreSettings: React.FC = () => {
     }
   };
 
+  const handleRefreshImages = async () => {
+    setImagesBusy(true);
+    setNotice(null);
+    try {
+      const result = await window.electronAPI.storeRefreshImages(true);
+      setSnapshot(result.snapshot);
+      setNotice(
+        result.updated > 0
+          ? `${result.updated} imagem(ns) oficial(is) atualizada(s).`
+          : result.failed > 0
+            ? 'Não encontrei imagens oficiais novas; mantendo as miniaturas geradas.'
+            : 'As imagens já estão atualizadas.'
+      );
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Não foi possível buscar as imagens.');
+    } finally {
+      setImagesBusy(false);
+    }
+  };
+
   const openPage = async (item: StoreItemView) => {
     const page = item.variant?.page ?? item.page;
     if (page) await window.electronAPI.storeOpenUrl(page);
@@ -436,6 +469,14 @@ export const StoreSettings: React.FC = () => {
               disabled={updating}
             >
               {updating ? 'Atualizando…' : 'Atualizar catálogo'}
+            </button>
+            <button
+              type="button"
+              className="hw-squarebtn px-3 py-1.5 text-[11px] disabled:opacity-50"
+              onClick={() => void handleRefreshImages()}
+              disabled={imagesBusy}
+            >
+              {imagesBusy ? 'Buscando imagens…' : 'Buscar imagens'}
             </button>
             <button
               type="button"
@@ -532,6 +573,32 @@ export const StoreSettings: React.FC = () => {
                       : { background: 'rgba(255,255,255,0.04)', color: '#9A9AA0', border: '1px solid #3A3A3C' }}
                     onClick={() => setTypeFilter(value)}
                     aria-pressed={typeFilter === value}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="hw-label mb-1.5">Status</div>
+              <div className="flex flex-wrap gap-1">
+                {(
+                  [
+                    ['all', `Todos (${snapshot?.items.length ?? 0})`],
+                    ['installed', `Instalados (${installedExact})`],
+                    ['missing', `Não instalados (${notInstalledExact})`],
+                  ] as Array<['all' | 'installed' | 'missing', string]>
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className="rounded px-2 py-1 text-[10px]"
+                    style={installation === value
+                      ? { background: 'rgba(48,209,88,0.16)', color: '#30D158', border: '1px solid #30D158' }
+                      : { background: 'rgba(255,255,255,0.04)', color: '#9A9AA0', border: '1px solid #3A3A3C' }}
+                    onClick={() => setInstallation(value)}
+                    aria-pressed={installation === value}
                   >
                     {label}
                   </button>

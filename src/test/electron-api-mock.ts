@@ -34,6 +34,7 @@ const EVENT_METHODS = [
   'onMenuAction',
   'onStoreProgress',
   'onStoreCatalogUpdated',
+  'onStoreImagesUpdated',
 ] as const;
 
 const emptyStoreSnapshot = () => ({
@@ -93,6 +94,15 @@ export function createElectronApiMock(): ElectronApiMock {
     vstSetParam: vi.fn(async () => true),
     vstParams: vi.fn(async () => []),
     collectionStatus: vi.fn(async () => []),
+    collectionReadiness: vi.fn(async () => ({
+      total: 40,
+      ready: 40,
+      blocked: 0,
+      missing: [],
+      missingIds: [],
+      skipped: [],
+      readyToGenerate: true,
+    })),
     collectionDownload: vi.fn(async () => ({
       ok: true,
       statuses: [],
@@ -114,6 +124,11 @@ export function createElectronApiMock(): ElectronApiMock {
       updated: false,
       source: 'embedded' as const,
       checkedAt: new Date(0).toISOString(),
+      snapshot: emptyStoreSnapshot(),
+    })),
+    storeRefreshImages: vi.fn(async () => ({
+      updated: 0,
+      failed: 0,
       snapshot: emptyStoreSnapshot(),
     })),
     storeOpenFolder: vi.fn(async () => true),

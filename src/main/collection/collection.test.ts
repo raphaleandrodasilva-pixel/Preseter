@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildCollectionConcert } from './generateCollection';
+import { buildCollectionConcert, analyzeCollectionConcert } from './generateCollection';
 import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
@@ -157,5 +157,21 @@ describe('buildCollectionConcert', () => {
     expect(file.patches.length).toBeLessThan(40);
     expect(skipped.length).toBeGreaterThan(0);
     expect(missing.length).toBeGreaterThan(0);
+  });
+
+  it('analisa a prontidão dos 40 timbres', () => {
+    const ready = analyzeCollectionConcert(plugins, { tempo: 100 });
+    expect(ready.total).toBe(40);
+    expect(ready.ready).toBe(40);
+    expect(ready.blocked).toBe(0);
+    expect(ready.readyToGenerate).toBe(true);
+
+    const blocked = analyzeCollectionConcert(
+      [{ id: 'sforzando', name: 'Sforzando', isInstrument: true }],
+      { tempo: 100 }
+    );
+    expect(blocked.readyToGenerate).toBe(false);
+    expect(blocked.blocked).toBeGreaterThan(0);
+    expect(blocked.missing.length).toBeGreaterThan(0);
   });
 });

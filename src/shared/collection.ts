@@ -201,3 +201,14 @@ export interface CollectionGenerateResult {
   skipped: string[];
   missing: string[];
 }
+
+/** Resultado da verificação de prontidão da Factory 40. */
+export interface CollectionReadiness {
+  total: number;
+  ready: number;
+  blocked: number;
+  missing: string[];
+  missingIds: string[];
+  skipped: string[];
+  readyToGenerate: boolean;
+}

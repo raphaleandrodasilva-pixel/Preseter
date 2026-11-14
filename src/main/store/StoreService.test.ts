@@ -313,6 +313,44 @@ describe('StoreService', () => {
     expect(result.snapshot.items[0].id).toBe(before.items[0].id);
   });
 
+  it('busca a imagem oficial da página do item e usa fallback quando não existe', async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === 'https://example.com/plugin') {
+        return new Response(
+          '<html><head><meta property="og:image" content="https://cdn.example.com/plugin.png"></head></html>',
+          { status: 200 }
+        );
+      }
+      return new Response('<html><head></head></html>', { status: 200 });
+    }) as unknown as typeof fetch;
+    const store = service(createInstaller(), fetcher, { autoResolveLinks: false });
+    // Substitui o catálogo embutido por um item com página oficial.
+    await fs.writeFile(
+      path.join(appPath, 'store', 'store-catalog.json'),
+      JSON.stringify(
+        catalog(
+          item({
+            page: 'https://example.com/plugin',
+            thumbnail: { kind: 'generated' },
+          })
+        )
+      ),
+      'utf8'
+    );
+
+    const result = await store.refreshImages(true);
+    expect(result.updated).toBe(1);
+    expect(result.snapshot.items[0].thumbnail).toMatchObject({
+      kind: 'official',
+      url: 'https://cdn.example.com/plugin.png',
+    });
+    const cache = JSON.parse(
+      await fs.readFile(path.join(userData, 'store-thumbnails.json'), 'utf8')
+    );
+    expect(cache.images.plugin.url).toBe('https://cdn.example.com/plugin.png');
+  });
+
   it('keeps a newer embedded catalog when the remote is older', async () => {
     await fs.writeFile(
       path.join(appPath, 'store', 'store-catalog.json'),

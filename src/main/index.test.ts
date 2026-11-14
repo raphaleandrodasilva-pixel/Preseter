@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(114);
+    expect(handlers.size).toBe(116);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -56,9 +56,11 @@ describe('main process IPC wiring', () => {
       'ui-element-add',
       'open-plugin-dialog',
       'store-list',
+      'collection-readiness',
       'store-download',
       'store-cancel',
       'store-check-updates',
+      'store-refresh-images',
       'store-open-folder',
       'store-open-installer',
       'store-open-url',

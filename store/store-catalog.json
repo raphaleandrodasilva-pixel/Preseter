@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-12T03:39:13.144Z",
+  "updatedAt": "2026-11-14T14:35:14.176Z",
   "source": "https://github.com/raphaleandrodasilva-pixel/Preseter",
   "items": [
     {
@@ -3560,6 +3560,308 @@
           "approxBytes": 0,
           "manualReason": "A biblioteca é distribuída como projeto no GitHub; baixe o pacote e abra no Sforzando/sfizz.",
           "notes": "O repositório traz os SFZ e samples; confira o README para a estrutura."
+        }
+      ]
+    },
+    {
+      "id": "reason-free",
+      "type": "plugin",
+      "name": "Reason Free / Reason Rack",
+      "category": "Sintetizadores",
+      "author": "Reason Studios",
+      "description": "Rack gratuito com 15 devices: Europa, Kong, ID8, Monotone, efeitos e utilitários.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "official",
+      "license": "Freeware (conta Reason Studios)",
+      "licenseKind": "freeware",
+      "page": "https://www.reasonstudios.com/reason-free",
+      "tags": [
+        "VST3",
+        "Reason",
+        "Europa",
+        "Kong",
+        "ID8",
+        "workstation"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Requer conta gratuita, ativação online e cerca de 20 GB. Instalar o Reason Free pode substituir o Reason Rack das versões 10–13 já instaladas.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.reasonstudios.com/reason-free",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Reason Studios exige conta e ativação online.",
+          "notes": "Baixe o instalador oficial e ative a licença gratuita."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.reasonstudios.com/reason-free",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "A Reason Studios exige conta e ativação online.",
+          "notes": "Baixe o instalador oficial e ative a licença gratuita."
+        }
+      ]
+    },
+    {
+      "id": "spitfire-sso-discover",
+      "type": "plugin",
+      "name": "Spitfire Symphony Orchestra Discover",
+      "category": "Orquestra",
+      "author": "Spitfire Audio",
+      "description": "Orquestra sampleada gratuita com 44 instrumentos, 74 técnicas e 11 solos.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "bedroomproducersblog",
+      "license": "Freeware (conta Spitfire + Kontakt Player)",
+      "licenseKind": "freeware",
+      "page": "https://www.spitfireaudio.com/en-eu/products/spitfire-symphony-orchestra-discover",
+      "tags": [
+        "Kontakt",
+        "orquestra",
+        "cordas",
+        "metais",
+        "madeiras",
+        "BPB"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Fonte: BPB. Requer conta Spitfire, app Spitfire Audio e Kontakt Player. Aproximadamente 5,68 GB.",
+      "format": "VST3",
+      "approxBytes": 6069990000,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.spitfireaudio.com/en-eu/products/spitfire-symphony-orchestra-discover",
+          "approxBytes": 6069990000,
+          "requiresAccount": true,
+          "manualReason": "Requer conta Spitfire e instalação pelo app oficial.",
+          "notes": "Instale o Spitfire Audio App e baixe a biblioteca; ela abre no Kontakt Player."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.spitfireaudio.com/en-eu/products/spitfire-symphony-orchestra-discover",
+          "approxBytes": 6069990000,
+          "requiresAccount": true,
+          "manualReason": "Requer conta Spitfire e instalação pelo app oficial.",
+          "notes": "Instale o Spitfire Audio App e baixe a biblioteca; ela abre no Kontakt Player."
+        }
+      ]
+    },
+    {
+      "id": "kontakt-factory-selection-2",
+      "type": "plugin",
+      "name": "Kontakt Factory Selection 2",
+      "category": "Samples",
+      "author": "Native Instruments",
+      "description": "Biblioteca gratuita de instrumentos para Kontakt Player, com baterias, corais, banda e sintetizadores.",
+      "version": "2",
+      "tier": "verified",
+      "source": "bedroomproducersblog",
+      "license": "Freeware (conta Native Instruments)",
+      "licenseKind": "freeware",
+      "page": "https://www.native-instruments.com/products/komplete-start",
+      "tags": [
+        "Kontakt",
+        "samples",
+        "bateria",
+        "coral",
+        "BPB"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Fonte: BPB. Requer conta Native Instruments e Native Access. Roda no Kontakt Player.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.native-instruments.com/products/komplete-start",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "Requer conta Native Instruments e Native Access.",
+          "notes": "Instale o Native Access, baixe o Komplete Start e abra a Factory Selection 2."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.native-instruments.com/products/komplete-start",
+          "approxBytes": 0,
+          "requiresAccount": true,
+          "manualReason": "Requer conta Native Instruments e Native Access.",
+          "notes": "Instale o Native Access, baixe o Komplete Start e abra a Factory Selection 2."
+        }
+      ]
+    },
+    {
+      "id": "ob-xf",
+      "type": "plugin",
+      "name": "OB-Xf",
+      "category": "Sintetizadores",
+      "author": "Surge Synth Team",
+      "description": "Emulação open source do Oberheim OB-X, para pads, brass, strings e leads analógicos.",
+      "version": "atual",
+      "tier": "verified",
+      "source": "bedroomproducersblog",
+      "license": "GPL-3.0",
+      "licenseKind": "open-source",
+      "licenseUrl": "https://www.gnu.org/licenses/gpl-3.0.html",
+      "page": "https://github.com/surge-synthesizer/OB-Xf",
+      "tags": [
+        "VST3",
+        "analógico",
+        "Oberheim",
+        "open source",
+        "BPB"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Fonte: BPB. Projeto open source; baixe o release no GitHub e instale o VST3.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://github.com/surge-synthesizer/OB-Xf",
+          "approxBytes": 0,
+          "manualReason": "O download é feito pelos releases do GitHub.",
+          "notes": "Baixe o release mais recente e instale o VST3."
+        },
+        {
+          "os": "linux",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://github.com/surge-synthesizer/OB-Xf",
+          "approxBytes": 0,
+          "manualReason": "O download é feito pelos releases do GitHub.",
+          "notes": "Baixe o release mais recente e instale o VST3."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://github.com/surge-synthesizer/OB-Xf",
+          "approxBytes": 0,
+          "manualReason": "O download é feito pelos releases do GitHub.",
+          "notes": "Baixe o release mais recente e instale o VST3."
+        }
+      ]
+    },
+    {
+      "id": "mt-power-drum-kit-2",
+      "type": "plugin",
+      "name": "MT Power Drum Kit 2",
+      "category": "Baterias",
+      "author": "Manda Audio",
+      "description": "Bateria acústica gratuita com grooves MIDI, para rock e pop.",
+      "version": "2",
+      "tier": "verified",
+      "source": "bedroomproducersblog",
+      "license": "Freeware",
+      "licenseKind": "freeware",
+      "page": "https://www.powerdrumkit.com/",
+      "tags": [
+        "VST3",
+        "bateria",
+        "acústico",
+        "grooves",
+        "BPB"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Fonte: BPB. Baixe o instalador oficial e confira a versão VST3 para o seu sistema.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.powerdrumkit.com/",
+          "approxBytes": 0,
+          "manualReason": "Baixe o instalador no site oficial do MT Power Drum Kit.",
+          "notes": "Instale o VST3 e escaneie os plugins no Preseter."
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.powerdrumkit.com/",
+          "approxBytes": 0,
+          "manualReason": "Baixe o instalador no site oficial do MT Power Drum Kit.",
+          "notes": "Instale o VST3 e escaneie os plugins no Preseter."
         }
       ]
     },

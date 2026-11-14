@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstParams: (ownerId: string, slot?: number) =>
     ipcRenderer.invoke('vst-params', ownerId, slot),
   collectionStatus: () => ipcRenderer.invoke('collection-status'),
+  collectionReadiness: () => ipcRenderer.invoke('collection-readiness'),
   collectionDownload: (ids: string[], force?: boolean) =>
     ipcRenderer.invoke('collection-download', ids, force),
   collectionCancel: () => ipcRenderer.invoke('collection-cancel'),
@@ -60,6 +61,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   storeCancel: () => ipcRenderer.invoke('store-cancel'),
   storeCheckUpdates: (force?: boolean) =>
     ipcRenderer.invoke('store-check-updates', force),
+  storeRefreshImages: (force?: boolean) =>
+    ipcRenderer.invoke('store-refresh-images', force),
   storeOpenFolder: (kind?: 'sounds' | 'plugins' | 'downloads') =>
     ipcRenderer.invoke('store-open-folder', kind),
   storeOpenInstaller: (filePath: string) =>
@@ -219,6 +222,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('store-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
   onStoreCatalogUpdated: (callback: (result: any) => void) =>
     ipcRenderer.on('store-catalog-updated', (_event: Electron.IpcRendererEvent, result: unknown) => callback(result)),
+  onStoreImagesUpdated: (callback: (snapshot: any) => void) =>
+    ipcRenderer.on('store-images-updated', (_event: Electron.IpcRendererEvent, snapshot: unknown) => callback(snapshot)),
 
   // === Menu nativo (Arquivo) ===
   onMenuAction: (callback: (action: unknown) => void) =>

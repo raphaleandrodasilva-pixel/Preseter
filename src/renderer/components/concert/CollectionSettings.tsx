@@ -1,32 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { CollectionItemStatus } from '@shared/collection';
-import { COLLECTION_SETS, type CollectionLayerSpec } from '@shared/collection-presets';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CollectionItemStatus, CollectionReadiness } from '@shared/collection';
 import { useAppContext } from '../../context/AppContext';
-
-const instrumentLabels: Record<CollectionLayerSpec['inst'], string> = {
-  SFORZANDO: 'Sforzando',
-  FSVR: 'FSVR',
-  SURGE: 'Surge XT',
-  DEXED: 'Dexed',
-  ODIN: 'Odin 2',
-  HELM: 'Helm',
-  MDA: 'MDA',
-  MDA_EP: 'MDA ePiano',
-  MDA_JX: 'MDA JX10',
-  ORG: 'setBfree',
-  SFIZZ: 'sfizz',
-};
-
-const suggestedSources: Record<string, string> = {
-  'Pianos & Keys': 'BBCSO / SFZ',
-  Organs: 'CollaB3',
-  Strings: 'BBCSO / VSCO 2',
-  Brass: 'BBCSO',
-  Woodwinds: 'BBCSO',
-  'Guitars & Bass': 'Meta Open Sound / Ample',
-  'Drums & Percussion': 'SSD / Sitala / BBCSO',
-  Synthesizers: 'Surge / Vital / Tyrell / Dexed',
-};
 
 const groupLabels: Record<string, string> = {
   plugin: 'Plugins (VST3)',
@@ -86,7 +60,24 @@ export const CollectionSettings: React.FC = () => {
   const [soundsFolder, setSoundsFolder] = useState(preferences?.soundsFolder ?? '');
   const [generated, setGenerated] = useState<{ path: string; sets: number; patches: number; skipped: string[]; missing: string[] } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<CollectionReadiness | null>(null);
+  const [checking, setChecking] = useState(false);
   const initialized = useRef(false);
+
+  const checkReadiness = useCallback(async () => {
+    setChecking(true);
+    try {
+      setReadiness(await window.electronAPI.collectionReadiness());
+    } catch {
+      setReadiness(null);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkReadiness();
+  }, [checkReadiness]);
 
   useEffect(() => {
     void refreshCollectionStatus();
@@ -178,6 +169,28 @@ export const CollectionSettings: React.FC = () => {
     }
   };
 
+  const handleDownloadMissing = async () => {
+    if (!readiness?.missingIds.length || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await downloadCollection(readiness.missingIds, true);
+      if (!result) {
+        setNotice('Não foi possível baixar as dependências pendentes.');
+        return;
+      }
+      setNotice(
+        result.summary.failed > 0
+          ? `${result.summary.downloaded} baixado(s), ${result.summary.failed} com erro.`
+          : `${result.summary.downloaded} dependência(s) baixada(s).`
+      );
+      await refreshCollectionStatus();
+      await checkReadiness();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleCancel = async () => {
     await cancelCollectionDownload();
     setNotice('Cancelando…');
@@ -217,72 +230,98 @@ export const CollectionSettings: React.FC = () => {
         </div>
         <p className="text-xs leading-relaxed" style={{ color: '#C6C6CB' }}>
           Baixa os plugins e bibliotecas de fontes oficiais para a Factory 40,
-          a coleção de 40 timbres de palco.
-          Nada é executado sem aviso: zips são extraídos e instaladores aparecem como “pronto”
-          para você abrir.
+          a coleção de 40 timbres de palco. Nada é executado sem aviso.
         </p>
-        <div className="rounded-lg border px-3 py-2 text-[11px] leading-relaxed" style={{ borderColor: '#3A3A3C', color: '#9A9AA0' }}>
-          <strong style={{ color: '#EDEDEF' }}>Licenças:</strong> Sforzando (freeware), FSVR/Surge/Dexed/Helm (GPLv3),
-          sfizz (BSD-2), MuseScore_General (MIT), Sonatina (CC Sampling Plus 1.0) e Salamander
-          (CC BY 3.0 — atribuição a Alexander Holm). Os arquivos são baixados dos sites oficiais
-          e não são redistribuídos pelo Preseter.
-        </div>
       </section>
 
-      <section className="hw-inset space-y-2 p-3">
+      <section className="hw-inset space-y-3 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="hw-label">Os 40 timbres</h4>
+          <h4 className="hw-label">Prontidão da Factory 40</h4>
           <span className="text-[10px]" style={{ color: '#8E8E93' }}>
-            {COLLECTION_SETS.reduce((total, [, patches]) => total + patches.length, 0)} patches ·{' '}
-            {COLLECTION_SETS.length} sets
+            {readiness ? `${readiness.ready}/${readiness.total} timbres` : '40 timbres'}
           </span>
         </div>
-        <p className="text-[10px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-          Prévia da biblioteca que será gravada no concert. Os nomes e as categorias
-          seguem o Preseter_Biblioteca_40_Patches.md; os instrumentos usam os plugins
-          disponíveis, com fallback para Sforzando, Surge XT e Dexed. Os VSTs sugeridos
-          no documento (BBCSO Discover, Vital, Tyrell N6, CollaB3, Ample, SSD, Sitala,
-          Decent Sampler e VSCO 2) estão na aba Loja como instalação manual/conta.
-        </p>
-        <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-          {COLLECTION_SETS.map(([setName, patches], setIndex) => {
-            const offset = COLLECTION_SETS
-              .slice(0, setIndex)
-              .reduce((total, [, previous]) => total + previous.length, 0);
-            return (
-            <div key={setName}>
-              <div className="mb-1 flex items-center justify-between text-[10px] font-semibold" style={{ color: '#C6C6CB' }}>
-                <span>
-                  {setName}
-                  <span className="ml-1 font-normal" style={{ color: '#6E6E73' }}>
-                    · sugerido: {suggestedSources[setName] ?? '—'}
-                  </span>
-                </span>
-                <span style={{ color: '#6E6E73' }}>{patches.length}</span>
-              </div>
-              <ol className="space-y-1">
-                {patches.map(([name, layers], index) => (
-                  <li
-                    key={name}
-                    className="flex items-start gap-2 rounded px-2 py-1 text-[10px]"
-                    style={{ background: 'rgba(255,255,255,0.03)' }}
-                  >
-                    <span className="w-5 shrink-0 tabular-nums" style={{ color: '#6E6E73' }}>
-                      {String(offset + index + 1).padStart(2, '0')}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[11px]" style={{ color: '#EDEDEF' }}>{name}</span>
-                      <span className="block truncate" style={{ color: '#8E8E93' }}>
-                        {layers.map((layer) => `${instrumentLabels[layer.inst]}${layer.label ? ` · ${layer.label}` : ''}`).join(' + ')}
-                      </span>
-                    </span>
+
+        {checking ? (
+          <p className="text-xs" style={{ color: '#9A9AA0' }}>Verificando dependências…</p>
+        ) : readiness?.readyToGenerate ? (
+          <div className="rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: '#2F6B43', background: '#12251A', color: '#8FE3A8' }}>
+            <strong>Tudo pronto.</strong> Os 40 timbres podem ser gerados.
+          </div>
+        ) : readiness ? (
+          <div className="space-y-2">
+            <div className="rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: '#7A5A1E', background: '#2A2110', color: '#FFD60A' }}>
+              <strong>{readiness.blocked > 0 ? `${readiness.blocked} timbre(s) bloqueado(s).` : 'Faltam dependências.'}</strong>
+              {' '}{readiness.ready} de {readiness.total} timbres prontos.
+            </div>
+            {readiness.missing.length > 0 && (
+              <ul className="space-y-1 text-[11px]" style={{ color: '#C6C6CB' }}>
+                {readiness.missing.map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span style={{ color: '#FF9F0A' }}>✗</span>
+                    {item}
                   </li>
                 ))}
-              </ol>
-            </div>
-            );
-          })}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: '#9A9AA0' }}>
+            Clique em “Verificar se tudo está instalado”.
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="hw-squarebtn px-3 py-1.5 text-[11px] disabled:opacity-50"
+            onClick={() => void checkReadiness()}
+            disabled={checking || busy}
+          >
+            {checking ? 'Verificando…' : 'Verificar se tudo está instalado'}
+          </button>
+          {readiness && !readiness.readyToGenerate && readiness.missingIds.length > 0 && (
+            <button
+              type="button"
+              className="rounded px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50"
+              style={{ background: '#FF9F0A', color: '#1A1A1A' }}
+              onClick={() => void handleDownloadMissing()}
+              disabled={busy}
+            >
+              Baixar o que falta
+            </button>
+          )}
+          <button
+            type="button"
+            className="rounded px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
+            style={{ background: '#30D158', color: '#0B1A10' }}
+            onClick={() => void handleGenerate()}
+            disabled={busy || (readiness !== null && !readiness.readyToGenerate)}
+            title={readiness && !readiness.readyToGenerate ? 'Resolva as dependências pendentes primeiro.' : undefined}
+          >
+            Gerar concert da Factory 40
+          </button>
+          {generated && (
+            <button
+              type="button"
+              className="hw-squarebtn px-3 py-1.5 text-[11px]"
+              onClick={() => void openConcertPath(generated.path)}
+            >
+              Abrir concert gerado
+            </button>
+          )}
         </div>
+        {generated && (
+          <div className="text-[11px] leading-relaxed" style={{ color: '#C6C6CB' }}>
+            <p>{generated.sets} sets · {generated.patches} patches · {generated.path}</p>
+            {generated.skipped.length > 0 && (
+              <p style={{ color: '#FFB74D' }}>Pulados: {generated.skipped.join('; ')}</p>
+            )}
+            {generated.missing.length > 0 && (
+              <p style={{ color: '#FFB74D' }}>Faltando: {generated.missing.join(', ')}</p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="hw-inset space-y-2 p-3">
@@ -507,46 +546,6 @@ export const CollectionSettings: React.FC = () => {
           )}{' '}
           Instaladores nativos são baixados e abertos para você concluir.
         </p>
-      </section>
-
-      <section className="hw-inset space-y-2 p-3">
-        <h4 className="hw-label">Concert da Factory 40</h4>
-        <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-          Depois de instalar, gere o concert com os 40 timbres da Factory 40. O Full Set e o
-          concert da coleção já carregam os instrumentos e os programas. Nos patches com Sforzando,
-          carregue o SFZ/SF2 uma vez e salve o patch: o estado VST3 fica guardado no patch.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="rounded px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
-            style={{ background: '#30D158', color: '#0B1A10' }}
-            onClick={() => void handleGenerate()}
-            disabled={busy}
-          >
-            Gerar concert da Factory 40
-          </button>
-          {generated && (
-            <button
-              type="button"
-              className="hw-squarebtn px-3 py-1.5 text-[11px]"
-              onClick={() => void openConcertPath(generated.path)}
-            >
-              Abrir concert gerado
-            </button>
-          )}
-        </div>
-        {generated && (
-          <div className="text-[11px] leading-relaxed" style={{ color: '#C6C6CB' }}>
-            <p>{generated.sets} sets · {generated.patches} patches · {generated.path}</p>
-            {generated.skipped.length > 0 && (
-              <p style={{ color: '#FFB74D' }}>Pulados: {generated.skipped.join('; ')}</p>
-            )}
-            {generated.missing.length > 0 && (
-              <p style={{ color: '#FFB74D' }}>Faltando: {generated.missing.join(', ')}</p>
-            )}
-          </div>
-        )}
       </section>
 
       {notice && (

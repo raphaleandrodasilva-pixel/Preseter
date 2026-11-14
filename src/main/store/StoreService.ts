@@ -19,6 +19,7 @@ import {
   type StoreArch,
   type StoreCatalog,
   type StoreCatalogSource,
+  type StoreItem,
   type StoreItemView,
   type StoreOs,
   type StoreSnapshot,
@@ -57,6 +58,7 @@ export interface StoreServiceOptions {
   autoResolveLinks?: boolean;
   onProgress?: (progress: CollectionProgress) => void;
   onCatalogUpdated?: (result: StoreUpdateResult) => void;
+  onImagesUpdated?: (snapshot: StoreSnapshot) => void;
 }
 
 interface StoreCacheFile {
@@ -66,10 +68,23 @@ interface StoreCacheFile {
   etag?: string | null;
 }
 
+interface StoreImageEntry {
+  url: string;
+  sourcePage: string;
+  fetchedAt: string;
+}
+
+interface StoreImageCacheFile {
+  images: Record<string, StoreImageEntry>;
+}
+
 const CACHE_FILE = 'store-catalog.json';
+const IMAGE_CACHE_FILE = 'store-thumbnails.json';
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 const REMOTE_TIMEOUT_MS = 15_000;
 const HEAD_TIMEOUT_MS = 8_000;
+const IMAGE_TIMEOUT_MS = 10_000;
+const IMAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LINK_CONCURRENCY = 4;
 
 function errorMessage(error: unknown): string {
@@ -90,7 +105,9 @@ export class StoreService {
   private readonly os: StoreOs;
   private readonly arch: StoreArch;
   private readonly cachePath: string;
+  private readonly imageCachePath: string;
   private catalog: StoreCatalog = { version: 1, items: [] };
+  private images: Record<string, StoreImageEntry> = {};
   private source: StoreCatalogSource = 'embedded';
   private catalogError?: string;
   private lastCheckedAt?: string;
@@ -105,6 +122,7 @@ export class StoreService {
     this.os = storeOsForPlatform(options.platform);
     this.arch = storeArchForProcess(options.arch);
     this.cachePath = path.join(options.userData, CACHE_FILE);
+    this.imageCachePath = path.join(options.userData, IMAGE_CACHE_FILE);
     if (options.installer.subscribe) {
       this.unsubscribe = options.installer.subscribe((progress) => {
         this.progressById.set(progress.item.id, progress.item);
@@ -150,6 +168,7 @@ export class StoreService {
     }
     this.lastCheckedAt = cached.checkedAt;
     this.etag = cached.etag;
+    await this.loadImages();
     if (this.catalog.items.length === 0) {
       this.catalogError = embedded.error ?? cached.error ?? 'Catálogo da Loja vazio.';
     }
@@ -209,6 +228,123 @@ export class StoreService {
     await fs.writeFile(this.cachePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   }
 
+  private async loadImages(): Promise<void> {
+    try {
+      const raw = await fs.readFile(this.imageCachePath, 'utf8');
+      const parsed = JSON.parse(raw) as Partial<StoreImageCacheFile>;
+      const images = parsed.images;
+      if (!images || typeof images !== 'object') return;
+      for (const [id, entry] of Object.entries(images)) {
+        if (
+          entry &&
+          typeof entry.url === 'string' &&
+          /^https:\/\//i.test(entry.url) &&
+          typeof entry.sourcePage === 'string' &&
+          typeof entry.fetchedAt === 'string'
+        ) {
+          this.images[id] = entry;
+        }
+      }
+    } catch {
+      /* cache de imagens ainda não existe */
+    }
+  }
+
+  private async saveImages(): Promise<void> {
+    const payload: StoreImageCacheFile = { images: this.images };
+    await fs.mkdir(this.options.userData, { recursive: true });
+    await fs.writeFile(this.imageCachePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  }
+
+  private imageFor(item: StoreItem): StoreItem['thumbnail'] {
+    const image = this.images[item.id];
+    return image
+      ? { kind: 'official', url: image.url, attribution: item.author }
+      : item.thumbnail;
+  }
+
+  private pageFor(item: StoreItem): string | undefined {
+    return item.page ?? item.variants.find((variant) => variant.page)?.page;
+  }
+
+  /**
+   * Busca uma imagem oficial (Open Graph/Twitter) na página do item. Não usa
+   * Google: a imagem vem da própria página do desenvolvedor e é exibida com
+   * fallback para a miniatura gerada.
+   */
+  async refreshImages(force = false): Promise<{
+    updated: number;
+    failed: number;
+    snapshot: StoreSnapshot;
+  }> {
+    await this.initialize();
+    const now = this.now();
+    const candidates = this.catalog.items.filter((item) => {
+      if (!this.pageFor(item)) return false;
+      if (force) return true;
+      const cached = this.images[item.id];
+      if (!cached) return true;
+      const fetched = Date.parse(cached.fetchedAt);
+      return !Number.isFinite(fetched) || now - fetched > IMAGE_TTL_MS;
+    });
+
+    let updated = 0;
+    let failed = 0;
+    await this.mapLimit(candidates, LINK_CONCURRENCY, async (item) => {
+      const page = this.pageFor(item);
+      if (!page) return;
+      try {
+        const image = await this.fetchPageImage(page);
+        if (image) {
+          this.images[item.id] = {
+            url: image,
+            sourcePage: page,
+            fetchedAt: new Date(this.now()).toISOString(),
+          };
+          updated += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    });
+
+    if (updated > 0) await this.saveImages();
+    const snapshot = await this.snapshot();
+    this.options.onImagesUpdated?.(snapshot);
+    return { updated, failed, snapshot };
+  }
+
+  private async fetchPageImage(page: string): Promise<string | null> {
+    const response = await this.fetchWithTimeout(page, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': 'Preseter',
+      },
+      timeoutMs: IMAGE_TIMEOUT_MS,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    const patterns = [
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
+    ];
+    let source: string | undefined;
+    for (const pattern of patterns) {
+      const match = pattern.exec(html);
+      if (match?.[1]) {
+        source = match[1];
+        break;
+      }
+    }
+    if (!source) return null;
+    const url = new URL(source.replace(/&amp;/g, '&'), page).toString();
+    return /^https:\/\//i.test(url) ? url : null;
+  }
+
   private now(): number {
     return this.options.now ? this.options.now() : Date.now();
   }
@@ -228,6 +364,7 @@ export class StoreService {
   ): StoreItemView {
     const base: StoreItemView = {
       ...description.item,
+      thumbnail: this.imageFor(description.item),
       variant: description.variant,
       compatible: description.compatible,
       format: description.format,

@@ -13,7 +13,7 @@ import { COLLECTION_CATALOG, resolveCollectionItems, type CollectionItem } from 
 import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
-import { buildCollectionConcert } from './collection/generateCollection';
+import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
 import { PerformanceMode } from './performance/PerformanceMode';
 import {
   getPlatformPaths,
@@ -182,6 +182,7 @@ class MainWindow {
       installer: this.collectionInstaller,
       onProgress: (progress) => this.sendToRenderer('store-progress', progress),
       onCatalogUpdated: (result) => this.sendToRenderer('store-catalog-updated', result),
+      onImagesUpdated: (snapshot) => this.sendToRenderer('store-images-updated', snapshot),
     });
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
@@ -227,6 +228,10 @@ class MainWindow {
           }
         });
       }, 8000);
+      // Imagens oficiais em segundo plano; itens sem imagem caem na miniatura gerada.
+      setTimeout(() => {
+        void this.storeService.refreshImages();
+      }, 12000);
       this.storeUpdateTimer = setInterval(() => {
         void this.storeService.checkUpdates();
       }, STORE_CHECK_INTERVAL_MS);
@@ -813,6 +818,33 @@ class MainWindow {
 
     ipcMain.handle('collection-status', () => this.collectionInstaller.status(this.collectionItems()));
 
+    ipcMain.handle('collection-readiness', async () => {
+      let plugins = this.vstManager.getScannedPlugins();
+      if (plugins.length === 0) {
+        try {
+          plugins = await this.vstManager.scanDefaultDirectories();
+        } catch (error) {
+          console.warn('[Preseter] Não foi possível escanear os plugins da Factory 40:', error);
+        }
+      }
+      const readiness = analyzeCollectionConcert(plugins, {
+        soundsFolder: this.soundsFolder(),
+      });
+      const catalog = this.collectionItems();
+      const missingIds = new Set<string>();
+      for (const label of readiness.missing) {
+        const needle = label.toLowerCase();
+        const match = catalog.find((item) => {
+          const name = item.name.toLowerCase();
+          return name.includes(needle)
+            || needle.includes(name.split(/\s+/)[0] ?? '')
+            || name.split(/\s+/)[0] === needle;
+        });
+        if (match) missingIds.add(match.id);
+      }
+      return { ...readiness, missingIds: [...missingIds] };
+    });
+
     ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
       const items = this.collectionItems();
       const selected = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
@@ -868,6 +900,10 @@ class MainWindow {
 
     ipcMain.handle('store-check-updates', (_event, force?: boolean) =>
       this.storeService.checkUpdates(force !== false)
+    );
+
+    ipcMain.handle('store-refresh-images', (_event, force?: boolean) =>
+      this.storeService.refreshImages(force === true)
     );
 
     ipcMain.handle('store-open-folder', async (_event, kind?: 'sounds' | 'plugins' | 'downloads') => {

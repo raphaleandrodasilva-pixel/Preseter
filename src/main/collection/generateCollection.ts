@@ -1,4 +1,5 @@
 import type { Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import type { CollectionReadiness } from '../../shared/collection';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
@@ -178,4 +179,21 @@ export function buildCollectionConcert(
     mappings: [],
   };
   return { file, skipped, missing: [...missing] };
+}
+
+/** Confere se os 40 timbres podem ser gerados sem pular nenhum patch. */
+export function analyzeCollectionConcert(
+  plugins: CollectionPlugin[],
+  options: { tempo?: number; test?: boolean; name?: string; soundsFolder?: string } = {}
+): Omit<CollectionReadiness, 'missingIds'> {
+  const { skipped, missing } = buildCollectionConcert(plugins, options);
+  const total = COLLECTION_SETS.reduce((sum, [, patches]) => sum + patches.length, 0);
+  return {
+    total,
+    ready: Math.max(0, total - skipped.length),
+    blocked: skipped.length,
+    missing,
+    skipped,
+    readyToGenerate: skipped.length === 0 && missing.length === 0,
+  };
 }
