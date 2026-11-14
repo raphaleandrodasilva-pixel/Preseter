@@ -1462,6 +1462,42 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               : isLayerPicker
                 ? 'Adicionar layer — escolha o instrumento'
                 : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
+          const preseterPlugins = isLayerPicker ? list.filter((plugin) => plugin.manufacturer === 'Preseter') : [];
+          const externalPlugins = isLayerPicker ? list.filter((plugin) => plugin.manufacturer !== 'Preseter') : list;
+          const renderPlugin = (plugin: VstPluginInfo) => (
+            <button
+              key={plugin.id}
+              disabled={busy || plugin.arch === 'x86'}
+              className="block w-full rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+              onClick={() => void withLoadingMessage(async () => {
+                const target = picker;
+                const added = target.kind === 'replace'
+                  ? await onReplace(target.assignment, target.layerId, plugin)
+                  : target.kind === 'layer'
+                    ? await onAdd(plugin)
+                    : target.kind === 'split'
+                      ? await onAddSplit(plugin, {
+                          baseLayerId: target.baseLayerId,
+                          splitNote: target.splitNote,
+                          keep: target.keep,
+                        })
+                      : await onAddStrip(target.level, plugin);
+                if (added) {
+                  setPicker(null);
+                  if (target.kind === 'split') setSplitDraft(null);
+                }
+                return added;
+              })}
+              title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${plugin.name} — ${plugin.path}`}
+            >
+              <span className="block truncate">
+                {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
+              </span>
+              <span className="text-[9px]" style={{ color: plugin.arch === 'x86' ? '#FF9F0A' : '#8E8E93' }}>
+                {plugin.format ?? 'VST'}{plugin.arch === 'x86' ? ' · 32-bit' : ''}
+              </span>
+            </button>
+          );
           return (
             <div className="absolute left-2 right-2 top-full z-50 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
               <div className="mb-1 flex items-center justify-between px-1">
@@ -1473,40 +1509,22 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                   {scanning ? 'Escaneando VST3…' : isLayerPicker ? 'Nenhum instrumento encontrado.' : 'Nenhum plugin encontrado.'}
                   {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
                 </div>
-              ) : list.map((plugin) => (
-                <button
-                  key={plugin.id}
-                  disabled={busy || plugin.arch === 'x86'}
-                  className="block w-full rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
-                  onClick={() => void withLoadingMessage(async () => {
-                    const target = picker;
-                    const added = target.kind === 'replace'
-                      ? await onReplace(target.assignment, target.layerId, plugin)
-                      : target.kind === 'layer'
-                        ? await onAdd(plugin)
-                        : target.kind === 'split'
-                          ? await onAddSplit(plugin, {
-                              baseLayerId: target.baseLayerId,
-                              splitNote: target.splitNote,
-                              keep: target.keep,
-                            })
-                          : await onAddStrip(target.level, plugin);
-                    if (added) {
-                      setPicker(null);
-                      if (target.kind === 'split') setSplitDraft(null);
-                    }
-                    return added;
-                  })}
-                  title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${plugin.name} — ${plugin.path}`}
-                >
-                  <span className="block truncate">
-                    {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
-                  </span>
-                  <span className="text-[9px]" style={{ color: plugin.arch === 'x86' ? '#FF9F0A' : '#8E8E93' }}>
-                    {plugin.format ?? 'VST'}{plugin.arch === 'x86' ? ' · 32-bit' : ''}
-                  </span>
-                </button>
-              ))}
+              ) : (
+                <>
+                  {preseterPlugins.length > 0 && (
+                    <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
+                      Preseter
+                    </div>
+                  )}
+                  {preseterPlugins.map(renderPlugin)}
+                  {externalPlugins.length > 0 && (
+                    <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
+                      {isLayerPicker ? 'Plugins VST3' : 'Plugins'}
+                    </div>
+                  )}
+                  {externalPlugins.map(renderPlugin)}
+                </>
+              )}
             </div>
           );
         })()}

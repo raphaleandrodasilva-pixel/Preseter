@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PresetPluginAssignment } from '@shared/types';
 import { SEND_OFF_DB } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
@@ -113,6 +113,32 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
   const [favorites, setFavorites] = useState<RecentEntry[]>(() => readList(FAVORITE_KEY));
   const [tab, setTab] = useState<'instrumentos' | 'favoritos' | 'recentes'>('instrumentos');
   const [cursor, setCursor] = useState(0);
+  const [box, setBox] = useState({ x: 80, y: 80, w: 1080, h: 760 });
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const width = Math.min(1080, window.innerWidth - 48);
+    const height = Math.min(760, window.innerHeight - 48);
+    setBox({
+      x: Math.max(24, Math.round((window.innerWidth - width) / 2)),
+      y: Math.max(24, Math.round((window.innerHeight - height) / 2)),
+      w: width,
+      h: height,
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input,select,textarea')) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -308,17 +334,39 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-6"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
-    >
+    <div className="pointer-events-none fixed inset-0 z-[90]">
       <div
-        className="flex h-[min(760px,92vh)] w-[min(1080px,94vw)] flex-col overflow-hidden rounded-xl shadow-2xl"
-        style={{ background: '#1C1C1E', border: '1px solid #3A3A3C' }}
+        className="pointer-events-auto absolute flex flex-col overflow-hidden rounded-xl shadow-2xl"
+        style={{
+          left: box.x,
+          top: box.y,
+          width: box.w,
+          height: box.h,
+          background: '#1C1C1E',
+          border: '1px solid #3A3A3C',
+        }}
       >
         {/* Cabeçalho */}
-        <header className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid #3A3A3C' }}>
+        <header
+          className="flex flex-wrap items-center gap-2 px-4 py-3"
+          style={{ borderBottom: '1px solid #3A3A3C', cursor: 'move', touchAction: 'none' }}
+          onPointerDown={(event) => {
+            if ((event.target as HTMLElement).closest('button,input,select,textarea')) return;
+            dragRef.current = { dx: event.clientX - box.x, dy: event.clientY - box.y };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const drag = dragRef.current;
+            if (!drag) return;
+            setBox((current) => ({
+              ...current,
+              x: Math.max(-current.w + 120, Math.min(window.innerWidth - 120, event.clientX - drag.dx)),
+              y: Math.max(0, Math.min(window.innerHeight - 48, event.clientY - drag.dy)),
+            }));
+          }}
+          onPointerUp={() => { dragRef.current = null; }}
+          onPointerCancel={() => { dragRef.current = null; }}
+        >
           <div className="mr-auto flex min-w-0 items-center gap-3">
             <span className="text-sm font-semibold text-white">Leitor de Samples</span>
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'rgba(10,132,255,0.2)', color: '#7FB6FF' }}>
@@ -566,6 +614,30 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
           <span>Motor: Preseter Sampler ({info?.format ?? '—'})</span>
           <span className="ml-auto truncate">{file.split(/[\\/]/).slice(-2).join(' / ')}</span>
         </footer>
+        <div
+          title="Redimensionar"
+          className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+          style={{ touchAction: 'none' }}
+          onPointerDown={(event) => {
+            resizeRef.current = { x: event.clientX, y: event.clientY, w: box.w, h: box.h };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const start = resizeRef.current;
+            if (!start) return;
+            setBox((current) => ({
+              ...current,
+              w: Math.max(720, Math.min(window.innerWidth - current.x, start.w + event.clientX - start.x)),
+              h: Math.max(480, Math.min(window.innerHeight - current.y, start.h + event.clientY - start.y)),
+            }));
+          }}
+          onPointerUp={() => { resizeRef.current = null; }}
+          onPointerCancel={() => { resizeRef.current = null; }}
+        >
+          <svg viewBox="0 0 16 16" className="h-full w-full" aria-hidden="true">
+            <path d="M15 9L9 15M15 13L13 15M15 5L5 15" stroke="#6E6E73" strokeWidth="1" fill="none" />
+          </svg>
+        </div>
       </div>
     </div>
   );
