@@ -2,7 +2,7 @@
 
 Host de performance ao vivo para **VST3 e LV2** — Windows e Linux, no estilo MainStage e Gig Performer.
 
-![Tela de Perform do Preseter](img/screenshot.png)
+![Tela de Perform do Preseter](img/perform.png)
 
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-orange)](../LICENSE)
 [![Build](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml/badge.svg)](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml)
@@ -23,6 +23,16 @@ motor — a interface continua de pé e pode reiniciá-lo.
 
 > Status: projeto em desenvolvimento ativo. O roadmap com o que já está pronto e o que falta
 > fica em [`ROADMAP.md`](ROADMAP.md).
+
+## Telas
+
+| Edit — workspace e channel strips | Layout — desenho do palco |
+| --- | --- |
+| ![Modo Edit](img/edit.png) | ![Modo Layout](img/layout.png) |
+
+**Loja integrada** (Configurações → Loja): baixe plugins, samples e bibliotecas sem sair do app.
+
+![Loja do Preseter](img/loja.png)
 
 ## Recursos
 
