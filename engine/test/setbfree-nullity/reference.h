@@ -40,6 +40,8 @@ void ref_render_block (ref_organ* ref,
                        int numEvents);
 
 void ref_debug_gains (ref_organ* ref, int blocks);
+void ref_send_cc (ref_organ* ref, int controller, int value);
+int ref_leslie_select (ref_organ* ref);
 
 #ifdef __cplusplus
 }

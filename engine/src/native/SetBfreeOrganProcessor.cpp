@@ -402,6 +402,14 @@ void SetBfreeOrgan::process (float* left,
 
         parse_raw_midi_data (&impl->inst, const_cast<std::uint8_t*> (message.data),
                              (size_t) message.size);
+
+        // Mantém o cache do Leslie coerente com o CC1 (rotary.speed-preset),
+        // para o botão da janela voltar a funcionar depois.
+        if (message.size == 3 && (message.data[0] & 0xF0) == 0xB0 && message.data[1] == 1)
+        {
+            const int cc = message.data[2];
+            impl->leslieMode = cc < 43 ? 1 : (cc < 86 ? 0 : 2);
+        }
     }
 
     impl->render (written, numSamples, left, right);

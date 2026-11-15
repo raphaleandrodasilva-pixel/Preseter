@@ -65,6 +65,21 @@ mede o wrapper antes dele.
 A tabela é empírica (mesmo sinal de teste do harness). Para recalibrar, rode
 `PreseterSetBfreeNullity.exe --sweep-overdrive` e atualize os pontos.
 
+## CC1 / modulação
+
+`PreseterSetBfreeNullity.exe --cc1` confirma o mapeamento padrão do setBfree:
+
+```
+Leslie inicial (parado=1): 0
+CC1=0   -> revSelect 0 (0=lento)
+CC1=64  -> revSelect 1 (1=parado)
+CC1=127 -> revSelect 2 (2=rapido)
+```
+
+No engine, o CC1 recebido em qualquer canal é normalizado para o canal 0 e
+enviado ao parser do setBfree, que o mapeia para `rotary.speed-preset` (o mesmo
+CC1 do setBfree).
+
 ## Como repetir
 
 Ver `engine/test/setbfree-nullity/README.md`.

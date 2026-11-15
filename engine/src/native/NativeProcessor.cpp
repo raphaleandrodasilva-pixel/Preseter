@@ -126,6 +126,7 @@ void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
         if (setBfree != nullptr)
         {
             setBfree->prepare (sampleRate);
+            lastLeslieParam = -1;
             updateOrganParameters();
             organOutputGain = SetBfreeOrgan::outputTrim (parameter ("organ_overdrive"));
         }
@@ -256,6 +257,15 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                 event.data[1] = (std::uint8_t) juce::jlimit (0, 127, message.getNoteNumber());
                 event.data[2] = 0;
             }
+            else if (message.isController() && message.getControllerNumber() == 1)
+            {
+                // CC1 (modulação) = "rotary.speed-preset" no setBfree:
+                // 0..42 lento, 43..85 parado, 86..127 rápido.
+                event.data[0] = 0xB0; // canal 0
+                event.data[1] = 1;
+                event.data[2] = (std::uint8_t) juce::jlimit (0, 127,
+                                                            message.getControllerValue());
+            }
             else
             {
                 continue;
@@ -346,7 +356,16 @@ void NativeProcessor::updateOrganParameters()
                              parameter ("organ_perc_harmonic") >= 0.5f);
 
     setBfree->setVibrato ((int) std::lround (parameter ("organ_vibrato")));
-    setBfree->setLeslie ((int) std::lround (parameter ("organ_leslie")));
+
+    // Só reaplica quando o controle da janela muda: assim o CC1 (modulação)
+    // pode assumir a velocidade do Leslie sem ser sobrescrito a cada bloco.
+    const int leslieParam = (int) std::lround (parameter ("organ_leslie"));
+    if (leslieParam != lastLeslieParam)
+    {
+        lastLeslieParam = leslieParam;
+        setBfree->setLeslie (leslieParam);
+    }
+
     setBfree->setOverdrive (parameter ("organ_overdrive"));
     setBfree->setReverb (parameter ("organ_reverb"));
     setBfree->setKeyClick (parameter ("organ_key_click"));

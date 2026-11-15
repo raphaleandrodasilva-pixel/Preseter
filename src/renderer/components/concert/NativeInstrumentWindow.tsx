@@ -270,6 +270,9 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                       <ChoiceButton key={name} active={Math.round(valueOf('Leslie (0 parado, 1 lento, 2 rápido, 3 freio)') * 3) === index} onClick={() => void setNamed('Leslie (0 parado, 1 lento, 2 rápido, 3 freio)', index / 3)}>{name}</ChoiceButton>
                     ))}
                   </div>
+                  <div className="mt-1 text-[9px]" style={{ color: '#8E8E93' }}>
+                    CC1 (modulação) também controla a velocidade, como no setBfree.
+                  </div>
                 </section>
               </div>
             </div>

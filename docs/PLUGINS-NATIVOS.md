@@ -297,6 +297,7 @@ DSP original do setBfree.
 | Harmônico (2º/3º) | `percussion.harmonic` |
 | Vibrato/Chorus (V1–V3, C1–C3, desligado) | `vibrato.knob` + `vibrato.routing` |
 | Leslie (parado/lento/rápido/freio) | `rotary.speed-preset` |
+| CC1 / modulação (MIDI) | `rotary.speed-preset` (0–42 lento, 43–85 parado, 86–127 rápido) |
 | Overdrive | `overdrive.character` + `overdrive.enable` |
 | Reverb | `reverb.mix` |
 | Key click | `setEnvAttackClickLevel` / `setEnvReleaseClickLevel` |

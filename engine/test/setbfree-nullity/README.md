@@ -44,3 +44,5 @@ cada caso.
   para montar a tabela `SetBfreeOrgan::outputTrim`.
 - `--debug-gains`: mostra o pico em cada estágio (tonegen → preamp → reverb →
   Leslie) para um acorde.
+- `--cc1`: confere o mapeamento do CC1 (modulação) para `rotary.speed-preset`
+  (0 = lento, 64 = parado, 127 = rápido).

@@ -284,6 +284,23 @@ int main (int argc, char** argv)
             debugGains = true;
     }
 
+    if (argc > 1 && std::string (argv[1]) == "--cc1")
+    {
+        ref_organ* reference = ref_create (kSampleRate);
+        applyParametersReference (reference, kScenarios[0]);
+
+        std::printf ("Leslie inicial (parado=1): %d\n", ref_leslie_select (reference));
+        ref_send_cc (reference, 1, 0);
+        std::printf ("CC1=0   -> revSelect %d (0=lento)\n", ref_leslie_select (reference));
+        ref_send_cc (reference, 1, 64);
+        std::printf ("CC1=64  -> revSelect %d (1=parado)\n", ref_leslie_select (reference));
+        ref_send_cc (reference, 1, 127);
+        std::printf ("CC1=127 -> revSelect %d (2=rapido)\n", ref_leslie_select (reference));
+
+        ref_destroy (reference);
+        return 0;
+    }
+
     if (debugGains)
     {
         std::srand (kSeed);

@@ -187,6 +187,22 @@ ref_set_volume (ref_organ* ref, float amount)
 }
 
 void
+ref_send_cc (ref_organ* ref, int controller, int value)
+{
+    uint8_t bytes[3];
+    bytes[0] = 0xB0;
+    bytes[1] = (uint8_t) controller;
+    bytes[2] = (uint8_t) value;
+    parse_raw_midi_data (&ref->inst, bytes, 3);
+}
+
+int
+ref_leslie_select (ref_organ* ref)
+{
+    return ref->inst.whirl->revSelect;
+}
+
+void
 ref_note_on (ref_organ* ref, int note, int velocity, int samplePosition)
 {
     (void) samplePosition;
