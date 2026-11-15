@@ -126,6 +126,7 @@
       ]
     },
     "deb": {
+      "maintainer": "Preseter Team <raphaleandrodasilva@gmail.com>",
       "recommends": ["libjack-jackd2-0", "pipewire-jack"]
     },
     "nsis": {
