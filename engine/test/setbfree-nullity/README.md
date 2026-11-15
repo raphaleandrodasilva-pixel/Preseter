@@ -23,20 +23,24 @@ cmake --build engine/build --config Release --target PreseterSetBfreeNullity
 engine/build/Release/PreseterSetBfreeNullity.exe --out-dir=.
 ```
 
-Saída esperada:
+Saída esperada (resumo):
 
 ```
-Pico: wrapper ...  referencia ...
-RMS:  wrapper ... dBFS  referencia ... dBFS
-Diferenca maxima: 0.000000000 (-240.00 dBFS)
-RMS da diferenca: -1000.00 dBFS
-Resultado: PASS (< -90 dBFS)
+Caso                                   dif. max     dif. RMS       pico  resultado
+888000000 + Leslie lento            0.000000000   -1000.00 dB     0.1922  PASS
+...
+Resultado: PASS (criterio < -90 dBFS)
 ```
 
 Como os dois lados são bit a bit iguais, a diferença é exatamente zero
-(`-240 dBFS` é o piso usado para `log10(0)`, e `-1000 dBFS` idem para RMS).
+(`-1000 dBFS` é o piso usado para `log10(0)`).
 
-O teste grava `organ-wrapper.wav` e `organ-reference.wav` (float 32) no
-diretório indicado em `--out-dir`.
+O teste grava `organ-wrapper-N.wav` e `organ-reference-N.wav` (float 32) para
+cada caso.
 
-`--max-level` usa as nove barras em 8 e volume 1.0, para medir o nível máximo.
+## Ferramentas de calibração
+
+- `--sweep-overdrive`: mede pico/RMS para vários valores de overdrive. Foi usado
+  para montar a tabela `SetBfreeOrgan::outputTrim`.
+- `--debug-gains`: mostra o pico em cada estágio (tonegen → preamp → reverb →
+  Leslie) para um acorde.

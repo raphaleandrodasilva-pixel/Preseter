@@ -39,6 +39,8 @@ void ref_render_block (ref_organ* ref,
                        const ref_event* events,
                        int numEvents);
 
+void ref_debug_gains (ref_organ* ref, int blocks);
+
 #ifdef __cplusplus
 }
 #endif

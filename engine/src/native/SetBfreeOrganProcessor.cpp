@@ -274,6 +274,44 @@ void SetBfreeOrgan::setLeslie (int mode)
     callMIDIControlFunction (impl->inst.midicfg, "rotary.speed-preset", preset[mode]);
 }
 
+float SetBfreeOrgan::outputTrim (float overdriveAmount)
+{
+    struct Point
+    {
+        float amount;
+        float gain;
+    };
+
+    // Pico medido no teste de nulidade (acorde, volume 0.82), normalizado
+    // para 0.5. Ver docs/testes/orgao-nulidade.md.
+    static const Point table[] = {
+        { 0.00f, 0.158f },
+        { 0.01f, 1.600f },
+        { 0.10f, 2.780f },
+        { 0.20f, 3.420f },
+        { 0.30f, 3.710f },
+        { 0.50f, 2.800f },
+        { 0.70f, 1.850f },
+        { 0.85f, 1.130f },
+        { 1.00f, 0.380f },
+    };
+
+    const float amount = std::clamp (overdriveAmount, 0.0f, 1.0f);
+    constexpr int count = (int) (sizeof (table) / sizeof (table[0]));
+
+    for (int i = 1; i < count; ++i)
+    {
+        if (amount <= table[i].amount)
+        {
+            const float span = table[i].amount - table[i - 1].amount;
+            const float t = span > 0.0f ? (amount - table[i - 1].amount) / span : 0.0f;
+            return table[i - 1].gain + t * (table[i].gain - table[i - 1].gain);
+        }
+    }
+
+    return table[count - 1].gain;
+}
+
 void SetBfreeOrgan::setOverdrive (float amount)
 {
     if (! impl->prepared)

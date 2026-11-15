@@ -284,7 +284,7 @@ DSP original do setBfree.
 | Buffers internos | 128 amostras (`BUFFER_SIZE_SAMPLES`) |
 | Eventos MIDI | mesma lógica de `run()` do LV2 (síntese até o timestamp, aplica o evento, continua) |
 | Teste de nulidade | `engine/test/setbfree-nullity/` — resultado bit a bit, ver `docs/testes/orgao-nulidade.md` |
-| Trim de saída | +12 dB fixo **depois** da cadeia, para compensar o `outputLevelTrim` 0.07 do setBfree |
+| Ganho de saída | tabela calibrada por valor de overdrive **depois** da cadeia (o setBfree varia muito de nível com o `character`), com rampa e limite ±1.0 |
 
 ### Mapeamento dos controles da janela
 
@@ -311,3 +311,6 @@ DSP original do setBfree.
   compatibilidade, mas o setBfree tem profundidades fixas por modelo (V1–V3,
   C1–C3), então ele não é usado.
 - “Freio” usa a mesma parada do setBfree (`rotary.speed-preset`).
+- O ganho de saída é normalizado por overdrive (ver `docs/testes/orgao-nulidade.md`).
+  O timbre é o do setBfree; só o nível é compensado para o knob não pular
+  ~20 dB entre “clean” e overdrive.

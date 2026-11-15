@@ -53,6 +53,16 @@ public:
     void setReverb (float mix);
     void setKeyClick (float amount);
 
+    /**
+        Ganho de saída calibrado por valor de overdrive.
+
+        O setBfree varia muito de nível conforme o "character" escolhido
+        (a curva de overdrive muda o feedback). Esta tabela normaliza o
+        volume percebido, sem tocar no DSP nem no timbre. Valores medidos
+        com o teste de nulidade (`--sweep-overdrive`).
+    */
+    static float outputTrim (float overdriveAmount);
+
     /** 0..1, aplicado no pedal de expressão (swell) do setBfree. */
     void setVolume (float amount);
 

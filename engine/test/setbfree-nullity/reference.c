@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -232,6 +233,59 @@ void
 ref_render (ref_organ* ref, float* left, float* right, int numSamples)
 {
     ref_synth (ref, 0, numSamples, left, right);
+}
+
+static double
+peak_of (const float* buffer, int length)
+{
+    double peak = 0.0;
+    int    i;
+    for (i = 0; i < length; ++i)
+    {
+        double v = fabs ((double) buffer[i]);
+        if (v > peak)
+            peak = v;
+    }
+    return peak;
+}
+
+void
+ref_debug_gains (ref_organ* ref, int blocks)
+{
+    double tone = 0.0, pre = 0.0, rev = 0.0, whirl = 0.0;
+    int    b;
+
+    for (b = 0; b < blocks; ++b)
+    {
+        double v;
+        ref->boffset = REF_BUFFER;
+        oscGenerateFragment (ref->inst.synth, ref->bufA, (size_t) REF_BUFFER);
+        v = peak_of (ref->bufA, REF_BUFFER);
+        if (v > tone)
+            tone = v;
+
+        preamp (ref->inst.preamp, ref->bufA, ref->bufB, (size_t) REF_BUFFER);
+        v = peak_of (ref->bufB, REF_BUFFER);
+        if (v > pre)
+            pre = v;
+
+        reverb (ref->inst.reverb, ref->bufB, ref->bufC, (size_t) REF_BUFFER);
+        v = peak_of (ref->bufC, REF_BUFFER);
+        if (v > rev)
+            rev = v;
+
+        whirlProc3 (ref->inst.whirl, ref->bufC, ref->outL, ref->outR, ref->tmpL,
+                    ref->tmpR, (size_t) REF_BUFFER);
+        v = peak_of (ref->outL, REF_BUFFER);
+        if (v > whirl)
+            whirl = v;
+        v = peak_of (ref->outR, REF_BUFFER);
+        if (v > whirl)
+            whirl = v;
+    }
+
+    printf ("gains: tonegen %.6f  preamp %.6f  reverb %.6f  whirl %.6f\n", tone, pre, rev,
+            whirl);
 }
 
 void

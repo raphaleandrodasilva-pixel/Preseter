@@ -93,6 +93,7 @@ private:
     std::unique_ptr<SetBfreeOrgan> setBfree;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
+    float organOutputGain = 1.0f;
     juce::AudioBuffer<float> organScratch;
     std::array<Voice, 64> voices;
     int currentProgram = 0;

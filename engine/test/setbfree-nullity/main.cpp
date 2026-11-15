@@ -5,7 +5,8 @@
  *   A) o wrapper C++ usado pelo Preseter (SetBfreeOrgan)
  *   B) uma referência em C que reproduz o caminho do b_synth/lv2.c
  *
- * Compara amostra a amostra e imprime a diferença em dBFS.
+ * Compara amostra a amostra e imprime a diferença em dBFS para vários
+ * ajustes de drawbars/percussão/Leslie/overdrive.
  *
  * O setBfree usa rand() (global) para o ruído de key-click. Para comparar,
  * cada renderização começa com a mesma semente e roda do início ao fim antes
@@ -29,6 +30,31 @@ namespace
 constexpr int kSampleRate = 48000;
 constexpr int kBlockSize = 512;
 constexpr unsigned int kSeed = 0x5E7B3EEu;
+
+struct Scenario
+{
+    const char* name;
+    int drawbars[9];
+    bool percussion;
+    bool percussionSoft;
+    bool percussionFast;
+    bool percussionThird;
+    int vibrato;
+    int leslie;
+    float overdrive;
+    float reverb;
+    float keyClick;
+    float volume;
+};
+
+const Scenario kScenarios[] = {
+    { "888000000 + Leslie lento", { 8, 8, 8, 0, 0, 0, 0, 0, 0 }, false, false, true, false, 1, 1, 0.08f, 0.20f, 0.30f, 0.82f },
+    { "008800000 + Leslie rapido", { 0, 0, 8, 8, 0, 0, 0, 0, 0 }, false, false, true, false, 2, 2, 0.15f, 0.18f, 0.30f, 0.82f },
+    { "percussao (2o, normal, rapida)", { 8, 8, 8, 0, 0, 0, 0, 0, 0 }, true, false, true, false, 0, 0, 0.08f, 0.0f, 0.30f, 0.82f },
+    { "overdrive alto", { 8, 8, 8, 0, 0, 0, 0, 0, 0 }, false, false, true, false, 0, 0, 1.0f, 0.20f, 0.30f, 0.82f },
+    { "clean (overdrive 0)", { 8, 8, 8, 0, 0, 0, 0, 0, 0 }, false, false, true, false, 0, 0, 0.0f, 0.0f, 0.30f, 0.82f },
+    { "888888888 + volume maximo", { 8, 8, 8, 8, 8, 8, 8, 8, 8 }, true, false, true, false, 1, 1, 0.15f, 0.20f, 0.30f, 1.0f },
+};
 
 void writeFloatWav (const char* path, const std::vector<float>& left, const std::vector<float>& right)
 {
@@ -103,47 +129,49 @@ std::vector<NoteEvent> buildSequence (int totalFrames)
     return events;
 }
 
-void applyParameters (preseter::native::SetBfreeOrgan& wrapper, bool allBars)
+void applyParameters (preseter::native::SetBfreeOrgan& wrapper, const Scenario& scenario)
 {
-    const std::array<int, 9> bars = allBars
-        ? std::array<int, 9> { { 8, 8, 8, 8, 8, 8, 8, 8, 8 } }
-        : std::array<int, 9> { { 8, 8, 8, 6, 0, 0, 0, 0, 0 } };
+    std::array<int, 9> bars {};
+    for (int i = 0; i < 9; ++i)
+        bars[(size_t) i] = scenario.drawbars[i];
 
     wrapper.setDrawbars (bars);
-    wrapper.setPercussion (true, false, true, false);
-    wrapper.setVibrato (1);
-    wrapper.setLeslie (1);
-    wrapper.setOverdrive (0.15f);
-    wrapper.setReverb (0.2f);
-    wrapper.setKeyClick (0.3f);
-    wrapper.setVolume (allBars ? 1.0f : 0.82f);
+    wrapper.setPercussion (scenario.percussion, scenario.percussionSoft,
+                           scenario.percussionFast, scenario.percussionThird);
+    wrapper.setVibrato (scenario.vibrato);
+    wrapper.setLeslie (scenario.leslie);
+    wrapper.setOverdrive (scenario.overdrive);
+    wrapper.setReverb (scenario.reverb);
+    wrapper.setKeyClick (scenario.keyClick);
+    wrapper.setVolume (scenario.volume);
 }
 
-void applyParametersReference (ref_organ* reference, bool allBars)
+void applyParametersReference (ref_organ* reference, const Scenario& scenario)
 {
-    const int drawbars[9] = { 8, 8, 8, 8, 8, 8, 8, 8, 8 };
-    const int sparse[9] = { 8, 8, 8, 6, 0, 0, 0, 0, 0 };
-    ref_set_drawbars (reference, allBars ? drawbars : sparse);
-    ref_set_percussion (reference, 1, 0, 1, 0);
-    ref_set_vibrato (reference, 1);
-    ref_set_leslie (reference, 1);
-    ref_set_overdrive (reference, 0.15f);
-    ref_set_reverb (reference, 0.2f);
-    ref_set_key_click (reference, 0.3f);
-    ref_set_volume (reference, allBars ? 1.0f : 0.82f);
+    ref_set_drawbars (reference, scenario.drawbars);
+    ref_set_percussion (reference, scenario.percussion ? 1 : 0,
+                        scenario.percussionSoft ? 1 : 0,
+                        scenario.percussionFast ? 1 : 0,
+                        scenario.percussionThird ? 1 : 0);
+    ref_set_vibrato (reference, scenario.vibrato);
+    ref_set_leslie (reference, scenario.leslie);
+    ref_set_overdrive (reference, scenario.overdrive);
+    ref_set_reverb (reference, scenario.reverb);
+    ref_set_key_click (reference, scenario.keyClick);
+    ref_set_volume (reference, scenario.volume);
 }
 
 void renderWrapper (const std::vector<NoteEvent>& sequence,
                     int totalFrames,
                     std::vector<float>& left,
                     std::vector<float>& right,
-                    bool allBars)
+                    const Scenario& scenario)
 {
     std::srand (kSeed);
 
     preseter::native::SetBfreeOrgan wrapper;
     wrapper.prepare (kSampleRate);
-    applyParameters (wrapper, allBars);
+    applyParameters (wrapper, scenario);
 
     std::vector<preseter::native::SetBfreeMidiEvent> events;
     size_t nextEvent = 0;
@@ -175,12 +203,12 @@ void renderReference (const std::vector<NoteEvent>& sequence,
                       int totalFrames,
                       std::vector<float>& left,
                       std::vector<float>& right,
-                      bool allBars)
+                      const Scenario& scenario)
 {
     std::srand (kSeed);
 
     ref_organ* reference = ref_create (kSampleRate);
-    applyParametersReference (reference, allBars);
+    applyParametersReference (reference, scenario);
 
     std::vector<ref_event> events;
     size_t nextEvent = 0;
@@ -209,23 +237,98 @@ void renderReference (const std::vector<NoteEvent>& sequence,
 
     ref_destroy (reference);
 }
+
+void compare (const std::vector<float>& aLeft,
+              const std::vector<float>& aRight,
+              const std::vector<float>& bLeft,
+              const std::vector<float>& bRight,
+              double& diffDb,
+              double& diffMax,
+              double& peak)
+{
+    double differenceEnergy = 0.0;
+    diffMax = 0.0;
+    peak = 0.0;
+
+    for (size_t i = 0; i < aLeft.size(); ++i)
+    {
+        for (int channel = 0; channel < 2; ++channel)
+        {
+            const double a = channel == 0 ? aLeft[i] : aRight[i];
+            const double b = channel == 0 ? bLeft[i] : bRight[i];
+            const double diff = a - b;
+
+            diffMax = std::max (diffMax, std::fabs (diff));
+            differenceEnergy += diff * diff;
+            peak = std::max (peak, std::fabs (a));
+        }
+    }
+
+    const double samples = (double) aLeft.size() * 2.0;
+    const double diffRms = std::sqrt (differenceEnergy / samples);
+    diffDb = diffRms > 0.0 ? 20.0 * std::log10 (diffRms) : -1000.0;
+}
 } // namespace
 
 int main (int argc, char** argv)
 {
     std::string outputDirectory = ".";
+    bool debugGains = false;
 
     for (int i = 1; i < argc; ++i)
     {
         const std::string arg = argv[i];
         if (arg.rfind ("--out-dir=", 0) == 0)
             outputDirectory = arg.substr (10);
+        else if (arg == "--debug-gains")
+            debugGains = true;
     }
 
-    bool allBars = false;
-    for (int i = 1; i < argc; ++i)
-        if (std::string (argv[i]) == "--max-level")
-            allBars = true;
+    if (debugGains)
+    {
+        std::srand (kSeed);
+        ref_organ* reference = ref_create (kSampleRate);
+        applyParametersReference (reference, kScenarios[2]);
+        ref_note_on (reference, 60, 100, 0);
+        ref_debug_gains (reference, 200);
+        ref_destroy (reference);
+        return 0;
+    }
+
+    if (argc > 1 && std::string (argv[1]) == "--sweep-overdrive")
+    {
+        const int frames = kSampleRate * 4;
+        const auto seq = buildSequence (frames);
+        std::vector<float> left ((size_t) frames);
+        std::vector<float> right ((size_t) frames);
+
+        for (float amount : { 0.0f, 0.01f, 0.1f, 0.2f, 0.3f, 0.5f, 0.7f, 0.85f, 1.0f })
+        {
+            Scenario scenario = kScenarios[0];
+            scenario.overdrive = amount;
+            scenario.reverb = 0.2f;
+            scenario.volume = 0.82f;
+
+            renderWrapper (seq, frames, left, right, scenario);
+
+            double peak = 0.0;
+            double energy = 0.0;
+            for (int i = 0; i < frames; ++i)
+            {
+                for (int c = 0; c < 2; ++c)
+                {
+                    const double v = c == 0 ? left[(size_t) i] : right[(size_t) i];
+                    peak = std::max (peak, std::fabs (v));
+                    energy += v * v;
+                }
+            }
+            const double rms = std::sqrt (energy / ((double) frames * 2.0));
+            std::printf ("over %.2f  char %3d  pico %.4f  RMS %6.1f dBFS  trim p/0.8=%.2f\n",
+                         amount, (int) std::lround (amount * 127.0), peak,
+                         20.0 * std::log10 (std::max (1e-12, rms)), 0.8 / peak);
+        }
+        return 0;
+    }
 
     const int seconds = 6;
     const int totalFrames = kSampleRate * seconds;
@@ -236,55 +339,48 @@ int main (int argc, char** argv)
     std::vector<float> referenceLeft ((size_t) totalFrames);
     std::vector<float> referenceRight ((size_t) totalFrames);
 
-    renderWrapper (sequence, totalFrames, wrapperLeft, wrapperRight, allBars);
-    renderReference (sequence, totalFrames, referenceLeft, referenceRight, allBars);
+    bool allPassed = true;
+    double worstDb = -1000.0;
+    std::string worstName;
 
-    double maxDifference = 0.0;
-    double differenceEnergy = 0.0;
-    double referenceEnergy = 0.0;
-    double wrapperEnergy = 0.0;
-    double wrapperPeak = 0.0;
-    double referencePeak = 0.0;
+    std::printf ("%-34s %12s %12s %10s  %s\n", "Caso", "dif. max", "dif. RMS", "pico", "resultado");
 
-    for (int i = 0; i < totalFrames; ++i)
+    for (size_t index = 0; index < sizeof (kScenarios) / sizeof (kScenarios[0]); ++index)
     {
-        for (int channel = 0; channel < 2; ++channel)
-        {
-            const double a = channel == 0 ? wrapperLeft[(size_t) i] : wrapperRight[(size_t) i];
-            const double b = channel == 0 ? referenceLeft[(size_t) i] : referenceRight[(size_t) i];
-            const double diff = a - b;
+        const auto& scenario = kScenarios[index];
 
-            maxDifference = std::max (maxDifference, std::fabs (diff));
-            differenceEnergy += diff * diff;
-            referenceEnergy += b * b;
-            wrapperEnergy += a * a;
-            wrapperPeak = std::max (wrapperPeak, std::fabs (a));
-            referencePeak = std::max (referencePeak, std::fabs (b));
+        renderWrapper (sequence, totalFrames, wrapperLeft, wrapperRight, scenario);
+        renderReference (sequence, totalFrames, referenceLeft, referenceRight, scenario);
+
+        double diffDb = 0.0;
+        double diffMax = 0.0;
+        double peak = 0.0;
+        compare (wrapperLeft, wrapperRight, referenceLeft, referenceRight, diffDb, diffMax, peak);
+
+        const bool pass = diffDb < -90.0;
+        allPassed = allPassed && pass;
+
+        if (diffDb > worstDb)
+        {
+            worstDb = diffDb;
+            worstName = scenario.name;
+        }
+
+        std::printf ("%-34s %12.9f %10.2f dB %10.4f  %s\n", scenario.name, diffMax, diffDb, peak,
+                     pass ? "PASS" : "FAIL");
+
+        {
+            const std::string suffix = "-" + std::to_string (index + 1) + ".wav";
+            const std::string wrapperPath = outputDirectory + "/organ-wrapper" + suffix;
+            const std::string referencePath = outputDirectory + "/organ-reference" + suffix;
+            writeFloatWav (wrapperPath.c_str(), wrapperLeft, wrapperRight);
+            writeFloatWav (referencePath.c_str(), referenceLeft, referenceRight);
         }
     }
 
-    const double samples = (double) totalFrames * 2.0;
-    const double diffRms = std::sqrt (differenceEnergy / samples);
-    const double refRms = std::sqrt (referenceEnergy / samples);
-    const double wrapperRms = std::sqrt (wrapperEnergy / samples);
-    const double diffDb = diffRms > 0.0 ? 20.0 * std::log10 (diffRms) : -1000.0;
-    const double refDb = refRms > 0.0 ? 20.0 * std::log10 (refRms) : -1000.0;
-    const double wrapperDb = wrapperRms > 0.0 ? 20.0 * std::log10 (wrapperRms) : -1000.0;
+    std::printf ("\nPior caso: %s (%.2f dBFS de diferenca RMS)\n", worstName.c_str(), worstDb);
+    std::printf ("Resultado: %s (criterio < -90 dBFS)\n",
+                 allPassed ? "PASS" : "FAIL");
 
-    const std::string wrapperPath = outputDirectory + "/organ-wrapper.wav";
-    const std::string referencePath = outputDirectory + "/organ-reference.wav";
-    writeFloatWav (wrapperPath.c_str(), wrapperLeft, wrapperRight);
-    writeFloatWav (referencePath.c_str(), referenceLeft, referenceRight);
-
-    std::printf ("WAVs: %s / %s\n", wrapperPath.c_str(), referencePath.c_str());
-    std::printf ("Pico: wrapper %.6f  referencia %.6f\n", wrapperPeak, referencePeak);
-    std::printf ("RMS:  wrapper %.2f dBFS  referencia %.2f dBFS\n", wrapperDb, refDb);
-    std::printf ("Diferenca maxima: %.9f (%.2f dBFS)\n", maxDifference,
-                 20.0 * std::log10 (std::max (1e-12, maxDifference)));
-    std::printf ("RMS da diferenca: %.2f dBFS\n", diffDb);
-
-    const bool pass = diffDb < -90.0;
-    std::printf ("Resultado: %s\n", pass ? "PASS (< -90 dBFS)" : "FAIL");
-
-    return pass ? 0 : 1;
+    return allPassed ? 0 : 1;
 }

@@ -17,10 +17,6 @@ constexpr double kReedRatios[4] = { 1.0, 2.0, 3.0, 4.2 };
 constexpr double kReedAmps[4] = { 1.0, 0.5, 0.3, 0.15 };
 constexpr double kReedDecay[4] = { 0.99972, 0.99910, 0.9978, 0.9955 };
 
-// O setBfree sai bem baixo (outputLevelTrim interno = 0.07). Este trim fixo
-// é aplicado DEPOIS da cadeia do setBfree, sem alterar o timbre.
-constexpr float kOrganOutputTrim = 4.0f; // +12 dB
-
 juce::String kindName (NativeKind kind)
 {
     if (kind == NativeKind::organ) return "Preseter Organ";
@@ -131,6 +127,7 @@ void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
         {
             setBfree->prepare (sampleRate);
             updateOrganParameters();
+            organOutputGain = SetBfreeOrgan::outputTrim (parameter ("organ_overdrive"));
         }
         return;
     }
@@ -288,12 +285,23 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                                organEvents.data(), organEventCount);
         }
 
-        buffer.applyGain (kOrganOutputTrim);
+        // Rampa de ganho entre blocos para o knob de overdrive não estalar.
+        const float targetGain = SetBfreeOrgan::outputTrim (parameter ("organ_overdrive"));
+        const float step = (targetGain - organOutputGain) / (float) juce::jmax (1, numSamples);
 
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-            juce::FloatVectorOperations::clip (buffer.getWritePointer (channel),
-                                               buffer.getReadPointer (channel), -1.0f, 1.0f,
-                                               numSamples);
+        {
+            auto* data = buffer.getWritePointer (channel);
+            float gain = organOutputGain;
+
+            for (int sample = 0; sample < numSamples; ++sample)
+            {
+                gain += step;
+                data[sample] = juce::jlimit (-1.0f, 1.0f, data[sample] * gain);
+            }
+        }
+
+        organOutputGain = targetGain;
         return;
     }
 
