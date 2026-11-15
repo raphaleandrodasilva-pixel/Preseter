@@ -62,3 +62,26 @@ permite combinar os dois. O DSP original é compilado como biblioteca estática
 (Rust) e chamado por uma C ABI; nenhum arquivo do OpenWurli foi alterado. O
 código-fonte completo do Preseter, incluindo o wrapper e o crate da C ABI, é
 distribuído junto com o aplicativo.
+
+## calfNXT — efeitos VST3 empacotados
+
+O Preseter distribui plugins VST3 do projeto **calfNXT** (sucessor do Calf Studio Gear)
+na pasta `vendor/calfnxt/plugins` (em produção: `resources/plugins/calfnxt`).
+
+- Projeto: https://github.com/boomshop/calfnxt
+- Versão base: `v2.17.0` (2026-11-12)
+- Licença: **GNU GPL, versão 3 ou posterior** (`GPL-3.0-or-later`).
+- Texto completo: `vendor/calfnxt/COPYING.txt`
+- Origem, modificações e instruções de build: `vendor/calfnxt/UPSTREAM.md`
+
+Compatibilidade: os plugins são apenas **hospedados** pelo Preseter (VST3). Como o
+Preseter é AGPL-3.0-or-later, a combinação é permitida pelo GPLv3 §13. Nenhum código
+do calfnXT é incorporado ao código-fonte do Preseter; os binários mantêm sua licença
+GPL-3.0 e o código-fonte correspondente (fork com build Windows DSP-only) é publicado
+com as modificações descritas no `UPSTREAM.md`.
+
+Plugins incluídos nesta fase: Equalizer, Compressor, Delay e Reverb, já com as UIs
+originais (React/AUX) embutidas em `Contents/Resources`. No Windows o editor roda em
+WebView2 dentro do processo do engine; no Linux, no helper GTK/WebKit do próprio calfnXT.
+O SDK do WebView2 vendorizado no fork tem licença própria (Microsoft), em
+`common/ui/third_party/webview2/LICENSE.txt`.

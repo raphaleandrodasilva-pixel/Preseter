@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { expandUserPath, getPlatformPaths, presetWatchFolders } from './paths';
+import { bundledPluginFolder, expandUserPath, getPlatformPaths, presetWatchFolders } from './paths';
 
 const home = 'C:/Users/Test';
 const env = {
@@ -46,5 +46,14 @@ describe('platform paths', () => {
     expect(folders).toContain('/home/test/Documents/VST3 Presets');
     expect(folders).toContain('/home/test/.vst3/presets');
     expect(folders.some((folder) => /ProgramData/i.test(folder))).toBe(false);
+  });
+
+  it('acha os plugins empacotados no app em dev e no instalador', () => {
+    const appPath = 'C:/repo/preseter';
+    const resources = 'C:/Program Files/Preseter/resources';
+    expect(bundledPluginFolder(appPath, resources, false))
+      .toBe(path.join(appPath, 'vendor', 'calfnxt', 'plugins'));
+    expect(bundledPluginFolder(appPath, resources, true))
+      .toBe(path.join(resources, 'plugins', 'calfnxt'));
   });
 });

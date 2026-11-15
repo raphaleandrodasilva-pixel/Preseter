@@ -101,6 +101,21 @@ export function getPlatformPaths(
   return linuxPaths(env, home);
 }
 
+/**
+ * Pasta dos plugins VST3 empacotados com o app (fork do calfnXT).
+ * Em desenvolvimento: `<repo>/vendor/calfnxt/plugins`.
+ * No instalador: `<resources>/plugins/calfnxt` (extraResources).
+ */
+export function bundledPluginFolder(
+  appPath: string,
+  resourcesPath: string,
+  packaged: boolean
+): string {
+  return packaged
+    ? path.join(resourcesPath, 'plugins', 'calfnxt')
+    : path.join(appPath, 'vendor', 'calfnxt', 'plugins');
+}
+
 /** Expande ~, $HOME e variáveis de perfil/XDG usadas no catálogo. */
 export function expandUserPath(
   value: string,

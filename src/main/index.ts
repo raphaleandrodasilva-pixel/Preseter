@@ -17,6 +17,7 @@ import { buildCollectionConcert, analyzeCollectionConcert } from './collection/g
 import { PerformanceMode } from './performance/PerformanceMode';
 import {
   getPlatformPaths,
+  bundledPluginFolder,
   presetWatchFolders as platformPresetWatchFolders,
   type SupportedPlatform,
 } from './platform/paths';
@@ -101,6 +102,18 @@ function presetWatchFolders(): string[] {
 /** Pastas VST3 padrão do sistema, incluindo a pasta sem administrador da coleção. */
 function standardVst3Folders(): string[] {
   return getPlatformPaths().vst3Folders;
+}
+
+/**
+ * Plugins VST3 empacotados junto com o app (ex.: fork do calfnXT).
+ * Em desenvolvimento ficam em `vendor/calfnxt/plugins`; no instalador, em
+ * `resources/plugins/calfnxt` (extraResources). Pastas inexistentes são ignoradas.
+ */
+function bundledPluginFolders(): string[] {
+  // Phase 1 ships Windows bundles only; Linux uses its own (upstream) build later.
+  if (process.platform !== 'win32') return [];
+  const folder = bundledPluginFolder(app.getAppPath(), process.resourcesPath, app.isPackaged);
+  return fs.existsSync(folder) ? [folder] : [];
 }
 
 class MainWindow {
@@ -2287,7 +2300,7 @@ class MainWindow {
   /** Pastas que o app sempre varre: padrões do sistema + extras do usuário. */
   private pluginScanFolders(): string[] {
     const seen = new Set<string>();
-    return [...standardVst3Folders(), ...this.readPreferences().pluginFolders]
+    return [...standardVst3Folders(), ...bundledPluginFolders(), ...this.readPreferences().pluginFolders]
       .map((folder) => folder.trim())
       .filter((folder) => {
         if (!folder) return false;

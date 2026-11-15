@@ -117,6 +117,18 @@
         {
           "from": "node_modules/ffmpeg-static/ffmpeg.exe",
           "to": "ffmpeg/ffmpeg.exe"
+        },
+        {
+          "from": "vendor/calfnxt/plugins",
+          "to": "plugins/calfnxt"
+        },
+        {
+          "from": "vendor/calfnxt/COPYING.txt",
+          "to": "licenses/calfnxt-COPYING.txt"
+        },
+        {
+          "from": "vendor/calfnxt/UPSTREAM.md",
+          "to": "licenses/calfnxt-UPSTREAM.md"
         }
       ]
     },
