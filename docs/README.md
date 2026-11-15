@@ -5,7 +5,7 @@ Host de performance ao vivo para **VST3 e LV2** — Windows e Linux, no estilo M
 ![Tela de Perform do Preseter](img/screenshot.png)
 
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-orange)](../LICENSE)
-[![Linux build](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/linux.yml/badge.svg)](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/linux.yml)
+[![Build](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml/badge.svg)](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml)
 ![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20Linux-0A6FE0)
 ![Electron](https://img.shields.io/badge/Electron-28-47848F)
 ![JUCE](https://img.shields.io/badge/JUCE-8.0.8-8DC63F)
@@ -198,8 +198,10 @@ node scripts/engine-smoke.js                          # ping, dispositivos e sca
 node scripts/engine-smoke.js --plugin=Surge --audio   # carrega um plugin e toca uma nota
 ```
 
-O workflow [`.github/workflows/linux.yml`](../.github/workflows/linux.yml) roda typecheck,
-testes e o build completo no Linux a cada push na `main`.
+O workflow [`.github/workflows/build.yml`](../.github/workflows/build.yml) roda typecheck e
+testes e gera os instaladores de **Windows** (NSIS) e **Linux** (AppImage e deb) a cada push na
+`main`. Quando a versão do `package.json` ainda não tem tag, o mesmo workflow publica um GitHub
+Release com os instaladores anexados.
 
 ## Estrutura do repositório
 
