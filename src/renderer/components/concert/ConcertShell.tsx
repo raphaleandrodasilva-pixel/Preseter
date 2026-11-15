@@ -1548,12 +1548,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     }
 
     const isSamplerTarget = plugin.id === 'preseter.sampler' || plugin.path === 'preseter.sampler';
-    let samplerPath: string | undefined;
-    if (isSamplerTarget) {
-      const picked = await window.electronAPI.samplerPickFile();
-      if (!picked) return false;
-      samplerPath = picked;
-    }
 
     const unloaded = await unloadVstPlugin(layerId);
     if (!unloaded) {
@@ -1561,15 +1555,48 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       return false;
     }
 
+    if (isSamplerTarget) {
+      // Troca para o sampler nativo sem pedir arquivo: a janela abre vazia e o
+      // usuário escolhe o SF2/SFZ lá dentro.
+      const mappings = { ...(draft.mappings ?? {}) };
+      for (const [id, mapping] of Object.entries(mappings)) {
+        if (mapping.pluginId === oldPluginId || mapping.pluginPath === assignment.path) {
+          delete mappings[id];
+        }
+      }
+      onDraftChange({
+        ...draft,
+        plugins: (draft.plugins ?? []).map((item) =>
+          item.layerId === layerId
+            ? {
+                ...item,
+                pluginId: 'preseter.sampler',
+                name: 'Preseter Sampler',
+                path: 'preseter.sampler',
+                sourceKind: 'sampler' as const,
+                samplePath: '',
+                sampler: { loop: true, polyphony: 64, ...(item.sampler ?? {}) },
+                programIndex: 0,
+                bank: 0,
+                samplerKind: undefined,
+              }
+            : item
+        ),
+        mappings,
+        vstStates: Object.fromEntries(
+          Object.entries(draft.vstStates).filter(
+            ([key]) => key !== `loaded_${layerId}` && !key.startsWith(`insert_${layerId}_`)
+          )
+        ),
+        updatedAt: Date.now(),
+      });
+      setSamplerWindowLayerId(layerId);
+      onError('');
+      return true;
+    }
+
     try {
-      const loaded = isSamplerTarget
-        ? await loadVstPlugin('preseter.sampler', layerId, minNote, maxNote, false, {
-            samplePath: samplerPath,
-            loop: assignment.sampler?.loop ?? true,
-            polyphony: assignment.sampler?.polyphony ?? 64,
-            ...(assignment.sampler ?? {}),
-          })
-        : await loadVstPlugin(plugin.path, layerId, minNote, maxNote);
+      const loaded = await loadVstPlugin(plugin.path, layerId, minNote, maxNote);
       if (!loaded) throw new Error('O engine não confirmou o carregamento do novo plugin.');
 
       await setVstLayerMix(layerId, assignment.mix ?? {});
@@ -1602,35 +1629,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         ...draft,
         plugins: (draft.plugins ?? []).map((item) =>
           item.layerId === layerId
-            ? isSamplerTarget
-              ? {
-                  ...item,
-                  pluginId: 'preseter.sampler',
-                  name: loaded.name || 'Preseter Sampler',
-                  path: 'preseter.sampler',
-                  sourceKind: 'sampler' as const,
-                  samplePath: samplerPath,
-                  sampler: {
-                    loop: true,
-                    polyphony: 64,
-                    ...(item.sampler ?? {}),
-                  },
-                  programIndex: 0,
-                  bank: 0,
-                  samplerKind: undefined,
-                }
-              : {
-                  ...item,
-                  pluginId: plugin.id,
-                  name: plugin.name,
-                  path: plugin.path,
-                  sourceKind: 'vst3' as const,
-                  samplePath: undefined,
-                  sampler: undefined,
-                  programIndex: undefined,
-                  bank: undefined,
-                  samplerKind: undefined,
-                }
+            ? {
+                ...item,
+                pluginId: plugin.id,
+                name: plugin.name,
+                path: plugin.path,
+                sourceKind: 'vst3' as const,
+                samplePath: undefined,
+                sampler: undefined,
+                programIndex: undefined,
+                bank: undefined,
+                samplerKind: undefined,
+              }
             : item
         ),
         mappings,

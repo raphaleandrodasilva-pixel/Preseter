@@ -79,6 +79,89 @@ function normalizeFor(min: number, max: number, value: number): number {
 const RECENT_KEY = 'preseter.sampler.recent.v1';
 const FAVORITE_KEY = 'preseter.sampler.favorites.v1';
 
+interface NumberFieldProps {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  decimals: number;
+  unit?: string;
+  disabled?: boolean;
+  ariaLabel: string;
+  onCommit: (value: number) => void;
+}
+
+const NumberField: React.FC<NumberFieldProps> = ({
+  value,
+  min,
+  max,
+  step,
+  decimals,
+  unit,
+  disabled,
+  ariaLabel,
+  onCommit,
+}) => {
+  const format = (next: number) => next.toFixed(decimals);
+  const [draft, setDraft] = useState(() => format(value));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(format(value));
+  }, [value, editing, decimals]);
+
+  const apply = (next: number) => {
+    const clamped = Math.min(max, Math.max(min, next));
+    setDraft(format(clamped));
+    setEditing(false);
+    onCommit(clamped);
+  };
+
+  const commit = () => {
+    const parsed = Number(draft.replace(',', '.').trim());
+    if (!Number.isFinite(parsed)) {
+      setDraft(format(value));
+      setEditing(false);
+      return;
+    }
+    apply(parsed);
+  };
+
+  return (
+    <span className="flex items-baseline gap-1">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        onFocus={(event) => {
+          setEditing(true);
+          event.currentTarget.select();
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setDraft(format(value));
+            setEditing(false);
+            event.currentTarget.blur();
+          } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            apply(value + (event.key === 'ArrowUp' ? step : -step));
+          }
+        }}
+        className="w-16 bg-transparent p-0 text-[10px] font-semibold text-white outline-none disabled:opacity-40"
+      />
+      {unit && <span className="text-[9px]" style={{ color: '#8E8E93' }}>{unit}</span>}
+    </span>
+  );
+};
+
 interface RecentEntry {
   file: string;
   name: string;
@@ -335,7 +418,9 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
     paramName: string,
     min: number,
     max: number,
-    display: (value: number) => string,
+    decimals: number,
+    unit: string,
+    scale = 1,
     fallback?: number
   ) => {
     const target = param(paramName);
@@ -351,12 +436,24 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
           step={0.001}
           value={normalized}
           disabled={!target}
-          aria-label={label}
+          aria-label={`${label} slider`}
           onChange={(event) => void setParam(paramName, Number(event.target.value))}
           className="h-1 w-full"
           style={{ accentColor: '#0A84FF' }}
         />
-        <span className="text-[10px] font-semibold text-white">{display(physical)}</span>
+        <NumberField
+          value={physical * scale}
+          min={min * scale}
+          max={max * scale}
+          step={scale === 100 ? 1 : Math.pow(10, -decimals)}
+          decimals={decimals}
+          unit={unit}
+          disabled={!target}
+          ariaLabel={label}
+          onCommit={(value) => {
+            void setParam(paramName, normalizeFor(min, max, value / scale));
+          }}
+        />
       </div>
     );
   };
@@ -617,11 +714,24 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
 
             {/* Controles */}
             <section className="flex flex-wrap gap-2">
-              {renderControl('Volume', 'Ganho', -24, 12, (value) => `${value.toFixed(1)} dB`)}
+              {renderControl('Volume', 'Ganho', -24, 12, 1, 'dB')}
               <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
                 <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Pan</span>
-                <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan" onChange={(event) => { const value = Number(event.target.value); setPan(value); void setVstLayerMix(layerId, { pan: value }); onUpdate({ mix: { volumeDb: 0, muted: false, solo: false, ...(assignment.mix ?? {}), pan: value } }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
-                <span className="text-[10px] font-semibold text-white">{pan === 0 ? 'C' : `${Math.round(pan * 100)}`}</span>
+                <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan slider" onChange={(event) => { const value = Number(event.target.value); setPan(value); void setVstLayerMix(layerId, { pan: value }); onUpdate({ mix: { volumeDb: 0, muted: false, solo: false, ...(assignment.mix ?? {}), pan: value } }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
+                <NumberField
+                  value={Math.round(pan * 100)}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  decimals={0}
+                  ariaLabel="Pan"
+                  onCommit={(value) => {
+                    const next = value / 100;
+                    setPan(next);
+                    void setVstLayerMix(layerId, { pan: next });
+                    onUpdate({ mix: { volumeDb: 0, muted: false, solo: false, ...(assignment.mix ?? {}), pan: next } });
+                  }}
+                />
               </div>
               <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
                 <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Polifonia</span>
@@ -639,14 +749,27 @@ export const SamplerWindow: React.FC<SamplerWindowProps> = ({
                   {info?.voices ?? 0}/{polyphonyValue}
                 </span>
               </div>
-              {renderControl('Ataque', 'Ataque', 0, 2, (value) => `${value.toFixed(2)} s`)}
-              {renderControl('Release', 'Release', 0, 5, (value) => `${value.toFixed(2)} s`)}
+              {renderControl('Ataque', 'Ataque', 0, 2, 2, 's')}
+              {renderControl('Release', 'Release', 0, 5, 2, 's')}
               <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-lg px-2 py-2" style={{ background: '#232325', border: '1px solid #3A3A3C' }}>
                 <span className="text-[9px] uppercase tracking-wide" style={{ color: '#8E8E93' }}>Reverb</span>
-                <input type="range" min={-60} max={0} step={0.5} value={reverbDb} aria-label="Reverb" onChange={(event) => { const value = Number(event.target.value); setReverbDb(value); void setVstSend(layerId, 1, value); onUpdate({ sends: [value, ...(assignment.sends ?? []).slice(1)] }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
-                <span className="text-[10px] font-semibold text-white">{reverbDb <= SEND_OFF_DB ? 'Off' : `${reverbDb.toFixed(1)} dB`}</span>
+                <input type="range" min={-60} max={0} step={0.5} value={reverbDb} aria-label="Reverb slider" onChange={(event) => { const value = Number(event.target.value); setReverbDb(value); void setVstSend(layerId, 1, value); onUpdate({ sends: [value, ...(assignment.sends ?? []).slice(1)] }); }} className="h-1 w-full" style={{ accentColor: '#0A84FF' }} />
+                <NumberField
+                  value={reverbDb}
+                  min={-60}
+                  max={0}
+                  step={0.5}
+                  decimals={1}
+                  unit="dB"
+                  ariaLabel="Reverb"
+                  onCommit={(value) => {
+                    setReverbDb(value);
+                    void setVstSend(layerId, 1, value);
+                    onUpdate({ sends: [value, ...(assignment.sends ?? []).slice(1)] });
+                  }}
+                />
               </div>
-              {renderControl('Sustain', 'Sustain', 0, 1, (value) => `${Math.round(value * 100)}%`)}
+              {renderControl('Sustain', 'Sustain', 0, 1, 0, '%', 100)}
             </section>
 
             {/* Licença */}

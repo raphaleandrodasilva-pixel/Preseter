@@ -104,13 +104,17 @@ describe('SamplerWindow', () => {
 
   it('salva pan e reverb na atribuição do patch', async () => {
     const { onUpdate } = renderWindow();
-    fireEvent.change(await screen.findByLabelText('Pan'), { target: { value: '0.5' } });
+    const pan = await screen.findByLabelText('Pan');
+    fireEvent.change(pan, { target: { value: '50' } });
+    fireEvent.blur(pan);
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ mix: expect.objectContaining({ pan: 0.5 }) })
       )
     );
-    fireEvent.change(screen.getByLabelText('Reverb'), { target: { value: '-12' } });
+    const reverb = screen.getByLabelText('Reverb');
+    fireEvent.change(reverb, { target: { value: '-12' } });
+    fireEvent.blur(reverb);
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ sends: expect.arrayContaining([-12]) })

@@ -6,7 +6,6 @@ import { suggestPatchIcon } from '@shared/patch-icons';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
-import { TemplatePicker } from './concert/TemplatePicker';
 import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
@@ -20,11 +19,6 @@ const AppContent: React.FC = () => {
     concertError,
     concertRevision,
     concertLoaded,
-    concertTemplates,
-    templatePickerOpen,
-    chooseTemplate,
-    cancelTemplatePicker,
-    openConcertFile,
     savePreset,
     loadPreset,
     createPreset,
@@ -272,19 +266,6 @@ const AppContent: React.FC = () => {
           onError={(message) => setError(message || null)}
         />
       </div>
-      {templatePickerOpen && (
-        <TemplatePicker
-          templates={concertTemplates}
-          externalMidiEnabled={preferences?.externalMidiEnabled ?? false}
-          onEnableExternalMidi={async () => {
-            const next = await updatePreferences({ externalMidiEnabled: true });
-            return next?.externalMidiEnabled === true;
-          }}
-          onPick={(templateId) => void chooseTemplate(templateId)}
-          onOpenFile={() => void openConcertFile()}
-          onCancel={cancelTemplatePicker}
-        />
-      )}
       <AppLoadingOverlay />
     </div>
   );

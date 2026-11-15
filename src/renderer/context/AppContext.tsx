@@ -654,9 +654,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (error) {
           console.warn('[Preseter] Não foi possível listar os templates:', error);
         }
-        // O app não cria mais um timbre/patch sozinho: entra pela página de
-        // templates, onde também é possível abrir um .preseter existente.
-        setTemplatePickerOpen(true);
+        // O app abre direto no concert atual (ou vazio). Os templates ficam em
+        // Configurações → Templates.
         concertReady.current = true;
         window.electronAPI.startupProgress(95, 'Finalizando…');
         // Áudio não bloqueia o boot: a interface abre e o estado chega depois.
@@ -1170,9 +1169,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setConcertError(null);
       try {
         if (action.action === 'new') {
-          const templates = await window.electronAPI.concertTemplates();
-          setConcertTemplates(templates);
-          setTemplatePickerOpen(true);
+          const state = await window.electronAPI.concertNew('vazio');
+          await openConcertState(state);
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
           if (state) await openConcertState(state);
