@@ -1,6 +1,6 @@
 {
   "name": "preseter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
   "main": "dist/main/index.js",
   "scripts": {
@@ -133,7 +133,10 @@
       ]
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "AudioVideo",
       "synopsis": "Live performance host para VST3, LV2 e MIDI",
       "description": "Preseter organiza patches, timbres e controles para performance ao vivo, com VST3/LV2, MIDI externo e áudio de baixa latência.",
@@ -211,7 +214,10 @@
     },
     "deb": {
       "maintainer": "Preseter Team <raphaleandrodasilva@gmail.com>",
-      "recommends": ["libjack-jackd2-0", "pipewire-jack"]
+      "recommends": [
+        "libjack-jackd2-0",
+        "pipewire-jack"
+      ]
     },
     "nsis": {
       "oneClick": false,
