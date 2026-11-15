@@ -13,7 +13,11 @@ nativo `preseter.organ` (o mesmo DSP usado pelo plugin setBfree).
   O Preseter é distribuído sob AGPL-3.0-or-later, que é compatível com
   GPL-2.0-or-later para este uso.
 
-## Arquivos copiados (sem alterações de código)
+## Arquivos copiados
+
+A única alteração de código é uma linha em `src/pgmParser.c` (inclusão de
+`<unistd.h>` fora do Windows, para declarar `unlink()` em compiladores C
+recentes). O DSP não foi alterado.
 
 De `src/`:
 

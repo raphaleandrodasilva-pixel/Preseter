@@ -99,10 +99,15 @@ target_compile_definitions(PreseterEngine PRIVATE _USE_MATH_DEFINES NOMINMAX)
 if(WIN32)
     set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
         INCLUDE_DIRECTORIES "${PRESETER_SETBFREE_DIR}/compat")
-    if(MSVC)
-        set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
-            COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
-    endif()
+endif()
+
+if(MSVC)
+    set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+        COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(PreseterEngine PRIVATE m)
 endif()
 
 target_compile_definitions(PreseterEngine PRIVATE
@@ -173,10 +178,15 @@ if(PRESETER_BUILD_SETBFREE_NULLITY)
     if(WIN32)
         set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
             INCLUDE_DIRECTORIES "${PRESETER_SETBFREE_DIR}/compat")
-        if(MSVC)
-            set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
-                COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
-        endif()
+    endif()
+
+    if(MSVC)
+        set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+            COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
+    endif()
+
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(PreseterSetBfreeNullity PRIVATE m)
     endif()
 endif()
 

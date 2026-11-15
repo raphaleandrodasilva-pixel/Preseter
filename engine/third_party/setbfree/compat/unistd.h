@@ -6,6 +6,8 @@
 #include <io.h>
 #include <process.h>
 #include <direct.h>
+#else
+#include_next <unistd.h>
 #endif
 
 #endif
