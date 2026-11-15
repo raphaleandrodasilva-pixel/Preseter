@@ -814,8 +814,9 @@ export class VstManager extends EventEmitter {
       isLoaded: loaded,
       isInstrument: plugin.isInstrument,
       parameters,
-      // Plugins empacotados com o app não vêm do sistema: mostram como nativos.
-      manufacturer: bundled ? 'Preseter' : plugin.manufacturer,
+      // Plugins empacotados com o app aparecem com o formato Native, mas mantêm
+      // o nome e o fabricante originais (créditos ao autor do calfnXT).
+      manufacturer: plugin.manufacturer,
       version: plugin.version,
       category: plugin.category,
       format: bundled ? 'Native' : plugin.format,

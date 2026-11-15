@@ -1,0 +1,32 @@
+{
+  "Name": "calfNXTBender",
+  "Version": "2.17.0",
+  "Factory Info": {
+    "Vendor": "calfNXT",
+    "URL": "https://calfnxt.org",
+    "E-Mail": "mailto:schmidt@boomshop.net",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "42454E444552303143414C464E585431",
+      "Category": "Audio Module Class",
+      "Name": "calfNXT Bender",
+      "Vendor": "calfNXT",
+      "Version": "2.17.0",
+      "SDKVersion": "VST 3.8.1",
+      "Sub Categories": [
+        "Fx",
+        "Pitch Shift",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}

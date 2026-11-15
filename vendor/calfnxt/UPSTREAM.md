@@ -12,21 +12,37 @@
 `plugins/` contém os bundles VST3 já compilados a partir do fork do Preseter
 (`calfNXT-win`), **com as UIs originais** (React/AUX) embutidas em `Contents/Resources`.
 
-Bundles incluídos (arquivo e nome exibido com a marca Preseter):
+Bundles incluídos (**nome e fabricante originais**: `calfNXT …`):
 
-- `PreseterEqualizer.vst3` — Preseter Equalizer
-- `PreseterCompressor.vst3` — Preseter Compressor
-- `PreseterDelay.vst3` — Preseter Delay
-- `PreseterReverb.vst3` — Preseter Reverb
-- `PreseterLimiter.vst3` — Preseter Limiter
-- `PreseterDeesser.vst3` — Preseter DeEsser
-- `PreseterFilter.vst3` — Preseter Filter
-- `PreseterHarmonics.vst3` — Preseter Harmonics
-- `PreseterChorus.vst3` — Preseter Chorus
-- `PreseterPhaser.vst3` — Preseter Phaser
-- `PreseterFlanger.vst3` — Preseter Flanger
-- `PreseterCrusher.vst3` — Preseter Crusher
-- `PreseterTransients.vst3` — Preseter Transients
+- `calfNXTEqualizer.vst3` — calfNXT Equalizer
+- `calfNXTCompressor.vst3` — calfNXT Compressor
+- `calfNXTDelay.vst3` — calfNXT Delay
+- `calfNXTReverb.vst3` — calfNXT Reverb
+- `calfNXTLimiter.vst3` — calfNXT Limiter
+- `calfNXTDeesser.vst3` — calfNXT DeEsser
+- `calfNXTFilter.vst3` — calfNXT Filter
+- `calfNXTHarmonics.vst3` — calfNXT Harmonics
+- `calfNXTChorus.vst3` — calfNXT Chorus
+- `calfNXTPhaser.vst3` — calfNXT Phaser
+- `calfNXTFlanger.vst3` — calfNXT Flanger
+- `calfNXTCrusher.vst3` — calfNXT Crusher
+- `calfNXTTransients.vst3` — calfNXT Transients
+- `calfNXTExpander.vst3` — calfNXT Expander
+- `calfNXTMbcomp.vst3` — calfNXT Multiband Compressor
+- `calfNXTMblimiter.vst3` — calfNXT Multiband Limiter
+- `calfNXTDenoiser.vst3` — calfNXT Denoiser
+- `calfNXTTamer.vst3` — calfNXT Tamer
+- `calfNXTImpulse.vst3` — calfNXT Impulse
+- `calfNXTPulsator.vst3` — calfNXT Pulsator
+- `calfNXTRingmodulator.vst3` — calfNXT Ringmodulator
+- `calfNXTOctaver.vst3` — calfNXT Octaver
+- `calfNXTBender.vst3` — calfNXT Bender
+- `calfNXTTuner.vst3` — calfNXT Tuner
+- `calfNXTStereo.vst3` — calfNXT Stereo
+- `calfNXTSplit.vst3` — calfNXT Split
+- `calfNXTAligner.vst3` — calfNXT Aligner
+- `calfNXTAnalyzer.vst3` — calfNXT Analyzer
+- `calfNXTElliptic.vst3` — calfNXT Elliptic
 
 ## Modificações aplicadas ao upstream
 
@@ -46,7 +62,10 @@ entrega ao `IPlugView::attached`.
 | `common/ui/ui_file_log_win.h` | **novo**: log em `%LOCALAPPDATA%\Preseter\logs\calfnxt-ui.log` (equivalente ao `/tmp` do Linux) |
 | `ui/scripts/build-plugins.mjs` | usa `node_modules/vite/bin/vite.js` via `process.execPath` (o `npx` sem shell não executa no Windows) |
 | `common/ui/third_party/webview2/` | SDK Microsoft.Web.WebView2 1.0.2903.40 (NuGet) vendorizado, com `LICENSE.txt` |
-| `dsp/*/*.plugin.json`, `dsp/*/CMakeLists.txt`, `ui/src/html/*.html` | marca Preseter: nome exibido `Preseter …` e bundle `Preseter*.vst3` (créditos e copyright mantidos) |
+| `dsp/impulse/source/impulse_dsp.cpp` | `mkdir` POSIX trocado por `_mkdir` no Windows (compila no MSVC) |
+
+Nomes exibidos, fabricante e créditos permanecem os originais do upstream (`calfNXT`);
+os bundles também mantêm `calfNXT*.vst3`.
 
 O ambiente WebView2 é criado uma vez por módulo de plugin e reaproveitado entre aberturas
 do editor (criar um ambiente novo logo após fechar o anterior pode falhar com
@@ -96,6 +115,10 @@ Requisitos: Visual Studio 2022 (C++ x64), CMake ≥ 3.25, Python 3 (codegen), No
 
 ## Pendências / próximos passos
 
-- Habilitar os outros 25 efeitos (mesma receita; cada um é uma rodada de validação).
-- Testes de estado com a UI (salvar patch → trocar → voltar) e MIDI learn nos 4.
-- Verificar `impulse` (IR por arquivo) e `aligner` (8 canais) quando chegarem.
+- Todos os 29 bundles compilam e carregam no Windows (insert/parâmetros/estado/editor) —
+  smoke test no engine: 29/29 com `page ready`, sem falhas.
+- Pendente: gerar os bundles para **Linux** (VST3 `.so` + helper GTK/WebKit) e empacotá-los
+  no `extraResources` do Linux.
+- Pendente: testar `impulse` (diálogo de IR), `aligner` (8 canais no insert estéreo) e
+  `tuner`/`analyzer` (visual) no fluxo real do app.
+- Pendente: estado com a UI (salvar patch → trocar → voltar) e MIDI learn nos 29.
