@@ -2247,8 +2247,11 @@ juce::AudioProcessor* Engine::getProcessor (const juce::String& requestedLayerId
 
 int Engine::findBus (const juce::String& busId) const
 {
+    // Compatibilidade: versões antigas da interface chamavam o Master do Patch
+    // de "master"; o barramento existe como "patch".
+    const auto wanted = busId == "master" ? juce::String ("patch") : busId;
     for (size_t i = 0; i < buses.size(); ++i)
-        if (buses[i].id == busId)
+        if (buses[i].id == wanted)
             return (int) i;
     return -1;
 }juce::String Engine::outputBusId (int output) const
@@ -2461,7 +2464,9 @@ void Engine::loadSampler (const juce::String& filePath, const juce::String& requ
     const juce::File file (filePath);
     auto processor = std::make_unique<SamplerProcessor>();
     juce::String error;
-    if (! processor->loadFile (file, bank, program, error))
+    // Sampler vazio: o layer e criado sem sample; o arquivo pode ser carregado
+    // depois por samplerReload (a interface cria o layer "+ Sampler" assim).
+    if (filePath.isNotEmpty() && ! processor->loadFile (file, bank, program, error))
     {
         done ({}, error.isNotEmpty() ? error : juce::String (utf8 ("Não foi possível carregar o sample.")));
         return;

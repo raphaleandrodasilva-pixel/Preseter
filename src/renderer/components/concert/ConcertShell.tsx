@@ -1112,6 +1112,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       maxNote: 127,
       patchSendDb: 0,
     };
+    // O layer precisa existir no engine mesmo sem sample: inserts e o próprio
+    // samplerReload dependem dele.
+    const loaded = await loadVstPlugin('preseter.sampler', layerId, 0, 127, false, {
+      samplePath: '',
+      loop: true,
+      polyphony: 64,
+    });
+    if (!loaded) {
+      onError('Não foi possível criar o layer de sampler.');
+      return false;
+    }
     onDraftChange({
       ...base,
       plugins: [...(base.plugins ?? []), assignment],
@@ -1790,8 +1801,60 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     onDraftChange(next);
   };
 
+  /**
+   * Garante que o layer existe no engine antes de carregar um insert.
+   * O strip pode existir só na interface (patch novo ainda não carregado) —
+   * nesse caso o engine responderia "Channel strip não encontrado".
+   */
+  const ensureLayerLoadedForInsert = async (layerId: string): Promise<boolean> => {
+    if (loadedPlugins.some((item) => item.layerId === layerId)) return true;
+
+    const base = draft ?? currentPreset;
+    const assignment = base?.plugins?.find(
+      (item, index) => (item.layerId ?? `${base.id}:layer:${index}`) === layerId
+    );
+    if (!assignment) {
+      onError('Crie um patch com um instrumento carregado antes de adicionar efeitos neste strip.');
+      return false;
+    }
+
+    if (assignment.path === 'preseter.sampler') {
+      const loaded = await loadVstPlugin(
+        'preseter.sampler',
+        layerId,
+        assignment.minNote ?? 0,
+        assignment.maxNote ?? 127,
+        false,
+        {
+          // Vazio é válido: cria o layer de sampler silencioso no engine.
+          samplePath: assignment.samplePath ?? '',
+          loop: assignment.sampler?.loop ?? true,
+          polyphony: assignment.sampler?.polyphony ?? 64,
+        }
+      );
+      if (!loaded) {
+        onError('Não foi possível carregar o sampler deste layer antes de adicionar o efeito.');
+        return false;
+      }
+      return true;
+    }
+
+    const loaded = await loadVstPlugin(
+      assignment.path,
+      layerId,
+      assignment.minNote ?? 0,
+      assignment.maxNote ?? 127
+    );
+    if (!loaded) {
+      onError(`Não foi possível carregar "${assignment.name}" antes de adicionar o efeito.`);
+      return false;
+    }
+    return true;
+  };
+
   const addInsert = async (layerId: string, slot: number, plugin: VstPluginInfo) => {
     if (!draft) return false;
+    if (!await ensureLayerLoadedForInsert(layerId)) return false;
     try {
       await window.electronAPI.vstInsertSet(layerId, slot, plugin.path, false);
     } catch (cause) {

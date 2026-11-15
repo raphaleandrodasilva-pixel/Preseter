@@ -168,7 +168,7 @@ class MainWindow {
   };
 
   constructor() {
-    this.vstManager = new VstManager();
+    this.vstManager = new VstManager(undefined, bundledPluginFolders()[0] ?? null);
     this.vstPresetLibrary = new VstPresetLibrary(app.getPath('userData'), app.getPath('documents'));
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();

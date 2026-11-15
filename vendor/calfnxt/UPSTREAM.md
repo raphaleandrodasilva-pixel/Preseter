@@ -12,12 +12,21 @@
 `plugins/` contém os bundles VST3 já compilados a partir do fork do Preseter
 (`calfNXT-win`), **com as UIs originais** (React/AUX) embutidas em `Contents/Resources`.
 
-Bundles incluídos nesta fase (Rodada 1):
+Bundles incluídos (arquivo e nome exibido com a marca Preseter):
 
-- `calfNXTEqualizer.vst3` — Preseter EQ
-- `calfNXTCompressor.vst3` — Preseter Comp
-- `calfNXTDelay.vst3` — Preseter Delay
-- `calfNXTReverb.vst3` — Preseter Reverb
+- `PreseterEqualizer.vst3` — Preseter Equalizer
+- `PreseterCompressor.vst3` — Preseter Compressor
+- `PreseterDelay.vst3` — Preseter Delay
+- `PreseterReverb.vst3` — Preseter Reverb
+- `PreseterLimiter.vst3` — Preseter Limiter
+- `PreseterDeesser.vst3` — Preseter DeEsser
+- `PreseterFilter.vst3` — Preseter Filter
+- `PreseterHarmonics.vst3` — Preseter Harmonics
+- `PreseterChorus.vst3` — Preseter Chorus
+- `PreseterPhaser.vst3` — Preseter Phaser
+- `PreseterFlanger.vst3` — Preseter Flanger
+- `PreseterCrusher.vst3` — Preseter Crusher
+- `PreseterTransients.vst3` — Preseter Transients
 
 ## Modificações aplicadas ao upstream
 
@@ -37,6 +46,12 @@ entrega ao `IPlugView::attached`.
 | `common/ui/ui_file_log_win.h` | **novo**: log em `%LOCALAPPDATA%\Preseter\logs\calfnxt-ui.log` (equivalente ao `/tmp` do Linux) |
 | `ui/scripts/build-plugins.mjs` | usa `node_modules/vite/bin/vite.js` via `process.execPath` (o `npx` sem shell não executa no Windows) |
 | `common/ui/third_party/webview2/` | SDK Microsoft.Web.WebView2 1.0.2903.40 (NuGet) vendorizado, com `LICENSE.txt` |
+| `dsp/*/*.plugin.json`, `dsp/*/CMakeLists.txt`, `ui/src/html/*.html` | marca Preseter: nome exibido `Preseter …` e bundle `Preseter*.vst3` (créditos e copyright mantidos) |
+
+O ambiente WebView2 é criado uma vez por módulo de plugin e reaproveitado entre aberturas
+do editor (criar um ambiente novo logo após fechar o anterior pode falhar com
+`CO_E_SERVER_EXEC_FAILURE` enquanto os processos do Edge encerram). Há também até 3
+tentativas ao criar o controller.
 
 Detalhes do host Windows:
 

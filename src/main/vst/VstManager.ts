@@ -42,7 +42,11 @@ export class VstManager extends EventEmitter {
     scannedAt: 0,
   };
 
-  constructor(engine: EngineProcess = new EngineProcess()) {
+  constructor(
+    engine: EngineProcess = new EngineProcess(),
+    /** Pasta dos plugins empacotados com o app (aparecem como nativos do Preseter). */
+    private readonly bundledFolder: string | null = null
+  ) {
     super();
     this.engine = engine;
     this.engine.on('crashed', (error: Error) => {
@@ -786,6 +790,7 @@ export class VstManager extends EventEmitter {
     engineParameters: EngineParameter[] = []
   ): VstPluginInfo {
     const loaded = 'layerId' in plugin;
+    const bundled = this.isBundledPlugin(plugin.path);
     const parameters: VstParameter[] = engineParameters.map((parameter) => ({
       id: String(parameter.index),
       name: parameter.name,
@@ -809,14 +814,22 @@ export class VstManager extends EventEmitter {
       isLoaded: loaded,
       isInstrument: plugin.isInstrument,
       parameters,
-      manufacturer: plugin.manufacturer,
+      // Plugins empacotados com o app não vêm do sistema: mostram como nativos.
+      manufacturer: bundled ? 'Preseter' : plugin.manufacturer,
       version: plugin.version,
       category: plugin.category,
-      format: plugin.format,
+      format: bundled ? 'Native' : plugin.format,
       arch: this.detectArch(plugin.path),
       program: 'program' in plugin ? plugin.program : undefined,
       programCount: 'programCount' in plugin ? plugin.programCount : undefined,
     };
+  }
+
+  /** true quando o plugin foi instalado junto com o app (vendor/resources). */
+  private isBundledPlugin(filePath: string): boolean {
+    if (!this.bundledFolder || !filePath) return false;
+    const normalize = (value: string) => value.replace(/[\\/]+$/, '').toLowerCase();
+    return normalize(filePath).startsWith(normalize(this.bundledFolder));
   }
 
   private detectArch(filePath: string): 'x64' | 'x86' | 'unknown' {

@@ -80,8 +80,11 @@ do calfnXT é incorporado ao código-fonte do Preseter; os binários mantêm sua
 GPL-3.0 e o código-fonte correspondente (fork com build Windows DSP-only) é publicado
 com as modificações descritas no `UPSTREAM.md`.
 
-Plugins incluídos nesta fase: Equalizer, Compressor, Delay e Reverb, já com as UIs
-originais (React/AUX) embutidas em `Contents/Resources`. No Windows o editor roda em
-WebView2 dentro do processo do engine; no Linux, no helper GTK/WebKit do próprio calfnXT.
+Plugins incluídos nesta fase (marca Preseter): Preseter Equalizer, Preseter Compressor,
+Preseter Delay, Preseter Reverb, Preseter Limiter, Preseter DeEsser, Preseter Filter,
+Preseter Harmonics, Preseter Chorus, Preseter Phaser, Preseter Flanger, Preseter Crusher e
+Preseter Transients, já com as UIs originais (React/AUX) embutidas em `Contents/Resources`.
+No Windows o editor roda em WebView2 dentro do processo do engine; no Linux, no helper
+GTK/WebKit do próprio calfnXT.
 O SDK do WebView2 vendorizado no fork tem licença própria (Microsoft), em
 `common/ui/third_party/webview2/LICENSE.txt`.
