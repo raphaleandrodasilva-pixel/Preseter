@@ -209,7 +209,7 @@ outros) quando existirem, com o setBfree LV2 como alternativa.
 | Instrumento | Parâmetros v1 |
 |---|---|
 | Preseter Organ | 9 drawbars, percussão (4 chaves), vibrato/chorus (tipo + liga), overdrive, Leslie (parado/lento/rápido), reverb, volume |
-| Preseter Tines | velocity, brilho do martelo, posição do captador, tremolo (taxa/profundidade), tom, volume |
+| Preseter Tines | MDA ePiano: Decay, Release, Hardness, Treble Boost, Modulation, LFO Rate, Velocity Sensitivity, Stereo Width, Polyphony, Fine Tuning, Random Tuning, Overdrive, Gain, Volume |
 | Preseter Reeds | velocity, bark, tremolo (taxa/profundidade), tom, volume (ou o plugin OpenWurli externo) |
 
 ---
@@ -316,14 +316,21 @@ DSP original do setBfree.
   O timbre é o do setBfree; só o nível é compensado para o knob não pular
   ~20 dB entre “clean” e overdrive.
 
-### Preseter Tines / Reeds (2026-11-15)
+### Preseter Tines — MDA ePiano (2026-11-15)
 
-- `Preseter Tines` e `Preseter Reeds` continuam sendo modelos próprios (o porte
-  do MDA ePiano está bloqueado pela licença dos samples — ver
-  `docs/PLUGIN-RHODES.md` §9).
-- Tremolo com modo **Tremolo** (amplitude) e **Auto-pan** (estéreo), taxa
-  0–10 Hz e profundidade 0–100%, com suavização para não estalar.
-- **CC1 (modulação)** controla a profundidade do tremolo dos dois instrumentos:
-  0 desliga; 127 usa a profundidade do knob (ou 50% se o knob estiver em 0).
-- Novos parâmetros: `Tremolo: auto-pan` (0/1) em Tines e Reeds. O preset
-  Suitcase do Tines usa auto-pan.
+- O `Preseter Tines` agora usa o **DSP e os samples do MDA ePiano** (porte JUCE
+  MIT de M.I. Hollemans, commit `5527024…`), em
+  `engine/third_party/mda-epiano/`. Ver `docs/testes/tines-nulidade.md`.
+- Parâmetros: Envelope Decay, Envelope Release, Hardness, Treble Boost,
+  Modulation, LFO Rate, Velocity Sensitivity, Stereo Width, Polyphony, Fine
+  Tuning, Random Tuning, Overdrive, Gain e Volume.
+- **CC1 (modulação)** controla a profundidade do tremolo/auto-pan, como no MDA.
+  **CC7** controla o volume e **CC64/66** o sustain.
+- Presets: Suitcase (auto-pan), Stage (sem modulação), Mellow e Bark.
+- A janela do Tines tem campos numéricos para digitar qualquer valor, além dos
+  knobs.
+
+### Preseter Reeds (Wurlitzer)
+
+- Continua sendo o modelo próprio de palhetas, com tremolo e CC1.
+- O MDA não tem Wurlitzer; nenhum código/sample do MDA é usado no Reeds.

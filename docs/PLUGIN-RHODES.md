@@ -208,35 +208,38 @@ Leitura de apoio (citada no README do `jstolberg/rhodes`, **não lida por mim**)
 
 ## 9. Estado da implementação (2026-11-15)
 
-### Licenças (R0.1) — portão ainda fechado para o MDA
+### R1 aplicado — MDA ePiano
 
-O porte do MDA ePiano (R1) **não foi feito**. A licença dos **dados de samples**
-(`epianodata` ou equivalente) não está confirmada; conforme o §2, nada de código
-ou samples do MDA foi copiado para o repositório. Para liberar o R1, é preciso
-confirmar por escrito a licença dos samples.
+O `Preseter Tines` agora usa o **DSP e os samples do MDA ePiano**.
 
-### Aplicado no Preseter Tines atual (modelo próprio, sem código do MDA)
+- Base: porte JUCE MIT de `hollance/mda-plugins-juce` (`EPiano/Source`),
+  commit `552702479a9eac534f3abbf6e878a5eab473e0cb` (2026-02-25).
+- Código original: mda ePiano, Copyright (c) 2008 Paul Kellett (MIT ou
+  GPL-2.0-or-later; escolhemos MIT).
+- Samples: `mdaEPianoData.h` (15 keygroups, 3 níveis de velocity), parte da
+  distribuição MIT do porte, com atribuição.
+- DSP do Preseter: `engine/third_party/mda-epiano/MdaEPianoDsp.cpp` — sem VST2,
+  sem APVTS e sem UI, chamado pelo `NativeProcessor`.
+- Teste de nulidade contra o processador original do porte: RMS da diferença
+  **−95,11 dBFS** (critério < −90). Ver `docs/testes/tines-nulidade.md`.
 
-- **R2.2 Tremolo / Auto-pan**
-  - Modo `Tremolo: auto-pan` (0 = tremolo em amplitude, 1 = auto-pan estéreo).
-  - Taxa 0–10 Hz e profundidade 0–100%.
-  - LFO contínuo entre blocos e profundidade suavizada (30 ms) para não estalar.
-  - Presets: **Suitcase** usa auto-pan; **Stage**, **Mellow** e **Bark** usam tremolo.
-- **CC1 / modulação**
-  - Controla a profundidade do tremolo do Tines (e também do Reeds).
-  - CC1 = 0 desliga; CC1 = 127 usa a profundidade do knob (se o knob estiver em
-    0, usa 50% para o CC1 ainda conseguir ativar).
-  - Sem CC1 recebido, o tremolo segue o knob da janela.
-- **UI da janela**
-  - Botões `Tremolo` / `Auto-pan`, knobs de `Taxa` e `Profundidade`.
-  - Aviso de que o CC1 controla a profundidade.
+### Parâmetros e CC1
+
+- 12 parâmetros do MDA + Gain/Volume: Envelope Decay, Envelope Release,
+  Hardness, Treble Boost, Modulation, LFO Rate, Velocity Sensitivity,
+  Stereo Width, Polyphony, Fine Tuning, Random Tuning, Overdrive.
+- **CC1 (modulação)** controla a profundidade do tremolo/auto-pan, como no MDA,
+  e o valor **persiste** entre blocos (o porte original esquecia o CC1 no bloco
+  seguinte).
+- **CC7** controla o volume; **CC64/66** controlam o sustain.
+- Presets: **Suitcase** (auto-pan), **Stage** (sem modulação), **Mellow**,
+  **Bark** (brilho + overdrive).
 
 ### Ainda pendente
 
-- R1 porte do MDA (bloqueado pela licença dos samples).
-- R2.1 bark/captador com oversampling.
-- R2.3 pré-amp e filtros de tom.
+- R2.1 bark/captador com oversampling (o MDA já tem overdrive simples).
+- R2.3 pré-amp e filtros de tom adicionais.
 - R2.4 ruído de tecla (key-off).
-- R2.5 variação determinística por nota.
-- R3.1 preset “Clássico (MDA)”.
+- R2.5 variação determinística por nota (o MDA já tem Random Tuning).
+- R3.1 preset “Clássico (MDA)”: hoje o preset Stage é o mais próximo.
 - R4 calibração por gravações de referência; R5 samples melhores; R6 testes de CPU/aliasing.

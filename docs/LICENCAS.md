@@ -29,3 +29,17 @@ Autores originais do setBfree (cabeçalhos preservados):
 - Ken Restivo
 - demais contribuidores listados em `engine/third_party/setbfree/COPYING`
   e nos cabeçalhos de cada arquivo.
+
+## MDA ePiano — motor do Preseter Tines
+
+O instrumento nativo **Preseter Tines** usa o DSP e os samples do mda ePiano.
+
+- Código original: **mda ePiano**, Copyright (c) 2008 Paul Kellett.
+- Porte JUCE: https://github.com/hollance/mda-plugins-juce
+- Commit fixado: `552702479a9eac534f3abbf6e878a5eab473e0cb` (2026-02-25)
+- Licença: MIT (`engine/third_party/mda-epiano/LICENSE`).
+- Arquivos, samples e adaptações: `engine/third_party/mda-epiano/UPSTREAM.md`.
+- O mda ePiano original pode ser licenciado como MIT ou GPL-2.0-or-later;
+  escolhemos MIT, compatível com a AGPL-3.0-or-later do Preseter.
+- Os samples (`mdaEPianoData.h`) fazem parte da distribuição do porte MIT e são
+  usados com atribuição a Paul Kellett e M.I. Hollemans.

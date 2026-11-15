@@ -36,12 +36,18 @@ async function testKind(kind) {
   console.log(`\n${kind}: ${loaded.parameterCount} params, ${loaded.programCount} programas`);
   console.log(params.map((p) => `${p.index}:${p.name}`).join(' | '));
 
-  const mode = params.find((p) => p.name === 'Tremolo: auto-pan');
-  if (!mode) throw new Error(`${kind}: parametro de auto-pan nao encontrado`);
-
-  await request('setProgram', { layerId, index: 0 });
-  const after = await request('getParam', { layerId, index: mode.index });
-  console.log(`programa 0 -> auto-pan = ${after.value} (${after.text})`);
+  const mode = params.find((p) => p.name === 'Modulation');
+  if (mode) {
+    await request('setProgram', { layerId, index: 0 });
+    const after = await request('getParam', { layerId, index: mode.index });
+    console.log(`programa 0 -> modulation = ${after.value} (${after.text})`);
+  } else {
+    const depth = params.find((p) => p.name === 'Profundidade do tremolo');
+    if (!depth) throw new Error(`${kind}: parametro de tremolo nao encontrado`);
+    await request('setProgram', { layerId, index: 0 });
+    const after = await request('getParam', { layerId, index: depth.index });
+    console.log(`programa 0 -> tremolo depth = ${after.value} (${after.text})`);
+  }
 
   await request('unload', { layerId });
 }

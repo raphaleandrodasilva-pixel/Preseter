@@ -83,12 +83,14 @@ target_sources(PreseterEngine PRIVATE
     src/CommandRouter.cpp
     src/native/NativeProcessor.cpp
     src/native/SetBfreeOrganProcessor.cpp
+    third_party/mda-epiano/MdaEPianoDsp.cpp
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
     ${PRESETER_SETBFREE_SOURCES})
 
 target_include_directories(PreseterEngine PRIVATE
     src
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-epiano"
     "${PRESETER_SETBFREE_DIR}/src"
     "${PRESETER_SETBFREE_DIR}/b_whirl"
     "${PRESETER_SETBFREE_DIR}/b_overdrive"
@@ -162,6 +164,47 @@ endif()
 option(PRESETER_BUILD_TEST_PLUGIN "Compila um sintetizador VST3 de teste (para validar o motor)" OFF)
 if(PRESETER_BUILD_TEST_PLUGIN)
     add_subdirectory(test-plugin)
+endif()
+
+option(PRESETER_BUILD_TINES_NULLITY "Compila o teste de nulidade do Tines (MDA ePiano)" OFF)
+if(PRESETER_BUILD_TINES_NULLITY)
+    juce_add_console_app(PreseterTinesNullity
+        PRODUCT_NAME "preseter-tines-nullity"
+        COMPANY_NAME "Preseter")
+    juce_generate_juce_header(PreseterTinesNullity)
+
+    target_sources(PreseterTinesNullity PRIVATE
+        test/mda-epiano-nullity/main.cpp
+        third_party/mda-epiano/MdaEPianoDsp.cpp
+        third_party/mda-epiano/MDAEPianoProcessor.cpp)
+
+    target_include_directories(PreseterTinesNullity PRIVATE
+        src/native
+        test/mda-epiano-nullity
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-epiano")
+
+    target_compile_definitions(PreseterTinesNullity PRIVATE
+        JucePlugin_Name="MDAEPiano"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_MODAL_LOOPS_PERMITTED=0
+        _USE_MATH_DEFINES
+        NOMINMAX)
+
+    if(MSVC)
+        target_compile_options(PreseterTinesNullity PRIVATE /utf-8)
+    endif()
+
+    target_link_libraries(PreseterTinesNullity
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_audio_processors
+            juce::juce_audio_basics
+            juce::juce_gui_basics
+            juce::juce_gui_extra
+            juce::juce_events
+            juce::juce_core
+            juce::juce_data_structures)
 endif()
 
 option(PRESETER_BUILD_SETBFREE_NULLITY "Compila o teste de nulidade do órgão setBfree" OFF)

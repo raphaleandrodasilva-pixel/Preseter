@@ -77,15 +77,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
     }
     else if (kind == NativeKind::tines)
     {
+        // MDA ePiano (base MIT de Paul Kellett / M.I. Hollemans).
         add ("tines_gain", "Gain", 0.0f, 1.0f, 0.01f, 0.8f);
         add ("tines_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
-        add ("tines_tone", "Tom", 0.0f, 1.0f, 0.01f, 0.5f);
-        add ("tines_bell", "Sino (tonebar)", 0.0f, 1.0f, 0.01f, 0.4f);
-        add ("tines_bark", "Bark do captador", 0.0f, 1.0f, 0.01f, 0.4f);
-        add ("tines_trem_rate", "Tremolo (Hz)", 0.0f, 10.0f, 0.1f, 4.5f);
-        add ("tines_trem_depth", "Profundidade do tremolo", 0.0f, 1.0f, 0.01f, 0.3f);
-        add ("tines_trem_mode", "Tremolo: auto-pan", 0.0f, 1.0f, 1.0f, 0.0f);
-        add ("tines_velocity", "Sensibilidade a velocity", 0.0f, 1.0f, 0.01f, 0.8f);
+        add ("tines_decay", "Envelope Decay", 0.0f, 100.0f, 1.0f, 50.0f);
+        add ("tines_release", "Envelope Release", 0.0f, 100.0f, 1.0f, 50.0f);
+        add ("tines_hardness", "Hardness", -50.0f, 50.0f, 0.1f, 0.0f);
+        add ("tines_treble", "Treble Boost", -50.0f, 50.0f, 1.0f, 0.0f);
+        add ("tines_modulation", "Modulation", 0.0f, 1.0f, 0.01f, 0.5f);
+        add ("tines_lfo_rate", "LFO Rate", 0.0f, 1.0f, 0.01f, 0.65f);
+        add ("tines_velocity", "Velocity Sensitivity", 0.0f, 100.0f, 1.0f, 25.0f);
+        add ("tines_stereo", "Stereo Width", 0.0f, 200.0f, 1.0f, 100.0f);
+        add ("tines_polyphony", "Polyphony", 1.0f, 32.0f, 1.0f, 16.0f);
+        add ("tines_fine", "Fine Tuning", -50.0f, 50.0f, 0.1f, 0.0f);
+        add ("tines_random", "Random Tuning", 0.0f, 1.0f, 0.01f, 0.0f);
+        add ("tines_overdrive", "Overdrive", 0.0f, 100.0f, 0.1f, 0.0f);
     }
     else
     {
@@ -112,6 +118,8 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
 {
     if (kind == NativeKind::organ)
         setBfree = std::make_unique<SetBfreeOrgan>();
+    else if (kind == NativeKind::tines)
+        mdaEPiano = std::make_unique<MdaEPianoDsp>();
 
     applyProgram (0);
 }
@@ -119,6 +127,14 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
 void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
+
+    if (kind == NativeKind::tines)
+    {
+        if (mdaEPiano != nullptr)
+            mdaEPiano->prepare (sampleRate);
+        lastTinesModulation = -1.0f;
+        return;
+    }
 
     if (kind == NativeKind::organ)
     {
@@ -225,6 +241,43 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 {
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
+
+    if (kind == NativeKind::tines)
+    {
+        if (mdaEPiano == nullptr)
+        {
+            midi.clear();
+            return;
+        }
+
+        MdaEPianoParameters mda;
+        mda.decay = parameter ("tines_decay");
+        mda.release = parameter ("tines_release");
+        mda.hardness = parameter ("tines_hardness");
+        mda.treble = parameter ("tines_treble");
+        mda.modulation = parameter ("tines_modulation");
+
+        // Se o controle de Modulation da janela mudou, ele volta a mandar.
+        if (std::abs (mda.modulation - lastTinesModulation) > 1.0e-4f)
+        {
+            lastTinesModulation = mda.modulation;
+            mdaEPiano->clearModWheelOverride();
+        }
+        mda.lfoRate = parameter ("tines_lfo_rate");
+        mda.velocity = parameter ("tines_velocity");
+        mda.stereo = parameter ("tines_stereo");
+        mda.polyphony = parameter ("tines_polyphony");
+        mda.fine = parameter ("tines_fine");
+        mda.random = parameter ("tines_random");
+        mda.overdrive = parameter ("tines_overdrive");
+        mda.volume = parameter ("tines_volume");
+
+        mdaEPiano->setParameters (mda);
+        mdaEPiano->process (buffer, midi);
+
+        buffer.applyGain (parameter ("tines_gain"));
+        return;
+    }
 
     if (kind == NativeKind::organ)
     {
@@ -399,16 +452,16 @@ void NativeProcessor::updateOrganParameters()
 
 void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamples)
 {
-    const bool tines = kind == NativeKind::tines;
-    const float gain = parameter (tines ? "tines_gain" : "reeds_gain");
-    const float volume = parameter (tines ? "tines_volume" : "reeds_volume");
-    const float tone = parameter (tines ? "tines_tone" : "reeds_tone");
-    const float bell = tines ? parameter ("tines_bell") : parameter ("reeds_hammer");
-    const float bark = parameter (tines ? "tines_bark" : "reeds_bark");
-    const float tremRate = parameter (tines ? "tines_trem_rate" : "reeds_trem_rate");
-    const float tremDepth = parameter (tines ? "tines_trem_depth" : "reeds_trem_depth");
-    const float tremMode = parameter (tines ? "tines_trem_mode" : "reeds_trem_mode");
-    const float velocityAmount = parameter (tines ? "tines_velocity" : "reeds_velocity");
+    // Renderização do Preseter Reeds (o Tines usa o MDA ePiano em processBlock).
+    const float gain = parameter ("reeds_gain");
+    const float volume = parameter ("reeds_volume");
+    const float tone = parameter ("reeds_tone");
+    const float bell = parameter ("reeds_hammer");
+    const float bark = parameter ("reeds_bark");
+    const float tremRate = parameter ("reeds_trem_rate");
+    const float tremDepth = parameter ("reeds_trem_depth");
+    const float tremMode = parameter ("reeds_trem_mode");
+    const float velocityAmount = parameter ("reeds_velocity");
 
     // CC1 (modulação) controla a profundidade do tremolo. Se o controle da
     // janela estiver em zero, o CC1 ainda consegue ativar até 50%.
@@ -424,10 +477,10 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
     }
 
     const float depthSmoothing = 1.0f - std::exp (-1.0f / (0.03f * (float) sampleRate));
-    const double* ratios = tines ? kTineRatios : kReedRatios;
-    const double* amps = tines ? kTineAmps : kReedAmps;
-    const double* decays = tines ? kTineDecay : kReedDecay;
-    const double releaseCoeff = std::exp (-1.0 / ((tines ? 0.22 : 0.16) * sampleRate));
+    const double* ratios = kReedRatios;
+    const double* amps = kReedAmps;
+    const double* decays = kReedDecay;
+    const double releaseCoeff = std::exp (-1.0 / (0.16 * sampleRate));
     const double tremIncrement = kTwoPi * juce::jlimit (0.0f, 10.0f, tremRate) / sampleRate;
     const float toneCoeff = 0.015f + tone * 0.55f;
     const float barkDrive = 1.0f + bark * 8.0f;
@@ -469,7 +522,7 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
             double value = 0.0;
             for (int mode = 0; mode < 4; ++mode)
             {
-                const double amp = amps[mode] * (mode == 0 ? 1.0 : (tines ? 0.65 + bell * 0.55 : 0.8));
+                const double amp = amps[mode] * (mode == 0 ? 1.0 : 0.8);
                 value += amp * voice.modeEnvelope[(size_t) mode] * std::sin (voice.modePhase[(size_t) mode]);
                 voice.modePhase[(size_t) mode] += kTwoPi * voice.frequency * ratios[mode] / sampleRate;
                 if (voice.modePhase[(size_t) mode] > kTwoPi) voice.modePhase[(size_t) mode] -= kTwoPi;
@@ -577,20 +630,35 @@ void NativeProcessor::applyProgram (int index)
 
     if (kind == NativeKind::tines)
     {
-        const float values[4][6] = {
-            { 0.82f, 0.48f, 0.42f, 0.42f, 4.8f, 0.35f }, // Suitcase
-            { 0.82f, 0.62f, 0.5f, 0.5f, 0.0f, 0.0f },    // Stage
-            { 0.82f, 0.32f, 0.24f, 0.2f, 3.2f, 0.16f },  // Mellow
-            { 0.82f, 0.72f, 0.72f, 0.9f, 6.0f, 0.22f },  // Bark
+        // Presets do MDA ePiano (Autopan, Default, Mellow e Bright).
+        struct Program
+        {
+            float decay, release, hardness, treble, modulation, lfo;
+            float velocity, stereo, polyphony, fine, random, overdrive;
         };
-        setParameterValue ("tines_volume", values[currentProgram][0]);
-        setParameterValue ("tines_tone", values[currentProgram][1]);
-        setParameterValue ("tines_bell", values[currentProgram][2]);
-        setParameterValue ("tines_bark", values[currentProgram][3]);
-        setParameterValue ("tines_trem_rate", values[currentProgram][4]);
-        setParameterValue ("tines_trem_depth", values[currentProgram][5]);
-        setParameterValue ("tines_trem_mode", currentProgram == 0 ? 1.0f : 0.0f);
-        setParameterValue ("tines_velocity", 0.8f);
+
+        static const Program programs[4] = {
+            { 50.0f, 50.0f,   0.0f,   0.0f, 0.25f, 0.65f, 25.0f, 100.0f, 16.0f, 0.0f, 0.246f,  0.0f }, // Suitcase (Autopan)
+            { 50.0f, 50.0f,   0.0f,   0.0f, 0.50f, 0.65f, 25.0f, 100.0f, 16.0f, 0.0f, 0.146f,  0.0f }, // Stage (Default)
+            { 50.0f, 50.0f, -50.0f, -50.0f, 0.50f, 0.65f, 25.0f, 100.0f, 16.0f, 0.0f, 0.246f,  0.0f }, // Mellow
+            { 50.0f, 50.0f,  50.0f,  30.0f, 0.50f, 0.65f, 25.0f, 100.0f, 16.0f, 0.0f, 0.146f, 50.0f }, // Bark (Bright)
+        };
+
+        const auto& program = programs[juce::jlimit (0, 3, currentProgram)];
+        setParameterValue ("tines_gain", 0.8f);
+        setParameterValue ("tines_volume", 0.8f);
+        setParameterValue ("tines_decay", program.decay);
+        setParameterValue ("tines_release", program.release);
+        setParameterValue ("tines_hardness", program.hardness);
+        setParameterValue ("tines_treble", program.treble);
+        setParameterValue ("tines_modulation", program.modulation);
+        setParameterValue ("tines_lfo_rate", program.lfo);
+        setParameterValue ("tines_velocity", program.velocity);
+        setParameterValue ("tines_stereo", program.stereo);
+        setParameterValue ("tines_polyphony", program.polyphony);
+        setParameterValue ("tines_fine", program.fine);
+        setParameterValue ("tines_random", program.random);
+        setParameterValue ("tines_overdrive", program.overdrive);
         return;
     }
 

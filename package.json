@@ -95,6 +95,14 @@
           "to": "licenses/setbfree-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/mda-epiano/LICENSE",
+          "to": "licenses/mda-epiano-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/mda-epiano/UPSTREAM.md",
+          "to": "licenses/mda-epiano-UPSTREAM.md"
+        },
+        {
           "from": "build/icon.png",
           "to": "icon.png"
         },
@@ -124,6 +132,14 @@
           "to": "licenses/setbfree-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/mda-epiano/LICENSE",
+          "to": "licenses/mda-epiano-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/mda-epiano/UPSTREAM.md",
+          "to": "licenses/mda-epiano-UPSTREAM.md"
+        },
+        {
           "from": "node_modules/ffmpeg-static/ffmpeg",
           "to": "ffmpeg/ffmpeg"
         }
@@ -142,6 +158,14 @@
         {
           "from": "engine/third_party/setbfree/UPSTREAM.md",
           "to": "licenses/setbfree-UPSTREAM.md"
+        },
+        {
+          "from": "engine/third_party/mda-epiano/LICENSE",
+          "to": "licenses/mda-epiano-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/mda-epiano/UPSTREAM.md",
+          "to": "licenses/mda-epiano-UPSTREAM.md"
         },
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",

@@ -27,7 +27,7 @@ const DRAW_BARS: Array<[string, string]> = [
 
 const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtitle: string }> = {
   organ: { name: 'Preseter Organ', badge: 'Cópia tonewheel — um manual', subtitle: 'Órgão tonewheel nativo' },
-  tines: { name: 'Preseter Tines (Rhodes)', badge: 'MODELAGEM FÍSICA', subtitle: 'Piano elétrico de tines — inspirado no Rhodes' },
+  tines: { name: 'Preseter Tines (Rhodes)', badge: 'BASE MDA ePIANO', subtitle: 'Piano elétrico de tines — samples e DSP do MDA (MIT)' },
   reeds: { name: 'Preseter Reeds (Wurlitzer)', badge: 'MODELAGEM FÍSICA', subtitle: 'Piano elétrico de palhetas — inspirado no Wurlitzer' },
 };
 
@@ -74,6 +74,101 @@ const ChoiceButton: React.FC<{ active: boolean; onClick: () => void; children: R
     {children}
   </button>
 );
+
+interface NumberFieldProps {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  decimals: number;
+  onChange: (value: number) => void;
+  compact?: boolean;
+}
+
+const NumberField: React.FC<NumberFieldProps> = ({ value, min, max, step, decimals, onChange, compact = false }) => {
+  const format = (v: number) => v.toFixed(decimals);
+  const [text, setText] = useState(format(value));
+
+  useEffect(() => { setText(format(value)); }, [value, decimals]);
+
+  const commit = () => {
+    const parsed = Number(text.replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      setText(format(value));
+      return;
+    }
+    const clamped = Math.max(min, Math.min(max, parsed));
+    onChange(clamped);
+    setText(format(clamped));
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onFocus={(event) => event.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        } else if (event.key === 'Escape') {
+          setText(format(value));
+          event.currentTarget.blur();
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          event.preventDefault();
+          const delta = (event.key === 'ArrowUp' ? 1 : -1) * step;
+          const next = Math.max(min, Math.min(max, (Number(text.replace(',', '.')) || value) + delta));
+          onChange(next);
+          setText(format(next));
+        }
+      }}
+      aria-label="Valor do parâmetro"
+      className={`hw-inset px-1 py-0.5 text-center text-[10px] tabular-nums text-white ${compact ? 'w-[42px]' : 'w-[68px]'}`}
+    />
+  );
+};
+
+interface ParamKnobProps {
+  label: string;
+  paramName: string;
+  min: number;
+  max: number;
+  step: number;
+  decimals: number;
+  valueOf: (name: string) => number;
+  setNamed: (name: string, value: number) => void;
+  display?: (real: number) => string;
+}
+
+const ParamKnob: React.FC<ParamKnobProps> = ({
+  label, paramName, min, max, step, decimals, valueOf, setNamed, display,
+}) => {
+  const normalized = valueOf(paramName);
+  const real = min + normalized * (max - min);
+  const toNormalized = (value: number) => (max > min ? (value - min) / (max - min) : 0);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <Knob
+        label={label}
+        value={normalized}
+        display={display ? display(real) : `${real.toFixed(decimals)}`}
+        onChange={(value) => setNamed(paramName, value)}
+      />
+      <NumberField
+        value={real}
+        min={min}
+        max={max}
+        step={step}
+        decimals={decimals}
+        onChange={(value) => setNamed(paramName, toNormalized(value))}
+      />
+    </div>
+  );
+};
 
 function formatHz(value: number): string {
   return `${value.toFixed(1)} Hz`;
@@ -229,6 +324,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {drawbarMode ? (
+            <div className="space-y-3">
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
               <section className="hw-inset p-3">
                 <div className="hw-label mb-3">Barras (drawbars)</div>
@@ -249,6 +345,15 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                           style={{ writingMode: 'vertical-lr', direction: 'rtl', accentColor: '#0A84FF' }}
                         />
                         <span className="text-[11px] font-bold text-white">{raw}</span>
+                        <NumberField
+                          value={raw}
+                          min={0}
+                          max={8}
+                          step={1}
+                          decimals={0}
+                          compact
+                          onChange={(value) => void setNamed(name, value / 8)}
+                        />
                         <span className="text-[8px]" style={{ color: '#8E8E93' }}>{label}</span>
                       </div>
                     );
@@ -291,6 +396,89 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 </section>
               </div>
             </div>
+
+            <details className="hw-inset p-3">
+              <summary className="hw-label cursor-pointer select-none">Digitar valores</summary>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {params.map((item) => {
+                  const isDrawbar = item.name.startsWith('Drawbar');
+                  const isLeslie = item.name.startsWith('Leslie');
+                  const isVibrato = item.name === 'Vibrato/Chorus';
+                  const min = isDrawbar ? 0 : isLeslie ? 0 : isVibrato ? 0 : 0;
+                  const max = isDrawbar ? 8 : isLeslie ? 3 : isVibrato ? 6 : 1;
+                  const step = isDrawbar || isLeslie || isVibrato ? 1 : 0.01;
+                  const decimals = isDrawbar || isLeslie || isVibrato ? 0 : 2;
+                  const real = min + item.value * (max - min);
+                  return (
+                    <label key={item.index} className="flex items-center justify-between gap-2 rounded px-2 py-1" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <span className="truncate text-[10px]" style={{ color: '#C6C6CB' }}>{item.name}</span>
+                      <NumberField
+                        value={real}
+                        min={min}
+                        max={max}
+                        step={step}
+                        decimals={decimals}
+                        onChange={(value) => void setNamed(item.name, max > min ? (value - min) / (max - min) : 0)}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
+            </div>
+          ) : kind === 'tines' ? (
+            <div className="space-y-3">
+              <section className="hw-inset p-3">
+                <div className="hw-label mb-2">Presets</div>
+                <div className="flex flex-wrap gap-1">
+                  {programNames.slice(0, programCount).map((name, index) => (
+                    <ChoiceButton key={name} active={program === index} onClick={() => void changeProgram(index)}>{name}</ChoiceButton>
+                  ))}
+                </div>
+              </section>
+
+              <section className="hw-inset p-3">
+                <div className="hw-label mb-2">MDA ePiano</div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <ParamKnob label="Decaimento" paramName="Envelope Decay" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="Liberação" paramName="Envelope Release" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="Dureza" paramName="Hardness" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
+                  <ParamKnob label="Brilho (agudos)" paramName="Treble Boost" min={-50} max={50} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+
+                  <ParamKnob label="Modulação" paramName="Modulation" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed}
+                    display={(v) => v > 0.5001 ? `Trem ${Math.round((v - 0.5) * 200)}%` : v < 0.4999 ? `Pan ${Math.round((0.5 - v) * 200)}%` : 'Desligado'} />
+                  <div className="flex flex-col items-center gap-1">
+                    <Knob
+                      label="Taxa do LFO"
+                      value={valueOf('LFO Rate')}
+                      display={`${Math.exp(6.22 * valueOf('LFO Rate') - 2.61).toFixed(2)} Hz`}
+                      onChange={(value) => void setNamed('LFO Rate', value)}
+                    />
+                    <NumberField
+                      value={Math.exp(6.22 * valueOf('LFO Rate') - 2.61)}
+                      min={0.07}
+                      max={37}
+                      step={0.01}
+                      decimals={2}
+                      onChange={(hz) => void setNamed('LFO Rate', Math.max(0, Math.min(1, (Math.log(Math.max(0.001, hz)) + 2.61) / 6.22)))}
+                    />
+                  </div>
+                  <ParamKnob label="Sensib. velocity" paramName="Velocity Sensitivity" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="Largura estéreo" paramName="Stereo Width" min={0} max={200} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+
+                  <ParamKnob label="Polifonia" paramName="Polyphony" min={1} max={32} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} vozes`} />
+                  <ParamKnob label="Afinação fina" paramName="Fine Tuning" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)} cents`} />
+                  <ParamKnob label="Variação por nota" paramName="Random Tuning" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(50 * v * v).toFixed(1)} cents`} />
+                  <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={100} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
+
+                  <ParamKnob label="Gain" paramName="Gain" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                </div>
+                <p className="mt-3 text-[9px]" style={{ color: '#8E8E93' }}>
+                  Base: MDA ePiano (MIT). CC1 (modulação) controla a profundidade do tremolo/auto-pan.
+                </p>
+              </section>
+            </div>
           ) : (
             <div className="space-y-3">
               <section className="hw-inset p-3">
@@ -325,7 +513,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                     <line x1="10" y1="68" x2="210" y2="68" stroke="#3A3A3C" />
                     <line x1="10" y1="8" x2="10" y2="68" stroke="#3A3A3C" />
                     <polyline points="10,66 210,18" fill="none" stroke="#0A84FF" strokeWidth="2" />
-                    <circle cx={10 + valueOf(kind === 'tines' ? 'Sensibilidade a velocity' : 'Sensibilidade a velocity') * 190} cy={66 - valueOf(kind === 'tines' ? 'Sensibilidade a velocity' : 'Sensibilidade a velocity') * 46} r="4" fill="#fff" />
+                    <circle cx={10 + valueOf('Sensibilidade a velocity') * 190} cy={66 - valueOf('Sensibilidade a velocity') * 46} r="4" fill="#fff" />
                     <text x="10" y="78" fill="#8E8E93" fontSize="8">suave</text>
                     <text x="175" y="78" fill="#8E8E93" fontSize="8">forte</text>
                   </svg>
@@ -369,20 +557,21 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
             </div>
           )}
 
+          {kind !== 'tines' && (
           <section className="hw-inset mt-3 p-3">
             <div className="hw-label mb-2">Som</div>
             <div className="flex flex-wrap items-start justify-around gap-3">
               {kind === 'organ' ? (
                 <>
-                  <Knob label="Overdrive" value={valueOf('Overdrive')} display={`${Math.round(valueOf('Overdrive') * 100)}%`} onChange={(value) => void setNamed('Overdrive', value)} />
-                  <Knob label="Reverb" value={valueOf('Reverb')} display={`${Math.round(valueOf('Reverb') * 100)}%`} onChange={(value) => void setNamed('Reverb', value)} />
-                  <Knob label="Key click" value={valueOf('Key click')} display={`${Math.round(valueOf('Key click') * 100)}%`} onChange={(value) => void setNamed('Key click', value)} />
-                  <Knob label="Volume" value={valueOf('Volume')} display={`${(valueOf('Volume') * 24 - 12).toFixed(1)} dB`} onChange={(value) => void setNamed('Volume', value)} />
+                  <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob label="Reverb" paramName="Reverb" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob label="Key click" paramName="Key click" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(v * 24 - 12).toFixed(1)} dB`} />
                 </>
               ) : (
                 <>
                   <Knob label="Gain" value={valueOf('Gain')} display={`${Math.round(valueOf('Gain') * 100)}%`} onChange={(value) => void setNamed('Gain', value)} />
-                  <Knob label={kind === 'tines' ? 'Sino' : 'Brilho do martelo'} value={valueOf(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo')} display={`${Math.round(valueOf(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo') * 100)}%`} onChange={(value) => void setNamed(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo', value)} />
+                  <Knob label="Brilho do martelo" value={valueOf('Brilho do martelo')} display={`${Math.round(valueOf('Brilho do martelo') * 100)}%`} onChange={(value) => void setNamed('Brilho do martelo', value)} />
                   <Knob label="Tom" value={valueOf('Tom')} display={`${Math.round(valueOf('Tom') * 100)}%`} onChange={(value) => void setNamed('Tom', value)} />
                   <Knob label="Sensib. velocity" value={valueOf('Sensibilidade a velocity')} display={`${Math.round(valueOf('Sensibilidade a velocity') * 100)}%`} onChange={(value) => void setNamed('Sensibilidade a velocity', value)} />
                   <Knob label="Volume" value={valueOf('Volume')} display={`${(valueOf('Volume') * 24 - 12).toFixed(1)} dB`} onChange={(value) => void setNamed('Volume', value)} />
@@ -390,6 +579,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               )}
             </div>
           </section>
+          )}
 
           {error && <div className="mt-2 rounded px-2 py-1 text-[10px]" style={{ background: '#3A1417', color: '#FF8A8A' }}>{error}</div>}
         </div>

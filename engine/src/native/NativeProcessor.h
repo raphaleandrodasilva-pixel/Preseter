@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MdaEPianoDsp.h"
 #include "SetBfreeOrganProcessor.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -93,12 +94,14 @@ private:
     juce::String displayName;
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<SetBfreeOrgan> setBfree;
+    std::unique_ptr<MdaEPianoDsp> mdaEPiano;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
     std::atomic<int> lastLeslieParam { -1 };
     std::atomic<int> pendingLeslieFromMidi { -1 };
     float organOutputGain = 1.0f;
     float modWheel = -1.0f;
+    float lastTinesModulation = -1.0f;
     float tremoloDepthSmoothed = 0.0f;
     bool tremoloDepthInitialized = false;
     juce::AudioBuffer<float> organScratch;
