@@ -1,7 +1,6 @@
 #include "NativeProcessor.h"
 
 #include <cmath>
-#include <vector>
 
 namespace preseter
 {
@@ -119,12 +118,15 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
     applyProgram (0);
 }
 
-void NativeProcessor::prepareToPlay (double newSampleRate, int)
+void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
 
     if (kind == NativeKind::organ)
     {
+        // Reservado aqui para não alocar na thread de áudio.
+        organScratch.setSize (1, juce::jmax (1, samplesPerBlock), false, false, true);
+
         if (setBfree != nullptr)
         {
             setBfree->prepare (sampleRate);
@@ -229,8 +231,7 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             return;
         }
 
-        std::vector<SetBfreeMidiEvent> events;
-        events.reserve ((size_t) midi.getNumEvents());
+        organEventCount = 0;
 
         for (const auto metadata : midi)
         {
@@ -263,7 +264,8 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                 continue;
             }
 
-            events.push_back (event);
+            if (organEventCount < (int) organEvents.size())
+                organEvents[(size_t) organEventCount++] = event;
         }
 
         midi.clear();
@@ -275,12 +277,15 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         if (buffer.getNumChannels() > 1)
         {
             setBfree->process (left, buffer.getWritePointer (1), numSamples,
-                               events.data(), (int) events.size());
+                               organEvents.data(), organEventCount);
         }
         else
         {
-            std::vector<float> scratch ((size_t) numSamples);
-            setBfree->process (left, scratch.data(), numSamples, events.data(), (int) events.size());
+            if (organScratch.getNumSamples() < numSamples)
+                organScratch.setSize (1, numSamples, false, false, true);
+
+            setBfree->process (left, organScratch.getWritePointer (0), numSamples,
+                               organEvents.data(), organEventCount);
         }
 
         buffer.applyGain (kOrganOutputTrim);

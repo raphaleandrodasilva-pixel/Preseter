@@ -91,6 +91,9 @@ private:
     juce::String displayName;
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<SetBfreeOrgan> setBfree;
+    std::array<SetBfreeMidiEvent, 1024> organEvents {};
+    int organEventCount = 0;
+    juce::AudioBuffer<float> organScratch;
     std::array<Voice, 64> voices;
     int currentProgram = 0;
     double sampleRate = 44100.0;
