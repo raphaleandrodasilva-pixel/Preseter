@@ -1,0 +1,41 @@
+[package]
+name = "openwurli-dsp"
+version = "0.9.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Wurlitzer 200A DSP library — modal synthesis, preamp circuit simulation, tremolo, and a framework-agnostic WurliEngine for plugin/CLI/embedded hosts"
+
+[features]
+default = ["legacy-power-amp"]
+# Opt-in melange 12-node DK preamp solver. Default (no feature) uses the
+# hand-written 9-node solver on the drawn topology (dk_preamp_legacy.rs),
+# 1.6-7× faster depending on workload.
+melange-preamp = []
+# The behavioral closed-loop power amp: the SHIPPING model, in the default set.
+# Build with --no-default-features for the opt-in melange 7-transistor solver.
+legacy-power-amp = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(melange_precise_exp)'] }
+unused_variables = "allow"
+
+[lints.clippy]
+# Melange-generated solvers (gen_preamp.rs, gen_tremolo.rs) emit idiomatic
+# MNA/NR code that triggers these lints. Suppressing crate-wide is simpler
+# than patching generated output.
+needless_range_loop = "allow"
+too_many_arguments = "allow"
+approx_constant = "allow"
+absurd_extreme_comparisons = "allow"
+identity_op = "allow"
+erasing_op = "allow"
+unnecessary_cast = "allow"
+
+[dependencies]
+melange-primitives.workspace = true
+
+[dev-dependencies]
+hound = "3.5"
+midly = "0.5"

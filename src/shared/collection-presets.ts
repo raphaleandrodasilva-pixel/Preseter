@@ -162,7 +162,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       N('tines', -3, 0, 127, 'Rhodes', 0),
     ]],
     ['Wurlitzer EP', [
-      N('reeds', -3, 0, 127, 'Wurlitzer', 0),
+      N('reeds', -3, 0, 127, 'Wurly', 0),
     ]],
     ['FM Electric Piano', [
       S(-3, 0, 127, 'Piano elétrico FM', {

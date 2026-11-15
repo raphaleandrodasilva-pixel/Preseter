@@ -48,6 +48,16 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # O Wurly nativo (OpenWurli) é compilado em Rust pelo CMake.
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine/third_party/openwurli
+
       # O JUCE vem por FetchContent; guardar a pasta evita baixar de novo.
       - uses: actions/cache@v4
         with:
@@ -114,6 +124,16 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+
+      # O Wurly nativo (OpenWurli) é compilado em Rust pelo CMake.
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine/third_party/openwurli
 
       - uses: actions/cache@v4
         with:

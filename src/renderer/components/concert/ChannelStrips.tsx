@@ -322,7 +322,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     },
     {
       id: 'preseter.reeds',
-      name: 'Preseter Reeds',
+      name: 'Preseter Wurly',
       path: 'preseter.reeds',
       isLoaded: false,
       isInstrument: true,

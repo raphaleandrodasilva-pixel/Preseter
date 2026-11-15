@@ -1,0 +1,191 @@
+//! Hammer model: Gaussian dwell filter + onset ramp.
+//!
+//! The dwell filter is a one-shot spectral shaping applied at note-on.
+//! It models the finite contact duration of the felt hammer on the reed,
+//! which acts as a low-pass filter on the initial mode excitation.
+//!
+//! The model once added a separate attack-noise burst. Its values were hand-set, no source documents
+//! an impact transient in a 200A's electrical output either way, and a physics review found no path
+//! for a broadband burst (the impact reaches the pickup as the reed's own modal motion). It was
+//! removed; the hammer now acts through the reed's modes alone.
+
+use crate::tables::NUM_MODES;
+
+/// Hammer dwell time (contact duration) in seconds — for spectral filtering only.
+///
+/// Register-dependent per Miessner patent US 2,932,231: the hammer contacts
+/// the reed for "three fourths to one cycle of vibration at its fundamental
+/// frequency." This makes dwell strongly register-dependent:
+///   - A1 (55 Hz) ff: 13.6 ms    pp: 18.2 ms
+///   - C4 (262 Hz) ff: 2.9 ms    pp: 3.8 ms
+///   - C6 (1047 Hz) ff: 0.72 ms  pp: 0.95 ms
+///
+/// The velocity mapping: ff = 0.75 cycles (hard, brief contact), pp = 1.0 cycle
+/// (soft, lingering contact as the felt compresses).
+///
+/// Production hammers are "three ply maple covered with mothproofed felt" (200/200A service
+/// manual, specifications). The patent's preferred neoprene foam pad was not used.
+///
+/// `contact_scale` multiplies the contact time: 1.0 is the patent's design point (the shipping
+/// voicing). A harder felt rebounds sooner (< 1.0); a softer one lingers (> 1.0). Felt hardness
+/// is a serviced variable: the manual (§5D) softens hammer felt with methanol "to remove a
+/// 'clicking' sound". How far it moves the contact time on a 200A has not been measured.
+///
+/// For the time-domain onset ramp, see `onset_ramp_time`.
+pub fn dwell_time(velocity: f64, fundamental_hz: f64, contact_scale: f64) -> f64 {
+    let cycles = (0.75 + 0.25 * (1.0 - velocity)) * contact_scale;
+    (cycles / fundamental_hz).clamp(0.0003, 0.020)
+}
+
+/// Register-dependent onset ramp time — models reed mechanical inertia.
+///
+/// Heavier bass reeds take longer to reach full vibration amplitude after
+/// the hammer strike. OBM cycle-by-cycle analysis shows the real 200A
+/// reaches 90% amplitude by cycle 2 across all registers:
+///   - D3 (147 Hz): 50% at cycle 1, 90% at cycle 2
+///   - D4 (294 Hz): 50% at cycle 1, 90% at cycle 2
+///   - D6 (1175 Hz): near-instant (full by cycle 0-1)
+///
+/// Formula: 1.0 period at ff, 2.0 at pp, with 2ms floor.
+///
+/// 2026-07: shortened from 2.5/5.0 periods. The old ramp made the low bass
+/// *swell in* over ~38 ms (C2 ff) — the growl faded up instead of the hammer
+/// cracking, so the bass "never seemed to growl even when slammed" and had no
+/// percussive thump (user-confirmed). The physical anchor is the hammer contact
+/// (dwell ≈ 0.75 cycle, Miessner): the reed reaches near-peak by the end of
+/// contact, ~1 cycle — not cycle 2. The old "90% at cycle 2" target came from
+/// room-coupled OBM whose smeared attack over-reads the rise time; the ear
+/// (final gate) wants the crack. Because the ramp is period-scaled, this
+/// primarily speeds up the bass (C2 ff 38 → ~15 ms); treble already sits at the
+/// 2 ms floor and is unchanged. The raised cosine reaches 90% at 79.5% of T, so
+/// 1.0 period ⇒ 90% by ~cycle 0.8.
+///
+/// The ramp stands for the contact, so `contact_scale` (see `dwell_time`) scales it too.
+pub fn onset_ramp_time(velocity: f64, fundamental_hz: f64, contact_scale: f64) -> f64 {
+    let period_s = 1.0 / fundamental_hz;
+    let periods = (1.0 + 1.0 * (1.0 - velocity)) * contact_scale;
+    (periods * period_s).max(0.002)
+}
+
+/// Compute per-mode attenuation from the Gaussian dwell filter.
+///
+/// Uses a wide Gaussian (sigma=8 in f*T units) per the recommendation in
+/// Section 4.3.4 of reed-and-hammer-physics.md.
+///
+/// - `velocity`: 0.0 (pp) to 1.0 (ff)
+/// - `fundamental_hz`: fundamental frequency of this note
+/// - `mode_ratios`: f_n/f_1 for each mode
+/// - `contact_scale`: contact-time multiplier, 1.0 = shipping (see `dwell_time`)
+///
+/// Returns per-mode multipliers (normalized so mode 0 = 1.0).
+pub fn dwell_attenuation(
+    velocity: f64,
+    fundamental_hz: f64,
+    mode_ratios: &[f64; NUM_MODES],
+    contact_scale: f64,
+) -> [f64; NUM_MODES] {
+    let t_dwell = dwell_time(velocity, fundamental_hz, contact_scale);
+    let sigma_sq = 8.0 * 8.0;
+
+    let mut atten = [0.0f64; NUM_MODES];
+    for i in 0..NUM_MODES {
+        let ft = fundamental_hz * mode_ratios[i] * t_dwell;
+        atten[i] = (-ft * ft / (2.0 * sigma_sq)).exp();
+    }
+
+    let a0 = atten[0];
+    if a0 > 1e-30 {
+        for a in &mut atten {
+            *a /= a0;
+        }
+    }
+    atten
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dwell_ff_brighter_than_pp() {
+        let ratios = [1.0, 6.267, 17.547, 34.386, 56.842, 85.1, 119.3];
+        let ff = dwell_attenuation(1.0, 262.0, &ratios, 1.0);
+        let pp = dwell_attenuation(0.1, 262.0, &ratios, 1.0);
+
+        for i in 1..NUM_MODES {
+            assert!(ff[i] >= pp[i], "mode {i}: ff={} < pp={}", ff[i], pp[i]);
+        }
+    }
+
+    #[test]
+    fn test_dwell_fundamental_unity() {
+        let ratios = [1.0, 6.267, 17.547, 34.386, 56.842, 85.1, 119.3];
+        let atten = dwell_attenuation(0.5, 440.0, &ratios, 1.0);
+        assert!((atten[0] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_onset_ramp_register_dependent() {
+        // Bass reeds should have longer onset than treble reeds
+        let bass = onset_ramp_time(1.0, 65.0, 1.0); // C2 ff
+        let mid = onset_ramp_time(1.0, 262.0, 1.0); // C4 ff
+        let treble = onset_ramp_time(1.0, 1047.0, 1.0); // C6 ff
+
+        assert!(
+            bass > mid,
+            "bass onset ({bass:.4}) should exceed mid ({mid:.4})"
+        );
+        assert!(
+            mid > treble,
+            "mid onset ({mid:.4}) should exceed treble ({treble:.4})"
+        );
+
+        // C2 ff: 1.0 period of 65 Hz = 15.4ms (percussive bass crack)
+        assert!(
+            (bass - 1.0 / 65.0).abs() < 0.001,
+            "C2 ff should be ~15.4ms, got {bass:.4}"
+        );
+        // C6 ff: 1.0/1047 = 0.95ms → clamped to the 2ms floor
+        assert!(
+            (treble - 0.002).abs() < 0.0001,
+            "C6 ff should hit the 2ms floor, got {treble:.6}"
+        );
+        // C4 ff: 1.0/262 = 3.8ms
+        assert!(
+            (mid - 1.0 / 262.0).abs() < 0.001,
+            "C4 ff should be ~3.8ms, got {mid:.4}"
+        );
+    }
+
+    #[test]
+    fn test_contact_scale_moves_brightness_and_onset() {
+        let ratios = [1.0, 6.267, 17.547, 34.386, 56.842, 85.1, 119.3];
+        let hard = dwell_attenuation(0.8, 262.0, &ratios, 0.7);
+        let ship = dwell_attenuation(0.8, 262.0, &ratios, 1.0);
+        let soft = dwell_attenuation(0.8, 262.0, &ratios, 1.4);
+        for i in 1..NUM_MODES {
+            assert!(hard[i] > ship[i] && ship[i] > soft[i], "mode {i}");
+        }
+        let (h, s) = (
+            onset_ramp_time(0.8, 65.0, 0.7),
+            onset_ramp_time(0.8, 65.0, 1.4),
+        );
+        assert!(h < onset_ramp_time(0.8, 65.0, 1.0) && s > onset_ramp_time(0.8, 65.0, 1.0));
+        // The treble ramp sits on the 2 ms floor either way.
+        assert_eq!(onset_ramp_time(1.0, 1047.0, 0.7), 0.002);
+    }
+
+    #[test]
+    fn test_onset_ramp_velocity_dependent() {
+        // pp should have longer onset than ff (softer hit = longer contact)
+        let ff = onset_ramp_time(1.0, 262.0, 1.0);
+        let pp = onset_ramp_time(0.0, 262.0, 1.0);
+
+        assert!(pp > ff, "pp onset ({pp:.4}) should exceed ff ({ff:.4})");
+        // ff = 1.0 period, pp = 2.0 periods (softer hit = longer contact/ramp)
+        let expected_ff = 1.0 / 262.0;
+        let expected_pp = 2.0 / 262.0;
+        assert!((ff - expected_ff).abs() < 0.001);
+        assert!((pp - expected_pp).abs() < 0.001);
+    }
+}

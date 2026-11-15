@@ -43,3 +43,22 @@ O instrumento nativo **Preseter Tines** usa o DSP e os samples do mda ePiano.
   escolhemos MIT, compatível com a AGPL-3.0-or-later do Preseter.
 - Os samples (`mdaEPianoData.h`) fazem parte da distribuição do porte MIT e são
   usados com atribuição a Paul Kellett e M.I. Hollemans.
+
+## OpenWurli — motor do Preseter Wurly
+
+O instrumento nativo **Preseter Wurly** usa o DSP do projeto OpenWurli.
+
+- Projeto: https://github.com/hal0zer0/openwurli
+- Commit fixado: `c05403b9b60f95b4908ae19727682e81803a7351` (v0.9.1, 2026-11-06)
+- Licença: GNU General Public License, versão 3 ou posterior
+  (`GPL-3.0-or-later`).
+- Texto completo: `engine/third_party/openwurli/LICENSE`
+- Arquivos importados e adaptações: `engine/third_party/openwurli/UPSTREAM.md`
+- Dependência `melange-primitives` (projeto melange, commit
+  `7ecb36c7e237c66929a39f936734b8b5a63f128d`), também GPL-3.0-or-later.
+
+Compatibilidade: o Preseter é distribuído sob AGPL-3.0-or-later, e a GPLv3 §13
+permite combinar os dois. O DSP original é compilado como biblioteca estática
+(Rust) e chamado por uma C ABI; nenhum arquivo do OpenWurli foi alterado. O
+código-fonte completo do Preseter, incluindo o wrapper e o crate da C ABI, é
+distribuído junto com o aplicativo.

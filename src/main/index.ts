@@ -2211,6 +2211,20 @@ class MainWindow {
           { role: 'togglefullscreen', label: 'Tela cheia' },
         ],
       },
+      {
+        label: 'Ajuda',
+        submenu: [
+          {
+            label: 'Ajuda',
+            accelerator: 'F1',
+            click: () => this.sendMenuAction({ action: 'help' }),
+          },
+          {
+            label: 'Sobre o Preseter',
+            click: () => this.sendMenuAction({ action: 'about' }),
+          },
+        ],
+      },
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));

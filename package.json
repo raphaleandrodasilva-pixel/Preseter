@@ -103,6 +103,14 @@
           "to": "licenses/mda-epiano-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/openwurli/LICENSE",
+          "to": "licenses/openwurli-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/openwurli/UPSTREAM.md",
+          "to": "licenses/openwurli-UPSTREAM.md"
+        },
+        {
           "from": "build/icon.png",
           "to": "icon.png"
         },
@@ -140,6 +148,14 @@
           "to": "licenses/mda-epiano-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/openwurli/LICENSE",
+          "to": "licenses/openwurli-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/openwurli/UPSTREAM.md",
+          "to": "licenses/openwurli-UPSTREAM.md"
+        },
+        {
           "from": "node_modules/ffmpeg-static/ffmpeg",
           "to": "ffmpeg/ffmpeg"
         }
@@ -166,6 +182,14 @@
         {
           "from": "engine/third_party/mda-epiano/UPSTREAM.md",
           "to": "licenses/mda-epiano-UPSTREAM.md"
+        },
+        {
+          "from": "engine/third_party/openwurli/LICENSE",
+          "to": "licenses/openwurli-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/openwurli/UPSTREAM.md",
+          "to": "licenses/openwurli-UPSTREAM.md"
         },
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",

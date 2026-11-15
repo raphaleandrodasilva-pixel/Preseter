@@ -2,6 +2,7 @@
 
 #include "MdaEPianoDsp.h"
 #include "SetBfreeOrganProcessor.h"
+#include "WurliProcessor.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -25,7 +26,7 @@ class NativeProcessor;
 /** Cria o processador nativo correspondente ao id (preseter.organ, ...). */
 std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id);
 
-/** Instrumentos embutidos do Preseter: órgão, Rhodes e Wurlitzer. */
+/** Instrumentos embutidos do Preseter: órgão, Tines e Wurly. */
 class NativeProcessor final : public juce::AudioProcessor, private juce::AsyncUpdater
 {
 public:
@@ -95,6 +96,7 @@ private:
     juce::AudioProcessorValueTreeState apvts;
     std::unique_ptr<SetBfreeOrgan> setBfree;
     std::unique_ptr<MdaEPianoDsp> mdaEPiano;
+    std::unique_ptr<WurliProcessor> wurli;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
     std::atomic<int> lastLeslieParam { -1 };

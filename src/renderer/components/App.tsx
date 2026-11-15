@@ -7,6 +7,8 @@ import { AppProvider, useAppContext } from '../context/AppContext';
 import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
+import { AboutModal } from './concert/AboutModal';
+import { HelpModal } from './concert/HelpModal';
 import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
@@ -22,6 +24,8 @@ const AppContent: React.FC = () => {
     concertLoaded,
     concertTemplates,
     templatePickerOpen,
+    infoModal,
+    closeInfoModal,
     chooseTemplate,
     cancelTemplatePicker,
     openConcertFile,
@@ -272,6 +276,8 @@ const AppContent: React.FC = () => {
           onError={(message) => setError(message || null)}
         />
       </div>
+      {infoModal === 'about' && <AboutModal onClose={closeInfoModal} />}
+      {infoModal === 'help' && <HelpModal onClose={closeInfoModal} />}
       {templatePickerOpen && (
         <TemplatePicker
           templates={concertTemplates}

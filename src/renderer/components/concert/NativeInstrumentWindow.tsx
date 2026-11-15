@@ -28,7 +28,7 @@ const DRAW_BARS: Array<[string, string]> = [
 const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtitle: string }> = {
   organ: { name: 'Preseter Organ', badge: 'Cópia tonewheel — um manual', subtitle: 'Órgão tonewheel nativo' },
   tines: { name: 'Preseter Tines (Rhodes)', badge: 'BASE MDA ePIANO', subtitle: 'Piano elétrico de tines — samples e DSP do MDA (MIT)' },
-  reeds: { name: 'Preseter Reeds (Wurlitzer)', badge: 'MODELAGEM FÍSICA', subtitle: 'Piano elétrico de palhetas — inspirado no Wurlitzer' },
+  reeds: { name: 'Preseter Wurly', badge: 'OPENWURLI', subtitle: 'Wurlitzer 200A — modelagem física (OpenWurli)' },
 };
 
 interface KnobProps {
@@ -170,10 +170,6 @@ const ParamKnob: React.FC<ParamKnobProps> = ({
   );
 };
 
-function formatHz(value: number): string {
-  return `${value.toFixed(1)} Hz`;
-}
-
 export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   kind,
   layerId,
@@ -247,15 +243,11 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   const title = TITLES[kind];
   const drawbarMode = kind === 'organ';
-  const modalMode = !drawbarMode;
-  const tremDepth = valueOf('Profundidade do tremolo');
-  const tremRate = valueOf('Tremolo (Hz)') * 10;
-  const tremMode = valueOf('Tremolo: auto-pan');
 
   const programNames = useMemo(() => {
     if (kind === 'organ') return ['Jazz', 'Gospel', 'Rock', 'Combo'];
     if (kind === 'tines') return ['Suitcase', 'Stage', 'Mellow', 'Bark'];
-    return ['Clássico', 'Suave', 'Bark', 'Brilhante'];
+    return ['Clássico', 'Suitcase', 'Stage', 'Bark'];
   }, [kind]);
 
   return (
@@ -490,93 +482,35 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 </div>
               </section>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <section className="hw-inset p-3">
-                  <div className="hw-label mb-2">Como o som é formado</div>
-                  <svg viewBox="0 0 320 90" className="w-full">
-                    <rect x="10" y="58" width="48" height="8" rx="2" fill="#3A3A3C" />
-                    <line x1="34" y1="58" x2="150" y2="38" stroke="#C6C6CB" strokeWidth="2" />
-                    <line x1="150" y1="38" x2="270" y2="48" stroke="#0A84FF" strokeWidth="3" />
-                    <circle cx="270" cy="48" r="9" fill="#FF9F0A" />
-                    <text x="12" y="82" fill="#8E8E93" fontSize="9">base</text>
-                    <text x="80" y="24" fill="#8E8E93" fontSize="9">palheta (reed)</text>
-                    <text x="190" y="24" fill="#8E8E93" fontSize="9">captador</text>
-                    <text x="245" y="76" fill="#8E8E93" fontSize="9">sino</text>
-                    <text x="120" y="60" fill="#8E8E93" fontSize="9">martelo</text>
-                  </svg>
-                  <p className="text-[10px]" style={{ color: '#8E8E93' }}>O martelo bate na palheta e a vibração chega ao captador. Mais força = mais bark.</p>
-                </section>
-
-                <section className="hw-inset p-3">
-                  <div className="hw-label mb-2">Resposta à velocity</div>
-                  <svg viewBox="0 0 220 80" className="w-full">
-                    <line x1="10" y1="68" x2="210" y2="68" stroke="#3A3A3C" />
-                    <line x1="10" y1="8" x2="10" y2="68" stroke="#3A3A3C" />
-                    <polyline points="10,66 210,18" fill="none" stroke="#0A84FF" strokeWidth="2" />
-                    <circle cx={10 + valueOf('Sensibilidade a velocity') * 190} cy={66 - valueOf('Sensibilidade a velocity') * 46} r="4" fill="#fff" />
-                    <text x="10" y="78" fill="#8E8E93" fontSize="8">suave</text>
-                    <text x="175" y="78" fill="#8E8E93" fontSize="8">forte</text>
-                  </svg>
-                </section>
-              </div>
-
               <section className="hw-inset p-3">
-                <div className="hw-label mb-2">Tremolo / Auto-Pan</div>
-                <div className="flex flex-wrap items-center gap-1">
-                  <ChoiceButton active={tremDepth > 0.01} onClick={() => void setNamed('Profundidade do tremolo', tremDepth > 0.01 ? 0 : 0.35)}>Ligado</ChoiceButton>
-                  <ChoiceButton active={tremMode < 0.5 && tremDepth > 0.01} onClick={() => {
-                    void setNamed('Tremolo: auto-pan', 0);
-                    if (tremDepth <= 0.01) void setNamed('Profundidade do tremolo', 0.35);
-                  }}>Tremolo</ChoiceButton>
-                  <ChoiceButton active={tremMode >= 0.5} onClick={() => {
-                    void setNamed('Tremolo: auto-pan', 1);
-                    if (tremDepth <= 0.01) void setNamed('Profundidade do tremolo', 0.45);
-                  }}>Auto-pan</ChoiceButton>
-                  <span className="ml-2 text-[10px]" style={{ color: '#8E8E93' }}>
-                    Taxa {formatHz(tremRate)} · Profundidade {Math.round(tremDepth * 100)}%
-                  </span>
+                <div className="hw-label mb-2">OpenWurli — Wurlitzer 200A</div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <ParamKnob label="Volume" paramName="Volume" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="Tremolo" paramName="Tremolo Depth" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="Speaker" paramName="Speaker Character" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob label="MLP" paramName="MLP Corrections" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
+
+                  <ParamKnob label="Hammer" paramName="Hammer Contact" min={0.5} max={2} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
+                  <ParamKnob label="Damper" paramName="Damper" min={0.25} max={4} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
+                  <ParamKnob label="Reed trim" paramName="Reed Bar Trim" min={0} max={25000} step={10} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} Ω`} />
+                  <ParamKnob label="Noise" paramName="Noise" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
+                  <ParamKnob label="Noise gain" paramName="Noise Gain" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
                 </div>
-                <div className="mt-3 flex items-start justify-around gap-3">
-                  <Knob
-                    label="Taxa"
-                    value={Math.max(0, Math.min(1, tremRate / 10))}
-                    display={formatHz(tremRate)}
-                    onChange={(value) => void setNamed('Tremolo (Hz)', value)}
-                  />
-                  <Knob
-                    label="Profundidade"
-                    value={tremDepth}
-                    display={`${Math.round(tremDepth * 100)}%`}
-                    onChange={(value) => void setNamed('Profundidade do tremolo', value)}
-                  />
-                </div>
-                <div className="mt-1 text-[9px]" style={{ color: '#8E8E93' }}>
-                  CC1 (modulação) controla a profundidade do tremolo.
-                </div>
+                <p className="mt-3 text-[9px]" style={{ color: '#8E8E93' }}>
+                  Base: OpenWurli (GPL-3.0-or-later). CC1 (modulação) controla a profundidade do tremolo.
+                </p>
               </section>
             </div>
           )}
 
-          {kind !== 'tines' && (
+          {kind === 'organ' && (
           <section className="hw-inset mt-3 p-3">
             <div className="hw-label mb-2">Som</div>
             <div className="flex flex-wrap items-start justify-around gap-3">
-              {kind === 'organ' ? (
-                <>
-                  <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-                  <ParamKnob label="Reverb" paramName="Reverb" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-                  <ParamKnob label="Key click" paramName="Key click" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-                  <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(v * 24 - 12).toFixed(1)} dB`} />
-                </>
-              ) : (
-                <>
-                  <Knob label="Gain" value={valueOf('Gain')} display={`${Math.round(valueOf('Gain') * 100)}%`} onChange={(value) => void setNamed('Gain', value)} />
-                  <Knob label="Brilho do martelo" value={valueOf('Brilho do martelo')} display={`${Math.round(valueOf('Brilho do martelo') * 100)}%`} onChange={(value) => void setNamed('Brilho do martelo', value)} />
-                  <Knob label="Tom" value={valueOf('Tom')} display={`${Math.round(valueOf('Tom') * 100)}%`} onChange={(value) => void setNamed('Tom', value)} />
-                  <Knob label="Sensib. velocity" value={valueOf('Sensibilidade a velocity')} display={`${Math.round(valueOf('Sensibilidade a velocity') * 100)}%`} onChange={(value) => void setNamed('Sensibilidade a velocity', value)} />
-                  <Knob label="Volume" value={valueOf('Volume')} display={`${(valueOf('Volume') * 24 - 12).toFixed(1)} dB`} onChange={(value) => void setNamed('Volume', value)} />
-                </>
-              )}
+              <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob label="Reverb" paramName="Reverb" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob label="Key click" paramName="Key click" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(v * 24 - 12).toFixed(1)} dB`} />
             </div>
           </section>
           )}
@@ -586,7 +520,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
         <footer className="flex flex-wrap items-center gap-3 px-4 py-2 text-[10px]" style={{ borderTop: '1px solid #3A3A3C', color: '#8E8E93' }}>
           <span style={{ color: '#30D158' }}>● Ativo</span>
-          <span>Polifonia {Math.min(64, programCount)}/64</span>
+          <span>Polifonia {kind === 'tines' ? Math.round(valueOf('Polyphony')) : 64}/64</span>
           <span>CPU —</span>
           <span>Motor: Preseter ({kind})</span>
           <span className="ml-auto truncate">{assignment.name}</span>

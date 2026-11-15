@@ -1,0 +1,13 @@
+[package]
+name = "openwurli-capi"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "openwurli_capi"
+crate-type = ["staticlib"]
+
+[dependencies]
+openwurli-dsp = { path = "../crates/openwurli-dsp" }

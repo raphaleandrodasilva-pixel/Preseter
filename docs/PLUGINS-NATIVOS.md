@@ -1,4 +1,4 @@
-# Preseter — Instrumentos nativos: Órgão (base setBfree) e Piano elétrico (Rhodes / Wurlitzer)
+# Preseter — Instrumentos nativos: Órgão (setBfree), Tines (MDA ePiano) e Wurly (OpenWurli)
 
 > Documento para o OpenCode. Escrito em PT-BR. Execute **uma tarefa de cada vez**, na ordem,
 > e pare ao final de cada uma para o Rafael conferir. Não invente links, hashes, nomes de
@@ -210,7 +210,7 @@ outros) quando existirem, com o setBfree LV2 como alternativa.
 |---|---|
 | Preseter Organ | 9 drawbars, percussão (4 chaves), vibrato/chorus (tipo + liga), overdrive, Leslie (parado/lento/rápido), reverb, volume |
 | Preseter Tines | MDA ePiano: Decay, Release, Hardness, Treble Boost, Modulation, LFO Rate, Velocity Sensitivity, Stereo Width, Polyphony, Fine Tuning, Random Tuning, Overdrive, Gain, Volume |
-| Preseter Reeds | velocity, bark, tremolo (taxa/profundidade), tom, volume (ou o plugin OpenWurli externo) |
+| Preseter Wurly | OpenWurli: Volume, Tremolo Depth, Speaker Character, MLP Corrections, Hammer Contact, Damper, Reed Bar Trim, Noise, Noise Gain |
 
 ---
 
@@ -330,7 +330,26 @@ DSP original do setBfree.
 - A janela do Tines tem campos numéricos para digitar qualquer valor, além dos
   knobs.
 
-### Preseter Reeds (Wurlitzer)
+### Preseter Wurly — OpenWurli (2026-11-15)
 
-- Continua sendo o modelo próprio de palhetas, com tremolo e CC1.
-- O MDA não tem Wurlitzer; nenhum código/sample do MDA é usado no Reeds.
+O `preseter.reeds` (nome exibido **Preseter Wurly**) agora usa o **DSP original
+do OpenWurli** (Wurlitzer 200A, modelagem física em Rust), e não mais o modelo
+próprio anterior.
+
+- Código importado: `engine/third_party/openwurli/` (GPL-3.0-or-later, commit
+  `c05403b…`; ver `UPSTREAM.md` e `LICENSE`).
+- Wrapper: `engine/src/native/WurliProcessor.cpp` + `openwurli_capi.h`.
+- C ABI: `engine/third_party/openwurli/capi/` (crate `openwurli-capi`),
+  compilado como `staticlib` e ligado ao `PreseterEngine`.
+- Saída: mono no `WurliEngine`, copiada para L/R, com o mesmo ganho de
+  **+14 dB** do plugin original.
+- Parâmetros: Volume, Tremolo Depth, Speaker Character, MLP Corrections,
+  Hammer Contact, Damper, Reed Bar Trim, Noise e Noise Gain.
+- **CC1 (modulação)** controla a profundidade do tremolo e o valor persiste;
+  mudar o Tremolo na janela volta a usar o knob.
+- **CC64/66** controlam o sustain; **CC120/123** desligam todas as notas.
+- Presets: Clássico, Suitcase, Stage e Bark.
+- O ID interno `preseter.reeds` foi mantido para não quebrar patches e
+  concerts existentes.
+- Teste de áudio: `engine/test/openwurli-capi/` (opção
+  `PRESETER_BUILD_WURLI_SMOKE=ON`); ver `docs/testes/`.

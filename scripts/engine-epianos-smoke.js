@@ -29,33 +29,31 @@ function request(cmd, payload = {}, timeoutMs = 30000) {
   });
 }
 
-async function testKind(kind) {
+async function testKind(kind, checkName) {
   const layerId = `${kind}-test`;
   const loaded = await request('load', { plugin: `preseter.${kind}`, layerId });
   const params = await request('params', { layerId });
-  console.log(`\n${kind}: ${loaded.parameterCount} params, ${loaded.programCount} programas`);
+  console.log(`\n${kind}: ${loaded.name} | ${loaded.parameterCount} params, ${loaded.programCount} programas`);
   console.log(params.map((p) => `${p.index}:${p.name}`).join(' | '));
 
-  const mode = params.find((p) => p.name === 'Modulation');
-  if (mode) {
-    await request('setProgram', { layerId, index: 0 });
-    const after = await request('getParam', { layerId, index: mode.index });
-    console.log(`programa 0 -> modulation = ${after.value} (${after.text})`);
-  } else {
-    const depth = params.find((p) => p.name === 'Profundidade do tremolo');
-    if (!depth) throw new Error(`${kind}: parametro de tremolo nao encontrado`);
-    await request('setProgram', { layerId, index: 0 });
-    const after = await request('getParam', { layerId, index: depth.index });
-    console.log(`programa 0 -> tremolo depth = ${after.value} (${after.text})`);
-  }
+  const param = params.find((p) => p.name === checkName);
+  if (!param) throw new Error(`${kind}: parametro "${checkName}" nao encontrado`);
+
+  await request('setProgram', { layerId, index: 0 });
+  const after = await request('getParam', { layerId, index: param.index });
+  console.log(`programa 0 -> ${checkName} = ${after.value} (${after.text})`);
+
+  const state = await request('getState', { layerId });
+  await request('setState', { layerId, data: state.data });
+  console.log('state: ok');
 
   await request('unload', { layerId });
 }
 
 (async () => {
   await Promise.race([ready, new Promise((_, rej) => setTimeout(() => rej(new Error('engine not ready')), 15000))]);
-  await testKind('tines');
-  await testKind('reeds');
+  await testKind('tines', 'Modulation');
+  await testKind('reeds', 'Tremolo Depth');
   child.stdin.end();
   process.exit(0);
 })().catch((error) => {

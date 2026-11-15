@@ -1,0 +1,1505 @@
+//! Per-note parameter tables for Wurlitzer 200A reed modal synthesis.
+//!
+//! Derived from Euler-Bernoulli beam theory with tip mass (docs/research/reed-and-hammer-physics.md).
+//! Range: MIDI 33 (A1) to MIDI 96 (C7) -- 64 reeds.
+pub const NUM_MODES: usize = 7;
+pub const MIDI_LO: u8 = 33;
+pub const MIDI_HI: u8 = 96;
+
+/// Base mode amplitudes calibrated against OBM Wurlitzer 200A recordings.
+///
+/// Original 1/ω_n scaling (Section 3.2) predicted [1.0, 0.160, 0.057, ...]
+/// from ideal bare-beam impulse response. However, OBM onset-phase spectral
+/// analysis reveals physical mode 2 is 20-37 dB weaker than predicted across
+/// the full register. Real Wurlitzer reeds have solder tip mass, non-uniform
+/// geometry, and hammer coupling that suppress upper modes far below the
+/// Euler-Bernoulli ideal.
+///
+/// Calibration method: back-calculate mechanical mode 2/fundamental ratio
+/// from OBM recordings by correcting for the pickup HPF at 2312 Hz. OBM
+/// mid-range (D4) implies mechanical mode 2 at -43 dB vs model's -16 dB.
+/// Upper modes scaled proportionally (1/ω_n ratios preserved).
+///
+/// Mode 2 reduced from 0.010 to 0.005 (-6 dB) to eliminate a metallic
+/// "plink" in mid-register: at 6.267×f0 ≈ 1642 Hz (C4), mode 2 sits in
+/// peak ear sensitivity and creates an inharmonic ring. At 0.005, mode 2
+/// is -36 dB at the pickup output — below the audibility threshold for an
+/// inharmonic partial. This is within the OBM calibration uncertainty (±5 dB).
+///
+/// The low-order harmonics (H2, H3, ...) come from the pickup's nonlinearity (the
+/// reed entering the finger band) at integer multiples of the fundamental, NOT from
+/// physical mode 2 oscillation at ~6.3×fundamental.
+pub const BASE_MODE_AMPLITUDES: [f64; NUM_MODES] =
+    [1.0, 0.005, 0.0035, 0.0018, 0.0011, 0.0007, 0.0005];
+
+/// MIDI note number to fundamental frequency (Hz), A440 tuning.
+pub fn midi_to_freq(midi: u8) -> f64 {
+    440.0 * f64::powf(2.0, (midi as f64 - 69.0) / 12.0)
+}
+
+/// Estimated tip mass ratio mu for a given MIDI note.
+///
+/// Anchor points from Section 2.6 eigenvalue analysis:
+///   MIDI 33 (A1, reed 1):  mu ~ 0.10  (heavy solder on long bass reed)
+///   MIDI 52 (E3, reed 20): mu ~ 0.00  (bare beam close to target pitch)
+///   MIDI 62 (D4, reed 30): mu ~ 0.00  (mid-register, minimal solder)
+///   MIDI 74 (D5, reed 42): mu ~ 0.02  (some solder needed)
+///   MIDI 96 (C7, reed 64): mu ~ 0.01  (minimal, short ground reed)
+///
+/// Linear interpolation between anchors.
+pub fn tip_mass_ratio(midi: u8) -> f64 {
+    let m = midi as f64;
+    let anchors: &[(f64, f64)] = &[
+        (33.0, 0.10),
+        (52.0, 0.00),
+        (62.0, 0.00),
+        (74.0, 0.02),
+        (96.0, 0.01),
+    ];
+
+    if m <= anchors[0].0 {
+        return anchors[0].1;
+    }
+    if m >= anchors[anchors.len() - 1].0 {
+        return anchors[anchors.len() - 1].1;
+    }
+
+    for i in 0..anchors.len() - 1 {
+        let (x0, y0) = anchors[i];
+        let (x1, y1) = anchors[i + 1];
+        if m <= x1 {
+            let t = (m - x0) / (x1 - x0);
+            return y0 + t * (y1 - y0);
+        }
+    }
+    0.0
+}
+
+/// Eigenvalues beta_n for a cantilever beam with tip mass ratio mu.
+///
+/// From Section 2.5 eigenvalue table. Uses linear interpolation on the eigenvalue
+/// solutions of: 1 + cos(beta)cosh(beta) + beta*mu*(cos(beta)sinh(beta) - sin(beta)cosh(beta)) = 0
+///
+/// Returns eigenvalues for modes 1-7.
+fn eigenvalues(mu: f64) -> [f64; NUM_MODES] {
+    struct EigRow {
+        mu: f64,
+        betas: [f64; NUM_MODES],
+    }
+
+    let table = [
+        EigRow {
+            mu: 0.00,
+            betas: [1.8751, 4.6941, 7.8548, 10.9955, 14.1372, 17.2788, 20.4204],
+        },
+        EigRow {
+            mu: 0.01,
+            betas: [1.8584, 4.6849, 7.8504, 10.9930, 14.1356, 17.2776, 20.4195],
+        },
+        EigRow {
+            mu: 0.05,
+            betas: [1.7920, 4.6477, 7.8316, 10.9830, 14.1288, 17.2726, 20.4158],
+        },
+        EigRow {
+            mu: 0.10,
+            betas: [1.7227, 4.6024, 7.8077, 10.9700, 14.1198, 17.2660, 20.4110],
+        },
+        EigRow {
+            mu: 0.15,
+            betas: [1.6625, 4.5618, 7.7859, 10.9580, 14.1114, 17.2598, 20.4065],
+        },
+        EigRow {
+            mu: 0.20,
+            betas: [1.6097, 4.5254, 7.7659, 10.9470, 14.1036, 17.2540, 20.4023],
+        },
+        EigRow {
+            mu: 0.30,
+            betas: [1.5201, 4.4620, 7.7310, 10.9280, 14.0894, 17.2434, 20.3946],
+        },
+        EigRow {
+            mu: 0.50,
+            betas: [1.3853, 4.3601, 7.6745, 10.8970, 14.0650, 17.2252, 20.3814],
+        },
+    ];
+
+    let mu_clamped = mu.clamp(0.0, 0.50);
+
+    // Find the interval [lo, hi] bracketing mu_clamped
+    let lo = table
+        .iter()
+        .rposition(|row| row.mu <= mu_clamped)
+        .unwrap_or(0);
+    let hi = (lo + 1).min(table.len() - 1);
+
+    let t = if table[hi].mu > table[lo].mu {
+        (mu_clamped - table[lo].mu) / (table[hi].mu - table[lo].mu)
+    } else {
+        0.0
+    };
+
+    std::array::from_fn(|i| table[lo].betas[i] + t * (table[hi].betas[i] - table[lo].betas[i]))
+}
+
+/// Mode frequency ratios f_n/f_1 for a cantilever beam with tip mass ratio mu.
+///
+/// Returns ratios for modes 1-7 (mode 1 is always 1.0). Computed from
+/// eigenvalues: ratio_n = (beta_n / beta_1)^2.
+pub fn mode_ratios(mu: f64) -> [f64; NUM_MODES] {
+    let betas = eigenvalues(mu);
+    let b1_sq = betas[0] * betas[0];
+    std::array::from_fn(|i| (betas[i] * betas[i]) / b1_sq)
+}
+
+/// Reed length in mm for a given MIDI note.
+///
+/// Two-segment linear formula from docs/research/reed-and-hammer-physics.md (Section 1.3):
+///   Reed number n = midi - 32 (MIDI 33 = reed 1, MIDI 96 = reed 64)
+///   Bass (n=1-20):   L = 3.0 - n/20 inches
+///   Treble (n=21-64): L = 2.0 - (n-20)/44 inches
+pub fn reed_length_mm(midi: u8) -> f64 {
+    let n = (midi as f64 - 32.0).clamp(1.0, 64.0);
+    let inches = if n <= 20.0 {
+        3.0 - n / 20.0
+    } else {
+        2.0 - (n - 20.0) / 44.0
+    };
+    inches * 25.4
+}
+
+/// Which point of the provisional swing band to use (see [`PROVISIONAL_FF_SWING_MM`]).
+///
+/// `Central` is the shipping pick (the conditioned prior's median). `Low` / `High` are the band
+/// ends (its p10 / p90): a conclusion drawn from a render only counts if it holds at both ends too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwingPick {
+    Central,
+    Low,
+    High,
+}
+
+/// **PROVISIONAL** ff reed swing at the pickup, mm: `(midi, pick, low, high)`.
+///
+/// Generated by `tools/swing_prior.py` (see its header for the model, the reed data and the
+/// prior). The swing after an ff strike follows a short-contact impulse law on each reed's first
+/// mode, with per-note modal mass and mode shapes from an 80-element beam model of the reed. The
+/// hammer inputs have no measurement, so each gets an independent prior stated in the tool before
+/// any render: hammer mass (1-5 g), ff hammer speed (1.4-3.5 m/s, from the service manual's action
+/// dimensions), restitution (0.3-0.7) and contact factor (0.33-0.8), all log-uniform; strike point
+/// uniform 0.40-0.60 L; the two disputed bass blank thicknesses as a 50/50 mixture; tip thickness
+/// uniform 0.51-0.66 mm above the bass.
+///
+/// **No physical falsifier binds the prior at present:** samples whose swing exceeds the note's
+/// dynamic admitted edge (the largest ff swing passing ff-falloff criterion 2, bisected per note by
+/// `tools/swing_edges.py --no-crit6` on the four-range 140B-gap tables) are discarded. `pick` =
+/// median of the survivors, `low` / `high` = their p10 / p90 (the band an ear-test conclusion must
+/// survive). Nothing here was fitted to a recording. Criterion 2 never binds inside the solved
+/// tables, so the edges are the tables' reach (bass 4.29 mm, above 2.89 mm): a numerical limit, not
+/// physics, and it trims the prior's upper tail. Survival 70-95 % in the bass, 97-100 % above.
+///
+/// **Andersen's bass-swell criterion (6) is report-only, by operator choice (2026-09-27).** Its
+/// 6 dB cap had no ff evidence; with it conditioning (variant B) the bass ff swell came out smaller
+/// than the reference unit's own mf swell. The operator compared the two builds by ear and chose
+/// this one ("sounds more real"; B read "a little light on the bass"). At the pick, C2 v127's
+/// fundamental rises +4.2 dB (peak 1.5 s), the same kind of swell the reference unit shows at mf
+/// (+1.9..+3.4 dB). A bench ff DI of a bass note would settle it with evidence.
+///
+/// **Biased low, knowingly.** Only upper falsifiers condition the pick; no admissible lower bound
+/// exists yet (the harmonic floor against the recordings is report-only: its link to the ff swing
+/// is the ear-voiced velocity curve, and the recordings' chain EQ is unbounded). So the pick sits
+/// low relative to a world where a lower bound were admissible.
+///
+/// Known model debt: above about MIDI 72 the tabulated reed lengths and thicknesses cannot reach
+/// pitch even without solder. The swing barely depends on it there (the hammer dominates), but
+/// mode ratios and decay do.
+///
+/// Replaced by the technician's bench numbers (a weighed hammer assembly and key speed narrow the
+/// band most), or by the excitation revision's contact integration.
+const PROVISIONAL_FF_SWING_MM: [(u8, f64, f64, f64); 24] = [
+    // Criterion 6 report-only (operator choice); edges = the solved tables' reach
+    // Bass reeds 1-20 (MIDI 33-52)
+    (33, 2.46, 1.22, 3.84),
+    (36, 2.44, 1.22, 3.81),
+    (39, 2.40, 1.21, 3.78),
+    (42, 2.33, 1.18, 3.72),
+    (45, 2.23, 1.14, 3.63),
+    (48, 2.25, 1.20, 3.62),
+    (51, 2.05, 1.10, 3.43),
+    (52, 1.98, 1.06, 3.36),
+    // Reeds 21-64 (MIDI 53-96)
+    (53, 1.16, 0.59, 2.11),
+    (54, 1.16, 0.59, 2.10),
+    (57, 1.14, 0.60, 2.05),
+    (60, 1.11, 0.60, 1.98),
+    (63, 1.06, 0.58, 1.87),
+    (66, 0.99, 0.56, 1.74),
+    (69, 0.90, 0.51, 1.57),
+    (72, 0.77, 0.44, 1.34),
+    (75, 0.67, 0.39, 1.17),
+    (78, 0.57, 0.33, 0.98),
+    (81, 0.48, 0.28, 0.83),
+    (84, 0.42, 0.25, 0.73),
+    (87, 0.35, 0.21, 0.61),
+    (90, 0.30, 0.17, 0.51),
+    (93, 0.25, 0.15, 0.43),
+    (96, 0.21, 0.12, 0.36),
+];
+
+/// Last bass reed (reed 20). Interpolation never crosses 52 -> 53.
+const BASS_TOP_MIDI: u8 = 52;
+
+/// Linear-in-log interpolation of per-note knots `(midi, value)` (sorted by MIDI), within one side
+/// of the reed-20|21 break: never interpolates across MIDI 52 -> 53, clamps at the ends of a side.
+/// No allocation (called at note-on on the audio thread).
+fn log_interp_by_side(midi: u8, knots: impl Iterator<Item = (u8, f64)> + Clone) -> f64 {
+    let bass = midi <= BASS_TOP_MIDI;
+    let side = knots.filter(move |k| (k.0 <= BASS_TOP_MIDI) == bass);
+    let mut prev: Option<(u8, f64)> = None;
+    for k in side {
+        if k.0 >= midi {
+            return match prev {
+                Some(p) if k.0 > midi => {
+                    let t = (midi - p.0) as f64 / (k.0 - p.0) as f64;
+                    (p.1.ln() * (1.0 - t) + k.1.ln() * t).exp()
+                }
+                _ => k.1,
+            };
+        }
+        prev = Some(k);
+    }
+    prev.expect("empty knot side").1
+}
+
+/// Provisional ff swing at the pickup for one note and band point, mm. Linear in log(swing) vs
+/// MIDI between knots, within each side of the reed-20|21 break.
+pub fn provisional_ff_swing_mm(midi: u8, pick: SwingPick) -> f64 {
+    let knots = PROVISIONAL_FF_SWING_MM.iter().map(move |k| {
+        let v = match pick {
+            SwingPick::Central => k.1,
+            SwingPick::Low => k.2,
+            SwingPick::High => k.3,
+        };
+        (k.0, v)
+    });
+    log_interp_by_side(midi, knots)
+}
+
+/// **PROVISIONAL** amplitude-dependent reed loss (quadratic air drag on mode 1): extra decay in
+/// dB/s per mm of swing at the pickup's finger region, `(midi, beta)`.
+///
+/// Textbook quadratic drag on an oscillating plate (force per unit length `0.5 rho C_d W |v| v`)
+/// integrated over the mode shape, per note, with the same finite-element reeds and conventions as
+/// [`PROVISIONAL_FF_SWING_MM`] (tip-normalised mode, solder solved to pitch, referred to the finger
+/// region): `beta_tip = (4/3) rho_air C_d W L I3 f / M1`, `I3 = (1/L) int |phi|^3 dx ~ 0.16-0.18`,
+/// `beta_p = beta_tip / phi_p`. Drag coefficient C_d 2-10 for a sharp-edged plate at
+/// Keulegan-Carpenter number ~0.7-6 (guess-grade); the table is at the geometric centre, 4.47. The
+/// band corners are x0.447 and x2.236 (`CalibrationConfig::air_drag_scale`).
+///
+/// Mode 1 only: higher modes are 36-48 dB down. Clamp micro-slip, another amplitude-dependent loss,
+/// cannot be bounded from any source and is left out. The linear decay rates are unchanged: the old
+/// expansive pickup law made the output decay faster than the reed, so their fit (at mf)
+/// under-estimates the reed's true decay rather than containing this term.
+const PROVISIONAL_AIR_DRAG_DB_PER_MM: [(u8, f64); 24] = [
+    (33, 0.259),
+    (36, 0.356),
+    (39, 0.485),
+    (42, 0.651),
+    (45, 0.863),
+    (48, 1.125),
+    (51, 1.417),
+    (52, 1.519),
+    (53, 0.664),
+    (54, 0.756),
+    (57, 1.114),
+    (60, 1.633),
+    (63, 2.381),
+    (66, 3.446),
+    (69, 4.863),
+    (72, 5.921),
+    (75, 7.116),
+    (78, 8.562),
+    (81, 10.32),
+    (84, 12.45),
+    (87, 15.05),
+    (90, 18.24),
+    (93, 22.16),
+    (96, 27.02),
+];
+
+/// Mode-1 air-drag coefficient for this note, dB/s per mm of finger-region swing, scaled by
+/// `cfg.air_drag_scale` (1.0 = C_d 4.47; 0 = off).
+pub fn air_drag_db_per_mm_with_config(midi: u8, cfg: &CalibrationConfig) -> f64 {
+    log_interp_by_side(midi, PROVISIONAL_AIR_DRAG_DB_PER_MM.iter().copied()) * cfg.air_drag_scale
+}
+
+/// Lower bound on the swing, mm: keeps the level proxy away from zero.
+const SWING_MIN_MM: f64 = 0.02;
+
+/// Runtime-overridable calibration parameters.
+/// All fields default to the current hardcoded constants.
+#[derive(Debug, Clone)]
+pub struct CalibrationConfig {
+    /// Which point of the provisional swing band drives the pickup.
+    pub swing_pick: SwingPick,
+    /// Multiplier on the provisional swing (1.0 in the shipping build; for bench sweeps).
+    pub swing_scale: f64,
+    /// Multiplier on the air-drag coefficient: 1.0 = C_d 4.47 (shipping), 0.447 / 2.236 = the
+    /// C_d 2 / 10 band corners, 0 = off.
+    pub air_drag_scale: f64,
+    /// Multiplier on the hammer contact time (dwell filter and onset ramp): 1.0 = shipping.
+    /// Below 1.0 is a harder pad, above it a softer one. Latched at note-on.
+    pub hammer_contact_scale: f64,
+    /// Multiplier on the damper rates, applied when the damper starts: 1.0 = shipping.
+    pub damper_scale: f64,
+    pub target_db: f64,
+    pub voicing_slope: f64,
+    pub zero_trim: bool,
+}
+
+impl Default for CalibrationConfig {
+    fn default() -> Self {
+        Self {
+            swing_pick: SwingPick::Central,
+            swing_scale: 1.0,
+            air_drag_scale: 1.0,
+            hammer_contact_scale: 1.0,
+            damper_scale: 1.0,
+            // Level anchor: C4 v100 at the preamp input held where v0.8.0 put it (~9.5 mV peak
+            // at onset, ~19 mV p-p; fundamental ~5.7 mV peak at 100-400 ms). That sits inside
+            // the physical estimate for the plate swing at TR-1 (147 V x dC/C_node), at the low
+            // end of its band; the band is too wide to move the anchor, and only a bench reading
+            // at TR-1's base settles the absolute level. The provisional swing changes timbre,
+            // not the anchor. Re-measured with tools/pickup_rev_metrics.py whenever the swing
+            // changes.
+            target_db: -29.55,
+            voicing_slope: -0.04,
+            zero_trim: false,
+        }
+    }
+}
+
+/// ff reed swing at the pickup for this note, mm (the velocity curve scales it down from here).
+pub fn pickup_swing_mm(midi: u8) -> f64 {
+    pickup_swing_mm_with_config(midi, &CalibrationConfig::default())
+}
+
+pub fn pickup_swing_mm_with_config(midi: u8, cfg: &CalibrationConfig) -> f64 {
+    (provisional_ff_swing_mm(midi, cfg.swing_pick) * cfg.swing_scale).max(SWING_MIN_MM)
+}
+
+/// Cantilever beam mode shape phi_n(xi) with tip mass.
+///
+/// phi_n(xi) = cosh(beta*xi) - cos(beta*xi) - sigma*(sinh(beta*xi) - sin(beta*xi))
+/// where sigma = (cosh(beta) + cos(beta)) / (sinh(beta) + sin(beta))
+/// and xi = x/L (0=clamp, 1=tip).
+fn mode_shape(beta: f64, xi: f64) -> f64 {
+    let sigma = (beta.cosh() + beta.cos()) / (beta.sinh() + beta.sin());
+    let bx = beta * xi;
+    bx.cosh() - bx.cos() - sigma * (bx.sinh() - bx.sin())
+}
+
+/// Active pickup plate length in mm.
+///
+/// Estimated from Wurlitzer 200A pickup geometry — the electrode region that
+/// effectively senses reed displacement. Conservative estimate; real plates
+/// vary slightly by register.
+const PLATE_ACTIVE_LENGTH_MM: f64 = 6.0;
+
+/// Spatial coupling coefficients for pickup-reed interaction.
+///
+/// The pickup plate has finite length and integrates reed displacement over its
+/// active region near the tip. Higher bending modes oscillate spatially — their
+/// lobes partially cancel within the pickup window. This produces a spatial
+/// low-pass filter that attenuates inharmonic modes relative to the fundamental.
+///
+/// Raw coupling: kappa_n = |integral of phi_n(xi) from (1-ell/L) to 1| / [ell/L * |phi_n(1)|]
+///
+/// **Normalized to mode 1**: the returned coefficients are kappa_n / kappa_1, so
+/// mode 1 always returns 1.0. The absolute value of kappa_1 (0.83–0.94 depending
+/// on register) is absorbed into the per-note swing at the pickup, which is
+/// referenced to the reed tip.
+/// What matters for mode suppression is the *differential* attenuation: how much
+/// less the pickup senses mode n relative to mode 1.
+#[allow(clippy::needless_range_loop)]
+pub fn spatial_coupling_coefficients(mu: f64, reed_len_mm: f64) -> [f64; NUM_MODES] {
+    let betas = eigenvalues(mu);
+    let ell_over_l = (PLATE_ACTIVE_LENGTH_MM / reed_len_mm).clamp(0.0, 1.0);
+
+    let mut kappa_raw = [0.0f64; NUM_MODES];
+
+    // Simpson's rule with 32 subintervals
+    const N_SIMPSON: usize = 32;
+    let xi_start = 1.0 - ell_over_l;
+
+    for mode in 0..NUM_MODES {
+        let beta = betas[mode];
+        let tip_val = mode_shape(beta, 1.0);
+
+        if tip_val.abs() < 1e-30 || ell_over_l < 1e-12 {
+            kappa_raw[mode] = 1.0; // Degenerate case: point pickup at tip
+            continue;
+        }
+
+        // Simpson's rule: integral = (h/3) * [f(x0) + 4*f(x1) + 2*f(x2) + 4*f(x3) + ... + f(xN)]
+        let h = ell_over_l / N_SIMPSON as f64;
+        let mut sum = mode_shape(beta, xi_start) + mode_shape(beta, 1.0);
+
+        for j in 1..N_SIMPSON {
+            let xi = xi_start + j as f64 * h;
+            let coeff = if j % 2 == 1 { 4.0 } else { 2.0 };
+            sum += coeff * mode_shape(beta, xi);
+        }
+
+        let integral = sum * h / 3.0;
+        // Absolute value: mode shapes can be negative at the tip for higher modes
+        // (the sign just flips the phase, but coupling magnitude is what matters)
+        let k = (integral / (ell_over_l * tip_val)).abs();
+        kappa_raw[mode] = k.clamp(0.0, 1.0);
+    }
+
+    // Normalize to mode 1: the reed model outputs tip displacement, and
+    // the swing table is tip-referenced. Applying raw kappa_1 < 1 would
+    // double-count the spatial averaging (once here, once in the swing).
+    // Only the differential suppression (kappa_n / kappa_1) is meaningful.
+    let k1 = kappa_raw[0];
+    if k1 > 1e-30 {
+        std::array::from_fn(|i| (kappa_raw[i] / k1).clamp(0.0, 1.0))
+    } else {
+        [1.0; NUM_MODES]
+    }
+}
+
+/// Fundamental decay rate in dB/s for a given MIDI note.
+///
+/// Frequency power law calibrated against 10 clean OBM 200A decay rates
+/// (excluding anomalous D6/F#6/D7): `decay = 0.005 * f^1.22`, floored at 3.0 dB/s.
+///
+/// ⚠ UNVERIFIED: calibrated against OBM reference data at the octave-mislabelled pitch
+/// (docs/reference/calibration-and-evaluation.md, Appendix D notice). Pending
+/// re-examination against correctly pitched evidence: keep, adjust, or label unsourced.
+///
+/// Physical basis claimed: Q ∝ f^(-0.22), a slight Q decrease with frequency. It was once
+/// attributed to thermoelastic (Zener) damping, but above f_Zener (~40-75 Hz for these reeds)
+/// thermoelastic loss gives a flat decay rate of a few dB/s, not a rising one
+/// (reed-and-hammer-physics.md §5.5). A constant-Q model (Q~1636) gives
+/// exponent 1.0 (decay ∝ f); the slight upward correction captures the trend
+/// in OBM data where treble reeds have modestly lower Q than bass.
+///
+/// Approximate values: F#3=3.0 (floor), D4=5.2, Bb4=8.5, F#5=16.0,
+/// Bb5=21.1, C6=24.2 dB/s.
+///
+/// The 3.0 dB/s floor handles frequency-independent losses (clamping friction,
+/// structural radiation, viscous air damping) that dominate for bass reeds
+/// MIDI 33-48. OBM confirms bass decay rates are ~3 dB/s throughout octaves
+/// 2-3, matching this floor.
+const MIN_DECAY_RATE: f64 = 3.0;
+
+pub fn fundamental_decay_rate(midi: u8) -> f64 {
+    let f = midi_to_freq(midi);
+    (0.005 * f.powf(1.22)).max(MIN_DECAY_RATE)
+}
+
+/// Per-mode decay rates in dB/s.
+///
+/// Super-linear damping model: decay_n = decay_1 * mode_ratio_n^p
+///
+/// UNSOURCED: chosen by ear. At p=2.0, mode 2 at C4 (1642 Hz) decays at ~326 dB/s, reaching
+/// -10 dB within 9 ms, which confines the inharmonic partials to the first few cycles of the
+/// attack. The previous value (1.5) let mode 2 ring for ~77 ms in mid-register as an audible
+/// metallic "plink".
+///
+/// The stated basis does not hold. It claimed thermoelastic (Zener) loss scales as ω², but above
+/// f_Zener (~40-75 Hz for these reeds) the thermoelastic decay rate is flat
+/// (reed-and-hammer-physics.md §5.5). The behaviour it claimed to match isn't seen either: a real
+/// 200A's C4 mode 2 (ratio 5.63) is still present 0.3-2.8 s after the strike, at −74…−83 dB re
+/// H1 (Keyboard Waves sample set, Sensor Array, 2026-10-29). The real partial is weak and lingers;
+/// this model's is louder and short. The hammer-contact revision
+/// (docs/research/hammer-contact-revision.md) revisits both.
+///
+/// Note: the constant is preserved for documentation; `mode_decay_rates()`
+/// inlines `ratio * ratio` instead of `powf(2.0)` for performance.
+pub const MODE_DECAY_EXPONENT: f64 = 2.0;
+
+pub fn mode_decay_rates(midi: u8, ratios: &[f64; NUM_MODES]) -> [f64; NUM_MODES] {
+    let base = fundamental_decay_rate(midi);
+    // Inlined ratio² is cheaper than powf(MODE_DECAY_EXPONENT)
+    std::array::from_fn(|i| base * ratios[i] * ratios[i])
+}
+
+/// Multi-harmonic RMS proxy for the retired 1/(1-y) pickup law — kept only as the closed-form
+/// reference that validates [`pickup_rms_proxy_numeric`].
+///
+/// The pickup's 1/(1-y) nonlinearity distributes energy across harmonics.
+/// For `y = ds·sin(θ)`, the Fourier magnitudes of `y/(1-y)` are:
+///   r = (1 - sqrt(1 - ds²)) / ds
+///   c_n = 2·r^n / sqrt(1 - ds²)
+///
+/// Each harmonic passes the pickup HPF differently: `hpf_n = n·f0 / sqrt((n·f0)² + fc²)`.
+/// The RMS proxy sums the first 8 harmonics: `sqrt(Σ (c_n · hpf_n)²)`.
+///
+/// This replaces the old single-harmonic proxy `ds/(1-ds) * f0/sqrt(f0²+fc²)` which
+/// used the peak of y/(1-y) instead of Fourier coefficients and ignored H2-H8 energy.
+/// The peak/c₁ ratio varies from 1.7 (ds=0.50) to 2.4 (ds=0.80), systematically
+/// over-estimating bass by ~2 dB.
+///
+/// # 2026-09-14: this proxy was always source-shaped; only the corner was wrong
+///
+/// Note what the maths above actually models: the harmonics of `y/(1-y)`, each
+/// then passed through a one-pole high-pass. That is **exactly** the structure
+/// of the restructured pickup — a source term carrying the nonlinearity, into a
+/// nearly-LTI network (see `pickup.rs`). It was never a model of the
+/// *pre-restructure* pickup, which put the nonlinearity in the network's time
+/// constant; against that model this proxy was structurally wrong, and nobody
+/// noticed because the error was absorbed into `register_trim_db`.
+///
+/// So the re-derivation for the restructure needed no new algebra — only the
+/// corner. Callers must pass `pickup::PICKUP_FC`; the call site previously
+/// hardcoded the superseded 2312 Hz.
+///
+/// Verified against the restructured module over ds ∈ {0.2, 0.4, 0.6, 0.8} ×
+/// f0 ∈ {65, 131, 262, 523, 1046} Hz, normalised at ds=0.5 / f0=262:
+///
+/// | | 65 Hz | 131 Hz | 262 Hz | 523 Hz | 1046 Hz |
+/// |---|---|---|---|---|---|
+/// | with fc = 2312 (stale) | -0.5 | -0.4 | -0.2 | +0.6 | **+2.5** |
+/// | with fc = 2312, ds=0.8 | -0.4 | -0.1 | +0.7 | +2.0 | **+3.9** |
+/// | with fc = PICKUP_FC | -0.04 | 0.00 | -0.01 | -0.01 | -0.01 |
+/// | with fc = PICKUP_FC, ds=0.8 | +0.03 | 0.00 | +0.07 | +0.09 | +0.12 |
+///
+/// ±0.12 dB worst case, against a 4.4 dB spread before. That spread was the
+/// DS-feedback loop: because `output_scale` normalises by this proxy, a DS
+/// change moved the proxy differently from the way it moved the real pickup, so
+/// lowering DS *raised* `output_scale` and the chain level did not track DS.
+/// Lowering `DS_CLAMP` could therefore RAISE the chord peak.
+#[cfg(test)]
+fn pickup_rms_proxy(ds: f64, f0: f64, fc: f64) -> f64 {
+    if ds < 1e-10 {
+        return 0.0;
+    }
+    let r = (1.0 - (1.0 - ds * ds).sqrt()) / ds;
+    let inv_sqrt = 1.0 / (1.0 - ds * ds).sqrt();
+    let mut sum_sq = 0.0;
+    let mut r_n = r;
+    for n in 1..=8u32 {
+        let cn = 2.0 * r_n * inv_sqrt;
+        let nf = n as f64 * f0;
+        let hpf_n = nf / (nf * nf + fc * fc).sqrt();
+        sum_sq += (cn * hpf_n) * (cn * hpf_n);
+        r_n *= r;
+    }
+    sum_sq.sqrt()
+}
+
+/// RMS proxy for a note's actual pickup: its section's field-solved law, the side of the finger
+/// band it sits on, and its swing (`swing_mm`, mm at the pickup), through the pickup's high-pass.
+/// This is what `output_scale` normalises by.
+pub fn pickup_rms_proxy_law(midi: u8, swing_mm: f64, f0: f64, fc: f64) -> f64 {
+    use crate::pickup::{PICKUP_REST_OFFSET_MM, pickup_band_sign, pickup_law_for};
+    let law = pickup_law_for(midi);
+    let a = pickup_band_sign(midi) * swing_mm;
+    let rest = law.eval(-PICKUP_REST_OFFSET_MM);
+    pickup_rms_proxy_numeric(|st| law.eval(a * st - PICKUP_REST_OFFSET_MM) - rest, f0, fc)
+}
+
+/// Multi-harmonic RMS proxy for ANY static pickup source law.
+///
+/// Same structure as the retired closed-form `pickup_rms_proxy` — harmonics of the source term, each through the
+/// pickup's one-pole high-pass, summed over H1..H8 — but with the Fourier magnitudes computed
+/// numerically (64-point DFT over one cycle) instead of in closed form, so it works for the
+/// field-solved overlap law, which has no closed form. `source(sin_theta)` returns the source
+/// term for a unit-amplitude displacement phase; the caller folds amplitude and rest point in.
+///
+/// Checked against the closed form on `y/(1-y)` (see `test_numeric_proxy_matches_closed_form`).
+pub fn pickup_rms_proxy_numeric(source: impl Fn(f64) -> f64, f0: f64, fc: f64) -> f64 {
+    const N: usize = 64;
+    let s: [f64; N] =
+        std::array::from_fn(|i| source((std::f64::consts::TAU * i as f64 / N as f64).sin()));
+    let mut sum_sq = 0.0;
+    for n in 1..=8usize {
+        let (mut re, mut im) = (0.0, 0.0);
+        for (i, v) in s.iter().enumerate() {
+            let p = std::f64::consts::TAU * (n * i) as f64 / N as f64;
+            re += v * p.cos();
+            im -= v * p.sin();
+        }
+        let cn = 2.0 * (re * re + im * im).sqrt() / N as f64;
+        let nf = n as f64 * f0;
+        let hpf_n = nf / (nf * nf + fc * fc).sqrt();
+        sum_sq += (cn * hpf_n) * (cn * hpf_n);
+    }
+    sum_sq.sqrt()
+}
+
+/// Empirical register trim from Tier 3 render calibration at v=127.
+///
+/// Corrects the residual imbalance that the multi-harmonic proxy and voicing
+/// slope cannot model analytically: preamp Cin coupling cap HPF (~329 Hz),
+/// speaker coloration, pickup-law level effects, and mode interaction
+/// artifacts. Reference: MIDI 60 (C4) = 0.0 dB.
+///
+/// Positive = boost (note too quiet), negative = cut (note too loud).
+/// Linear interpolation between anchor points; clamped outside range.
+pub fn register_trim_db(midi: u8) -> f64 {
+    // RE-CALIBRATED 2026-09-23 on the shipping chain (drawn-topology preamp,
+    // 880 Hz pickup corner, R-30/C-10 amp shelf, drawn volume network at
+    // vol 0.50, speaker 0, tremolo 0, MLP off), rendered through the real
+    // engine (preamp-bench render-midi) and metered with an external LUFS/RMS
+    // analyzer over 100–400 ms. The 2026-03-20 values were measured on a
+    // chain that no longer exists (melange preamp, vol², PSG +10.5 dB,
+    // 2312 Hz corner).
+    //
+    // Two velocities disagree in sign (ff says treble ~1.5 dB loud, mf says
+    // treble up to 2.8 dB quiet), and the trim is only ~55 % applied at mf
+    // (vel_blend = 0.63^1.3), so each anchor is the least-squares shift over
+    // both: Δ = (d_ff + 0.548·d_mf) / (1 + 0.548²), d = level(C4) − level(note).
+    // Residuals after this pass (measured): C2–G#4 within ±0.6 dB at ff and
+    // ±1.2 dB at mf; the top octave keeps its structural split (C6: −1.55 dB
+    // at ff, +2.82 dB at mf) because a trim applied at 55 % cannot satisfy
+    // both. That remainder belongs to the velocity curve (`velocity_exponent`
+    // / the vel_blend exponent), not to this table.
+    const ANCHORS: [(f64, f64); 13] = [
+        (36.0, -2.6), // C2   (was -1.3; d_ff -1.90, d_mf +0.30)
+        (40.0, -0.2), // E2   (was  0.0; d_ff -0.25, d_mf +0.07)
+        (44.0, -1.6), // G#2  (was -1.3; d_ff -0.52, d_mf +0.19)
+        (48.0, 1.3),  // C3   (was  0.7; d_ff +0.88, d_mf -0.20)
+        (52.0, 0.5),  // E3   (was  0.2; d_ff +0.56, d_mf -0.25)
+        (56.0, -2.0), // G#3  (was -1.0; d_ff -1.20, d_mf -0.28)
+        (60.0, 0.0),  // C4   (reference)
+        (64.0, 0.7),  // E4   (was  0.9; d_ff -0.55, d_mf +0.47)
+        (68.0, 0.8),  // G#4  (was  1.2; d_ff -0.99, d_mf +0.97)
+        (72.0, -0.6), // C5   (was  0.0; d_ff -1.41, d_mf +1.11)
+        (76.0, 1.4),  // E5   (was  1.8; d_ff -1.47, d_mf +1.68)
+        (80.0, 2.1),  // G#5  (was  2.4; d_ff -1.59, d_mf +2.18)
+        (84.0, 3.6),  // C6   (unchanged; d_ff -1.55, d_mf +2.82 cancel)
+    ];
+
+    let m = midi as f64;
+    if m <= ANCHORS[0].0 {
+        return ANCHORS[0].1;
+    }
+    if m >= ANCHORS[ANCHORS.len() - 1].0 {
+        return ANCHORS[ANCHORS.len() - 1].1;
+    }
+    for i in 0..ANCHORS.len() - 1 {
+        let (x0, y0) = ANCHORS[i];
+        let (x1, y1) = ANCHORS[i + 1];
+        if m <= x1 {
+            let t = (m - x0) / (x1 - x0);
+            return y0 + t * (y1 - y0);
+        }
+    }
+    0.0
+}
+
+/// Volts at the power-amp output that map to digital full scale (0 dBFS).
+/// Set to the amp's clip ceiling, `power_amp::HEADROOM_V` (22 V). If rail sag
+/// is ever modeled on the shipping path this becomes the IDLE rail (24.5 V).
+///
+/// A stated reference in circuit units, not a gain (2026-09-23, replacing the
+/// retired post-speaker gain that was re-sized for every chain change; history
+/// in CHANGELOG). The rail is the circuit's only hard limit, so an engine "over"
+/// can only mean the amp clipped, and the engine output never exceeds full scale
+/// at any setting provided no downstream stage has gain > 1
+/// (`test_output_never_exceeds_full_scale_across_settings`). Library hosts own
+/// their level staging; the OpenWurli plugin applies its own fixed output
+/// alignment after the chain (`OUTPUT_ALIGNMENT_DB`). Structural facts about
+/// worst-case level: docs/research/output-stage.md, gain staging.
+pub const FULL_SCALE_VOLTS: f64 = crate::power_amp::HEADROOM_V;
+
+/// Post-speaker output multiplier: the amp's normalized output (±1.0 = ±HEADROOM_V)
+/// re-referenced to `FULL_SCALE_VOLTS`. Equals 1.0 while the two coincide.
+pub const POST_SPEAKER_GAIN: f64 = crate::power_amp::HEADROOM_V / FULL_SCALE_VOLTS;
+
+// ─── Volume network: the drawn pot between preamp and power amp ───────────
+//
+// Drawing #203720-S-3: preamp out (after R-9, 6.8K) → R-11 "REED BAR VOLUME"
+// 25K trimmer, wiper-strapped (a series resistor whose value is the factory
+// setting) → 10K main volume pot, bottom to ground → wiper → C-8 (4.7 µF) →
+// TR-7 base, biased by R-27 (15K to ground). C-8 against ~20K puts its corner
+// near 2 Hz, so the network is solved as resistive.
+//
+// 2026-09-23: this REPLACES the 2026-04-26 "drive/volume decoupling", which
+// pinned the amp's drive at 0.25 and made user volume a post-speaker
+// multiplier so that vol = 1.0 could never clip the amp. That was a fudge for
+// a desired result: the real instrument's amp is driven by the pot, and it
+// clips when the pot says so. The user volume is now the pot position; the
+// output level falls where the circuit puts it (the rail is full scale, see
+// `FULL_SCALE_VOLTS`).
+//
+// Two values are ASSUMPTIONS pending a bench measurement (bench list items
+// 11–12): the R-11 setting (engine setting `set_reed_bar_trim`, default
+// transferred from the non-A factory calibration, see the constant) and the pot taper (the standard
+// "15 % at center" two-slope audio taper — an industry curve, not a fit).
+
+/// R-11 "REED BAR VOLUME" 25K trimmer, wiper strapped to the preamp end
+/// (confirmed on both prints, pixel-traced 2026-09-23): a 0–25K series
+/// resistance between the preamp output and the pot top. It is a per-unit
+/// factory adjustment with NO documented procedure on the A-series board, so
+/// the engine takes it as a setting (`WurliEngine::set_reed_bar_trim`). The
+/// OpenWurli plugin holds it at this default: it is a service trimmer, not a
+/// player control, and in series with the pot it only adds a second level
+/// control. Library hosts may expose it.
+///
+/// DEFAULT PROVENANCE (2026-09-23, independent review): TRANSFERRED from the
+/// manufacturer's factory calibration of the non-A Model 200 board, whose
+/// R-48 is the same thing — a 0–25K wiper-strapped reed-bar level trim ahead
+/// of the volume pot (drawing 201904-S-1-E-1, pixel-traced). The service
+/// manual's procedure: "With an input of 60 millivolts at 1 KHz, adjust R-48
+/// for an AC voltage of 4.75 volts at the output of the amplifier with an
+/// 8 ohm, 10 watt load and with the volume control on maximum" — an
+/// END-TO-END sensitivity of 79× from the reed-bar input to the speaker.
+/// Applied to this model (drawn A values; vibrato off at the 13.24K divider
+/// floor; preamp 15.8 dB at node_c6; amp 69.2×; pot at max, wiper 10K ∥ 15K;
+/// generator at the reed-bar end of R-1, junction ≈280K at 1 kHz → k = 0.927)
+/// the setting that reproduces it is R-11 ≈ 17.2K. Grade: inference — the
+/// correspondence is functional, not topological (different amp, different
+/// preamp), and nothing printed says Wurlitzer kept the same sensitivity
+/// target on the A. Better grounded than mid-travel; not a measurement. The
+/// bench reading (list item 11) outranks it the moment it arrives. With R-11
+/// at 0 the amp reaches its clip knee on ff chords at full volume; at 17.2K
+/// it does not.
+pub const R11_REED_BAR_VOLUME_DEFAULT: f64 = 17_200.0;
+/// Full travel of R-11.
+pub const R11_REED_BAR_VOLUME_MAX: f64 = 25_000.0;
+/// Main volume pot, 10K (part 203643-001), bottom terminal to ground.
+pub const VOLUME_POT_R: f64 = 10_000.0;
+/// R-9, the preamp's output series resistor: the source resistance the pot
+/// network sees (both preamp decks carry it; `open_circuit_output_factor`
+/// returns each model's output to the R-9 terminal's open-circuit value).
+pub const PREAMP_OUTPUT_R9: f64 = 6_800.0;
+/// Power-amp input resistance at the pot wiper: R-27 (15K, TR-7 base bias).
+/// TR-7's own base impedance is bootstrapped by the feedback loop and is
+/// neglected (good to ~1 %).
+pub const POWER_AMP_R_IN: f64 = 15_000.0;
+/// C-9 (1 nF, TR-7 base to ground, drawn). Against the wiper's Thévenin
+/// resistance it makes a VOLUME-DEPENDENT treble pole — the classic
+/// pot-loading treble shift: ≈35 kHz at full pot (−0.3 dB at 10 kHz,
+/// −1.1 dB at 20 kHz), higher at lower settings. See `volume_pot_pole_hz`.
+pub const POWER_AMP_C9: f64 = 1.0e-9;
+
+/// Audio-taper law: wiper-to-ground fraction of the pot's resistance at
+/// rotation `pos` (0..1). Standard carbon "15 % at center" two-slope taper
+/// (Bourns/Alpha convention): 15 % at half rotation, linear on each side.
+/// ASSUMED — the 200A pot's taper code is undocumented.
+pub fn audio_taper(pos: f64) -> f64 {
+    let p = pos.clamp(0.0, 1.0);
+    if p <= 0.5 {
+        0.15 * (p / 0.5)
+    } else {
+        0.15 + 0.85 * ((p - 0.5) / 0.5)
+    }
+}
+
+/// Gain from the preamp's OPEN-CIRCUIT output (at the R-9 terminal) to the
+/// power-amp input, for user volume `vol` (pot position, 0..1), with the
+/// R-11 trimmer ahead of the pot and the amp's R-27 loading the wiper:
+///
+/// ```text
+///   R_lower  = VOLUME_POT_R · taper(vol)          R_upper = VOLUME_POT_R − R_lower
+///   R_low∥   = R_lower ∥ POWER_AMP_R_IN
+///   gain     = R_low∥ / (R9 + R11 + R_upper + R_low∥)
+/// ```
+///
+/// `r11` is the trimmer's series resistance in ohms (0..=25K).
+/// Reference points (R-11 at its 17.2K default): vol 0.8 (the plugin default)
+/// → 0.143 (−16.9 dB), vol 1.0 → 0.200 (−14.0 dB). The pre-2026-09-23 pinned
+/// drive was 0.25 at every volume.
+pub fn volume_pot_gain(vol: f64, r11: f64) -> f64 {
+    let r11 = r11.clamp(0.0, R11_REED_BAR_VOLUME_MAX);
+    let r_lower = VOLUME_POT_R * audio_taper(vol);
+    let r_upper = VOLUME_POT_R - r_lower;
+    let r_low_eff = if r_lower <= 0.0 {
+        0.0
+    } else {
+        r_lower * POWER_AMP_R_IN / (r_lower + POWER_AMP_R_IN)
+    };
+    r_low_eff / (PREAMP_OUTPUT_R9 + r11 + r_upper + r_low_eff)
+}
+
+/// Corner of the C-9 pole at the amp input for pot position `vol`: the
+/// Thévenin resistance seen by C-9 is (R9 + R11 + R_upper) ∥ R_lower ∥ R-27.
+/// ≈35 kHz at vol 1.0 (R-11 mid), rising toward the R-27-only limit as the
+/// wiper approaches ground.
+pub fn volume_pot_pole_hz(vol: f64, r11: f64) -> f64 {
+    let r11 = r11.clamp(0.0, R11_REED_BAR_VOLUME_MAX);
+    let r_lower = VOLUME_POT_R * audio_taper(vol);
+    let r_upper = VOLUME_POT_R - r_lower;
+    let r_src = PREAMP_OUTPUT_R9 + r11 + r_upper;
+    let par = |a: f64, b: f64| a * b / (a + b);
+    let r_th = if r_lower <= 0.0 {
+        0.0
+    } else {
+        par(par(r_src, r_lower), POWER_AMP_R_IN)
+    };
+    if r_th <= 0.0 {
+        f64::INFINITY
+    } else {
+        1.0 / (2.0 * std::f64::consts::PI * r_th * POWER_AMP_C9)
+    }
+}
+
+/// Per-note output scaling to balance the keyboard.
+///
+/// Applied POST-pickup to decouple volume from nonlinear displacement.
+/// Three layers of correction:
+///   1. Velocity-aware multi-harmonic proxy — the note's own pickup law
+///      ([`pickup_rms_proxy_law`]) through the HPF at the ACTUAL swing for this
+///      velocity, not just peak, so harmonic energy that passes the HPF at ff
+///      is accounted for automatically.
+///   2. Voicing slope — gentle treble roll for preamp BW and harmonic content
+///   3. Empirical register trim — calibrated from Tier 3 renders at v=127
+///
+/// Tuning knobs:
+///   TARGET_DB — absolute level
+///   VOICING_SLOPE — treble balance (dB/semi above C4)
+pub fn output_scale(midi: u8, velocity_norm: f64) -> f64 {
+    output_scale_with_config(midi, velocity_norm, &CalibrationConfig::default())
+}
+
+pub fn output_scale_with_config(midi: u8, velocity_norm: f64, cfg: &CalibrationConfig) -> f64 {
+    // The pickup's small-signal corner. Was hardcoded 2312.0 — the superseded
+    // corner from the misread input network — which left this proxy
+    // mis-normalising by up to 4.4 dB across register and drive, and fighting
+    // any DS change (see `pickup_rms_proxy`). Referenced, not copied, so an LCR
+    // measurement of C_TOTAL moves it here too.
+    let hpf_fc = crate::pickup::PICKUP_FC;
+
+    let swing = pickup_swing_mm_with_config(midi, cfg);
+    let f0 = midi_to_freq(midi);
+
+    // Velocity-aware proxy: compute at the actual swing the pickup sees at this
+    // velocity. vel_scale reduces the reed's swing, which changes how far it enters
+    // the finger band and so the harmonic content that passes the HPF.
+    let scurve_v = velocity_scurve(velocity_norm);
+    let vel_scale = scurve_v.powf(velocity_exponent(midi));
+    let vel_scale_c4 = scurve_v.powf(velocity_exponent(60));
+    let effective_swing = (swing * vel_scale).max(1e-6);
+    let effective_swing_ref = (pickup_swing_mm_with_config(60, cfg) * vel_scale_c4).max(1e-6);
+
+    let rms = pickup_rms_proxy_law(midi, effective_swing, f0, hpf_fc);
+    let rms_ref = pickup_rms_proxy_law(60, effective_swing_ref, midi_to_freq(60), hpf_fc);
+
+    let flat_db = -20.0 * (rms / rms_ref).log10();
+    let voicing_db = cfg.voicing_slope * (midi as f64 - 60.0).max(0.0);
+    let trim = if cfg.zero_trim {
+        0.0
+    } else {
+        register_trim_db(midi)
+    };
+
+    // Velocity-dependent trim blend: at mf (v=80, norm=0.63, blend=0.546)
+    // the register trim is partially applied. At ff (v=127, blend=1.0)
+    // the full trim applies, preserving the v=127 calibration.
+    // Exponent 1.3 gives ~4 dB spread at mf (was 6.0 dB with ^2.0).
+    let vel_blend = velocity_norm.powf(1.3);
+    let effective_trim = trim * vel_blend;
+
+    f64::powf(
+        10.0,
+        (cfg.target_db + flat_db + voicing_db + effective_trim) / 20.0,
+    )
+}
+
+/// Register-dependent velocity exponent for dynamic expression.
+///
+/// On a real 200A, mid-register notes (C3-C5) have the most dynamic range
+/// because the hammer weight and reed stiffness are well-matched. Bass reeds
+/// are heavy (compressed dynamics), treble reeds are light (quick saturation).
+///
+/// The velocity curve is: amplitude = velocity^exponent
+///   exponent < 1.0: compressed dynamics (bass, treble)
+///   exponent = 1.0: linear
+///   exponent > 1.0: expanded dynamics (mid-register)
+///
+/// sigma=15: the compression onset is gradual across the keyboard —
+/// the hammer-reed stiffness ratio changes smoothly, not abruptly.
+/// Gives ~18-22 dB mid-register range, ~10-12 dB at extremes.
+pub fn velocity_exponent(midi: u8) -> f64 {
+    let m = midi as f64;
+    // Bell centered at MIDI 62 (D4). Peak 1.7 (expanded mid dynamics), treble
+    // edge 1.3. The BASS edge is compressed to ~0.55 (2026-07): a lower exponent
+    // raises the reed amplitude at moderate velocity (ff, at scurve=1.0, is
+    // unchanged), so the reed drives close to the pickup and the 1/(1−y) bark
+    // spikes appear at moderate playing — not only when slammed. The real 200A
+    // bass growls when played moderately; the old symmetric 1.3 edge kept the
+    // bass too clean until ff. The intentional cost is reduced bass dynamic
+    // range — acceptable here (openwurli models circuit authenticity; loudness/
+    // dynamics balancing is a downstream host's job, per the scope split).
+    let center = 62.0;
+    let sigma = 15.0;
+    let max_exp = 1.7;
+    let treble_min = 1.3;
+    let bass_min = 0.55;
+    let t = f64::exp(-0.5 * ((m - center) / sigma).powi(2));
+    let min_exp = if m < center { bass_min } else { treble_min };
+    min_exp + t * (max_exp - min_exp)
+}
+
+/// Sigmoid velocity shaping, voiced by ear.
+///
+/// k=1.5 gives a mild S: pp slightly compressed, mf and ff nearly linear. It was once justified
+/// as the compression curve of the patent's neoprene foam pad, but production hammers are felt
+/// (service manual), so it has no physical source. It is inherited from the retired pickup law
+/// and belongs to the excitation revision (docs/research/pickup-overlap-law.md §7). Used by both
+/// voice.rs (reed amplitude scaling) and output_scale (velocity-aware pickup RMS proxy).
+pub fn velocity_scurve(velocity: f64) -> f64 {
+    let k = 1.5;
+    let s = 1.0 / (1.0 + (-k * (velocity - 0.5)).exp());
+    let s0 = 1.0 / (1.0 + (k * 0.5).exp());
+    let s1 = 1.0 / (1.0 + (-k * 0.5).exp());
+    (s - s0) / (s1 - s0)
+}
+
+/// Full parameter set for one note.
+pub struct NoteParams {
+    pub fundamental_hz: f64,
+    pub mode_ratios: [f64; NUM_MODES],
+    pub mode_amplitudes: [f64; NUM_MODES],
+    pub mode_decay_rates: [f64; NUM_MODES],
+}
+
+// ─── Intermodulation risk detection ─────────────────────────────────────────
+
+/// Per-mode intermodulation product analysis.
+pub struct IntermodProduct {
+    pub mode: usize,
+    pub mode_ratio: f64,
+    pub nearest_integer: u32,
+    pub fractional_offset: f64,
+    pub beat_hz: f64,
+    pub effective_amplitude: f64,
+    pub perceptual_weight: f64,
+    pub risk_score: f64,
+}
+
+/// Per-note intermodulation risk summary.
+pub struct IntermodReport {
+    pub midi: u8,
+    pub fundamental_hz: f64,
+    pub mu: f64,
+    pub products: Vec<IntermodProduct>,
+    pub max_risk: f64,
+    pub total_risk: f64,
+}
+
+/// Psychoacoustic weighting for audible beating.
+///
+/// Peak (1.0) at 5-10 Hz (worst audible beating), ramps up from 0.5-2 Hz,
+/// decays 15-40 Hz, floor at 0.1 above 40 Hz, zero below 0.5 Hz.
+pub fn perceptual_beat_weight(beat_hz: f64) -> f64 {
+    if beat_hz < 0.5 {
+        return 0.0;
+    }
+    if beat_hz < 2.0 {
+        // Ramp from 0 at 0.5 Hz to ~0.5 at 2 Hz
+        return 0.5 * (beat_hz - 0.5) / 1.5;
+    }
+    if beat_hz <= 5.0 {
+        // Ramp from 0.5 at 2 Hz to 1.0 at 5 Hz
+        return 0.5 + 0.5 * (beat_hz - 2.0) / 3.0;
+    }
+    if beat_hz <= 10.0 {
+        // Plateau at 1.0
+        return 1.0;
+    }
+    if beat_hz <= 40.0 {
+        // Decay from 1.0 at 10 Hz to 0.1 at 40 Hz
+        return 0.1 + 0.9 * (40.0 - beat_hz) / 30.0;
+    }
+    // Floor above 40 Hz
+    0.1
+}
+
+/// Dwell attenuation at ff velocity (velocity=1.0), inlined to keep tables.rs
+/// dependency-free from hammer.rs.
+///
+/// Uses Miessner patent dwell: 0.75 cycles at ff.
+fn dwell_attenuation_ff(fundamental_hz: f64, mode_ratios: &[f64; NUM_MODES]) -> [f64; NUM_MODES] {
+    let t_dwell = (0.75 / fundamental_hz).clamp(0.0003, 0.020);
+    let sigma_sq = 8.0 * 8.0;
+
+    let mut atten: [f64; NUM_MODES] = std::array::from_fn(|i| {
+        let ft = fundamental_hz * mode_ratios[i] * t_dwell;
+        (-ft * ft / (2.0 * sigma_sq)).exp()
+    });
+
+    let a0 = atten[0];
+    if a0 > 1e-30 {
+        for a in &mut atten {
+            *a /= a0;
+        }
+    }
+    atten
+}
+
+/// Compute intermodulation risk for a given MIDI note.
+///
+/// For each mode 2-7, measures how close its frequency ratio is to the nearest
+/// integer harmonic. When the pickup's nonlinearity generates intermod
+/// products between inharmonic modes, they land near (but not at) integer
+/// harmonics, producing audible beating in the 3-15 Hz range.
+pub fn intermod_risk(midi: u8) -> IntermodReport {
+    let fundamental_hz = midi_to_freq(midi);
+    let mu = tip_mass_ratio(midi);
+    let ratios = mode_ratios(mu);
+    let dwell = dwell_attenuation_ff(fundamental_hz, &ratios);
+
+    let mut products = Vec::new();
+    let mut max_risk = 0.0f64;
+    let mut total_risk = 0.0f64;
+
+    let coupling = spatial_coupling_coefficients(mu, reed_length_mm(midi));
+
+    // Modes 2-7 (index 1-6) — mode 1 is always ratio 1.0, no intermod
+    // NOTE: hammer_spatial_coupling not applied — OBM amplitudes already include it
+    for i in 1..NUM_MODES {
+        let ratio = ratios[i];
+        let nearest = ratio.round() as u32;
+        let fractional_offset = (ratio - nearest as f64).abs();
+        let beat_hz = fractional_offset * fundamental_hz;
+        let effective_amplitude = BASE_MODE_AMPLITUDES[i] * coupling[i] * dwell[i];
+        let weight = perceptual_beat_weight(beat_hz);
+        let risk = effective_amplitude * weight;
+
+        max_risk = max_risk.max(risk);
+        total_risk += risk;
+
+        products.push(IntermodProduct {
+            mode: i + 1, // 1-indexed for display
+            mode_ratio: ratio,
+            nearest_integer: nearest,
+            fractional_offset,
+            beat_hz,
+            effective_amplitude,
+            perceptual_weight: weight,
+            risk_score: risk,
+        });
+    }
+
+    IntermodReport {
+        midi,
+        fundamental_hz,
+        mu,
+        products,
+        max_risk,
+        total_risk,
+    }
+}
+
+/// Compute all parameters for a given MIDI note.
+pub fn note_params(midi: u8) -> NoteParams {
+    let fundamental_hz = midi_to_freq(midi);
+    let mu = tip_mass_ratio(midi);
+    let ratios = mode_ratios(mu);
+    let decay_rates = mode_decay_rates(midi, &ratios);
+
+    let mut amplitudes = BASE_MODE_AMPLITUDES;
+
+    // NOTE: hammer_spatial_coupling is NOT applied here because
+    // BASE_MODE_AMPLITUDES were calibrated from OBM recordings that already
+    // include the real hammer's excitation profile. Applying spatial coupling
+    // on top would double-count, boosting inharmonic modes 2-3 by +11-14 dB
+    // and creating a metallic "plink" on attack.
+
+    // Apply spatial pickup coupling — finite plate length attenuates higher bending modes
+    let coupling = spatial_coupling_coefficients(mu, reed_length_mm(midi));
+    for (amp, &k) in amplitudes.iter_mut().zip(coupling.iter()) {
+        *amp *= k;
+    }
+
+    NoteParams {
+        fundamental_hz,
+        mode_ratios: ratios,
+        mode_amplitudes: amplitudes,
+        mode_decay_rates: decay_rates,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_numeric_proxy_matches_closed_form() {
+        // The numeric proxy must reproduce the closed-form y/(1-y) proxy before it is trusted
+        // on a law that has no closed form.
+        let fc = crate::pickup::PICKUP_FC;
+        for ds in [0.2, 0.4, 0.6, 0.8, 0.9] {
+            for f0 in [55.0, 131.0, 262.0, 523.0, 1046.0, 2093.0] {
+                let closed = pickup_rms_proxy(ds, f0, fc);
+                let numeric = pickup_rms_proxy_numeric(
+                    |sin_t| {
+                        let y = ds * sin_t;
+                        y / (1.0 - y)
+                    },
+                    f0,
+                    fc,
+                );
+                let err_db = 20.0 * (numeric / closed).log10();
+                assert!(
+                    err_db.abs() < 0.05,
+                    "ds {ds} f0 {f0}: numeric {numeric} vs closed {closed} ({err_db:.3} dB)"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_midi_to_freq() {
+        assert!((midi_to_freq(69) - 440.0).abs() < 0.01);
+        assert!((midi_to_freq(60) - 261.63).abs() < 0.1);
+        assert!((midi_to_freq(33) - 55.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_mode_ratios_bare_beam() {
+        let r = mode_ratios(0.0);
+        assert!((r[0] - 1.0).abs() < 1e-6);
+        assert!((r[1] - 6.267).abs() < 0.01);
+        assert!((r[2] - 17.547).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_mode_ratios_with_tip_mass() {
+        let r = mode_ratios(0.10);
+        assert!((r[1] - 7.13).abs() < 0.05);
+    }
+
+    #[test]
+    fn test_tip_mass_ratio_range() {
+        assert!(tip_mass_ratio(33) > 0.05);
+        assert!(tip_mass_ratio(57) < 0.02);
+    }
+
+    #[test]
+    fn test_decay_rate_increases_with_pitch() {
+        assert!(fundamental_decay_rate(60) > fundamental_decay_rate(48));
+        assert!(fundamental_decay_rate(84) > fundamental_decay_rate(72));
+    }
+
+    #[test]
+    fn test_decay_rate_obm_calibration() {
+        // OBM-calibrated frequency power law: decay = 0.005 * f^1.22
+        // Wide bounds accommodate ±30% OBM scatter while catching regressions.
+        let bass = fundamental_decay_rate(36); // C2
+        assert!(
+            (bass - 3.0).abs() < 0.5,
+            "C2 should be near floor (3.0), got {bass:.1}"
+        );
+
+        // Mid/treble: frequency power law gives gentler curve than old MIDI law
+        let c4 = fundamental_decay_rate(60); // ~4.5 dB/s
+        let c5 = fundamental_decay_rate(72); // ~10.3 dB/s
+        let c6 = fundamental_decay_rate(84); // ~24.2 dB/s
+        assert!(
+            c4 > 3.5 && c4 < 7.0,
+            "C4 decay should be ~4.5 dB/s, got {c4:.1}"
+        );
+        assert!(
+            c5 > 7.0 && c5 < 16.0,
+            "C5 decay should be ~10.3 dB/s, got {c5:.1}"
+        );
+        assert!(
+            c6 > 17.0 && c6 < 35.0,
+            "C6 decay should be ~24.2 dB/s, got {c6:.1}"
+        );
+    }
+
+    #[test]
+    fn test_intermod_risk_below_threshold() {
+        // Regression guard: no note in the playable range should exceed this threshold.
+        // If this fails, it means mode decay or bass taper changed in a way that
+        // reintroduces audible beating from inharmonic intermod products.
+        //
+        // The static metric captures worst-case ff attack amplitude before temporal
+        // decay kicks in. Bass notes (MIDI 33-47) have the highest risk due to
+        // high tip mass ratios making mode 2 inharmonic. The p=1.5 mode decay
+        // ensures intermod is attack-only; render mode verifies spectral cleanliness.
+        //
+        // Find actual worst case first, then assert with headroom.
+        let mut worst_risk = 0.0f64;
+        let mut worst_midi = 0u8;
+        for midi in MIDI_LO..=MIDI_HI {
+            let report = intermod_risk(midi);
+            if report.max_risk > worst_risk {
+                worst_risk = report.max_risk;
+                worst_midi = midi;
+            }
+        }
+        // Threshold = 1.25x the current worst case, providing headroom for minor
+        // parameter adjustments while catching any major regression.
+        let threshold = worst_risk * 1.25;
+        assert!(
+            threshold < 0.15,
+            "Worst-case risk at MIDI {} is {:.4} — threshold {:.4} seems too high, investigate",
+            worst_midi,
+            worst_risk,
+            threshold
+        );
+        for midi in MIDI_LO..=MIDI_HI {
+            let report = intermod_risk(midi);
+            assert!(
+                report.max_risk < threshold,
+                "MIDI {} ({:.1} Hz): max_risk = {:.4} exceeds {:.4}",
+                midi,
+                report.fundamental_hz,
+                report.max_risk,
+                threshold
+            );
+        }
+    }
+
+    #[test]
+    fn test_intermod_risk_known_values() {
+        // A1 (MIDI 33): mu=0.10, mode 2 ratio ~7.13
+        let report = intermod_risk(33);
+        let m2 = &report.products[0]; // mode 2 is first in products vec
+        assert_eq!(m2.mode, 2);
+        assert!(
+            (m2.mode_ratio - 7.13).abs() < 0.1,
+            "mode 2 ratio = {}",
+            m2.mode_ratio
+        );
+        assert_eq!(m2.nearest_integer, 7);
+        // Beat frequency = fractional_offset * fundamental_hz
+        // A1 = 55 Hz, offset ~0.13, beat ~7.2 Hz
+        assert!(
+            m2.beat_hz > 3.0 && m2.beat_hz < 12.0,
+            "A1 mode 2 beat_hz = {}",
+            m2.beat_hz
+        );
+        // Should be in the high perceptual weight zone (5-10 Hz)
+        assert!(
+            m2.perceptual_weight > 0.8,
+            "A1 mode 2 perceptual_weight = {}",
+            m2.perceptual_weight
+        );
+    }
+
+    #[test]
+    fn test_perceptual_beat_weight_shape() {
+        // Sub-1 Hz: near zero (below audible beating)
+        assert!(perceptual_beat_weight(0.3) < 0.01);
+        // 7 Hz: in the peak zone (5-10 Hz)
+        assert!(perceptual_beat_weight(7.0) > 0.9);
+        // 50 Hz: well above beating range, should be at floor
+        assert!(perceptual_beat_weight(50.0) < 0.2);
+    }
+
+    // ─── Spatial pickup coupling tests ──────────────────────────────────────
+
+    #[test]
+    fn test_reed_length_known_values() {
+        // Reed 1 (MIDI 33): n=1, bass formula: 3.0 - 1/20 = 2.95 in = 74.93 mm
+        let l1 = reed_length_mm(33);
+        assert!((l1 - 74.93).abs() < 0.1, "reed 1 length = {l1}");
+        // Reed 64 (MIDI 96): n=64, treble formula: 2.0 - 44/44 = 1.0 in = 25.4 mm
+        let l64 = reed_length_mm(96);
+        assert!((l64 - 25.4).abs() < 0.1, "reed 64 length = {l64}");
+        // Reed 20 (MIDI 52): n=20, bass formula: 3.0 - 20/20 = 2.0 in = 50.8 mm
+        let l20 = reed_length_mm(52);
+        assert!((l20 - 50.8).abs() < 0.1, "reed 20 length = {l20}");
+    }
+
+    #[test]
+    fn test_mode_shape_tip_nonzero() {
+        // |phi_n(1.0)| should be significantly nonzero for all modes.
+        // Higher modes can have negative tip displacement — the sign alternates.
+        for &mu in &[0.0, 0.05, 0.10, 0.20, 0.50] {
+            let betas = eigenvalues(mu);
+            for (i, &beta) in betas.iter().enumerate() {
+                let tip = mode_shape(beta, 1.0);
+                assert!(
+                    tip.abs() > 0.1,
+                    "mode_shape(beta={beta:.4}, 1.0) = {tip:.6} for mu={mu}, mode {i}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_mode_shape_clamp_zero() {
+        // phi_n(0.0) should be ~0 for all modes (clamped end)
+        for &mu in &[0.0, 0.10, 0.50] {
+            let betas = eigenvalues(mu);
+            for (i, &beta) in betas.iter().enumerate() {
+                let clamp = mode_shape(beta, 0.0);
+                assert!(
+                    clamp.abs() < 1e-10,
+                    "mode_shape(beta={beta:.4}, 0.0) = {clamp:.2e} for mu={mu}, mode {i}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_coupling_mode1_is_unity() {
+        // After normalization, mode 1 coupling is always exactly 1.0.
+        // The absolute kappa_1 (0.83–0.94) is absorbed into the tip-referenced swing.
+        for midi in (MIDI_LO..=MIDI_HI).step_by(4) {
+            let mu = tip_mass_ratio(midi);
+            let len = reed_length_mm(midi);
+            let kappa = spatial_coupling_coefficients(mu, len);
+            assert!(
+                (kappa[0] - 1.0).abs() < 1e-10,
+                "MIDI {midi}: kappa_1 = {:.10} (expected exactly 1.0)",
+                kappa[0]
+            );
+        }
+    }
+
+    #[test]
+    fn test_coupling_decreases_with_mode() {
+        // Coupling generally decreases with mode number, but strict monotonicity
+        // is NOT guaranteed — the spatial integration behaves like a sinc function
+        // with side lobes, so occasionally a higher mode's spatial pattern aligns
+        // better with the pickup window. What matters:
+        //   1. Mode 1 always has the highest coupling
+        //   2. Mode 2 is always less than mode 1
+        //   3. Higher modes are all below mode 1
+        for midi in (MIDI_LO..=MIDI_HI).step_by(4) {
+            let mu = tip_mass_ratio(midi);
+            let len = reed_length_mm(midi);
+            let kappa = spatial_coupling_coefficients(mu, len);
+
+            // Mode 1 has the highest coupling
+            for i in 1..NUM_MODES {
+                assert!(
+                    kappa[i] <= kappa[0] + 1e-6,
+                    "MIDI {midi}: kappa[{i}]={:.4} > kappa[0]={:.4}",
+                    kappa[i],
+                    kappa[0]
+                );
+            }
+            // Mode 2 is less than mode 1 (first spatial attenuation step)
+            assert!(
+                kappa[1] < kappa[0],
+                "MIDI {midi}: kappa[1]={:.4} >= kappa[0]={:.4}",
+                kappa[1],
+                kappa[0]
+            );
+        }
+    }
+
+    #[test]
+    fn test_coupling_register_variation() {
+        // Treble reeds (shorter, larger ell/L) should have more suppression
+        // than bass reeds (longer, smaller ell/L) for the same mode
+        let mu_bass = tip_mass_ratio(33); // A1 — longest reed
+        let mu_treb = tip_mass_ratio(96); // C7 — shortest reed
+        let kappa_bass = spatial_coupling_coefficients(mu_bass, reed_length_mm(33));
+        let kappa_treb = spatial_coupling_coefficients(mu_treb, reed_length_mm(96));
+
+        // For mode 3+ the treble should be more suppressed (smaller kappa)
+        // due to larger ell/L overlap
+        for i in 2..NUM_MODES {
+            assert!(
+                kappa_treb[i] < kappa_bass[i],
+                "Mode {}: treble kappa {:.4} should be < bass kappa {:.4}",
+                i + 1,
+                kappa_treb[i],
+                kappa_bass[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_eigenvalues_matches_mode_ratios() {
+        // Verify that the eigenvalues() refactor produces identical mode_ratios
+        for &mu in &[0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50] {
+            let betas = eigenvalues(mu);
+            let ratios = mode_ratios(mu);
+            let b1_sq = betas[0] * betas[0];
+            for i in 0..NUM_MODES {
+                let ratio_from_beta = (betas[i] * betas[i]) / b1_sq;
+                assert!(
+                    (ratio_from_beta - ratios[i]).abs() < 1e-10,
+                    "mu={mu}, mode {i}: eigenvalue ratio {ratio_from_beta} != mode_ratios {:.10}",
+                    ratios[i]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_ff_swing_stays_inside_the_solved_law() {
+        // Every note's ff swing (with the +8% per-note amplitude offset and some margin for mode
+        // sums) must stay inside the range its section's field solve covers — the law is held
+        // flat outside it. Checked at the central pick, the shipping one.
+        use crate::pickup::{PICKUP_REST_OFFSET_MM, pickup_law_for};
+        for midi in 33u8..=96 {
+            let a = pickup_swing_mm(midi) * 1.08 * 1.1;
+            let law = pickup_law_for(midi);
+            assert!(
+                a - PICKUP_REST_OFFSET_MM < law.u_max() && -a - PICKUP_REST_OFFSET_MM > law.u0,
+                "MIDI {midi}: ff swing {a:.2} mm leaves the solved range [{}, {}]",
+                law.u0,
+                law.u_max()
+            );
+        }
+    }
+
+    #[test]
+    fn test_provisional_swing_hits_knots_and_keeps_the_break() {
+        for k in PROVISIONAL_FF_SWING_MM.iter() {
+            for (pick, want) in [
+                (SwingPick::Central, k.1),
+                (SwingPick::Low, k.2),
+                (SwingPick::High, k.3),
+            ] {
+                let got = provisional_ff_swing_mm(k.0, pick);
+                assert!(
+                    (got - want).abs() < 1e-12,
+                    "MIDI {} {pick:?}: {got} vs knot {want}",
+                    k.0
+                );
+            }
+        }
+        // No interpolation across reeds 20|21: each side keeps its own values.
+        assert_eq!(provisional_ff_swing_mm(52, SwingPick::Central), 1.98);
+        assert_eq!(provisional_ff_swing_mm(53, SwingPick::Central), 1.16);
+        // Between knots: log-linear, so D4 sits between its neighbours.
+        let d4 = provisional_ff_swing_mm(62, SwingPick::Central);
+        assert!(d4 > 1.06 && d4 < 1.11, "MIDI 62: {d4}");
+    }
+
+    #[test]
+    fn test_air_drag_knots_break_and_scale() {
+        let cfg = CalibrationConfig::default();
+        for &(m, v) in PROVISIONAL_AIR_DRAG_DB_PER_MM.iter() {
+            let got = air_drag_db_per_mm_with_config(m, &cfg);
+            assert!((got - v).abs() < 1e-12, "MIDI {m}: {got} vs {v}");
+        }
+        // The 52 -> 53 step is kept (it follows the reed-mass step), not interpolated across.
+        assert_eq!(air_drag_db_per_mm_with_config(52, &cfg), 1.519);
+        assert_eq!(air_drag_db_per_mm_with_config(53, &cfg), 0.664);
+        let off = CalibrationConfig {
+            air_drag_scale: 0.0,
+            ..CalibrationConfig::default()
+        };
+        assert_eq!(air_drag_db_per_mm_with_config(60, &off), 0.0);
+    }
+
+    #[test]
+    fn test_provisional_swing_band_is_ordered() {
+        for midi in 33u8..=96 {
+            let lo = provisional_ff_swing_mm(midi, SwingPick::Low);
+            let c = provisional_ff_swing_mm(midi, SwingPick::Central);
+            let hi = provisional_ff_swing_mm(midi, SwingPick::High);
+            assert!(lo < c && c < hi, "MIDI {midi}: {lo} / {c} / {hi}");
+        }
+    }
+
+    #[test]
+    fn test_treble_side_swing_falls_with_pitch() {
+        // Where the falsifiers leave the prior untouched (MIDI 72 up), lighter, stiffer reeds swing
+        // less under the same hammer. Below that the edge conditions the prior, and nothing is
+        // asserted across the reed-20|21 break (no source compares bass with treble swing).
+        let mut prev = f64::INFINITY;
+        for midi in 72u8..=96 {
+            let a = pickup_swing_mm(midi);
+            assert!(a <= prev + 1e-12, "MIDI {midi}: {a} > {prev}");
+            prev = a;
+        }
+        assert!(pickup_swing_mm(72) / pickup_swing_mm(96) > 3.0);
+    }
+}

@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "crates/openwurli-dsp",
+    "capi",
+]
+resolver = "2"
+
+[workspace.dependencies]
+melange-primitives = { path = "melange-primitives" }
+
+[workspace.package]
+version = "0.9.1"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/hal0zer0/openwurli"
+authors = ["hal0zer0"]
+
+[profile.release]
+panic = "abort"

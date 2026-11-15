@@ -21,7 +21,7 @@ juce::String kindName (NativeKind kind)
 {
     if (kind == NativeKind::organ) return "Preseter Organ";
     if (kind == NativeKind::tines) return "Preseter Tines";
-    return "Preseter Reeds";
+    return "Preseter Wurly";
 }
 
 juce::String kindId (NativeKind kind)
@@ -95,15 +95,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
     }
     else
     {
-        add ("reeds_gain", "Gain", 0.0f, 1.0f, 0.01f, 0.8f);
-        add ("reeds_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
-        add ("reeds_tone", "Tom", 0.0f, 1.0f, 0.01f, 0.55f);
-        add ("reeds_hammer", "Brilho do martelo", 0.0f, 1.0f, 0.01f, 0.5f);
-        add ("reeds_bark", "Bark", 0.0f, 1.0f, 0.01f, 0.5f);
-        add ("reeds_trem_rate", "Tremolo (Hz)", 0.0f, 10.0f, 0.1f, 5.0f);
-        add ("reeds_trem_depth", "Profundidade do tremolo", 0.0f, 1.0f, 0.01f, 0.3f);
-        add ("reeds_trem_mode", "Tremolo: auto-pan", 0.0f, 1.0f, 1.0f, 0.0f);
-        add ("reeds_velocity", "Sensibilidade a velocity", 0.0f, 1.0f, 0.01f, 0.8f);
+        // Wurlitzer 200A (OpenWurli).
+        add ("wurly_volume", "Volume", 0.0f, 100.0f, 1.0f, 80.0f);
+        add ("wurly_tremolo", "Tremolo Depth", 0.0f, 100.0f, 1.0f, 50.0f);
+        add ("wurly_speaker", "Speaker Character", 0.0f, 100.0f, 1.0f, 0.0f);
+        add ("wurly_mlp", "MLP Corrections", 0.0f, 1.0f, 1.0f, 0.0f);
+        add ("wurly_hammer", "Hammer Contact", 0.5f, 2.0f, 0.01f, 1.0f);
+        add ("wurly_damper", "Damper", 0.25f, 4.0f, 0.01f, 1.0f);
+        add ("wurly_reed_trim", "Reed Bar Trim", 0.0f, 25000.0f, 10.0f, 17200.0f);
+        add ("wurly_noise", "Noise", 0.0f, 1.0f, 1.0f, 0.0f);
+        add ("wurly_noise_gain", "Noise Gain", 0.0f, 100.0f, 1.0f, 0.0f);
     }
 
     return layout;
@@ -120,6 +121,8 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
         setBfree = std::make_unique<SetBfreeOrgan>();
     else if (kind == NativeKind::tines)
         mdaEPiano = std::make_unique<MdaEPianoDsp>();
+    else if (kind == NativeKind::reeds)
+        wurli = std::make_unique<WurliProcessor>();
 
     applyProgram (0);
 }
@@ -133,6 +136,13 @@ void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
         if (mdaEPiano != nullptr)
             mdaEPiano->prepare (sampleRate);
         lastTinesModulation = -1.0f;
+        return;
+    }
+
+    if (kind == NativeKind::reeds)
+    {
+        if (wurli != nullptr)
+            wurli->prepare (sampleRate, samplesPerBlock);
         return;
     }
 
@@ -276,6 +286,30 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         mdaEPiano->process (buffer, midi);
 
         buffer.applyGain (parameter ("tines_gain"));
+        return;
+    }
+
+    if (kind == NativeKind::reeds)
+    {
+        if (wurli == nullptr)
+        {
+            midi.clear();
+            return;
+        }
+
+        WurliParameters wurly;
+        wurly.volume = parameter ("wurly_volume") / 100.0f;
+        wurly.tremolo = parameter ("wurly_tremolo") / 100.0f;
+        wurly.speaker = parameter ("wurly_speaker") / 100.0f;
+        wurly.mlp = parameter ("wurly_mlp") > 0.5f;
+        wurly.hammer = parameter ("wurly_hammer");
+        wurly.damper = parameter ("wurly_damper");
+        wurly.reedTrim = parameter ("wurly_reed_trim");
+        wurly.noise = parameter ("wurly_noise") > 0.5f;
+        wurly.noiseGain = parameter ("wurly_noise_gain") / 100.0f;
+
+        wurli->setParameters (wurly);
+        wurli->process (buffer, midi);
         return;
     }
 
@@ -662,21 +696,28 @@ void NativeProcessor::applyProgram (int index)
         return;
     }
 
-    const float values[4][7] = {
-        { 0.80f, 0.55f, 0.50f, 0.50f, 5.0f, 0.30f, 0.80f }, // Clássico
-        { 0.80f, 0.35f, 0.30f, 0.25f, 3.0f, 0.15f, 0.72f }, // Suave
-        { 0.80f, 0.70f, 0.70f, 0.90f, 6.0f, 0.25f, 0.85f }, // Bark
-        { 0.80f, 0.82f, 0.55f, 0.65f, 5.5f, 0.22f, 0.90f }, // Brilhante
+    struct Program
+    {
+        float volume, tremolo, speaker, mlp, hammer, damper, reedTrim, noise, noiseGain;
     };
-    setParameterValue ("reeds_gain", values[currentProgram][0]);
-    setParameterValue ("reeds_tone", values[currentProgram][1]);
-    setParameterValue ("reeds_hammer", values[currentProgram][2]);
-    setParameterValue ("reeds_bark", values[currentProgram][3]);
-    setParameterValue ("reeds_trem_rate", values[currentProgram][4]);
-    setParameterValue ("reeds_trem_depth", values[currentProgram][5]);
-    setParameterValue ("reeds_trem_mode", 0.0f);
-    setParameterValue ("reeds_volume", values[currentProgram][6]);
-    setParameterValue ("reeds_velocity", 0.8f);
+
+    static const Program programs[4] = {
+        { 80.0f, 50.0f,   0.0f, 0.0f, 1.0f, 1.0f, 17200.0f, 0.0f, 0.0f }, // Clássico
+        { 80.0f, 65.0f,  60.0f, 1.0f, 1.0f, 1.0f, 17200.0f, 0.0f, 0.0f }, // Suitcase
+        { 80.0f,  0.0f,  30.0f, 0.0f, 1.0f, 1.0f, 17200.0f, 0.0f, 0.0f }, // Stage
+        { 90.0f, 25.0f,  50.0f, 0.0f, 1.0f, 1.0f, 17200.0f, 0.0f, 0.0f }, // Bark
+    };
+
+    const auto& program = programs[juce::jlimit (0, 3, currentProgram)];
+    setParameterValue ("wurly_volume", program.volume);
+    setParameterValue ("wurly_tremolo", program.tremolo);
+    setParameterValue ("wurly_speaker", program.speaker);
+    setParameterValue ("wurly_mlp", program.mlp);
+    setParameterValue ("wurly_hammer", program.hammer);
+    setParameterValue ("wurly_damper", program.damper);
+    setParameterValue ("wurly_reed_trim", program.reedTrim);
+    setParameterValue ("wurly_noise", program.noise);
+    setParameterValue ("wurly_noise_gain", program.noiseGain);
 }
 
 const juce::String NativeProcessor::getProgramName (int index)
@@ -691,7 +732,7 @@ const juce::String NativeProcessor::getProgramName (int index)
         static const char* names[] = { "Suitcase", "Stage", "Mellow", "Bark" };
         return juce::isPositiveAndBelow (index, 4) ? names[index] : juce::String();
     }
-    static const char* names[] = { "Clássico", "Suave", "Bark", "Brilhante" };
+    static const char* names[] = { "Clássico", "Suitcase", "Stage", "Bark" };
     return juce::isPositiveAndBelow (index, 4) ? names[index] : juce::String();
 }
 

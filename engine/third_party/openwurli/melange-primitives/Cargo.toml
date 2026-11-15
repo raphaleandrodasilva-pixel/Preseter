@@ -1,0 +1,9 @@
+[package]
+name = "melange-primitives"
+version = "0.1.7"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "DSP building blocks for real-time circuit simulation: filters, oversampling, NR solvers"
+
+[dependencies]

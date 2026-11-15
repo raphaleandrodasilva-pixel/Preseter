@@ -1,0 +1,333 @@
+//! Single voice: reed + hammer + pickup + decay.
+//!
+//! Signal flow: modal_oscillator -> pickup_hpf -> output
+use crate::hammer::{dwell_attenuation, onset_ramp_time};
+use crate::mlp_correction::MlpCorrections;
+use crate::pickup::Pickup;
+use crate::reed::ModalReed;
+use crate::tables::{self, NUM_MODES};
+use crate::variation;
+
+/// A prescribed modal state for the reed at the end of hammer contact (see
+/// [`Voice::note_on_modal`]). Amplitudes are signed and relative to mode 1, as seen at the pickup's
+/// finger region; `swing_mm` is mode 1's swing there.
+#[derive(Clone, Debug)]
+pub struct ModalSpec {
+    pub ratios: [f64; NUM_MODES],
+    pub amplitudes: [f64; NUM_MODES],
+    pub phases: [f64; NUM_MODES],
+    pub decay_db_s: [f64; NUM_MODES],
+    pub swing_mm: f64,
+}
+
+pub struct Voice {
+    reed: ModalReed,
+    pickup: Pickup,
+    post_pickup_gain: f64,
+    sample_rate: f64,
+    midi_note: u8,
+    /// Mode-1 air-drag coefficient, dB/s per mm of finger-region swing (0 = off).
+    air_drag_db_per_mm: f64,
+    /// Damper-rate multiplier used at note-off (1.0 = shipping).
+    damper_scale: f64,
+}
+
+impl Voice {
+    /// Initialize a voice for a given note and velocity.
+    ///
+    /// - `midi_note`: MIDI note number (33-96)
+    /// - `velocity`: 0.0 (pp) to 1.0 (ff)
+    /// - `sample_rate`: audio sample rate
+    pub fn note_on(midi_note: u8, velocity: f64, sample_rate: f64, mlp_enabled: bool) -> Self {
+        Self::note_on_with_config(
+            midi_note,
+            velocity,
+            sample_rate,
+            mlp_enabled,
+            &tables::CalibrationConfig::default(),
+        )
+    }
+
+    /// [`Voice::note_on`] with explicit calibration: the swing pick (central or a band corner)
+    /// and scale reach both the pickup and the output normalisation, so a corner render is
+    /// levelled the same way the shipping pick is.
+    pub fn note_on_with_config(
+        midi_note: u8,
+        velocity: f64,
+        sample_rate: f64,
+        mlp_enabled: bool,
+        cfg: &tables::CalibrationConfig,
+    ) -> Self {
+        let (reed, swing_mm, _, air_drag_db_per_mm) =
+            Self::build_reed(midi_note, velocity, sample_rate, mlp_enabled, cfg, None);
+        let pickup = Pickup::new_for_note(sample_rate, midi_note, swing_mm);
+
+        // Post-pickup gain: technician voicing (gap adjustment) affects volume
+        // without changing the reed's swing.
+        let base_output_scale = tables::output_scale_with_config(midi_note, velocity, cfg);
+
+        let post_pickup_gain = base_output_scale;
+
+        Self {
+            reed,
+            pickup,
+            post_pickup_gain,
+            sample_rate,
+            midi_note,
+            air_drag_db_per_mm,
+            damper_scale: cfg.damper_scale,
+        }
+    }
+
+    /// A voice whose reed starts from a prescribed modal state instead of the shipping excitation
+    /// (no dwell filter, no onset ramp, no velocity curve). The pickup, its output scale and the
+    /// mode-1 air drag are the shipping ones. For the hammer-contact prototype's chain-identical
+    /// renders (docs/research/hammer-contact-revision.md); the shipping engine never calls it.
+    pub fn note_on_modal(
+        midi_note: u8,
+        velocity: f64,
+        sample_rate: f64,
+        cfg: &tables::CalibrationConfig,
+        spec: &ModalSpec,
+    ) -> Self {
+        let params = tables::note_params(midi_note);
+        let fundamental = params.fundamental_hz * variation::freq_detune(midi_note);
+        let mut reed = ModalReed::new(
+            fundamental,
+            &spec.ratios,
+            &spec.amplitudes,
+            &spec.decay_db_s,
+            0.0, // no onset ramp: the prescribed state already includes the contact
+            velocity,
+            sample_rate,
+        );
+        reed.set_phases(&spec.phases);
+        let air_drag_db_per_mm = tables::air_drag_db_per_mm_with_config(midi_note, cfg);
+        reed.set_air_drag(air_drag_db_per_mm, spec.swing_mm, sample_rate);
+        Self {
+            reed,
+            pickup: Pickup::new_for_note(sample_rate, midi_note, spec.swing_mm),
+            post_pickup_gain: tables::output_scale_with_config(midi_note, velocity, cfg),
+            sample_rate,
+            midi_note,
+            air_drag_db_per_mm,
+            damper_scale: cfg.damper_scale,
+        }
+    }
+
+    /// The reed exactly as [`Voice::note_on_with_config`] builds it, plus the ff swing (mm) that
+    /// one unit of its displacement stands for at the pickup's finger region. `keep_mode = Some(k)`
+    /// zeroes every other mode's amplitude, for measuring one mode on its own (the modes are
+    /// independent, so the per-mode renders superpose to the full reed).
+    /// Returns (reed, swing_mm, detuned fundamental Hz, air-drag coefficient dB/s/mm).
+    pub fn build_reed(
+        midi_note: u8,
+        velocity: f64,
+        sample_rate: f64,
+        mlp_enabled: bool,
+        cfg: &tables::CalibrationConfig,
+        keep_mode: Option<usize>,
+    ) -> (ModalReed, f64, f64, f64) {
+        let params = tables::note_params(midi_note);
+
+        let detuned_fundamental = params.fundamental_hz * variation::freq_detune(midi_note);
+
+        let dwell = dwell_attenuation(
+            velocity,
+            detuned_fundamental,
+            &params.mode_ratios,
+            cfg.hammer_contact_scale,
+        );
+        let onset_time = onset_ramp_time(velocity, detuned_fundamental, cfg.hammer_contact_scale);
+        let amp_offsets = variation::mode_amplitude_offsets(midi_note);
+
+        let mut amplitudes = [0.0f64; NUM_MODES];
+        for (i, amp) in amplitudes.iter_mut().enumerate() {
+            *amp = params.mode_amplitudes[i] * dwell[i] * amp_offsets[i];
+        }
+
+        // Sigmoid → power-law velocity curve (physical hammer force — pre-pickup).
+        // S-curve models progressive felt stiffness: pp barely deflects the reed,
+        // bark onset at ~mf, ff saturates. Then power-law applies register-dependent
+        // dynamic range scaling.
+        // output_scale is applied POST-pickup to decouple volume from nonlinearity.
+        let vel_exp = tables::velocity_exponent(midi_note);
+        let vel_scale = tables::velocity_scurve(velocity).powf(vel_exp);
+        for a in &mut amplitudes {
+            *a *= vel_scale;
+        }
+
+        // MLP v2 per-note corrections (zero per-sample cost — runs once at note-on).
+        // Adjusts mode frequencies, decay rates, and pickup displacement scale
+        // based on learned residuals vs OBM recordings.
+        let corrections = if mlp_enabled {
+            MlpCorrections::infer(midi_note, velocity)
+        } else {
+            MlpCorrections::identity()
+        };
+
+        // Apply frequency corrections to modes 1-5 (mode 0 = fundamental, never corrected)
+        let mut corrected_ratios = params.mode_ratios;
+        for (ratio, &cents) in corrected_ratios[1..NUM_MODES.min(6)]
+            .iter_mut()
+            .zip(&corrections.freq_offsets_cents)
+        {
+            *ratio *= f64::powf(2.0, cents / 1200.0);
+        }
+
+        // Apply decay corrections to modes 1-5
+        let mut corrected_decay = params.mode_decay_rates;
+        for (decay, &ratio) in corrected_decay[1..NUM_MODES.min(6)]
+            .iter_mut()
+            .zip(&corrections.decay_offsets)
+        {
+            *decay /= ratio;
+        }
+
+        // Pickup drive: the note's ff swing at the pickup (mm, provisional; the velocity curve
+        // scales the reed's amplitude from there). The MLP has no displacement-scale correction:
+        // its old target assumed the 1/(1-y) law, and the head was retired at the true-pitch
+        // retrain (2026-09-27).
+        let swing_mm = tables::pickup_swing_mm_with_config(midi_note, cfg);
+
+        if let Some(k) = keep_mode {
+            for (i, a) in amplitudes.iter_mut().enumerate() {
+                if i != k {
+                    *a = 0.0;
+                }
+            }
+        }
+
+        let mut reed = ModalReed::new(
+            detuned_fundamental,
+            &corrected_ratios,
+            &amplitudes,
+            &corrected_decay,
+            onset_time,
+            velocity,
+            sample_rate,
+        );
+        // Amplitude-dependent loss (air drag on mode 1), referred to the same finger-region
+        // swing as the pickup drive.
+        let air_drag_db_per_mm = tables::air_drag_db_per_mm_with_config(midi_note, cfg);
+        reed.set_air_drag(air_drag_db_per_mm, swing_mm, sample_rate);
+
+        (reed, swing_mm, detuned_fundamental, air_drag_db_per_mm)
+    }
+
+    /// Override the ff swing at the pickup, mm.
+    pub fn set_swing_mm(&mut self, swing_mm: f64) {
+        self.pickup.set_amplitude_mm(swing_mm);
+        self.reed
+            .set_air_drag(self.air_drag_db_per_mm, swing_mm, self.sample_rate);
+    }
+
+    /// Damper-rate multiplier for this voice's next note-off (1.0 = shipping).
+    pub fn set_damper_scale(&mut self, damper_scale: f64) {
+        self.damper_scale = damper_scale;
+    }
+
+    /// Start the damper (called on note_off).
+    /// Activates progressive damping — higher modes die first.
+    pub fn note_off(&mut self) {
+        self.reed
+            .start_damper(self.midi_note, self.sample_rate, self.damper_scale);
+    }
+
+    /// Render samples into the output buffer.
+    /// Buffer is cleared first, then filled with the voice output.
+    pub fn render(&mut self, output: &mut [f64]) {
+        output.fill(0.0);
+
+        self.reed.render(output);
+
+        self.pickup.process(output);
+
+        // Apply post-pickup voicing gain (technician gap/level adjustment).
+        // This affects volume without changing bark character.
+        let gain = self.post_pickup_gain;
+        for s in output.iter_mut() {
+            *s *= gain;
+        }
+    }
+
+    /// Check if the voice has decayed to silence.
+    /// Also returns true after 10 seconds of release (safety timeout).
+    pub fn is_silent(&self) -> bool {
+        if self.reed.is_damping() && self.reed.release_seconds(self.sample_rate) > 10.0 {
+            return true;
+        }
+        self.reed.is_silent(-80.0)
+    }
+
+    /// Render a complete note of given duration to a Vec.
+    pub fn render_note(
+        midi_note: u8,
+        velocity: f64,
+        duration_secs: f64,
+        sample_rate: f64,
+    ) -> Vec<f64> {
+        Self::render_note_with_scale(midi_note, velocity, duration_secs, sample_rate, None)
+    }
+
+    /// Render a complete note with an optional ff-swing override (mm).
+    pub fn render_note_with_scale(
+        midi_note: u8,
+        velocity: f64,
+        duration_secs: f64,
+        sample_rate: f64,
+        swing_mm: Option<f64>,
+    ) -> Vec<f64> {
+        let mut voice = Voice::note_on(midi_note, velocity, sample_rate, false);
+        if let Some(swing) = swing_mm {
+            voice.set_swing_mm(swing);
+        }
+        let num_samples = (duration_secs * sample_rate) as usize;
+        let mut output = vec![0.0f64; num_samples];
+
+        for chunk in output.chunks_mut(1024) {
+            voice.render(chunk);
+        }
+
+        output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_render_note_produces_audio() {
+        let output = Voice::render_note(60, 0.8, 0.5, 44100.0);
+        let peak = output.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
+        assert!(peak > 0.0, "no audio produced");
+    }
+
+    #[test]
+    fn test_higher_velocity_is_louder() {
+        let soft = Voice::render_note(60, 0.3, 0.1, 44100.0);
+        let loud = Voice::render_note(60, 1.0, 0.1, 44100.0);
+
+        let peak_soft = soft.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
+        let peak_loud = loud.iter().map(|x| x.abs()).fold(0.0f64, f64::max);
+        assert!(
+            peak_loud > peak_soft,
+            "loud ({peak_loud}) should exceed soft ({peak_soft})"
+        );
+    }
+
+    #[test]
+    fn test_deterministic() {
+        let a = Voice::render_note(60, 0.8, 0.1, 44100.0);
+        let b = Voice::render_note(60, 0.8, 0.1, 44100.0);
+        assert_eq!(a, b, "same note should produce identical output");
+    }
+
+    #[test]
+    fn test_different_notes_differ() {
+        let a = Voice::render_note(60, 0.8, 0.1, 44100.0);
+        let b = Voice::render_note(72, 0.8, 0.1, 44100.0);
+        assert_ne!(a, b);
+    }
+}

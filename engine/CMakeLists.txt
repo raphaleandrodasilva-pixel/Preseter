@@ -83,6 +83,7 @@ target_sources(PreseterEngine PRIVATE
     src/CommandRouter.cpp
     src/native/NativeProcessor.cpp
     src/native/SetBfreeOrganProcessor.cpp
+    src/native/WurliProcessor.cpp
     third_party/mda-epiano/MdaEPianoDsp.cpp
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
@@ -117,6 +118,71 @@ endif()
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(PreseterEngine PRIVATE m)
+endif()
+
+# --------------------------------------------------------------------------
+# OpenWurli (DSP Rust do Preseter Wurly) - ver third_party/openwurli/UPSTREAM.md
+# --------------------------------------------------------------------------
+find_program(CARGO_EXECUTABLE NAMES cargo
+    HINTS "$ENV{USERPROFILE}/.cargo/bin" "$ENV{HOME}/.cargo/bin")
+if(NOT CARGO_EXECUTABLE)
+    message(FATAL_ERROR
+        "cargo nao encontrado. Instale Rust 1.85+ (https://rustup.rs) para compilar o Preseter Wurly.")
+endif()
+
+set(OPENWURLI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/openwurli")
+if(WIN32)
+    set(OPENWURLI_STATIC_LIB "${OPENWURLI_DIR}/target/release/openwurli_capi.lib")
+else()
+    set(OPENWURLI_STATIC_LIB "${OPENWURLI_DIR}/target/release/libopenwurli_capi.a")
+endif()
+
+file(GLOB_RECURSE OPENWURLI_RUST_SOURCES CONFIGURE_DEPENDS
+    "${OPENWURLI_DIR}/crates/openwurli-dsp/src/*.rs"
+    "${OPENWURLI_DIR}/capi/src/*.rs"
+    "${OPENWURLI_DIR}/melange-primitives/src/*.rs")
+list(APPEND OPENWURLI_RUST_SOURCES
+    "${OPENWURLI_DIR}/Cargo.toml"
+    "${OPENWURLI_DIR}/Cargo.lock")
+
+add_custom_command(
+    OUTPUT "${OPENWURLI_STATIC_LIB}"
+    COMMAND "${CARGO_EXECUTABLE}" build -p openwurli-capi --release
+            --manifest-path "${OPENWURLI_DIR}/Cargo.toml"
+    WORKING_DIRECTORY "${OPENWURLI_DIR}"
+    DEPENDS ${OPENWURLI_RUST_SOURCES}
+    COMMENT "Compilando OpenWurli (Rust)"
+    VERBATIM)
+
+add_custom_target(openwurli_capi_build DEPENDS "${OPENWURLI_STATIC_LIB}")
+
+add_library(openwurli_capi STATIC IMPORTED GLOBAL)
+set_target_properties(openwurli_capi PROPERTIES
+    IMPORTED_LOCATION "${OPENWURLI_STATIC_LIB}")
+
+add_dependencies(PreseterEngine openwurli_capi_build)
+target_link_libraries(PreseterEngine PRIVATE openwurli_capi)
+
+if(WIN32)
+    target_link_libraries(PreseterEngine PRIVATE advapi32 userenv ws2_32 ntdll bcrypt synchronization)
+elseif(UNIX AND NOT APPLE)
+    target_link_libraries(PreseterEngine PRIVATE pthread dl)
+endif()
+
+option(PRESETER_BUILD_WURLI_SMOKE "Compila o teste de áudio do Wurly (OpenWurli)" OFF)
+if(PRESETER_BUILD_WURLI_SMOKE)
+    add_executable(PreseterWurliSmoke test/openwurli-capi/main.cpp)
+
+    target_include_directories(PreseterWurliSmoke PRIVATE src/native)
+    add_dependencies(PreseterWurliSmoke openwurli_capi_build)
+    target_link_libraries(PreseterWurliSmoke PRIVATE openwurli_capi)
+
+    if(WIN32)
+        target_link_libraries(PreseterWurliSmoke PRIVATE
+            advapi32 userenv ws2_32 ntdll bcrypt synchronization)
+    elseif(UNIX AND NOT APPLE)
+        target_link_libraries(PreseterWurliSmoke PRIVATE pthread dl m)
+    endif()
 endif()
 
 target_compile_definitions(PreseterEngine PRIVATE

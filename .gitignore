@@ -17,5 +17,8 @@ engine/.cache/
 engine/vst2-sdk/
 engine/CMakeUserPresets.json
 
+# OpenWurli (Rust)
+engine/third_party/openwurli/target/
+
 # Testes
 coverage/
