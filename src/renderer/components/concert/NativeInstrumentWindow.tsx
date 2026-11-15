@@ -106,7 +106,22 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     }
   };
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const lastParamChangeRef = useRef(0);
+
   useEffect(() => { void refresh(); }, [layerId]);
+
+  // O CC1 muda o Leslie no motor; atualiza os botões da janela sem fechar.
+  useEffect(() => {
+    if (kind !== 'organ') return;
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastParamChangeRef.current < 600) return;
+      void refreshRef.current();
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [kind, layerId]);
+
   useEffect(() => {
     const width = Math.min(980, window.innerWidth - 48);
     const height = Math.min(640, window.innerHeight - 48);
@@ -119,6 +134,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const setNamed = async (name: string, value: number) => {
     const target = param(name);
     if (!target) return;
+    lastParamChangeRef.current = Date.now();
     await setVstParameter(layerId, String(target.index), Math.max(0, Math.min(1, value)));
     setParams((previous) => previous.map((item) => item.index === target.index ? { ...item, value } : item));
   };
@@ -137,8 +153,9 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const title = TITLES[kind];
   const drawbarMode = kind === 'organ';
   const modalMode = !drawbarMode;
-  const tremDepth = valueOf(kind === 'tines' ? 'Profundidade do tremolo' : 'Profundidade do tremolo');
-  const tremRate = valueOf(kind === 'tines' ? 'Tremolo (Hz)' : 'Tremolo (Hz)') * 10;
+  const tremDepth = valueOf('Profundidade do tremolo');
+  const tremRate = valueOf('Tremolo (Hz)') * 10;
+  const tremMode = valueOf('Tremolo: auto-pan');
 
   const programNames = useMemo(() => {
     if (kind === 'organ') return ['Jazz', 'Gospel', 'Rock', 'Combo'];
@@ -243,13 +260,13 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 <section className="hw-inset p-3">
                   <div className="hw-label mb-2">Percussão</div>
                   <div className="flex flex-wrap gap-1">
-                    <ChoiceButton active={valueOf('Percussão') > 0.5} onClick={() => void setNamed('Percussão', valueOf('Percussão') > 0.5 ? 0 : 1)}>Ligado</ChoiceButton>
-                    <ChoiceButton active={valueOf('Volume da percussão') < 0.5} onClick={() => void setNamed('Volume da percussão', 0.3)}>Suave</ChoiceButton>
-                    <ChoiceButton active={valueOf('Volume da percussão') >= 0.5} onClick={() => void setNamed('Volume da percussão', 0.7)}>Normal</ChoiceButton>
-                    <ChoiceButton active={valueOf('Decaimento da percussão') < 0.5} onClick={() => void setNamed('Decaimento da percussão', 0.3)}>Lenta</ChoiceButton>
-                    <ChoiceButton active={valueOf('Decaimento da percussão') >= 0.5} onClick={() => void setNamed('Decaimento da percussão', 0.7)}>Rápida</ChoiceButton>
-                    <ChoiceButton active={valueOf('Harmônico da percussão') < 0.5} onClick={() => void setNamed('Harmônico da percussão', 0.3)}>2º Harm.</ChoiceButton>
-                    <ChoiceButton active={valueOf('Harmônico da percussão') >= 0.5} onClick={() => void setNamed('Harmônico da percussão', 0.7)}>3º Harm.</ChoiceButton>
+                    <ChoiceButton active={valueOf('Percussao') > 0.5} onClick={() => void setNamed('Percussao', valueOf('Percussao') > 0.5 ? 0 : 1)}>Ligado</ChoiceButton>
+                    <ChoiceButton active={valueOf('Volume da percussao') < 0.5} onClick={() => void setNamed('Volume da percussao', 0.3)}>Suave</ChoiceButton>
+                    <ChoiceButton active={valueOf('Volume da percussao') >= 0.5} onClick={() => void setNamed('Volume da percussao', 0.7)}>Normal</ChoiceButton>
+                    <ChoiceButton active={valueOf('Decaimento da percussao') < 0.5} onClick={() => void setNamed('Decaimento da percussao', 0.3)}>Lenta</ChoiceButton>
+                    <ChoiceButton active={valueOf('Decaimento da percussao') >= 0.5} onClick={() => void setNamed('Decaimento da percussao', 0.7)}>Rápida</ChoiceButton>
+                    <ChoiceButton active={valueOf('Harmonico da percussao') < 0.5} onClick={() => void setNamed('Harmonico da percussao', 0.3)}>2º Harm.</ChoiceButton>
+                    <ChoiceButton active={valueOf('Harmonico da percussao') >= 0.5} onClick={() => void setNamed('Harmonico da percussao', 0.7)}>3º Harm.</ChoiceButton>
                   </div>
                 </section>
 
@@ -267,12 +284,10 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                   <div className="hw-label mb-2">Leslie</div>
                   <div className="flex flex-wrap gap-1">
                     {['Parado', 'Lento', 'Rápido', 'Freio'].map((name, index) => (
-                      <ChoiceButton key={name} active={Math.round(valueOf('Leslie (0 parado, 1 lento, 2 rápido, 3 freio)') * 3) === index} onClick={() => void setNamed('Leslie (0 parado, 1 lento, 2 rápido, 3 freio)', index / 3)}>{name}</ChoiceButton>
+                      <ChoiceButton key={name} active={Math.round(valueOf('Leslie (0 parado, 1 lento, 2 rapido, 3 freio)') * 3) === index} onClick={() => void setNamed('Leslie (0 parado, 1 lento, 2 rapido, 3 freio)', index / 3)}>{name}</ChoiceButton>
                     ))}
                   </div>
-                  <div className="mt-1 text-[9px]" style={{ color: '#8E8E93' }}>
-                    CC1 (modulação) também controla a velocidade, como no setBfree.
-                  </div>
+
                 </section>
               </div>
             </div>
@@ -310,7 +325,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                     <line x1="10" y1="68" x2="210" y2="68" stroke="#3A3A3C" />
                     <line x1="10" y1="8" x2="10" y2="68" stroke="#3A3A3C" />
                     <polyline points="10,66 210,18" fill="none" stroke="#0A84FF" strokeWidth="2" />
-                    <circle cx={10 + valueOf(kind === 'tines' ? 'Sensibilidade à velocity' : 'Sensibilidade à velocity') * 190} cy={66 - valueOf(kind === 'tines' ? 'Sensibilidade à velocity' : 'Sensibilidade à velocity') * 46} r="4" fill="#fff" />
+                    <circle cx={10 + valueOf(kind === 'tines' ? 'Sensibilidade a velocity' : 'Sensibilidade a velocity') * 190} cy={66 - valueOf(kind === 'tines' ? 'Sensibilidade a velocity' : 'Sensibilidade a velocity') * 46} r="4" fill="#fff" />
                     <text x="10" y="78" fill="#8E8E93" fontSize="8">suave</text>
                     <text x="175" y="78" fill="#8E8E93" fontSize="8">forte</text>
                   </svg>
@@ -321,9 +336,34 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 <div className="hw-label mb-2">Tremolo / Auto-Pan</div>
                 <div className="flex flex-wrap items-center gap-1">
                   <ChoiceButton active={tremDepth > 0.01} onClick={() => void setNamed('Profundidade do tremolo', tremDepth > 0.01 ? 0 : 0.35)}>Ligado</ChoiceButton>
-                  <ChoiceButton active={Math.abs(tremRate - 5.5) < 1} onClick={() => void setNamed('Tremolo (Hz)', 0.55)}>Vibrato</ChoiceButton>
-                  <ChoiceButton active={tremDepth > 0.3} onClick={() => void setNamed('Profundidade do tremolo', tremDepth > 0.3 ? 0.15 : 0.45)}>Auto-pan</ChoiceButton>
-                  <span className="ml-2 text-[10px]" style={{ color: '#8E8E93' }}>Taxa {formatHz(tremRate)} · Profundidade {Math.round(tremDepth * 100)}%</span>
+                  <ChoiceButton active={tremMode < 0.5 && tremDepth > 0.01} onClick={() => {
+                    void setNamed('Tremolo: auto-pan', 0);
+                    if (tremDepth <= 0.01) void setNamed('Profundidade do tremolo', 0.35);
+                  }}>Tremolo</ChoiceButton>
+                  <ChoiceButton active={tremMode >= 0.5} onClick={() => {
+                    void setNamed('Tremolo: auto-pan', 1);
+                    if (tremDepth <= 0.01) void setNamed('Profundidade do tremolo', 0.45);
+                  }}>Auto-pan</ChoiceButton>
+                  <span className="ml-2 text-[10px]" style={{ color: '#8E8E93' }}>
+                    Taxa {formatHz(tremRate)} · Profundidade {Math.round(tremDepth * 100)}%
+                  </span>
+                </div>
+                <div className="mt-3 flex items-start justify-around gap-3">
+                  <Knob
+                    label="Taxa"
+                    value={Math.max(0, Math.min(1, tremRate / 10))}
+                    display={formatHz(tremRate)}
+                    onChange={(value) => void setNamed('Tremolo (Hz)', value)}
+                  />
+                  <Knob
+                    label="Profundidade"
+                    value={tremDepth}
+                    display={`${Math.round(tremDepth * 100)}%`}
+                    onChange={(value) => void setNamed('Profundidade do tremolo', value)}
+                  />
+                </div>
+                <div className="mt-1 text-[9px]" style={{ color: '#8E8E93' }}>
+                  CC1 (modulação) controla a profundidade do tremolo.
                 </div>
               </section>
             </div>
@@ -344,7 +384,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                   <Knob label="Gain" value={valueOf('Gain')} display={`${Math.round(valueOf('Gain') * 100)}%`} onChange={(value) => void setNamed('Gain', value)} />
                   <Knob label={kind === 'tines' ? 'Sino' : 'Brilho do martelo'} value={valueOf(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo')} display={`${Math.round(valueOf(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo') * 100)}%`} onChange={(value) => void setNamed(kind === 'tines' ? 'Sino (tonebar)' : 'Brilho do martelo', value)} />
                   <Knob label="Tom" value={valueOf('Tom')} display={`${Math.round(valueOf('Tom') * 100)}%`} onChange={(value) => void setNamed('Tom', value)} />
-                  <Knob label="Sensib. velocity" value={valueOf('Sensibilidade à velocity')} display={`${Math.round(valueOf('Sensibilidade à velocity') * 100)}%`} onChange={(value) => void setNamed('Sensibilidade à velocity', value)} />
+                  <Knob label="Sensib. velocity" value={valueOf('Sensibilidade a velocity')} display={`${Math.round(valueOf('Sensibilidade a velocity') * 100)}%`} onChange={(value) => void setNamed('Sensibilidade a velocity', value)} />
                   <Knob label="Volume" value={valueOf('Volume')} display={`${(valueOf('Volume') * 24 - 12).toFixed(1)} dB`} onChange={(value) => void setNamed('Volume', value)} />
                 </>
               )}

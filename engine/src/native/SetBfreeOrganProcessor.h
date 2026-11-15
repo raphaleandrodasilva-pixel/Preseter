@@ -72,6 +72,12 @@ public:
                   const SetBfreeMidiEvent* events,
                   int numEvents);
 
+    /**
+        Consome a última velocidade de Leslie recebida por CC1, para a UI
+        poder refletir o mod wheel. Retorna -1 quando não há mudança pendente.
+    */
+    int takePendingLeslieMode();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

@@ -9,9 +9,8 @@ import type {
 } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
 import { StoreSettings } from './StoreSettings';
-import { TemplatesSettings } from './TemplatesSettings';
 
-export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'store' | 'templates';
+export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'store';
 
 /** Mostra apenas os backends de áudio que existem na plataforma atual. */
 function filterAudioTypes(
@@ -117,9 +116,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           ? 'Visualização'
           : tab === 'store'
             ? 'Loja'
-            : tab === 'templates'
-              ? 'Templates'
-              : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
+            : `Áudio · ${audioDevices?.running ? 'Ativo' : 'Parado'}`;
   const selectedAudioType = audioTypes.find((item) => item.type === audioType);
   const asioAvailable = isWindows && audioDevices?.asioSupported === true;
   const asioDriverAvailable = isWindows && audioDevices?.asioDriverAvailable === true;
@@ -189,15 +186,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             View
           </button>
           <button
-            onClick={() => setTab('templates')}
-            className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
-            style={tab === 'templates'
-              ? { background: '#1F1F21', color: '#fff', borderColor: '#0A84FF' }
-              : { color: '#9A9AA0' }}
-          >
-            Templates
-          </button>
-          <button
             onClick={() => setTab('midi')}
             className="hw-squarebtn flex-1 px-2 py-1.5 text-xs font-medium"
             style={tab === 'midi'
@@ -237,7 +225,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {tab === 'store' && <StoreSettings />}
-          {tab === 'templates' && <TemplatesSettings onClose={onClose} />}
           {tab === 'general' && (
             <div className="space-y-4">
               <section className="hw-inset space-y-3 p-3">

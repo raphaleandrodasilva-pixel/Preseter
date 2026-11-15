@@ -1,6 +1,7 @@
 #include "SetBfreeOrganProcessor.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 
@@ -43,6 +44,7 @@ struct SetBfreeOrgan::Impl
 
     int boffset = kBufferSize;
     bool prepared = false;
+    std::atomic<int> pendingLeslieMode { -1 };
 
     std::array<int, 9> drawbars { { -1, -1, -1, -1, -1, -1, -1, -1, -1 } };
     int percEnabled = -1;
@@ -372,6 +374,11 @@ void SetBfreeOrgan::setVolume (float amount)
     callMIDIControlFunction (impl->inst.midicfg, "swellpedal1", (unsigned char) value);
 }
 
+int SetBfreeOrgan::takePendingLeslieMode()
+{
+    return impl->pendingLeslieMode.exchange (-1);
+}
+
 void SetBfreeOrgan::process (float* left,
                              float* right,
                              int numSamples,
@@ -409,6 +416,7 @@ void SetBfreeOrgan::process (float* left,
         {
             const int cc = message.data[2];
             impl->leslieMode = cc < 43 ? 1 : (cc < 86 ? 0 : 2);
+            impl->pendingLeslieMode.store (impl->leslieMode);
         }
     }
 

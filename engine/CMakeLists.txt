@@ -96,6 +96,13 @@ target_include_directories(PreseterEngine PRIVATE
 
 target_compile_definitions(PreseterEngine PRIVATE _USE_MATH_DEFINES NOMINMAX)
 
+# Os fontes são UTF-8 (nomes de parâmetros com acento). Sem isso o MSVC lê
+# como Windows-1252 e os nomes chegam à UI como "rÃ¡pido", quebrando a busca
+# por nome na janela dos instrumentos.
+if(MSVC)
+    target_compile_options(PreseterEngine PRIVATE /utf-8)
+endif()
+
 if(WIN32)
     set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
         INCLUDE_DIRECTORIES "${PRESETER_SETBFREE_DIR}/compat")
@@ -174,6 +181,10 @@ if(PRESETER_BUILD_SETBFREE_NULLITY)
         "${PRESETER_SETBFREE_DIR}/b_reverb")
 
     target_compile_definitions(PreseterSetBfreeNullity PRIVATE _USE_MATH_DEFINES NOMINMAX)
+
+    if(MSVC)
+        target_compile_options(PreseterSetBfreeNullity PRIVATE /utf-8)
+    endif()
 
     if(WIN32)
         set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES

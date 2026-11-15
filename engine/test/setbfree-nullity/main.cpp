@@ -298,6 +298,19 @@ int main (int argc, char** argv)
         std::printf ("CC1=127 -> revSelect %d (2=rapido)\n", ref_leslie_select (reference));
 
         ref_destroy (reference);
+
+        preseter::native::SetBfreeOrgan wrapper;
+        wrapper.prepare (kSampleRate);
+        std::vector<float> left (128, 0.0f);
+        std::vector<float> right (128, 0.0f);
+        preseter::native::SetBfreeMidiEvent event;
+        event.size = 3;
+        event.data[0] = 0xB0;
+        event.data[1] = 1;
+        event.data[2] = 127;
+        wrapper.process (left.data(), right.data(), 128, &event, 1);
+        std::printf ("wrapper pending Leslie mode apos CC1=127: %d\n",
+                     wrapper.takePendingLeslieMode());
         return 0;
     }
 

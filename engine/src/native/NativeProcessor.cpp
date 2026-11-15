@@ -63,14 +63,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
         add ("organ_drawbar_135", "Drawbar 1 3/5'", 0.0f, 8.0f, 1.0f, 0.0f);
         add ("organ_drawbar_113", "Drawbar 1 1/3'", 0.0f, 8.0f, 1.0f, 0.0f);
         add ("organ_drawbar_1", "Drawbar 1'", 0.0f, 8.0f, 1.0f, 0.0f);
-        add ("organ_percussion", "Percussão", 0.0f, 1.0f, 0.01f, 0.0f);
-        add ("organ_perc_volume", "Volume da percussão", 0.0f, 1.0f, 0.01f, 0.5f);
-        add ("organ_perc_decay", "Decaimento da percussão", 0.0f, 1.0f, 0.01f, 0.5f);
-        add ("organ_perc_harmonic", "Harmônico da percussão", 0.0f, 1.0f, 0.01f, 0.3f);
+        add ("organ_percussion", "Percussao", 0.0f, 1.0f, 0.01f, 0.0f);
+        add ("organ_perc_volume", "Volume da percussao", 0.0f, 1.0f, 0.01f, 0.5f);
+        add ("organ_perc_decay", "Decaimento da percussao", 0.0f, 1.0f, 0.01f, 0.5f);
+        add ("organ_perc_harmonic", "Harmonico da percussao", 0.0f, 1.0f, 0.01f, 0.3f);
         add ("organ_vibrato", "Vibrato/Chorus", 0.0f, 6.0f, 1.0f, 1.0f);
         add ("organ_chorus", "Profundidade do chorus", 0.0f, 1.0f, 0.01f, 0.25f);
         add ("organ_overdrive", "Overdrive", 0.0f, 1.0f, 0.01f, 0.1f);
-        add ("organ_leslie", "Leslie (0 parado, 1 lento, 2 rápido, 3 freio)", 0.0f, 3.0f, 1.0f, 1.0f);
+        add ("organ_leslie", "Leslie (0 parado, 1 lento, 2 rapido, 3 freio)", 0.0f, 3.0f, 1.0f, 1.0f);
         add ("organ_reverb", "Reverb", 0.0f, 1.0f, 0.01f, 0.2f);
         add ("organ_key_click", "Key click", 0.0f, 1.0f, 0.01f, 0.3f);
         add ("organ_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
@@ -84,7 +84,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
         add ("tines_bark", "Bark do captador", 0.0f, 1.0f, 0.01f, 0.4f);
         add ("tines_trem_rate", "Tremolo (Hz)", 0.0f, 10.0f, 0.1f, 4.5f);
         add ("tines_trem_depth", "Profundidade do tremolo", 0.0f, 1.0f, 0.01f, 0.3f);
-        add ("tines_velocity", "Sensibilidade à velocity", 0.0f, 1.0f, 0.01f, 0.8f);
+        add ("tines_trem_mode", "Tremolo: auto-pan", 0.0f, 1.0f, 1.0f, 0.0f);
+        add ("tines_velocity", "Sensibilidade a velocity", 0.0f, 1.0f, 0.01f, 0.8f);
     }
     else
     {
@@ -95,7 +96,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
         add ("reeds_bark", "Bark", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("reeds_trem_rate", "Tremolo (Hz)", 0.0f, 10.0f, 0.1f, 5.0f);
         add ("reeds_trem_depth", "Profundidade do tremolo", 0.0f, 1.0f, 0.01f, 0.3f);
-        add ("reeds_velocity", "Sensibilidade à velocity", 0.0f, 1.0f, 0.01f, 0.8f);
+        add ("reeds_trem_mode", "Tremolo: auto-pan", 0.0f, 1.0f, 1.0f, 0.0f);
+        add ("reeds_velocity", "Sensibilidade a velocity", 0.0f, 1.0f, 0.01f, 0.8f);
     }
 
     return layout;
@@ -126,7 +128,7 @@ void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
         if (setBfree != nullptr)
         {
             setBfree->prepare (sampleRate);
-            lastLeslieParam = -1;
+            lastLeslieParam.store (-1);
             updateOrganParameters();
             organOutputGain = SetBfreeOrgan::outputTrim (parameter ("organ_overdrive"));
         }
@@ -142,6 +144,9 @@ void NativeProcessor::resetDsp()
         voice = Voice {};
     lfoPhase = 0.0;
     tremoloPhase = 0.0;
+    modWheel = -1.0f;
+    tremoloDepthSmoothed = 0.0f;
+    tremoloDepthInitialized = false;
     toneStateL = 0.0f;
     toneStateR = 0.0f;
     reverbL = 0.0f;
@@ -312,6 +317,13 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         }
 
         organOutputGain = targetGain;
+
+        const int midiLeslie = setBfree->takePendingLeslieMode();
+        if (midiLeslie >= 0)
+        {
+            pendingLeslieFromMidi.store (midiLeslie);
+            triggerAsyncUpdate();
+        }
         return;
     }
 
@@ -325,10 +337,23 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         else if (message.isAllNotesOff() || message.isAllSoundOff())
             for (auto& voice : voices)
                 voice.released = true;
+        else if (message.isController() && message.getControllerNumber() == 1)
+            modWheel = juce::jlimit (0.0f, 1.0f, (float) message.getControllerValue() / 127.0f);
     }
     midi.clear();
 
     renderModal (buffer, buffer.getNumSamples());
+}
+
+void NativeProcessor::handleAsyncUpdate()
+{
+    const int mode = pendingLeslieFromMidi.exchange (-1);
+    if (mode < 0 || kind != NativeKind::organ)
+        return;
+
+    // Reflete o CC1 na UI (botões do Leslie). Roda na thread de mensagens.
+    lastLeslieParam.store (mode);
+    setParameterValue ("organ_leslie", (float) mode);
 }
 
 void NativeProcessor::updateOrganParameters()
@@ -360,9 +385,9 @@ void NativeProcessor::updateOrganParameters()
     // Só reaplica quando o controle da janela muda: assim o CC1 (modulação)
     // pode assumir a velocidade do Leslie sem ser sobrescrito a cada bloco.
     const int leslieParam = (int) std::lround (parameter ("organ_leslie"));
-    if (leslieParam != lastLeslieParam)
+    if (leslieParam != lastLeslieParam.load())
     {
-        lastLeslieParam = leslieParam;
+        lastLeslieParam.store (leslieParam);
         setBfree->setLeslie (leslieParam);
     }
 
@@ -382,7 +407,23 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
     const float bark = parameter (tines ? "tines_bark" : "reeds_bark");
     const float tremRate = parameter (tines ? "tines_trem_rate" : "reeds_trem_rate");
     const float tremDepth = parameter (tines ? "tines_trem_depth" : "reeds_trem_depth");
+    const float tremMode = parameter (tines ? "tines_trem_mode" : "reeds_trem_mode");
     const float velocityAmount = parameter (tines ? "tines_velocity" : "reeds_velocity");
+
+    // CC1 (modulação) controla a profundidade do tremolo. Se o controle da
+    // janela estiver em zero, o CC1 ainda consegue ativar até 50%.
+    float effectiveDepth = tremDepth;
+    if (modWheel >= 0.0f)
+        effectiveDepth = modWheel * juce::jmax (tremDepth, 0.5f);
+    effectiveDepth = juce::jlimit (0.0f, 1.0f, effectiveDepth);
+
+    if (! tremoloDepthInitialized)
+    {
+        tremoloDepthSmoothed = effectiveDepth;
+        tremoloDepthInitialized = true;
+    }
+
+    const float depthSmoothing = 1.0f - std::exp (-1.0f / (0.03f * (float) sampleRate));
     const double* ratios = tines ? kTineRatios : kReedRatios;
     const double* amps = tines ? kTineAmps : kReedAmps;
     const double* decays = tines ? kTineDecay : kReedDecay;
@@ -398,9 +439,19 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
     {
         float mixL = 0.0f;
         float mixR = 0.0f;
-        const float tremolo = 1.0f - tremDepth * 0.5f * (1.0f + std::sin ((float) tremoloPhase));
+
+        tremoloDepthSmoothed += depthSmoothing * (effectiveDepth - tremoloDepthSmoothed);
+
+        const float lfo = std::sin ((float) tremoloPhase);
         tremoloPhase += tremIncrement;
         if (tremoloPhase > kTwoPi) tremoloPhase -= kTwoPi;
+
+        const float depth = tremoloDepthSmoothed;
+        float tremoloL = 1.0f - depth * 0.5f * (1.0f + lfo);
+        float tremoloR = tremoloL;
+
+        if (tremMode > 0.5f) // auto-pan
+            tremoloR = 1.0f - depth * 0.5f * (1.0f - lfo);
 
         for (auto& voice : voices)
         {
@@ -435,9 +486,9 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
             toneStateL += toneCoeff * (driven - toneStateL);
             toneStateR = toneStateL;
             const float velocityGain = juce::jmap (voice.velocity, 0.25f, 1.0f, 1.0f - velocityAmount * 0.5f, 1.0f);
-            driven = toneStateL * voice.envelope * volume * gain * velocityGain * tremolo;
-            mixL += driven * (1.0f - voice.pan);
-            mixR += driven * (1.0f + voice.pan);
+            driven = toneStateL * voice.envelope * volume * gain * velocityGain;
+            mixL += driven * tremoloL * (1.0f - voice.pan);
+            mixR += driven * tremoloR * (1.0f + voice.pan);
             voice.age += 1.0;
         }
 
@@ -538,6 +589,7 @@ void NativeProcessor::applyProgram (int index)
         setParameterValue ("tines_bark", values[currentProgram][3]);
         setParameterValue ("tines_trem_rate", values[currentProgram][4]);
         setParameterValue ("tines_trem_depth", values[currentProgram][5]);
+        setParameterValue ("tines_trem_mode", currentProgram == 0 ? 1.0f : 0.0f);
         setParameterValue ("tines_velocity", 0.8f);
         return;
     }
@@ -554,6 +606,7 @@ void NativeProcessor::applyProgram (int index)
     setParameterValue ("reeds_bark", values[currentProgram][3]);
     setParameterValue ("reeds_trem_rate", values[currentProgram][4]);
     setParameterValue ("reeds_trem_depth", values[currentProgram][5]);
+    setParameterValue ("reeds_trem_mode", 0.0f);
     setParameterValue ("reeds_volume", values[currentProgram][6]);
     setParameterValue ("reeds_velocity", 0.8f);
 }

@@ -315,3 +315,15 @@ DSP original do setBfree.
 - O ganho de saída é normalizado por overdrive (ver `docs/testes/orgao-nulidade.md`).
   O timbre é o do setBfree; só o nível é compensado para o knob não pular
   ~20 dB entre “clean” e overdrive.
+
+### Preseter Tines / Reeds (2026-11-15)
+
+- `Preseter Tines` e `Preseter Reeds` continuam sendo modelos próprios (o porte
+  do MDA ePiano está bloqueado pela licença dos samples — ver
+  `docs/PLUGIN-RHODES.md` §9).
+- Tremolo com modo **Tremolo** (amplitude) e **Auto-pan** (estéreo), taxa
+  0–10 Hz e profundidade 0–100%, com suavização para não estalar.
+- **CC1 (modulação)** controla a profundidade do tremolo dos dois instrumentos:
+  0 desliga; 127 usa a profundidade do knob (ou 50% se o knob estiver em 0).
+- Novos parâmetros: `Tremolo: auto-pan` (0/1) em Tines e Reeds. O preset
+  Suitcase do Tines usa auto-pan.

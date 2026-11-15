@@ -5,6 +5,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 
 namespace preseter
@@ -24,7 +25,7 @@ class NativeProcessor;
 std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id);
 
 /** Instrumentos embutidos do Preseter: órgão, Rhodes e Wurlitzer. */
-class NativeProcessor final : public juce::AudioProcessor
+class NativeProcessor final : public juce::AudioProcessor, private juce::AsyncUpdater
 {
 public:
     NativeProcessor (NativeKind kindToUse, juce::String stableId, juce::String displayName);
@@ -82,6 +83,7 @@ private:
     void stopNote (int note);
     void updateOrganParameters();
     void renderModal (juce::AudioBuffer<float>& buffer, int numSamples);
+    void handleAsyncUpdate() override;
     float parameter (const char* id) const;
     void setParameterValue (const char* id, float value);
     void resetDsp();
@@ -93,8 +95,12 @@ private:
     std::unique_ptr<SetBfreeOrgan> setBfree;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
-    int lastLeslieParam = -1;
+    std::atomic<int> lastLeslieParam { -1 };
+    std::atomic<int> pendingLeslieFromMidi { -1 };
     float organOutputGain = 1.0f;
+    float modWheel = -1.0f;
+    float tremoloDepthSmoothed = 0.0f;
+    bool tremoloDepthInitialized = false;
     juce::AudioBuffer<float> organScratch;
     std::array<Voice, 64> voices;
     int currentProgram = 0;
