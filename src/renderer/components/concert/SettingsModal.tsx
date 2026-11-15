@@ -259,6 +259,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 </label>
               </section>
               <section className="hw-inset space-y-3 p-3">
+                <h4 className="hw-label">Inicialização</h4>
+                <label className="flex cursor-pointer items-start gap-3 text-xs" style={{ color: '#C6C6CB' }}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: '#0A84FF' }}
+                    checked={preferences?.showTemplatesOnStartup ?? true}
+                    onChange={(event) => void updatePreferences({ showTemplatesOnStartup: event.target.checked })}
+                  />
+                  <span>
+                    <span className="font-semibold text-white">Mostrar templates ao abrir o app</span>
+                    <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                      Ligado, o app abre na página de templates. Desligado, abre direto pronto para criar um patch.
+                    </span>
+                  </span>
+                </label>
+              </section>
+              <section className="hw-inset space-y-3 p-3">
                 <h4 className="hw-label">Gravação</h4>
                 <label className="block text-xs" style={{ color: '#9A9AA0' }}>
                   Formato

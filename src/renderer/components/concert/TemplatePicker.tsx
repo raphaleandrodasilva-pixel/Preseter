@@ -65,6 +65,7 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
       title="Escolha um template"
       lcd={`${templates.length} template(s)`}
       onClose={onCancel}
+      showClose={false}
       maxWidth="max-w-2xl"
       zIndex="z-[60]"
       footer={

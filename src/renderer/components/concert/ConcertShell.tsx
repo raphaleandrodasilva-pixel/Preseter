@@ -49,6 +49,7 @@ import type { ConcertSettingsTab } from './ConcertSettingsPanel';
 import { ConcertSettingsModal } from './ConcertSettingsModal';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { SamplerWindow } from './SamplerWindow';
+import { NativeInstrumentWindow, type NativeInstrumentKind } from './NativeInstrumentWindow';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
 import { TunerModal } from './TunerModal';
@@ -321,6 +322,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [focusLayerId, setFocusLayerId] = useState<string | null>(null);
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   const [samplerWindowLayerId, setSamplerWindowLayerId] = useState<string | null>(null);
+  const [nativeWindow, setNativeWindow] = useState<{ layerId: string; kind: NativeInstrumentKind } | null>(null);
   const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
   const [editZoom, setEditZoom] = useState<CanvasZoom>(() => {
     try {
@@ -358,6 +360,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       // os controles do sampler possam ser salvos no .preseter.
       if (!draft && activePreset) onEditPreset(activePreset);
       setSamplerWindowLayerId((current) => (current === layerId ? null : layerId));
+      return;
+    }
+    const nativeKind: NativeInstrumentKind | null = assignment?.pluginId === 'preseter.organ'
+      ? 'organ'
+      : assignment?.pluginId === 'preseter.tines'
+        ? 'tines'
+        : assignment?.pluginId === 'preseter.reeds'
+          ? 'reeds'
+          : null;
+    if (nativeKind) {
+      if (!draft && activePreset) onEditPreset(activePreset);
+      setNativeWindow((current) => (current?.layerId === layerId ? null : { layerId, kind: nativeKind }));
       return;
     }
     if (openEditors.has(layerId)) {
@@ -3427,6 +3441,27 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       {settingsTab && (
         <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />
       )}
+      {nativeWindow && (() => {
+        const targetPreset = draft ?? currentPreset;
+        const assignment = (targetPreset?.plugins ?? []).find(
+          (item, index) => (item.layerId ?? `${targetPreset?.id}:layer:${index}`) === nativeWindow.layerId
+        );
+        if (!assignment || !targetPreset) return null;
+        return (
+          <NativeInstrumentWindow
+            kind={nativeWindow.kind}
+            layerId={nativeWindow.layerId}
+            assignment={assignment}
+            onClose={() => setNativeWindow(null)}
+            onSave={async () => {
+              const next = { ...targetPreset, updatedAt: Date.now() };
+              onDraftChange(next);
+              const saved = await onSaveDraft(next);
+              setActionNotice(saved === false ? 'Não foi possível salvar o patch' : 'Instrumento salvo no patch');
+            }}
+          />
+        );
+      })()}
       {samplerWindowLayerId && (() => {
         const targetPreset = draft ?? currentPreset;
         const assignment = (targetPreset?.plugins ?? []).find(

@@ -1307,6 +1307,13 @@ class MainWindow {
           console.warn('[Preseter] Não foi possível escanear os plugins do Full Set:', error);
         }
       }
+      try {
+        await this.patchLoadQueue;
+        await this.vstManager.unloadAll();
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível descarregar o concert anterior:', error);
+      }
+      this.lastLoadedPresetId = null;
       const state = this.concertManager.newConcert(templateId, {
         plugins,
         soundsFolder: this.soundsFolder(),
@@ -2746,6 +2753,7 @@ class MainWindow {
       externalMidiEnabled: false,
       computerKeyboardMidi: false,
       performanceMode: false,
+      showTemplatesOnStartup: true,
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -2782,6 +2790,7 @@ class MainWindow {
         externalMidiEnabled: saved.externalMidiEnabled === true,
         computerKeyboardMidi: saved.computerKeyboardMidi === true,
         performanceMode: saved.performanceMode === true,
+        showTemplatesOnStartup: saved.showTemplatesOnStartup !== false,
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

@@ -67,16 +67,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
         add ("organ_perc_volume", "Volume da percussão", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("organ_perc_decay", "Decaimento da percussão", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("organ_perc_harmonic", "Harmônico da percussão", 0.0f, 1.0f, 0.01f, 0.3f);
-        add ("organ_vibrato", "Vibrato/Chorus", 0.0f, 3.0f, 1.0f, 1.0f);
+        add ("organ_vibrato", "Vibrato/Chorus", 0.0f, 6.0f, 1.0f, 1.0f);
         add ("organ_chorus", "Profundidade do chorus", 0.0f, 1.0f, 0.01f, 0.25f);
         add ("organ_overdrive", "Overdrive", 0.0f, 1.0f, 0.01f, 0.1f);
-        add ("organ_leslie", "Leslie (0 parado, 1 lento, 2 rápido)", 0.0f, 2.0f, 1.0f, 1.0f);
+        add ("organ_leslie", "Leslie (0 parado, 1 lento, 2 rápido, 3 freio)", 0.0f, 3.0f, 1.0f, 1.0f);
         add ("organ_reverb", "Reverb", 0.0f, 1.0f, 0.01f, 0.2f);
         add ("organ_key_click", "Key click", 0.0f, 1.0f, 0.01f, 0.3f);
         add ("organ_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
     }
     else if (kind == NativeKind::tines)
     {
+        add ("tines_gain", "Gain", 0.0f, 1.0f, 0.01f, 0.8f);
         add ("tines_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
         add ("tines_tone", "Tom", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("tines_bell", "Sino (tonebar)", 0.0f, 1.0f, 0.01f, 0.4f);
@@ -87,8 +88,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
     }
     else
     {
+        add ("reeds_gain", "Gain", 0.0f, 1.0f, 0.01f, 0.8f);
         add ("reeds_volume", "Volume", 0.0f, 1.0f, 0.01f, 0.8f);
         add ("reeds_tone", "Tom", 0.0f, 1.0f, 0.01f, 0.55f);
+        add ("reeds_hammer", "Brilho do martelo", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("reeds_bark", "Bark", 0.0f, 1.0f, 0.01f, 0.5f);
         add ("reeds_trem_rate", "Tremolo (Hz)", 0.0f, 10.0f, 0.1f, 5.0f);
         add ("reeds_trem_depth", "Profundidade do tremolo", 0.0f, 1.0f, 0.01f, 0.3f);
@@ -242,9 +245,10 @@ void NativeProcessor::renderOrgan (juce::AudioBuffer<float>& buffer, int numSamp
         parameter ("organ_drawbar_113") / 8.0f,
         parameter ("organ_drawbar_1") / 8.0f,
     };
-    const double vibratoDepth = vibratoMode > 0.5f ? 0.004 * chorus : 0.0;
-    const double leslieRate = leslieMode >= 1.5f ? 6.2 : leslieMode >= 0.5f ? 0.85 : 0.0;
-    const float leslieDepth = leslieMode >= 0.5f ? 0.28f : 0.06f;
+    const double vibratoDepth = (vibratoMode >= 1.0f && vibratoMode <= 3.0f) ? 0.004 * chorus : 0.0;
+    const float chorusDepth = vibratoMode >= 4.0f ? chorus * 0.25f : 0.0f;
+    const double leslieRate = leslieMode >= 2.5f ? 0.12 : leslieMode >= 1.5f ? 6.2 : leslieMode >= 0.5f ? 0.85 : 0.0;
+    const float leslieDepth = leslieMode >= 2.5f ? 0.10f : leslieMode >= 0.5f ? 0.28f : 0.06f;
     const double releaseCoeff = std::exp (-1.0 / (0.045 * sampleRate));
     const double lfoIncrement = kTwoPi * 5.1 / sampleRate;
     const double leslieIncrement = kTwoPi * leslieRate / sampleRate;
@@ -305,6 +309,7 @@ void NativeProcessor::renderOrgan (juce::AudioBuffer<float>& buffer, int numSamp
             float driven = (float) value * (1.0f + overdrive * 5.0f);
             driven = std::tanh (driven) / (1.0f + overdrive * 1.5f);
             driven *= voice.envelope * voice.velocity * volume;
+            driven *= 1.0f + chorusDepth * (float) lfo;
 
             const float mod = 1.0f + leslieDepth * (float) leslie;
             const float pan = voice.pan, autoPan = 0.22f * (float) std::sin (voice.age * 0.00001 + leslie * 0.5);
@@ -331,9 +336,10 @@ void NativeProcessor::renderOrgan (juce::AudioBuffer<float>& buffer, int numSamp
 void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamples)
 {
     const bool tines = kind == NativeKind::tines;
+    const float gain = parameter (tines ? "tines_gain" : "reeds_gain");
     const float volume = parameter (tines ? "tines_volume" : "reeds_volume");
     const float tone = parameter (tines ? "tines_tone" : "reeds_tone");
-    const float bell = tines ? parameter ("tines_bell") : 0.0f;
+    const float bell = tines ? parameter ("tines_bell") : parameter ("reeds_hammer");
     const float bark = parameter (tines ? "tines_bark" : "reeds_bark");
     const float tremRate = parameter (tines ? "tines_trem_rate" : "reeds_trem_rate");
     const float tremDepth = parameter (tines ? "tines_trem_depth" : "reeds_trem_depth");
@@ -390,7 +396,7 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
             toneStateL += toneCoeff * (driven - toneStateL);
             toneStateR = toneStateL;
             const float velocityGain = juce::jmap (voice.velocity, 0.25f, 1.0f, 1.0f - velocityAmount * 0.5f, 1.0f);
-            driven = toneStateL * voice.envelope * volume * velocityGain * tremolo;
+            driven = toneStateL * voice.envelope * volume * gain * velocityGain * tremolo;
             mixL += driven * (1.0f - voice.pan);
             mixR += driven * (1.0f + voice.pan);
             voice.age += 1.0;
@@ -406,7 +412,7 @@ int NativeProcessor::getNumPrograms()
 {
     if (kind == NativeKind::organ) return 4;
     if (kind == NativeKind::tines) return 4;
-    return 3;
+    return 4;
 }
 
 void NativeProcessor::setCurrentProgram (int index)
@@ -497,16 +503,19 @@ void NativeProcessor::applyProgram (int index)
         return;
     }
 
-    const float values[3][5] = {
-        { 0.82f, 0.55f, 0.5f, 5.0f, 0.3f },
-        { 0.82f, 0.35f, 0.25f, 3.0f, 0.15f },
-        { 0.82f, 0.7f, 0.9f, 6.0f, 0.25f },
+    const float values[4][7] = {
+        { 0.80f, 0.55f, 0.50f, 0.50f, 5.0f, 0.30f, 0.80f }, // Clássico
+        { 0.80f, 0.35f, 0.30f, 0.25f, 3.0f, 0.15f, 0.72f }, // Suave
+        { 0.80f, 0.70f, 0.70f, 0.90f, 6.0f, 0.25f, 0.85f }, // Bark
+        { 0.80f, 0.82f, 0.55f, 0.65f, 5.5f, 0.22f, 0.90f }, // Brilhante
     };
-    setParameterValue ("reeds_volume", values[currentProgram][0]);
+    setParameterValue ("reeds_gain", values[currentProgram][0]);
     setParameterValue ("reeds_tone", values[currentProgram][1]);
-    setParameterValue ("reeds_bark", values[currentProgram][2]);
-    setParameterValue ("reeds_trem_rate", values[currentProgram][3]);
-    setParameterValue ("reeds_trem_depth", values[currentProgram][4]);
+    setParameterValue ("reeds_hammer", values[currentProgram][2]);
+    setParameterValue ("reeds_bark", values[currentProgram][3]);
+    setParameterValue ("reeds_trem_rate", values[currentProgram][4]);
+    setParameterValue ("reeds_trem_depth", values[currentProgram][5]);
+    setParameterValue ("reeds_volume", values[currentProgram][6]);
     setParameterValue ("reeds_velocity", 0.8f);
 }
 
@@ -522,8 +531,8 @@ const juce::String NativeProcessor::getProgramName (int index)
         static const char* names[] = { "Suitcase", "Stage", "Mellow", "Bark" };
         return juce::isPositiveAndBelow (index, 4) ? names[index] : juce::String();
     }
-    static const char* names[] = { "Stage", "Mellow", "Bark" };
-    return juce::isPositiveAndBelow (index, 3) ? names[index] : juce::String();
+    static const char* names[] = { "Clássico", "Suave", "Bark", "Brilhante" };
+    return juce::isPositiveAndBelow (index, 4) ? names[index] : juce::String();
 }
 
 void NativeProcessor::changeProgramName (int, const juce::String&) {}

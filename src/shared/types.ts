@@ -835,6 +835,8 @@ export interface AppPreferences {
   computerKeyboardMidi: boolean;
   /** Mantém o processador no máximo (só na tomada) e prioriza o áudio. */
   performanceMode: boolean;
+  /** Mostra a escolha de templates ao abrir o app. Desligado = abre pronto para criar patch. */
+  showTemplatesOnStartup: boolean;
 }
 
 // Configuração de layout da interface

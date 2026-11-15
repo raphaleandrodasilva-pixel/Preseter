@@ -126,7 +126,7 @@ describe('TemplatePicker', () => {
     expect(onOpenFile).toHaveBeenCalledTimes(1);
   });
 
-  it('cancels from the footer, close button and Escape', () => {
+  it('cancels from the footer and Escape, without a close button', () => {
     const onCancel = vi.fn();
     render(
       <TemplatePicker
@@ -138,10 +138,10 @@ describe('TemplatePicker', () => {
         onCancel={onCancel}
       />
     );
+    expect(screen.queryByTitle('Fechar (Esc)')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Cancelar'));
-    fireEvent.click(screen.getByTitle('Fechar (Esc)'));
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onCancel).toHaveBeenCalledTimes(3);
+    expect(onCancel).toHaveBeenCalledTimes(2);
   });
 
   it('asks before enabling MIDI external and then picks the template', async () => {

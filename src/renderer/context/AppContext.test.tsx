@@ -776,7 +776,8 @@ describe('AppProvider main-process events', () => {
     expect(latest.loadedPlugins).toHaveLength(0);
   });
 
-  it('creates a blank concert from the menu and handles open/save actions', async () => {
+  it('opens the template picker from the menu and handles open/save actions', async () => {
+    vi.mocked(window.electronAPI.concertTemplates).mockResolvedValue([]);
     vi.mocked(window.electronAPI.concertOpen).mockResolvedValue(
       createConcertState({ name: 'Opened' })
     );
@@ -786,7 +787,8 @@ describe('AppProvider main-process events', () => {
     await renderProvider();
 
     await act(async () => api().emit('onMenuAction', { action: 'new' }));
-    expect(window.electronAPI.concertNew).toHaveBeenCalledWith('vazio');
+    expect(latest.templatePickerOpen).toBe(true);
+    act(() => latest.cancelTemplatePicker());
     expect(latest.templatePickerOpen).toBe(false);
 
     await act(async () => api().emit('onMenuAction', { action: 'open' }));
@@ -796,12 +798,12 @@ describe('AppProvider main-process events', () => {
     expect(latest.concertPath).toBe('C:/saved.preseter');
   });
 
-  it('opens a concert file without opening the template page', async () => {
+  it('opens a concert file from the template page', async () => {
     vi.mocked(window.electronAPI.concertOpen).mockResolvedValue(
       createConcertState({ name: 'Arquivo aberto' })
     );
     await renderProvider();
-    expect(latest.templatePickerOpen).toBe(false);
+    expect(latest.templatePickerOpen).toBe(true);
 
     await act(async () => {
       await latest.openConcertFile();

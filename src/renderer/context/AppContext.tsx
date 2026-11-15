@@ -654,8 +654,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (error) {
           console.warn('[Preseter] Não foi possível listar os templates:', error);
         }
-        // O app abre direto no concert atual (ou vazio). Os templates ficam em
-        // Configurações → Templates.
+        // A opção em Configurações decide se o app entra pelos templates.
+        if (prefs?.showTemplatesOnStartup !== false) {
+          setTemplatePickerOpen(true);
+        }
         concertReady.current = true;
         window.electronAPI.startupProgress(95, 'Finalizando…');
         // Áudio não bloqueia o boot: a interface abre e o estado chega depois.
@@ -940,6 +942,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       total: Math.max(1, state.patches.length),
     });
     applyConcertState(state);
+    if (state.patches.length === 0) {
+      setCurrentPreset(null);
+      setLoadedPlugins([]);
+      try {
+        setMixState(await window.electronAPI.vstMixGet());
+      } catch {
+        /* sem mixer disponível */
+      }
+    }
     setLoadProgress((previous) => previous ? { ...previous, percent: 45, detail: 'Carregando patch inicial…' } : previous);
     const first = [...state.patches].sort((a, b) => a.programNumber - b.programNumber)[0];
     if (first) {
@@ -1169,8 +1180,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setConcertError(null);
       try {
         if (action.action === 'new') {
-          const state = await window.electronAPI.concertNew('vazio');
-          await openConcertState(state);
+          const templates = await window.electronAPI.concertTemplates();
+          setConcertTemplates(templates);
+          setTemplatePickerOpen(true);
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
           if (state) await openConcertState(state);

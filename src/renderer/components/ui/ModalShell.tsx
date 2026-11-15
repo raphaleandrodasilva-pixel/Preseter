@@ -7,6 +7,8 @@ interface ModalShellProps {
   /** Texto do display à direita do título. */
   lcd?: React.ReactNode;
   onClose: () => void;
+  /** Esconde o botão X quando a janela já tem um Cancelar explícito. */
+  showClose?: boolean;
   maxWidth?: string;
   maxHeight?: string;
   zIndex?: string;
@@ -24,6 +26,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   title,
   lcd,
   onClose,
+  showClose = true,
   maxWidth = 'max-w-2xl',
   maxHeight = 'max-h-[82vh]',
   zIndex = 'z-50',
@@ -56,14 +59,16 @@ export const ModalShell: React.FC<ModalShellProps> = ({
               {lcd}
             </div>
           )}
-          <button
-            onClick={onClose}
-            className={`hw-squarebtn px-2.5 py-1 text-sm ${lcd === undefined ? 'ml-auto' : ''}`}
-            style={{ color: '#EDEDEF' }}
-            title="Fechar (Esc)"
-          >
-            ✕
-          </button>
+          {showClose && (
+            <button
+              onClick={onClose}
+              className={`hw-squarebtn px-2.5 py-1 text-sm ${lcd === undefined ? 'ml-auto' : ''}`}
+              style={{ color: '#EDEDEF' }}
+              title="Fechar (Esc)"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">

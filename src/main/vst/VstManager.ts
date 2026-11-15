@@ -261,6 +261,15 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Descarrega todos os layers do motor (Fechar/Novo Concert). */
+  async unloadAll(): Promise<boolean> {
+    const result = await this.engine.request('unload', { layerId: '' });
+    const layers = [...this.loadedPlugins.keys()];
+    this.loadedPlugins.clear();
+    for (const layerId of layers) this.emit('plugin-unloaded', layerId);
+    return result.unloaded === true;
+  }
+
   async setParameter(
     layerOrPluginId: string,
     paramId: string,
