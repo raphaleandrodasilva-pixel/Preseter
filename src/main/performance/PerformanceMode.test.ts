@@ -91,7 +91,8 @@ vi.mocked(spawnSync).mockImplementation(((_command: string, args: string[]) => {
 }) as never);
 
 function makeMode(enginePid: number | null = null): PerformanceMode {
-  return new PerformanceMode({ getEnginePid: () => enginePid });
+  // Os cenários abaixo são do Windows (powercfg); fixa a plataforma para rodar igual em qualquer runner.
+  return new PerformanceMode({ getEnginePid: () => enginePid, platform: 'win32' });
 }
 
 describe('PerformanceMode', () => {
