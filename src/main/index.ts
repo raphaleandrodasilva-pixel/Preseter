@@ -1612,6 +1612,9 @@ class MainWindow {
         phase: 'loading',
       });
       const nativeSampler = isNativeSamplerAssignment(assignment);
+      const nativeInstrument = assignment.pluginId === 'preseter.organ'
+        || assignment.pluginId === 'preseter.tines'
+        || assignment.pluginId === 'preseter.reeds';
       const samplePath = assignment.samplePath
         ? (path.isAbsolute(assignment.samplePath)
             ? assignment.samplePath
@@ -1634,7 +1637,9 @@ class MainWindow {
               loop: assignment.sampler?.loop ?? true,
               ...(assignment.sampler ?? {}),
             }
-          : {}
+          : nativeInstrument
+            ? { programIndex: assignment.programIndex ?? 0 }
+            : {}
       );
       activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});

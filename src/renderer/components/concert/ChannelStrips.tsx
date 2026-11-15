@@ -293,7 +293,48 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     format: 'Native',
     arch: 'x64',
   };
-  const instruments = [samplerEntry, ...scannedPlugins.filter((plugin) => plugin.isInstrument)];
+  const nativeEntries: VstPluginInfo[] = [
+    {
+      id: 'preseter.organ',
+      name: 'Preseter Organ',
+      path: 'preseter.organ',
+      isLoaded: false,
+      isInstrument: true,
+      parameters: [],
+      manufacturer: 'Preseter',
+      version: '1.0',
+      category: 'Órgão',
+      format: 'Native',
+      arch: 'x64',
+    },
+    {
+      id: 'preseter.tines',
+      name: 'Preseter Tines',
+      path: 'preseter.tines',
+      isLoaded: false,
+      isInstrument: true,
+      parameters: [],
+      manufacturer: 'Preseter',
+      version: '1.0',
+      category: 'Piano elétrico',
+      format: 'Native',
+      arch: 'x64',
+    },
+    {
+      id: 'preseter.reeds',
+      name: 'Preseter Reeds',
+      path: 'preseter.reeds',
+      isLoaded: false,
+      isInstrument: true,
+      parameters: [],
+      manufacturer: 'Preseter',
+      version: '1.0',
+      category: 'Piano elétrico',
+      format: 'Native',
+      arch: 'x64',
+    },
+  ];
+  const instruments = [...nativeEntries, samplerEntry, ...scannedPlugins.filter((plugin) => plugin.isInstrument)];
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   /** Último layer recebido por `focusLayerId`; evita reaplicar o foco a cada render. */

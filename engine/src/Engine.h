@@ -3,6 +3,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include "sampler/SamplerProcessor.h"
+#include "native/NativeProcessor.h"
 
 #include <array>
 #include <atomic>
@@ -120,6 +121,10 @@ public:
     void loadSampler (const juce::String& filePath, const juce::String& layerId,
                       int bank, int program, int minNote, int maxNote,
                       const juce::var& options, Done done, bool staged = false);
+    /** Carrega um instrumento nativo (órgão, tines ou reeds) num layer. */
+    void loadNative (const juce::String& nativeId, const juce::String& layerId,
+                     int minNote, int maxNote, const juce::var& options,
+                     Done done, bool staged = false);
     /** Troca o arquivo de um layer de sampler já carregado, sem mexer no grafo. */
     juce::String reloadSampler (const juce::String& layerId, const juce::String& filePath,
                                 int bank, int program, const juce::var& options, juce::var& result);
@@ -326,6 +331,8 @@ private:
         juce::String pluginId;
         /** Instrumento nativo do Preseter (sampler SF2/SFZ); nulo para VST3. */
         SamplerProcessor* sampler = nullptr;
+        /** Instrumento nativo do Preseter (órgão/tines/reeds); nulo para VST3/sampler. */
+        native::NativeProcessor* native = nullptr;
         Graph::Node::Ptr midiFilterNode;
         /** MIDI FX (arpejador) antes do instrumento; sempre existe, mas fica bypassado quando desligado. */
         Graph::Node::Ptr midiFxNode;

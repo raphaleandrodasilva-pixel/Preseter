@@ -136,6 +136,31 @@ export function buildCollectionConcert(
       layers.forEach((layer, index) => {
         const layerId = `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`;
 
+        // Instrumento nativo do Preseter (órgão, tines, reeds).
+        if (layer.nativeInstrument) {
+          const nativeId = `preseter.${layer.nativeInstrument}`;
+          assignments.push({
+            pluginId: nativeId,
+            layerId,
+            name: layers.length > 1 && layer.label ? `Preseter — ${layer.label}` : nativeId.replace('preseter.', 'Preseter '),
+            path: nativeId,
+            role: 'instrument',
+            programIndex: layer.programIndex ?? 0,
+            minNote: layer.min,
+            maxNote: layer.max,
+            velocityMin: layer.velocityMin ?? 1,
+            velocityMax: layer.velocityMax ?? 127,
+            mix: {
+              volumeDb: layer.db,
+              pan: layer.pan ?? 0,
+              muted: false,
+              solo: false,
+            },
+            ...(layer.arp ? { arp: layer.arp } : {}),
+          });
+          return;
+        }
+
         // Sampler nativo: SF2/SFZ lido pelo motor, sem plugin externo.
         if (layer.sample) {
           const library = SAMPLE_LIBRARY_FILES[layer.sample.library];

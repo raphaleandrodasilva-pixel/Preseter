@@ -167,9 +167,22 @@ describe('buildCollectionConcert', () => {
 
       const electric = file.patches.find((patch) => patch.name === 'Rhodes Classic');
       expect(electric?.plugins?.[0]).toMatchObject({
-        samplePath: 'MuseScore_General/MuseScore_General.sf2',
-        programIndex: 4,
-        bank: 0,
+        pluginId: 'preseter.tines',
+        path: 'preseter.tines',
+        programIndex: 0,
+      });
+
+      const wurlitzer = file.patches.find((patch) => patch.name === 'Wurlitzer EP');
+      expect(wurlitzer?.plugins?.[0]).toMatchObject({
+        pluginId: 'preseter.reeds',
+        path: 'preseter.reeds',
+      });
+
+      const organ = file.patches.find((patch) => patch.name === 'Hammond Gospel');
+      expect(organ?.plugins?.[0]).toMatchObject({
+        pluginId: 'preseter.organ',
+        path: 'preseter.organ',
+        programIndex: 1,
       });
 
       const strings = file.patches.find((patch) => patch.name === 'String Ensemble');

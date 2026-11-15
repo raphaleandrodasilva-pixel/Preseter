@@ -215,6 +215,17 @@ void CommandRouter::handleLine (const juce::String& line)
             return;
         }
 
+        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds")
+        {
+            engine.loadNative (key, layerId, minNote, maxNote, message,
+                               [this, id] (juce::var result, juce::String error)
+                               {
+                                   if (error.isNotEmpty()) fail (id, error);
+                                   else                    ok (id, result);
+                               }, false);
+            return;
+        }
+
         engine.loadPlugin (key, layerId, minNote, maxNote, [this, id] (juce::var result, juce::String error)
         {
             if (error.isNotEmpty()) fail (id, error);
@@ -297,6 +308,17 @@ void CommandRouter::handleLine (const juce::String& line)
                                     if (error.isNotEmpty()) fail (id, error);
                                     else                    ok (id, result);
                                 }, true);
+            return;
+        }
+
+        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds")
+        {
+            engine.loadNative (key, layerId, minNote, maxNote, message,
+                               [this, id] (juce::var result, juce::String error)
+                               {
+                                   if (error.isNotEmpty()) fail (id, error);
+                                   else                    ok (id, result);
+                               }, true);
             return;
         }
 

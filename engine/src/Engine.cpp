@@ -2513,10 +2513,78 @@ void Engine::loadSampler (const juce::String& filePath, const juce::String& requ
     done (describeLoadedPlugin (layerId), {});
 }
 
+void Engine::loadNative (const juce::String& nativeId, const juce::String& requestedLayerId,
+                         int minNote, int maxNote, const juce::var& options,
+                         Done done, bool staged)
+{
+    if (minNote < 0 || maxNote > 127 || minNote > maxNote)
+    {
+        done ({}, utf8 ("A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim."));
+        return;
+    }
+
+    auto processor = native::createNativeProcessor (nativeId);
+    if (processor == nullptr)
+    {
+        done ({}, utf8 ("Instrumento nativo desconhecido: ") + nativeId);
+        return;
+    }
+
+    const auto layerId = requestedLayerId.isNotEmpty() ? requestedLayerId : juce::Uuid().toString();
+    if (findLayer (layerId) >= 0 || loadingLayerIds.contains (layerId))
+    {
+        done ({}, utf8 ("Já existe um instrumento com este identificador de layer."));
+        return;
+    }
+
+    if (options.isObject())
+    {
+        const int program = (int) options.getProperty ("programIndex", 0);
+        processor->setCurrentProgram (program);
+    }
+
+    auto* nativeProcessor = processor.get();
+
+    Layer layer;
+    layer.id = layerId;
+    layer.pluginId = nativeId;
+    layer.minNote = minNote;
+    layer.maxNote = maxNote;
+    layer.role = staged ? Layer::Role::staged : Layer::Role::active;
+    layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
+    layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
+    layer.pluginNode = graph.addNode (std::move (processor));
+    layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+    layer.native = nativeProcessor;
+
+    if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
+        || layer.pluginNode == nullptr || layer.stripNode == nullptr)
+    {
+        if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
+        if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
+        if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
+        if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+        done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
+        return;
+    }
+
+    if (auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor()))
+        arp->setTempo (playHead.getTempo());
+    if (auto* filter = dynamic_cast<NoteRangeFilter*> (layer.midiFilterNode->getProcessor()))
+    {
+        filter->setRange (minNote, maxNote);
+        filter->setTranspose (transposeSemitones.load());
+    }
+
+    layers.push_back (std::move (layer));
+    updateSoloState();
+    rebuildConnections();
+    done (describeLoadedPlugin (layerId), {});
+}
+
 juce::String Engine::reloadSampler (const juce::String& layerId, const juce::String& filePath,
                                     int bank, int program, const juce::var& options,
-                                    juce::var& result)
-{
+                                    juce::var& result){
     const int index = findLayer (resolveLayerId (layerId));
     if (index < 0 || layers[(size_t) index].sampler == nullptr)
         return utf8 ("Nenhum sampler carregado neste layer.");
@@ -3309,6 +3377,34 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
             .set ("maxVoices", layer.sampler->getMaxVoices());
     }
 
+    if (layer.native != nullptr)
+    {
+        int automatableCount = 0;
+        for (auto* parameter : layer.native->getParameters())
+            if (parameter->isAutomatable())
+                ++automatableCount;
+
+        return Obj()
+            .set ("layerId", layer.id)
+            .set ("id", layer.native->getStableId())
+            .set ("name", layer.native->getName())
+            .set ("manufacturer", "Preseter")
+            .set ("version", "1.0")
+            .set ("category", "Instrument")
+            .set ("format", "Native")
+            .set ("path", layer.native->getStableId())
+            .set ("isInstrument", true)
+            .set ("inputs", 0)
+            .set ("outputs", 2)
+            .set ("minNote", layer.minNote)
+            .set ("maxNote", layer.maxNote)
+            .set ("pinned", layer.pinned)
+            .set ("parameterCount", automatableCount)
+            .set ("parameterCountTotal", layer.native->getParameters().size())
+            .set ("program", layer.native->getCurrentProgram())
+            .set ("programCount", layer.native->getNumPrograms());
+    }
+
     auto* plugin = getPlugin (layerId);
     if (plugin == nullptr)
         return {};
@@ -3638,6 +3734,16 @@ juce::String Engine::setPluginProgram (const juce::String& layerId, int programI
                                        juce::var& result)
 {
     const int layerIndex = findLayer (resolveLayerId (layerId));
+    if (layerIndex >= 0 && layers[(size_t) layerIndex].native != nullptr)
+    {
+        auto* native = layers[(size_t) layerIndex].native;
+        if (! juce::isPositiveAndBelow (programIndex, native->getNumPrograms()))
+            return utf8 ("Programa inválido: ") + juce::String (programIndex);
+        native->setCurrentProgram (programIndex);
+        result = describeLoadedPlugin (layerId);
+        return {};
+    }
+
     if (layerIndex >= 0 && layers[(size_t) layerIndex].sampler != nullptr)
     {
         auto* sampler = layers[(size_t) layerIndex].sampler;
@@ -3751,6 +3857,36 @@ juce::String Engine::openPluginEditor (const juce::String& requestedLayerId, juc
                                        int insertSlot)
 {
     const auto layerId = resolveLayerId (requestedLayerId);
+
+    if (insertSlot < 0)
+    {
+        const int layerIndex = findLayer (layerId);
+        if (layerIndex >= 0 && layers[(size_t) layerIndex].native != nullptr)
+        {
+            const auto key = editorKey (layerId, insertSlot);
+            if (auto existing = editorWindows.find (key); existing != editorWindows.end())
+            {
+                existing->second->toFront (true);
+                result = Obj().set ("layerId", layerId).set ("open", true);
+                return {};
+            }
+            auto* native = layers[(size_t) layerIndex].native;
+            auto* editor = native->createEditorIfNeeded();
+            if (editor == nullptr)
+                return utf8 ("Este instrumento não tem janela de edição.");
+            std::weak_ptr<bool> alive = aliveFlag;
+            editorWindows[key] = std::make_unique<PluginEditorWindow> (
+                native->getName(), editor,
+                [this, alive, key]
+                {
+                    if (auto stillAlive = alive.lock(); stillAlive != nullptr && *stillAlive)
+                        destroyEditorWindow (key);
+                });
+            result = Obj().set ("layerId", layerId).set ("open", true);
+            return {};
+        }
+    }
+
     auto* plugin = getPlugin (layerId, insertSlot);
     if (plugin == nullptr)
         return insertSlot < 0 ? juce::String (utf8 ("Nenhum instrumento carregado neste layer."))

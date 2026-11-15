@@ -54,6 +54,8 @@ export interface CollectionLayerSpec {
   arp?: ArpSettings;
   /** Preset de fábrica do Surge XT (caminho relativo em patches_factory). */
   factoryPreset?: string;
+  /** Quando presente, o layer usa um instrumento nativo do Preseter. */
+  nativeInstrument?: 'organ' | 'tines' | 'reeds';
   /** Quando presente, o layer usa o sampler nativo (SF2/SFZ). */
   sample?: SampleSpec;
 }
@@ -85,6 +87,26 @@ export const S = (
   sample: SampleSpec,
   extra: Partial<CollectionLayerSpec> = {}
 ): CollectionLayerSpec => ({ inst: 'NATIVE', db, min, max, label, sample, ...extra });
+
+/** Layer de instrumento nativo (órgão, tines ou reeds). */
+export const N = (
+  nativeInstrument: NonNullable<CollectionLayerSpec['nativeInstrument']>,
+  db: number,
+  min: number,
+  max: number,
+  label: string,
+  programIndex = 0,
+  extra: Partial<CollectionLayerSpec> = {}
+): CollectionLayerSpec => ({
+  inst: 'NATIVE',
+  db,
+  min,
+  max,
+  label,
+  programIndex,
+  nativeInstrument,
+  ...extra,
+});
 
 /** Arquivos das bibliotecas, relativos à pasta de sons. */
 export const SAMPLE_LIBRARY_FILES: Record<SampleLibrary, { path: string; name: string }> = {
@@ -137,16 +159,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
       }),
     ]],
     ['Rhodes Classic', [
-      S(-2, 0, 127, 'Rhodes', {
-        library: 'musescore', bank: 0, program: 4, loop: true, release: 0.6,
-        velocity: 1.1, polyphony: 32,
-      }),
+      N('tines', -3, 0, 127, 'Rhodes', 0),
     ]],
     ['Wurlitzer EP', [
-      S(-2, 0, 127, 'Wurlitzer', {
-        library: 'musescore', bank: 0, program: 5, loop: true, release: 0.35,
-        cutoff: 9000, velocity: 1.1, polyphony: 32,
-      }),
+      N('reeds', -3, 0, 127, 'Wurlitzer', 0),
     ]],
     ['FM Electric Piano', [
       S(-3, 0, 127, 'Piano elétrico FM', {
@@ -163,28 +179,16 @@ export const COLLECTION_SETS: CollectionSet[] = [
   ]],
   ['Organs', [
     ['Hammond Jazz', [
-      S(-3, 0, 127, 'Hammond jazz', {
-        library: 'musescore', bank: 0, program: 16, loop: true, release: 0.08,
-        cutoff: 8000, velocity: 0.3, polyphony: 32,
-      }),
+      N('organ', -3, 0, 127, 'Hammond jazz', 0),
     ]],
     ['Hammond Gospel', [
-      S(-2, 0, 127, 'Hammond gospel', {
-        library: 'musescore', bank: 0, program: 16, loop: true, release: 0.08,
-        velocity: 0.3, polyphony: 32,
-      }),
+      N('organ', -2, 0, 127, 'Hammond gospel', 1),
     ]],
     ['Hammond Rock', [
-      S(-2, 0, 127, 'Hammond rock', {
-        library: 'musescore', bank: 0, program: 18, loop: true, release: 0.08,
-        cutoff: 10000, velocity: 0.3, polyphony: 32,
-      }),
+      N('organ', -2, 0, 127, 'Hammond rock', 2),
     ]],
     ['Vintage Transistor Organ', [
-      S(-3, 0, 127, 'Órgão combo', {
-        library: 'musescore', bank: 0, program: 17, loop: true, release: 0.12,
-        cutoff: 7000, velocity: 0.4, polyphony: 24,
-      }),
+      N('organ', -3, 0, 127, 'Órgão combo', 3),
     ]],
   ]],
   ['Strings', [

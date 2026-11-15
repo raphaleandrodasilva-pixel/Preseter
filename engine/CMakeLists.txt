@@ -55,6 +55,7 @@ target_sources(PreseterEngine PRIVATE
     src/Main.cpp
     src/Engine.cpp
     src/CommandRouter.cpp
+    src/native/NativeProcessor.cpp
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp)
 
