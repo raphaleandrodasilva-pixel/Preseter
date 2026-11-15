@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0.0",
+  "product": "Preseter",
+  "library": "Factory 40",
+  "patch_id": "PRE-015",
+  "name": "Cinematic Strings",
+  "category": "Strings",
+  "description": "Cordas longas para trilhas e pads orquestrais.",
+  "mode": "poly",
+  "midi": {
+    "input_channel": 1,
+    "controllers": {
+      "cc1_modulation": {
+        "enabled": true,
+        "target": "modulation_or_library_dynamic",
+        "default": 0
+      },
+      "cc7_volume": {
+        "enabled": true,
+        "target": "layer_volume",
+        "default": 100
+      },
+      "cc11_expression": {
+        "enabled": true,
+        "target": "expression",
+        "default": 127
+      },
+      "cc64_sustain": {
+        "enabled": true,
+        "target": "sustain",
+        "threshold": 64
+      },
+      "pitch_bend": {
+        "enabled": true,
+        "range_semitones": 2
+      }
+    },
+    "velocity": {
+      "input_min": 1,
+      "input_max": 127,
+      "curve": "linear",
+      "mode": "layer_or_sample_selection"
+    }
+  },
+  "layers": [
+    {
+      "layer_id": "L1",
+      "source_type": "plugin",
+      "plugin": "BBC Symphony Orchestra Discover",
+      "instrument": "Violins",
+      "preset": "violins_long",
+      "key_range": {
+        "midi_note_low": 55,
+        "midi_note_high": 108
+      },
+      "velocity_range": {
+        "min": 1,
+        "max": 127
+      },
+      "transpose_semitones": 0,
+      "volume": 0.8,
+      "pan": -0.12,
+      "articulation": "long",
+      "sample_library": "BBCSO Discover"
+    },
+    {
+      "layer_id": "L2",
+      "source_type": "plugin",
+      "plugin": "BBC Symphony Orchestra Discover",
+      "instrument": "Cellos",
+      "preset": "cellos_long",
+      "key_range": {
+        "midi_note_low": 36,
+        "midi_note_high": 84
+      },
+      "velocity_range": {
+        "min": 1,
+        "max": 127
+      },
+      "transpose_semitones": 0,
+      "volume": 0.68,
+      "pan": 0.12,
+      "articulation": "long",
+      "sample_library": "BBCSO Discover"
+    }
+  ],
+  "splits": [
+    {
+      "split_id": "S1",
+      "key_range": {
+        "midi_note_low": 55,
+        "midi_note_high": 108
+      },
+      "layer_ids": [
+        "L1"
+      ]
+    },
+    {
+      "split_id": "S2",
+      "key_range": {
+        "midi_note_low": 36,
+        "midi_note_high": 84
+      },
+      "layer_ids": [
+        "L2"
+      ]
+    }
+  ],
+  "performance": {
+    "program_change": {
+      "enabled": true,
+      "bank_msb": 0,
+      "bank_lsb": 0,
+      "program": "015"
+    },
+    "patch_change_policy": "release_or_fade_previous_patch",
+    "panic_action": "all_notes_off_and_reset_controllers"
+  },
+  "extra": {
+    "performance": "Use CC1/CC11 para dinâmica se suportado; ataque e release podem ser ajustados no motor."
+  },
+  "validation": {
+    "status": "draft_requires_plugin_and_license_validation",
+    "known_gaps": [
+      "Confirm exact plugin version, format and operating-system compatibility.",
+      "Confirm sample-library availability, instrument names and articulation coverage.",
+      "Confirm redistribution rights before bundling any third-party samples or binaries."
+    ]
+  }
+}

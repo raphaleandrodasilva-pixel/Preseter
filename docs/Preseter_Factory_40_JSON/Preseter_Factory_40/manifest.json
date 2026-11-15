@@ -1,0 +1,249 @@
+{
+  "schema_version": "1.0.0",
+  "product": "Preseter",
+  "library": "Factory 40",
+  "description": "40 patches inspirados em categorias de workstation/MainStage; conteúdo original, não presets oficiais da Apple.",
+  "patch_count": 40,
+  "patches": [
+    {
+      "patch_id": "PRE-001",
+      "name": "Concert Grand",
+      "category": "Pianos & Keys",
+      "file": "PRE-001_concert_grand.json"
+    },
+    {
+      "patch_id": "PRE-002",
+      "name": "Soft Grand",
+      "category": "Pianos & Keys",
+      "file": "PRE-002_soft_grand.json"
+    },
+    {
+      "patch_id": "PRE-003",
+      "name": "Pop Piano",
+      "category": "Pianos & Keys",
+      "file": "PRE-003_pop_piano.json"
+    },
+    {
+      "patch_id": "PRE-004",
+      "name": "Upright Piano",
+      "category": "Pianos & Keys",
+      "file": "PRE-004_upright_piano.json"
+    },
+    {
+      "patch_id": "PRE-005",
+      "name": "Rhodes Classic",
+      "category": "Pianos & Keys",
+      "file": "PRE-005_rhodes_classic.json"
+    },
+    {
+      "patch_id": "PRE-006",
+      "name": "Wurlitzer EP",
+      "category": "Pianos & Keys",
+      "file": "PRE-006_wurlitzer_ep.json"
+    },
+    {
+      "patch_id": "PRE-007",
+      "name": "FM Electric Piano",
+      "category": "Pianos & Keys",
+      "file": "PRE-007_fm_electric_piano.json"
+    },
+    {
+      "patch_id": "PRE-008",
+      "name": "Clavinet Funk",
+      "category": "Pianos & Keys",
+      "file": "PRE-008_clavinet_funk.json"
+    },
+    {
+      "patch_id": "PRE-009",
+      "name": "Hammond Jazz",
+      "category": "Organs",
+      "file": "PRE-009_hammond_jazz.json"
+    },
+    {
+      "patch_id": "PRE-010",
+      "name": "Hammond Gospel",
+      "category": "Organs",
+      "file": "PRE-010_hammond_gospel.json"
+    },
+    {
+      "patch_id": "PRE-011",
+      "name": "Hammond Rock",
+      "category": "Organs",
+      "file": "PRE-011_hammond_rock.json"
+    },
+    {
+      "patch_id": "PRE-012",
+      "name": "Vintage Transistor Organ",
+      "category": "Organs",
+      "file": "PRE-012_vintage_transistor_organ.json"
+    },
+    {
+      "patch_id": "PRE-013",
+      "name": "Solo Violin",
+      "category": "Strings",
+      "file": "PRE-013_solo_violin.json"
+    },
+    {
+      "patch_id": "PRE-014",
+      "name": "String Ensemble",
+      "category": "Strings",
+      "file": "PRE-014_string_ensemble.json"
+    },
+    {
+      "patch_id": "PRE-015",
+      "name": "Cinematic Strings",
+      "category": "Strings",
+      "file": "PRE-015_cinematic_strings.json"
+    },
+    {
+      "patch_id": "PRE-016",
+      "name": "Pizzicato Strings",
+      "category": "Strings",
+      "file": "PRE-016_pizzicato_strings.json"
+    },
+    {
+      "patch_id": "PRE-017",
+      "name": "Warm String Pad",
+      "category": "Strings",
+      "file": "PRE-017_warm_string_pad.json"
+    },
+    {
+      "patch_id": "PRE-018",
+      "name": "Solo Trumpet",
+      "category": "Brass",
+      "file": "PRE-018_solo_trumpet.json"
+    },
+    {
+      "patch_id": "PRE-019",
+      "name": "Trombone",
+      "category": "Brass",
+      "file": "PRE-019_trombone.json"
+    },
+    {
+      "patch_id": "PRE-020",
+      "name": "French Horn",
+      "category": "Brass",
+      "file": "PRE-020_french_horn.json"
+    },
+    {
+      "patch_id": "PRE-021",
+      "name": "Brass Section",
+      "category": "Brass",
+      "file": "PRE-021_brass_section.json"
+    },
+    {
+      "patch_id": "PRE-022",
+      "name": "Concert Flute",
+      "category": "Woodwinds",
+      "file": "PRE-022_concert_flute.json"
+    },
+    {
+      "patch_id": "PRE-023",
+      "name": "Clarinet",
+      "category": "Woodwinds",
+      "file": "PRE-023_clarinet.json"
+    },
+    {
+      "patch_id": "PRE-024",
+      "name": "Oboe",
+      "category": "Woodwinds",
+      "file": "PRE-024_oboe.json"
+    },
+    {
+      "patch_id": "PRE-025",
+      "name": "Acoustic Guitar Nylon",
+      "category": "Guitars & Bass",
+      "file": "PRE-025_acoustic_guitar_nylon.json"
+    },
+    {
+      "patch_id": "PRE-026",
+      "name": "Acoustic Guitar Steel",
+      "category": "Guitars & Bass",
+      "file": "PRE-026_acoustic_guitar_steel.json"
+    },
+    {
+      "patch_id": "PRE-027",
+      "name": "Electric Guitar Clean",
+      "category": "Guitars & Bass",
+      "file": "PRE-027_electric_guitar_clean.json"
+    },
+    {
+      "patch_id": "PRE-028",
+      "name": "Precision Bass",
+      "category": "Guitars & Bass",
+      "file": "PRE-028_precision_bass.json"
+    },
+    {
+      "patch_id": "PRE-029",
+      "name": "Synth Bass",
+      "category": "Guitars & Bass",
+      "file": "PRE-029_synth_bass.json"
+    },
+    {
+      "patch_id": "PRE-030",
+      "name": "Acoustic Rock Kit",
+      "category": "Drums & Percussion",
+      "file": "PRE-030_acoustic_rock_kit.json"
+    },
+    {
+      "patch_id": "PRE-031",
+      "name": "Electronic Drum Kit",
+      "category": "Drums & Percussion",
+      "file": "PRE-031_electronic_drum_kit.json"
+    },
+    {
+      "patch_id": "PRE-032",
+      "name": "Orchestral Percussion",
+      "category": "Drums & Percussion",
+      "file": "PRE-032_orchestral_percussion.json"
+    },
+    {
+      "patch_id": "PRE-033",
+      "name": "Analog Poly Synth",
+      "category": "Synthesizers",
+      "file": "PRE-033_analog_poly_synth.json"
+    },
+    {
+      "patch_id": "PRE-034",
+      "name": "Vintage Analog Lead",
+      "category": "Synthesizers",
+      "file": "PRE-034_vintage_analog_lead.json"
+    },
+    {
+      "patch_id": "PRE-035",
+      "name": "Modern Synth Lead",
+      "category": "Synthesizers",
+      "file": "PRE-035_modern_synth_lead.json"
+    },
+    {
+      "patch_id": "PRE-036",
+      "name": "Warm Analog Pad",
+      "category": "Synthesizers",
+      "file": "PRE-036_warm_analog_pad.json"
+    },
+    {
+      "patch_id": "PRE-037",
+      "name": "Digital Bell",
+      "category": "Synthesizers",
+      "file": "PRE-037_digital_bell.json"
+    },
+    {
+      "patch_id": "PRE-038",
+      "name": "Arpeggiator",
+      "category": "Synthesizers",
+      "file": "PRE-038_arpeggiator.json"
+    },
+    {
+      "patch_id": "PRE-039",
+      "name": "Deep Synth Bass",
+      "category": "Synthesizers",
+      "file": "PRE-039_deep_synth_bass.json"
+    },
+    {
+      "patch_id": "PRE-040",
+      "name": "Ambient Texture",
+      "category": "Synthesizers",
+      "file": "PRE-040_ambient_texture.json"
+    }
+  ]
+}
