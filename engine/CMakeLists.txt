@@ -51,15 +51,59 @@ juce_add_console_app(PreseterEngine
     PRODUCT_NAME "preseter-engine"
     COMPANY_NAME "Preseter")
 
+# --------------------------------------------------------------------------
+# setBfree (DSP do órgão) - ver third_party/setbfree/UPSTREAM.md
+# --------------------------------------------------------------------------
+set(PRESETER_SETBFREE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/setbfree")
+set(PRESETER_SETBFREE_SOURCES
+    "${PRESETER_SETBFREE_DIR}/src/tonegen.c"
+    "${PRESETER_SETBFREE_DIR}/src/vibrato.c"
+    "${PRESETER_SETBFREE_DIR}/src/midi.c"
+    "${PRESETER_SETBFREE_DIR}/src/cfgParser.c"
+    "${PRESETER_SETBFREE_DIR}/src/program.c"
+    "${PRESETER_SETBFREE_DIR}/src/state.c"
+    "${PRESETER_SETBFREE_DIR}/src/pgmParser.c"
+    "${PRESETER_SETBFREE_DIR}/b_whirl/whirl.c"
+    "${PRESETER_SETBFREE_DIR}/b_whirl/eqcomp.c"
+    "${PRESETER_SETBFREE_DIR}/b_overdrive/overdrive.c"
+    "${PRESETER_SETBFREE_DIR}/b_reverb/reverb.c"
+    "${PRESETER_SETBFREE_DIR}/glue/setbfree_glue.c"
+    "${PRESETER_SETBFREE_DIR}/glue/setbfree_globals.c")
+
+if(WIN32)
+    list(APPEND PRESETER_SETBFREE_SOURCES "${PRESETER_SETBFREE_DIR}/compat/fmemopen_win32.c")
+else()
+    # glibc já fornece fmemopen; o memstream.c do setBfree é BSD-only.
+    target_compile_definitions(PreseterEngine PRIVATE HAVE_MEMSTREAM=1)
+endif()
+
 target_sources(PreseterEngine PRIVATE
     src/Main.cpp
     src/Engine.cpp
     src/CommandRouter.cpp
     src/native/NativeProcessor.cpp
+    src/native/SetBfreeOrganProcessor.cpp
     src/sampler/SamplerInstrument.cpp
-    src/sampler/SamplerProcessor.cpp)
+    src/sampler/SamplerProcessor.cpp
+    ${PRESETER_SETBFREE_SOURCES})
 
-target_include_directories(PreseterEngine PRIVATE src)
+target_include_directories(PreseterEngine PRIVATE
+    src
+    "${PRESETER_SETBFREE_DIR}/src"
+    "${PRESETER_SETBFREE_DIR}/b_whirl"
+    "${PRESETER_SETBFREE_DIR}/b_overdrive"
+    "${PRESETER_SETBFREE_DIR}/b_reverb")
+
+target_compile_definitions(PreseterEngine PRIVATE _USE_MATH_DEFINES NOMINMAX)
+
+if(WIN32)
+    set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+        INCLUDE_DIRECTORIES "${PRESETER_SETBFREE_DIR}/compat")
+    if(MSVC)
+        set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+            COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
+    endif()
+endif()
 
 target_compile_definitions(PreseterEngine PRIVATE
     JUCE_WEB_BROWSER=0
@@ -106,6 +150,34 @@ endif()
 option(PRESETER_BUILD_TEST_PLUGIN "Compila um sintetizador VST3 de teste (para validar o motor)" OFF)
 if(PRESETER_BUILD_TEST_PLUGIN)
     add_subdirectory(test-plugin)
+endif()
+
+option(PRESETER_BUILD_SETBFREE_NULLITY "Compila o teste de nulidade do órgão setBfree" OFF)
+if(PRESETER_BUILD_SETBFREE_NULLITY)
+    add_executable(PreseterSetBfreeNullity
+        test/setbfree-nullity/main.cpp
+        test/setbfree-nullity/reference.c
+        src/native/SetBfreeOrganProcessor.cpp
+        ${PRESETER_SETBFREE_SOURCES})
+
+    target_include_directories(PreseterSetBfreeNullity PRIVATE
+        src/native
+        test/setbfree-nullity
+        "${PRESETER_SETBFREE_DIR}/src"
+        "${PRESETER_SETBFREE_DIR}/b_whirl"
+        "${PRESETER_SETBFREE_DIR}/b_overdrive"
+        "${PRESETER_SETBFREE_DIR}/b_reverb")
+
+    target_compile_definitions(PreseterSetBfreeNullity PRIVATE _USE_MATH_DEFINES NOMINMAX)
+
+    if(WIN32)
+        set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+            INCLUDE_DIRECTORIES "${PRESETER_SETBFREE_DIR}/compat")
+        if(MSVC)
+            set_source_files_properties(${PRESETER_SETBFREE_SOURCES} PROPERTIES
+                COMPILE_OPTIONS "/FI${PRESETER_SETBFREE_DIR}/compat/setbfree_compat.h;/std:c11")
+        endif()
+    endif()
 endif()
 
 target_link_libraries(PreseterEngine

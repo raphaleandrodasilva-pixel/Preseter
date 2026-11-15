@@ -87,6 +87,14 @@
           "to": "engine/PreseterEngine.exe"
         },
         {
+          "from": "engine/third_party/setbfree/COPYING",
+          "to": "licenses/setbfree-COPYING.txt"
+        },
+        {
+          "from": "engine/third_party/setbfree/UPSTREAM.md",
+          "to": "licenses/setbfree-UPSTREAM.md"
+        },
+        {
           "from": "build/icon.png",
           "to": "icon.png"
         },
@@ -108,6 +116,14 @@
           "to": "engine/PreseterEngine"
         },
         {
+          "from": "engine/third_party/setbfree/COPYING",
+          "to": "licenses/setbfree-COPYING.txt"
+        },
+        {
+          "from": "engine/third_party/setbfree/UPSTREAM.md",
+          "to": "licenses/setbfree-UPSTREAM.md"
+        },
+        {
           "from": "node_modules/ffmpeg-static/ffmpeg",
           "to": "ffmpeg/ffmpeg"
         }
@@ -118,6 +134,14 @@
         {
           "from": "engine/build/PreseterEngine_artefacts/Release/PreseterEngine",
           "to": "engine/PreseterEngine"
+        },
+        {
+          "from": "engine/third_party/setbfree/COPYING",
+          "to": "licenses/setbfree-COPYING.txt"
+        },
+        {
+          "from": "engine/third_party/setbfree/UPSTREAM.md",
+          "to": "licenses/setbfree-UPSTREAM.md"
         },
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",

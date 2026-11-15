@@ -267,3 +267,47 @@ Para Rhodes e Wurlitzer **não há teste de nulidade**: o critério é o relató
 - setBfree: https://github.com/pantherb/setBfree (licença GPL-2.0 e módulos `b_synth`, `b_whirl`, `b_overdrive`, `b_reverb`, `b_conv`, `b_chorato`)
 - Página do setBfree no wiki Linux Audio: https://wiki.linuxaudio.org/apps/all/setbfree (autores Robin Gareus e Fredrik Kilander)
 - OpenWurli: https://github.com/hal0zer0/openwurli (GPL-3.0, Rust, nih-plug, VST3/CLAP)
+
+---
+
+## 10. Estado da implementação (2026-11-15)
+
+O órgão **não é mais uma aproximação aditiva**. O `preseter.organ` agora roda o
+DSP original do setBfree.
+
+| Item | Estado |
+|---|---|
+| Commit do setBfree | `2f41983b5b535bda9b1b1db38a06da29d50ff557` |
+| Código importado | `engine/third_party/setbfree/` (GPL-2.0-or-later; ver `UPSTREAM.md` e `COPYING`) |
+| Wrapper | `engine/src/native/SetBfreeOrganProcessor.cpp` |
+| Ordem da cadeia | `oscGenerateFragment` → `preamp` → `reverb` → `whirlProc3` (igual ao `b_synth/lv2.c`) |
+| Buffers internos | 128 amostras (`BUFFER_SIZE_SAMPLES`) |
+| Eventos MIDI | mesma lógica de `run()` do LV2 (síntese até o timestamp, aplica o evento, continua) |
+| Teste de nulidade | `engine/test/setbfree-nullity/` — resultado bit a bit, ver `docs/testes/orgao-nulidade.md` |
+| Trim de saída | +12 dB fixo **depois** da cadeia, para compensar o `outputLevelTrim` 0.07 do setBfree |
+
+### Mapeamento dos controles da janela
+
+| Controle do Preseter | Chamada no setBfree |
+|---|---|
+| 9 drawbars | `setDrawBars(&inst, 0, setting[9])` (manual superior) |
+| Percussão liga/desliga | `percussion.enable` |
+| Volume da percussão (suave/normal) | `percussion.volume` |
+| Decaimento (lenta/rápida) | `percussion.decay` |
+| Harmônico (2º/3º) | `percussion.harmonic` |
+| Vibrato/Chorus (V1–V3, C1–C3, desligado) | `vibrato.knob` + `vibrato.routing` |
+| Leslie (parado/lento/rápido/freio) | `rotary.speed-preset` |
+| Overdrive | `overdrive.character` + `overdrive.enable` |
+| Reverb | `reverb.mix` |
+| Key click | `setEnvAttackClickLevel` / `setEnvReleaseClickLevel` |
+| Volume | `swellpedal1` |
+
+### Limitações conhecidas
+
+- Só o **manual superior** é exposto (as notas recebidas são normalizadas para o
+  canal 0). O setBfree mapeia MIDI 36–96 nesse manual; notas fora dessa faixa
+  ficam mudas, como no setBfree.
+- O controle “Profundidade do chorus” (`organ_chorus`) existe no estado por
+  compatibilidade, mas o setBfree tem profundidades fixas por modelo (V1–V3,
+  C1–C3), então ele não é usado.
+- “Freio” usa a mesma parada do setBfree (`rotary.speed-preset`).

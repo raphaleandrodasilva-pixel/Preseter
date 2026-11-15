@@ -1,6 +1,7 @@
 #include "NativeProcessor.h"
 
 #include <cmath>
+#include <vector>
 
 namespace preseter
 {
@@ -16,6 +17,10 @@ constexpr double kTineDecay[4] = { 0.99986, 0.99935, 0.9982, 0.9960 };
 constexpr double kReedRatios[4] = { 1.0, 2.0, 3.0, 4.2 };
 constexpr double kReedAmps[4] = { 1.0, 0.5, 0.3, 0.15 };
 constexpr double kReedDecay[4] = { 0.99972, 0.99910, 0.9978, 0.9955 };
+
+// O setBfree sai bem baixo (outputLevelTrim interno = 0.07). Este trim fixo
+// é aplicado DEPOIS da cadeia do setBfree, sem alterar o timbre.
+constexpr float kOrganOutputTrim = 4.0f; // +12 dB
 
 juce::String kindName (NativeKind kind)
 {
@@ -108,12 +113,26 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
       displayName (std::move (display)),
       apvts (*this, nullptr, "PARAMETERS", createLayout (kindToUse))
 {
+    if (kind == NativeKind::organ)
+        setBfree = std::make_unique<SetBfreeOrgan>();
+
     applyProgram (0);
 }
 
 void NativeProcessor::prepareToPlay (double newSampleRate, int)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
+
+    if (kind == NativeKind::organ)
+    {
+        if (setBfree != nullptr)
+        {
+            setBfree->prepare (sampleRate);
+            updateOrganParameters();
+        }
+        return;
+    }
+
     resetDsp();
 }
 
@@ -202,6 +221,77 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
 
+    if (kind == NativeKind::organ)
+    {
+        if (setBfree == nullptr)
+        {
+            midi.clear();
+            return;
+        }
+
+        std::vector<SetBfreeMidiEvent> events;
+        events.reserve ((size_t) midi.getNumEvents());
+
+        for (const auto metadata : midi)
+        {
+            const auto message = metadata.getMessage();
+
+            if (message.isAllNotesOff() || message.isAllSoundOff())
+            {
+                setBfree->panic();
+                continue;
+            }
+
+            SetBfreeMidiEvent event;
+            event.samplePosition = metadata.samplePosition;
+            event.size = 3;
+
+            if (message.isNoteOn())
+            {
+                event.data[0] = 0x90; // canal 0 = manual superior
+                event.data[1] = (std::uint8_t) juce::jlimit (0, 127, message.getNoteNumber());
+                event.data[2] = (std::uint8_t) juce::jlimit (1, 127, (int) message.getVelocity());
+            }
+            else if (message.isNoteOff())
+            {
+                event.data[0] = 0x80;
+                event.data[1] = (std::uint8_t) juce::jlimit (0, 127, message.getNoteNumber());
+                event.data[2] = 0;
+            }
+            else
+            {
+                continue;
+            }
+
+            events.push_back (event);
+        }
+
+        midi.clear();
+        updateOrganParameters();
+
+        auto* left = buffer.getWritePointer (0);
+        const int numSamples = buffer.getNumSamples();
+
+        if (buffer.getNumChannels() > 1)
+        {
+            setBfree->process (left, buffer.getWritePointer (1), numSamples,
+                               events.data(), (int) events.size());
+        }
+        else
+        {
+            std::vector<float> scratch ((size_t) numSamples);
+            setBfree->process (left, scratch.data(), numSamples, events.data(), (int) events.size());
+        }
+
+        buffer.applyGain (kOrganOutputTrim);
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            juce::FloatVectorOperations::clip (buffer.getWritePointer (channel),
+                                               buffer.getReadPointer (channel), -1.0f, 1.0f,
+                                               numSamples);
+        return;
+    }
+
     for (const auto metadata : midi)
     {
         const auto message = metadata.getMessage();
@@ -215,122 +305,39 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
     midi.clear();
 
-    if (kind == NativeKind::organ)
-        renderOrgan (buffer, buffer.getNumSamples());
-    else
-        renderModal (buffer, buffer.getNumSamples());
+    renderModal (buffer, buffer.getNumSamples());
 }
 
-void NativeProcessor::renderOrgan (juce::AudioBuffer<float>& buffer, int numSamples)
+void NativeProcessor::updateOrganParameters()
 {
-    const float volume = parameter ("organ_volume");
-    const float overdrive = parameter ("organ_overdrive");
-    const float leslieMode = parameter ("organ_leslie");
-    const float vibratoMode = parameter ("organ_vibrato");
-    const float chorus = parameter ("organ_chorus");
-    const float reverb = parameter ("organ_reverb");
-    const float keyClick = parameter ("organ_key_click");
-    const float percussion = parameter ("organ_percussion");
-    const float percVolume = parameter ("organ_perc_volume");
-    const float percHarmonic = parameter ("organ_perc_harmonic") > 0.5f ? 3.0 : 2.0;
-    const float percDecay = 0.9992f - parameter ("organ_perc_decay") * 0.006f;
-    const float drawbars[9] = {
-        parameter ("organ_drawbar_16") / 8.0f,
-        parameter ("organ_drawbar_513") / 8.0f,
-        parameter ("organ_drawbar_8") / 8.0f,
-        parameter ("organ_drawbar_4") / 8.0f,
-        parameter ("organ_drawbar_223") / 8.0f,
-        parameter ("organ_drawbar_2") / 8.0f,
-        parameter ("organ_drawbar_135") / 8.0f,
-        parameter ("organ_drawbar_113") / 8.0f,
-        parameter ("organ_drawbar_1") / 8.0f,
-    };
-    const double vibratoDepth = (vibratoMode >= 1.0f && vibratoMode <= 3.0f) ? 0.004 * chorus : 0.0;
-    const float chorusDepth = vibratoMode >= 4.0f ? chorus * 0.25f : 0.0f;
-    const double leslieRate = leslieMode >= 2.5f ? 0.12 : leslieMode >= 1.5f ? 6.2 : leslieMode >= 0.5f ? 0.85 : 0.0;
-    const float leslieDepth = leslieMode >= 2.5f ? 0.10f : leslieMode >= 0.5f ? 0.28f : 0.06f;
-    const double releaseCoeff = std::exp (-1.0 / (0.045 * sampleRate));
-    const double lfoIncrement = kTwoPi * 5.1 / sampleRate;
-    const double leslieIncrement = kTwoPi * leslieRate / sampleRate;
+    if (setBfree == nullptr)
+        return;
 
-    auto* left = buffer.getWritePointer (0);
-    auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : left;
+    const std::array<int, 9> drawbars { {
+        (int) std::lround (parameter ("organ_drawbar_16")),
+        (int) std::lround (parameter ("organ_drawbar_513")),
+        (int) std::lround (parameter ("organ_drawbar_8")),
+        (int) std::lround (parameter ("organ_drawbar_4")),
+        (int) std::lround (parameter ("organ_drawbar_223")),
+        (int) std::lround (parameter ("organ_drawbar_2")),
+        (int) std::lround (parameter ("organ_drawbar_135")),
+        (int) std::lround (parameter ("organ_drawbar_113")),
+        (int) std::lround (parameter ("organ_drawbar_1")),
+    } };
 
-    for (int sample = 0; sample < numSamples; ++sample)
-    {
-        const double lfo = std::sin (lfoPhase);
-        const double leslie = std::sin (lfoPhase * 0.75);
-        lfoPhase += lfoIncrement;
-        if (lfoPhase > kTwoPi) lfoPhase -= kTwoPi;
+    setBfree->setDrawbars (drawbars);
 
-        float mixL = 0.0f;
-        float mixR = 0.0f;
-        for (auto& voice : voices)
-        {
-            if (! voice.active) continue;
-            if (voice.released)
-            {
-                voice.envelope *= (float) releaseCoeff;
-                if (voice.envelope < 0.0001f)
-                {
-                    voice.active = false;
-                    continue;
-                }
-            }
-            else
-            {
-                voice.envelope = 1.0f;
-            }
+    setBfree->setPercussion (parameter ("organ_percussion") > 0.01f,
+                             parameter ("organ_perc_volume") < 0.5f,
+                             parameter ("organ_perc_decay") >= 0.5f,
+                             parameter ("organ_perc_harmonic") >= 0.5f);
 
-            const double vibrato = 1.0 + vibratoDepth * lfo;
-            double value = 0.0;
-            for (int bar = 0; bar < 9; ++bar)
-            {
-                if (drawbars[bar] <= 0.001f) continue;
-                value += drawbars[bar] * std::sin (voice.phase[(size_t) bar]);
-                voice.phase[(size_t) bar] += kTwoPi * voice.frequency * kOrganRatios[bar] * vibrato / sampleRate;
-                if (voice.phase[(size_t) bar] > kTwoPi) voice.phase[(size_t) bar] -= kTwoPi;
-            }
-
-            if (keyClick > 0.001f && voice.clickEnvelope > 0.0001f)
-            {
-                value += (random.nextFloat() * 2.0f - 1.0f) * voice.clickEnvelope * keyClick * 0.35;
-                voice.clickEnvelope *= 0.9994f;
-            }
-
-            if (percussion > 0.001f && voice.percussionEnvelope > 0.0001f)
-            {
-                value += std::sin (voice.modePhase[0]) * voice.percussionEnvelope * percussion * percVolume * 0.6;
-                voice.modePhase[0] += kTwoPi * voice.frequency * percHarmonic / sampleRate;
-                if (voice.modePhase[0] > kTwoPi) voice.modePhase[0] -= kTwoPi;
-                voice.percussionEnvelope *= percDecay;
-            }
-
-            float driven = (float) value * (1.0f + overdrive * 5.0f);
-            driven = std::tanh (driven) / (1.0f + overdrive * 1.5f);
-            driven *= voice.envelope * voice.velocity * volume;
-            driven *= 1.0f + chorusDepth * (float) lfo;
-
-            const float mod = 1.0f + leslieDepth * (float) leslie;
-            const float pan = voice.pan, autoPan = 0.22f * (float) std::sin (voice.age * 0.00001 + leslie * 0.5);
-            mixL += driven * mod * (1.0f - juce::jlimit (-1.0f, 1.0f, pan + autoPan));
-            mixR += driven * mod * (1.0f + juce::jlimit (-1.0f, 1.0f, pan + autoPan));
-            voice.age += 1.0;
-        }
-
-        if (reverb > 0.001f)
-        {
-            reverbL = reverbL * 0.72f + mixL * 0.28f;
-            reverbR = reverbR * 0.71f + mixR * 0.29f;
-            mixL += reverbL * reverb * 0.35f;
-            mixR += reverbR * reverb * 0.35f;
-        }
-
-        left[sample] = juce::jlimit (-1.0f, 1.0f, mixL * 0.7f);
-        if (right != left)
-            right[sample] = juce::jlimit (-1.0f, 1.0f, mixR * 0.7f);
-    }
-    (void) leslieIncrement;
+    setBfree->setVibrato ((int) std::lround (parameter ("organ_vibrato")));
+    setBfree->setLeslie ((int) std::lround (parameter ("organ_leslie")));
+    setBfree->setOverdrive (parameter ("organ_overdrive"));
+    setBfree->setReverb (parameter ("organ_reverb"));
+    setBfree->setKeyClick (parameter ("organ_key_click"));
+    setBfree->setVolume (parameter ("organ_volume"));
 }
 
 void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamples)

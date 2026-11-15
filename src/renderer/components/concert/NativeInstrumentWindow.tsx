@@ -256,7 +256,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 <section className="hw-inset p-3">
                   <div className="hw-label mb-2">Vibrato / Chorus</div>
                   <div className="flex flex-wrap gap-1">
-                    <ChoiceButton active={valueOf('Vibrato/Chorus') < 0.5} onClick={() => void setNamed('Vibrato/Chorus', 0)}>Ligado</ChoiceButton>
+                    <ChoiceButton active={valueOf('Vibrato/Chorus') < 0.5} onClick={() => void setNamed('Vibrato/Chorus', 0)}>Desligado</ChoiceButton>
                     {['V1', 'V2', 'V3', 'C1', 'C2', 'C3'].map((name, index) => (
                       <ChoiceButton key={name} active={Math.round(valueOf('Vibrato/Chorus') * 6) === index + 1} onClick={() => void setNamed('Vibrato/Chorus', (index + 1) / 6)}>{name}</ChoiceButton>
                     ))}

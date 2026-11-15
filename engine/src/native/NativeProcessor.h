@@ -1,5 +1,7 @@
 #pragma once
 
+#include "SetBfreeOrganProcessor.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
@@ -78,7 +80,7 @@ private:
     Voice* allocateVoice();
     void startNote (int note, float velocity);
     void stopNote (int note);
-    void renderOrgan (juce::AudioBuffer<float>& buffer, int numSamples);
+    void updateOrganParameters();
     void renderModal (juce::AudioBuffer<float>& buffer, int numSamples);
     float parameter (const char* id) const;
     void setParameterValue (const char* id, float value);
@@ -88,6 +90,7 @@ private:
     juce::String stableId;
     juce::String displayName;
     juce::AudioProcessorValueTreeState apvts;
+    std::unique_ptr<SetBfreeOrgan> setBfree;
     std::array<Voice, 64> voices;
     int currentProgram = 0;
     double sampleRate = 44100.0;
