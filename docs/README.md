@@ -51,10 +51,12 @@ Os instaladores ficam na página de **[Releases](https://github.com/raphaleandro
 | Plataforma | Arquivo |
 | --- | --- |
 | Windows 10/11 (x64) | `Preseter Setup <versão>.exe` (NSIS, permite escolher a pasta) |
-| Linux (x64) | `.AppImage` ou `.deb` |
+| Linux (x64) | `.AppImage` (portátil) ou `.deb` |
 
-Enquanto não houver uma release publicada, use **[Actions](https://github.com/raphaleandrodasilva-pixel/Preseter/actions)**
-para baixar os artefatos do último build de Linux, ou compile o projeto (instruções abaixo).
+Cada push na `main` gera novos instaladores em **[Actions](https://github.com/raphaleandrodasilva-pixel/Preseter/actions)**
+(artefatos do run). Um **[Release](https://github.com/raphaleandrodasilva-pixel/Preseter/releases/latest)**
+é publicado automaticamente quando a `version` do `package.json` ainda não tem tag — ou quando
+você envia uma tag `v*`.
 
 ### Requisitos
 
