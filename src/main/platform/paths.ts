@@ -103,17 +103,23 @@ export function getPlatformPaths(
 
 /**
  * Pasta dos plugins VST3 empacotados com o app (fork do calfnXT).
- * Em desenvolvimento: `<repo>/vendor/calfnxt/plugins`.
+ * Em desenvolvimento: Windows usa `<repo>/vendor/calfnxt/plugins`; Linux usa
+ * `<repo>/vendor/calfnxt/plugins-linux`.
  * No instalador: `<resources>/plugins/calfnxt` (extraResources).
  */
 export function bundledPluginFolder(
   appPath: string,
   resourcesPath: string,
-  packaged: boolean
+  packaged: boolean,
+  platform: NodeJS.Platform = process.platform
 ): string {
-  return packaged
-    ? path.join(resourcesPath, 'plugins', 'calfnxt')
-    : path.join(appPath, 'vendor', 'calfnxt', 'plugins');
+  if (packaged) return path.join(resourcesPath, 'plugins', 'calfnxt');
+  return path.join(
+    appPath,
+    'vendor',
+    'calfnxt',
+    platform === 'win32' ? 'plugins' : 'plugins-linux'
+  );
 }
 
 /** Expande ~, $HOME e variáveis de perfil/XDG usadas no catálogo. */

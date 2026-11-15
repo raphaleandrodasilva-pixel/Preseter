@@ -110,8 +110,6 @@ function standardVst3Folders(): string[] {
  * `resources/plugins/calfnxt` (extraResources). Pastas inexistentes são ignoradas.
  */
 function bundledPluginFolders(): string[] {
-  // Phase 1 ships Windows bundles only; Linux uses its own (upstream) build later.
-  if (process.platform !== 'win32') return [];
   const folder = bundledPluginFolder(app.getAppPath(), process.resourcesPath, app.isPackaged);
   return fs.existsSync(folder) ? [folder] : [];
 }
@@ -296,8 +294,8 @@ class MainWindow {
     if (icon.isEmpty()) return;
     const dataUrl = icon.toDataURL();
     const splash = new BrowserWindow({
-      width: 420,
-      height: 360,
+      width: 540,
+      height: 440,
       frame: false,
       transparent: true,
       resizable: false,
@@ -315,16 +313,16 @@ class MainWindow {
       html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:system-ui,sans-serif}
       .wrap{height:100%;display:flex;align-items:center;justify-content:center}
       .card{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-        background:linear-gradient(to bottom,#232326,#1A1A1C);border-radius:18px;border:1px solid #3A3A3C;
+        background:linear-gradient(to bottom,#232326,#1A1A1C);border-radius:20px;border:1px solid #3A3A3C;
         box-shadow:0 24px 70px rgba(0,0,0,.7)}
-      img{width:180px;height:180px;object-fit:contain;border-radius:16px}
-      .name{margin-top:10px;color:#EDEDEF;font-size:18px;font-weight:700;letter-spacing:.08em}
-      .hint{margin-top:4px;color:#8E8E93;font-size:11px;min-height:14px}
-      .bar{margin-top:14px;width:250px;height:6px;border-radius:999px;background:#303032;overflow:hidden}
+      img{width:220px;height:220px;object-fit:contain;border-radius:18px}
+      .name{margin-top:12px;color:#EDEDEF;font-size:20px;font-weight:700;letter-spacing:.08em}
+      .hint{margin-top:5px;color:#8E8E93;font-size:12px;min-height:16px}
+      .bar{margin-top:16px;width:320px;height:7px;border-radius:999px;background:#303032;overflow:hidden}
       .fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#0A6FE0,#5AA9FF);transition:width .25s ease-out}
-      .pct{margin-top:5px;color:#9A9AA0;font-size:10px;font-variant-numeric:tabular-nums}
-      .continue{margin-top:12px;display:none;border:1px solid #3A3A3C;border-radius:8px;
-        background:#2C2C2E;color:#E5E5EA;font-size:11px;padding:6px 12px;cursor:pointer}
+      .pct{margin-top:6px;color:#9A9AA0;font-size:11px;font-variant-numeric:tabular-nums}
+      .continue{margin-top:14px;display:none;border:1px solid #3A3A3C;border-radius:8px;
+        background:#2C2C2E;color:#E5E5EA;font-size:12px;padding:7px 14px;cursor:pointer}
       .continue:hover{background:#3A3A3C}
     </style></head><body><div class="wrap"><div class="card">
       <img src="${dataUrl}" alt="Preseter"><div class="name">PRESETER</div>
@@ -381,6 +379,7 @@ class MainWindow {
     setTimeout(() => {
       if (this.splash === splash) {
         this.backgroundScan = true;
+        this.showMainWindow();
         this.closeSplash();
       }
     }, 5 * 60 * 1000).unref();
@@ -395,8 +394,17 @@ class MainWindow {
 
   private maybeCloseSplash(): void {
     if (!this.rendererReady || (!this.startupScanDone && !this.backgroundScan)) return;
+    this.showMainWindow();
     this.setSplashProgress(100, 'Pronto');
     this.closeSplash();
+  }
+
+  /** Mostra a janela principal (só quando o carregamento terminou). */
+  private showMainWindow(): void {
+    const win = this.window;
+    if (!win || win.isDestroyed()) return;
+    if (!win.isVisible()) win.show();
+    win.focus();
   }
 
   private setSplashProgress(percent: number, message?: string): void {
@@ -506,11 +514,11 @@ class MainWindow {
     this.window.loadURL(startUrl);
 
     this.window.once('ready-to-show', () => {
-      this.window?.show();
+      // A janela só aparece quando o carregamento terminar (maybeCloseSplash).
       this.setSplashProgress(20, 'Carregando interface…');
     });
     this.window.webContents.on('did-fail-load', () => {
-      this.window?.show();
+      this.showMainWindow();
       this.closeSplash();
     });
 
@@ -545,6 +553,7 @@ class MainWindow {
     ipcMain.on('splash-continue', () => {
       this.backgroundScan = true;
       this.setSplashProgress(100, 'Continuando em segundo plano…');
+      this.showMainWindow();
       this.closeSplash();
     });
 

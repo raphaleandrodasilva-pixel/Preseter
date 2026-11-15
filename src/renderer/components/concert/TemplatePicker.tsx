@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import type { ConcertTemplateSummary } from '@shared/types';
 import { ModalShell } from '../ui/ModalShell';
 
@@ -10,7 +10,6 @@ interface TemplatePickerProps {
   onEnableExternalMidi: () => Promise<boolean>;
   onPick: (templateId: string) => void;
   onOpenFile: () => void;
-  onCancel: () => void;
 }
 
 /** Página de entrada: escolher um template ou abrir um concert existente. */
@@ -20,19 +19,10 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
   onEnableExternalMidi,
   onPick,
   onOpenFile,
-  onCancel,
 }) => {
   const [confirmExternal, setConfirmExternal] = useState(false);
   const [enabling, setEnabling] = useState(false);
   const [enableError, setEnableError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
 
   const pickTemplate = (template: ConcertTemplateSummary) => {
     if (template.id === 'midi-externo' && !externalMidiEnabled) {
@@ -64,15 +54,11 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = ({
       label="Novo Concert"
       title="Escolha um template"
       lcd={`${templates.length} template(s)`}
-      onClose={onCancel}
+      onClose={() => undefined}
       showClose={false}
+      dismissible={false}
       maxWidth="max-w-2xl"
       zIndex="z-[60]"
-      footer={
-        <button onClick={onCancel} className="hw-squarebtn px-4 py-1.5 text-xs">
-          Cancelar
-        </button>
-      }
     >
       <div className="px-5 pb-2 pt-3">
         <div className="hw-label mb-3">Template</div>

@@ -9,6 +9,8 @@ interface ModalShellProps {
   onClose: () => void;
   /** Esconde o botão X quando a janela já tem um Cancelar explícito. */
   showClose?: boolean;
+  /** Quando false, clicar no fundo não fecha (janela obrigatória). */
+  dismissible?: boolean;
   maxWidth?: string;
   maxHeight?: string;
   zIndex?: string;
@@ -27,6 +29,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   lcd,
   onClose,
   showClose = true,
+  dismissible = true,
   maxWidth = 'max-w-2xl',
   maxHeight = 'max-h-[82vh]',
   zIndex = 'z-50',
@@ -37,7 +40,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
     <div
       className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm`}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
       <div

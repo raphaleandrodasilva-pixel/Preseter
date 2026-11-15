@@ -119,15 +119,13 @@ describe('TemplatePicker', () => {
         onEnableExternalMidi={vi.fn(async () => true)}
         onPick={vi.fn()}
         onOpenFile={onOpenFile}
-        onCancel={vi.fn()}
       />
     );
     fireEvent.click(screen.getByText('Abrir arquivo…'));
     expect(onOpenFile).toHaveBeenCalledTimes(1);
   });
 
-  it('cancels from the footer and Escape, without a close button', () => {
-    const onCancel = vi.fn();
+  it('is mandatory: no Cancelar, no close button and Escape does not dismiss', () => {
     render(
       <TemplatePicker
         templates={templates}
@@ -135,13 +133,12 @@ describe('TemplatePicker', () => {
         onEnableExternalMidi={vi.fn(async () => true)}
         onPick={vi.fn()}
         onOpenFile={vi.fn()}
-        onCancel={onCancel}
       />
     );
+    expect(screen.queryByText('Cancelar')).not.toBeInTheDocument();
     expect(screen.queryByTitle('Fechar (Esc)')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('Cancelar'));
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onCancel).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('dialog', { name: 'Escolha um template' })).toBeInTheDocument();
   });
 
   it('asks before enabling MIDI external and then picks the template', async () => {

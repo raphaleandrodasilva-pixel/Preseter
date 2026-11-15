@@ -51,9 +51,11 @@ describe('platform paths', () => {
   it('acha os plugins empacotados no app em dev e no instalador', () => {
     const appPath = 'C:/repo/preseter';
     const resources = 'C:/Program Files/Preseter/resources';
-    expect(bundledPluginFolder(appPath, resources, false))
+    expect(bundledPluginFolder(appPath, resources, false, 'win32'))
       .toBe(path.join(appPath, 'vendor', 'calfnxt', 'plugins'));
-    expect(bundledPluginFolder(appPath, resources, true))
+    expect(bundledPluginFolder(appPath, resources, false, 'linux'))
+      .toBe(path.join(appPath, 'vendor', 'calfnxt', 'plugins-linux'));
+    expect(bundledPluginFolder(appPath, resources, true, 'linux'))
       .toBe(path.join(resources, 'plugins', 'calfnxt'));
   });
 });

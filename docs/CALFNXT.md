@@ -55,12 +55,18 @@ dentro do engine (Windows) ou no helper GTK/WebKit (Linux).
 
 ## Onde ficam
 
-- Desenvolvimento: `vendor/calfnxt/plugins/*.vst3`
-- Instalado: `resources/plugins/calfnxt/*.vst3` (electron-builder `extraResources`)
+- Desenvolvimento, Windows: `vendor/calfnxt/plugins/*.vst3`
+- Desenvolvimento, Linux: `vendor/calfnxt/plugins-linux/*.vst3` (`.so` + `calfnxt-web-host`)
+- Instalado: `resources/plugins/calfnxt/*.vst3` (electron-builder `extraResources`, por plataforma)
 - O scan do app inclui essa pasta automaticamente (`bundledPluginFolder` em
   `src/main/platform/paths.ts`); ela não aparece nas preferências do usuário.
 - Plugins dessa pasta aparecem com `format: Native` (empacotados), mantendo fabricante
   `calfNXT` e o nome original.
+
+No Linux o editor usa o helper `calfnxt-web-host`, que depende de **GTK 3** e
+**WebKitGTK 4.1** instalados no sistema (o `.deb` recomenda `libgtk-3-0` e
+`libwebkit2gtk-4.1-0`). Sem eles, o áudio/parâmetros funcionam, mas o painel não abre.
+Os bundles Linux foram compilados em **Ubuntu 22.04** (glibc 2.35).
 
 ## Como usar
 

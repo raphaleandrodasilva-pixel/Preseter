@@ -12,7 +12,9 @@
 `plugins/` contém os bundles VST3 já compilados a partir do fork do Preseter
 (`calfNXT-win`), **com as UIs originais** (React/AUX) embutidas em `Contents/Resources`.
 
-Bundles incluídos (**nome e fabricante originais**: `calfNXT …`):
+Bundles incluídos (**nome e fabricante originais**: `calfNXT …`). Os mesmos 29 existem em
+`plugins/` (Windows, DLL) e `plugins-linux/` (Linux, `.so` + `calfnxt-web-host`, compilados
+em Ubuntu 22.04):
 
 - `calfNXTEqualizer.vst3` — calfNXT Equalizer
 - `calfNXTCompressor.vst3` — calfNXT Compressor
@@ -117,8 +119,9 @@ Requisitos: Visual Studio 2022 (C++ x64), CMake ≥ 3.25, Python 3 (codegen), No
 
 - Todos os 29 bundles compilam e carregam no Windows (insert/parâmetros/estado/editor) —
   smoke test no engine: 29/29 com `page ready`, sem falhas.
-- Pendente: gerar os bundles para **Linux** (VST3 `.so` + helper GTK/WebKit) e empacotá-los
-  no `extraResources` do Linux.
+- Bundles **Linux** gerados (Ubuntu 22.04, glibc 2.35): mesmos 29, com `.so` +
+  `calfnxt-web-host`, em `vendor/calfnxt/plugins-linux`; empacotados no `extraResources`
+  do Linux. O helper exige GTK 3 + WebKitGTK 4.1 no sistema.
 - Pendente: testar `impulse` (diálogo de IR), `aligner` (8 canais no insert estéreo) e
   `tuner`/`analyzer` (visual) no fluxo real do app.
 - Pendente: estado com a UI (salvar patch → trocar → voltar) e MIDI learn nos 29.

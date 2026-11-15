@@ -87,6 +87,6 @@ Bender, Tuner, Stereo, Split, Aligner, Analyzer e Elliptic, com as UIs originais
 (React/AUX) embutidas em `Contents/Resources`. Nomes, fabricante e créditos originais foram
 mantidos (`calfNXT …`); o app mostra esses plugins empacotados com o formato `Native`.
 No Windows o editor roda em WebView2 dentro do processo do engine; no Linux, no helper
-GTK/WebKit do próprio calfnXT.
+GTK/WebKit do próprio calfnXT (requer `libgtk-3-0` e `libwebkit2gtk-4.1-0` no sistema).
 O SDK do WebView2 vendorizado no fork tem licença própria (Microsoft), em
 `common/ui/third_party/webview2/LICENSE.txt`.

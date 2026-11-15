@@ -27,7 +27,6 @@ const AppContent: React.FC = () => {
     infoModal,
     closeInfoModal,
     chooseTemplate,
-    cancelTemplatePicker,
     openConcertFile,
     savePreset,
     loadPreset,
@@ -288,7 +287,6 @@ const AppContent: React.FC = () => {
           }}
           onPick={(templateId) => void chooseTemplate(templateId)}
           onOpenFile={() => void openConcertFile()}
-          onCancel={cancelTemplatePicker}
         />
       )}
       <AppLoadingOverlay />
