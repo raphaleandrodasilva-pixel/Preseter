@@ -3,7 +3,7 @@ import type { PresetPluginAssignment } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
 import { useAppContext } from '../../context/AppContext';
 
-export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds';
+export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx';
 
 interface NativeInstrumentWindowProps {
   kind: NativeInstrumentKind;
@@ -29,6 +29,9 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
   organ: { name: 'Preseter Organ', badge: 'Cópia tonewheel — um manual', subtitle: 'Órgão tonewheel nativo' },
   tines: { name: 'Preseter Tines (Rhodes)', badge: 'BASE MDA ePIANO', subtitle: 'Piano elétrico de tines — samples e DSP do MDA (MIT)' },
   reeds: { name: 'Preseter Wurly', badge: 'OPENWURLI', subtitle: 'Wurlitzer 200A — modelagem física (OpenWurli)' },
+  piano: { name: 'Preseter Piano', badge: 'MDA PIANO', subtitle: 'Piano acústico — samples e DSP do MDA' },
+  dx: { name: 'Preseter DX', badge: 'MDA DX10', subtitle: 'Sintetizador FM — MDA DX10' },
+  jx: { name: 'Preseter JX', badge: 'MDA JX10', subtitle: 'Sintetizador analógico — MDA JX10' },
 };
 
 interface KnobProps {

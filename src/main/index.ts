@@ -2474,10 +2474,11 @@ class MainWindow {
       }
     }
 
-    this.startupScanActive = true;
+    const shouldScan = this.readPreferences().scanPluginsOnStartup;
+    this.startupScanActive = shouldScan;
     this.startupScanDone = false;
     this.backgroundScan = false;
-    this.setSplashScanning(true);
+    if (shouldScan) this.setSplashScanning(true);
 
     let scanned = 0;
     let lastProgressAt = 0;
@@ -2491,10 +2492,11 @@ class MainWindow {
     };
     this.vstManager.on('scan-progress', onScanProgress);
 
+    let known: VstPluginInfo[] = [];
     try {
       this.setSplashProgress(32, 'Lendo plugins em cache…');
       try {
-        const known = await this.vstManager.loadKnownPlugins();
+        known = await this.vstManager.loadKnownPlugins();
         if (known.length > 0) {
           this.setSplashProgress(38, `Plugins em cache (${known.length})`);
         }
@@ -2502,10 +2504,17 @@ class MainWindow {
         console.warn('[Preseter] Não foi possível ler o cache de plugins:', error);
       }
 
-      this.setSplashProgress(40, 'Escaneando plugins…');
-      const plugins = await this.scanWithPreferences();
-      this.setSplashProgress(88, `${plugins.length} plugin(s) encontrado(s).`);
-      void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      if (shouldScan) {
+        this.setSplashProgress(40, 'Escaneando plugins…');
+        const plugins = await this.scanWithPreferences();
+        this.setSplashProgress(88, `${plugins.length} plugin(s) encontrado(s).`);
+        void this.vstPresetLibrary.scan(plugins, this.vstManager);
+      } else {
+        // Sem scan no boot: usa o cache. O usuário pode escanear manualmente
+        // em Configurações → Plugins VST. Isso evita carregar DLLs de plugins
+        // (e abrir áudio/threads) dentro do processo do motor ao iniciar.
+        this.setSplashProgress(88, `${known.length} plugin(s) em cache.`);
+      }
     } catch (error) {
       console.warn('[Preseter] Falha no scan inicial de VSTs:', error);
       this.setSplashProgress(88, 'Falha ao escanear plugins. Continuando…');
@@ -2790,6 +2799,7 @@ class MainWindow {
       computerKeyboardMidi: false,
       performanceMode: false,
       showTemplatesOnStartup: true,
+      scanPluginsOnStartup: false,
     };
     try {
       if (!fs.existsSync(this.preferencesPath)) return defaults;
@@ -2827,6 +2837,7 @@ class MainWindow {
         computerKeyboardMidi: saved.computerKeyboardMidi === true,
         performanceMode: saved.performanceMode === true,
         showTemplatesOnStartup: saved.showTemplatesOnStartup !== false,
+        scanPluginsOnStartup: saved.scanPluginsOnStartup === true,
       };
     } catch (error) {
       console.warn('[Preseter] Preferências inválidas; usando padrões:', error);

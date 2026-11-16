@@ -330,7 +330,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum dispositivo de áudio ativo.</p>
                 )}
                 <label className="block text-xs" style={{ color: '#9A9AA0' }}>
-                  Driver / tipo
+                  Backend de áudio
                   <select
                     value={audioType}
                     onChange={(event) => {
@@ -348,6 +348,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     ))}
                   </select>
                 </label>
+                <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+                  O driver ASIO (ex.: ASIO4ALL v2) aparece na lista Saída, não neste campo.
+                </p>
                 {isWindows && !asioAvailable && (
                   <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
                     <strong className="block">ASIO não está ativo nesta compilação.</strong>
@@ -358,7 +361,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 {isWindows && asioAvailable && (
                   asioDriverAvailable ? (
                     <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 p-2 text-[11px] text-emerald-200">
-                      Backend ASIO habilitado e driver encontrado. Selecione ASIO em Driver / tipo para escolher o dispositivo.
+                      Backend ASIO habilitado e driver encontrado. Selecione ASIO em Backend de áudio e escolha o driver/dispositivo em Saída.
                     </p>
                   ) : (
                     <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
@@ -376,7 +379,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                 {isLinux && jackSupported && (
                   jackAvailable ? (
                     <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 p-2 text-[11px] text-emerald-200">
-                      JACK disponível. Selecione JACK em Driver / tipo para usar o servidor JACK/PipeWire.
+                      JACK disponível. Selecione JACK em Backend de áudio para usar o servidor JACK/PipeWire.
                     </p>
                   ) : (
                     <p className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-200">
@@ -873,6 +876,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               >
                 {scanning ? 'Escaneando…' : 'Reescanear do zero'}
               </button>
+              <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  style={{ accentColor: '#0A84FF' }}
+                  checked={preferences?.scanPluginsOnStartup ?? false}
+                  onChange={(event) => void updatePreferences({
+                    scanPluginsOnStartup: event.target.checked,
+                  })}
+                />
+                <span>
+                  <span className="font-semibold text-white">Escanear plugins ao iniciar</span>
+                  <span className="mt-0.5 block" style={{ color: '#9A9AA0' }}>
+                    Desligado usa o cache e não carrega DLLs de plugins no boot. Você pode
+                    escanear manualmente em “Escanear plugins”.
+                  </span>
+                </span>
+              </label>
               <section>
                 <h4 className="hw-label mb-2">Pastas de plugins</h4>
                 <div className="space-y-1.5">

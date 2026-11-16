@@ -10,6 +10,7 @@ const PROJECTS = [
   { name: 'setBfree', license: 'GPL-2.0-or-later', use: 'Preseter Organ' },
   { name: 'MDA ePiano (porte JUCE MIT)', license: 'MIT', use: 'Preseter Tines' },
   { name: 'OpenWurli', license: 'GPL-3.0-or-later', use: 'Preseter Wurly' },
+  { name: 'Element', license: 'GPL-3.0-or-later', use: 'Referência de áudio ASIO/WASAPI' },
   { name: 'JUCE', license: 'AGPL-3.0 / comercial', use: 'Motor e interface' },
 ];
 

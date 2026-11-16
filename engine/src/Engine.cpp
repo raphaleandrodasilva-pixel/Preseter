@@ -2,6 +2,8 @@
 
 #include "Output.h"
 
+#include <juce_audio_processors/format/juce_AudioPluginFormatManagerHelpers.h>
+
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -1317,7 +1319,7 @@ juce::var parameterToVar (juce::AudioProcessorParameter& p, int index)
 // ---------------------------------------------------------------------------
 Engine::Engine()
 {
-    formatManager.addDefaultFormats();
+    juce::addDefaultFormatsToManager (formatManager);
 
     dataDirectory = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                         .getChildFile ("Preseter")
@@ -1385,7 +1387,6 @@ Engine::~Engine()
     stopTimer();
     deviceManager.removeChangeListener (this);
     stopAudio();
-    player.setProcessor (nullptr);
     graph.clear();
 }
 
@@ -1422,6 +1423,97 @@ void Engine::AudioTimingCallback::audioDeviceIOCallbackWithContext (
     lastCallbackMs = now;
 }
 
+void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
+{
+    if (device == nullptr)
+        return;
+
+    const double sampleRate = device->getCurrentSampleRate();
+    const int blockSize = device->getCurrentBufferSizeSamples();
+    const int numIn = device->getActiveInputChannels().countNumberOfSetBits();
+    const int numOut = device->getActiveOutputChannels().countNumberOfSetBits();
+
+    midiCollector.reset (sampleRate);
+
+    // Mesmo caminho do AudioEngine do Element: prepara o grafo com a taxa,
+    // block size e canais reais do dispositivo.
+    graph.setPlayConfigDetails (juce::jmax (0, numIn),
+                                juce::jmax (1, numOut),
+                                sampleRate,
+                                blockSize);
+    graph.prepareToPlay (sampleRate, blockSize);
+    graph.reset();
+
+    inputScratch.setSize (juce::jmax (0, numIn - numOut), blockSize, false, false, true);
+}
+
+void Engine::audioDeviceIOCallbackWithContext (
+    const float* const* inputChannelData,
+    int numInputChannels,
+    float* const* outputChannelData,
+    int numOutputChannels,
+    int numSamples,
+    const juce::AudioIODeviceCallbackContext&)
+{
+    juce::ScopedNoDenormals noDenormals;
+
+    if (numSamples <= 0 || numOutputChannels <= 0)
+        return;
+
+    const int totalChannels = juce::jmax (numInputChannels, numOutputChannels);
+    if (totalChannels > 32)
+    {
+        for (int channel = 0; channel < numOutputChannels; ++channel)
+            if (outputChannelData[channel] != nullptr)
+                juce::FloatVectorOperations::clear (outputChannelData[channel], numSamples);
+        return;
+    }
+
+    std::array<float*, 32> channelPointers {};
+    for (int channel = 0; channel < totalChannels; ++channel)
+    {
+        float* destination = nullptr;
+
+        if (channel < numOutputChannels)
+        {
+            destination = outputChannelData[channel];
+        }
+        else
+        {
+            const int extra = channel - numOutputChannels;
+            if (extra < inputScratch.getNumChannels())
+                destination = inputScratch.getWritePointer (extra);
+        }
+
+        if (destination == nullptr)
+            continue;
+
+        if (channel < numInputChannels && inputChannelData[channel] != nullptr)
+            std::memcpy (destination, inputChannelData[channel],
+                         sizeof (float) * (size_t) numSamples);
+        else
+            juce::FloatVectorOperations::clear (destination, numSamples);
+
+        channelPointers[(size_t) channel] = destination;
+    }
+
+    juce::AudioBuffer<float> buffer (channelPointers.data(), totalChannels, numSamples);
+    juce::MidiBuffer midi;
+    midiCollector.removeNextBlockOfMessages (midi, numSamples);
+    graph.processBlock (buffer, midi);
+}
+
+void Engine::audioDeviceStopped()
+{
+    graph.releaseResources();
+    inputScratch.setSize (0, 0);
+}
+
+void Engine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
+{
+    midiCollector.addMessageToQueue (message);
+}
+
 juce::String Engine::startAudio (const juce::var& options)
 {
     const int numIn  = options.hasProperty ("inputs")  ? (int) options["inputs"]  : 0;
@@ -1456,29 +1548,52 @@ juce::String Engine::startAudio (const juce::var& options)
 
     const bool isJack = requestedAvailable && requestedType.containsIgnoreCase ("JACK");
 
-    // Monta a configuração desejada antes de abrir o dispositivo. Abrir o tipo
-    // solicitado diretamente (via XML) evita a sequência antiga: dispositivo
-    // padrão -> fecha -> ASIO -> fecha -> ASIO de novo. Alguns drivers ASIO
-    // ficavam com clock/buffer inconsistentes nessa primeira abertura.
+    // Fecha o dispositivo atual antes de montar a nova configuração. ASIO4ALL
+    // e WASAPI exclusivo não gostam de receber setAudioDeviceSetup em um
+    // dispositivo já aberto; o Element fecha e reabre do zero.
+    stopAudio();
+
+    // Igual ao Element: usa os canais padrão do driver em vez de forçar uma
+    // máscara fixa. No ASIO4ALL isso abre 2 entradas + 2 saídas.
     juce::AudioDeviceManager::AudioDeviceSetup setup;
     if (options.hasProperty ("output")) setup.outputDeviceName = options["output"].toString();
     if (options.hasProperty ("input"))  setup.inputDeviceName  = options["input"].toString();
+
+    // Em ASIO o mesmo nome identifica entrada e saída (ASIO4ALL v2).
+    if (requestedType.containsIgnoreCase ("ASIO"))
+    {
+        if (setup.outputDeviceName.isEmpty())
+            setup.outputDeviceName = setup.inputDeviceName;
+        if (setup.inputDeviceName.isEmpty())
+            setup.inputDeviceName = setup.outputDeviceName;
+    }
+
     // O servidor JACK manda na taxa e no buffer; não sobrescrever.
     if (! isJack && ! followDevice && options.hasProperty ("sampleRate"))
         setup.sampleRate = (double) options["sampleRate"];
     if (! isJack && ! followDevice && options.hasProperty ("bufferSize"))
         setup.bufferSize = (int) options["bufferSize"];
-    setup.useDefaultInputChannels  = false;
-    setup.useDefaultOutputChannels = false;
-    setup.inputChannels.clear();
-    setup.outputChannels.clear();
-    setup.inputChannels.setRange (0, numIn, true);
-    setup.outputChannels.setRange (0, numOut, true);
 
-    // Sem dispositivo explícito, usa o primeiro do backend escolhido. Isso
-    // permite abrir o ASIO direto pelo XML (uma única abertura) em vez de abrir
-    // o dispositivo padrão e trocar de backend depois.
-    if (requestedAvailable && requestedType.isNotEmpty() && setup.outputDeviceName.isEmpty())
+    if (isJack)
+    {
+        setup.useDefaultInputChannels  = false;
+        setup.useDefaultOutputChannels = false;
+        setup.inputChannels.clear();
+        setup.outputChannels.clear();
+        setup.inputChannels.setRange (0, numIn, true);
+        setup.outputChannels.setRange (0, numOut, true);
+    }
+    else
+    {
+        // Sem máscara explícita: o JUCE usa os canais padrão do dispositivo.
+        setup.useDefaultInputChannels  = true;
+        setup.useDefaultOutputChannels = true;
+        setup.inputChannels.clear();
+        setup.outputChannels.clear();
+    }
+
+    // Sem dispositivo explícito, usa o primeiro do backend escolhido.
+    if (requestedAvailable && requestedType.isNotEmpty())
     {
         for (auto* type : deviceManager.getAvailableDeviceTypes())
         {
@@ -1487,111 +1602,86 @@ juce::String Engine::startAudio (const juce::var& options)
 
             type->scanForDevices();
             const auto outputs = type->getDeviceNames (false);
-            if (! outputs.isEmpty())
+            if (setup.outputDeviceName.isEmpty() && ! outputs.isEmpty())
                 setup.outputDeviceName = outputs[0];
 
-            if (numIn > 0 && setup.inputDeviceName.isEmpty())
+            if (setup.inputDeviceName.isEmpty())
             {
                 const auto inputs = type->getDeviceNames (true);
                 if (! inputs.isEmpty())
                     setup.inputDeviceName = inputs[0];
             }
+
+            if (requestedType.containsIgnoreCase ("ASIO"))
+            {
+                const auto name = setup.outputDeviceName.isNotEmpty() ? setup.outputDeviceName
+                                                                      : setup.inputDeviceName;
+                setup.outputDeviceName = name;
+                setup.inputDeviceName = name;
+            }
             break;
         }
     }
 
-    if (! deviceInitialised)
+    juce::String error;
+    bool opened = false;
+
+    if (! isJack && requestedType.isNotEmpty() && setup.outputDeviceName.isNotEmpty())
     {
-        juce::String error;
-        bool opened = false;
-        if (requestedAvailable && requestedType.isNotEmpty()
-            && setup.outputDeviceName.isNotEmpty())
+        // Mesmo formato que o Element salva: nomes de entrada/saída, taxa e
+        // buffer. Não gravamos audioDeviceInChans/OutChans para que o JUCE
+        // negocie os canais padrão com o driver.
+        juce::XmlElement xml ("DEVICESETUP");
+        xml.setAttribute ("deviceType", requestedType);
+        if (setup.outputDeviceName == setup.inputDeviceName)
+            xml.setAttribute ("audioDeviceName", setup.outputDeviceName);
+        else
         {
-            juce::XmlElement xml ("DEVICESETUP");
-            xml.setAttribute ("deviceType", requestedType);
-            if (setup.outputDeviceName.isNotEmpty()
-                && setup.outputDeviceName == setup.inputDeviceName)
-            {
-                xml.setAttribute ("audioDeviceName", setup.outputDeviceName);
-            }
-            else
-            {
-                if (setup.outputDeviceName.isNotEmpty())
-                    xml.setAttribute ("audioOutputDeviceName", setup.outputDeviceName);
-                if (setup.inputDeviceName.isNotEmpty())
-                    xml.setAttribute ("audioInputDeviceName", setup.inputDeviceName);
-            }
-            if (setup.sampleRate > 0.0)
-                xml.setAttribute ("audioDeviceRate", setup.sampleRate);
-            if (setup.bufferSize > 0)
-                xml.setAttribute ("audioDeviceBufferSize", setup.bufferSize);
-            xml.setAttribute ("audioDeviceInChans",  setup.inputChannels.toString (2));
-            xml.setAttribute ("audioDeviceOutChans", setup.outputChannels.toString (2));
-
-            error = deviceManager.initialise (numIn, numOut, &xml, true, {}, &setup);
-            auto* openedDevice = deviceManager.getCurrentAudioDevice();
-            opened = error.isEmpty() && openedDevice != nullptr
-                && openedDevice->getTypeName().equalsIgnoreCase (requestedType);
+            if (setup.outputDeviceName.isNotEmpty())
+                xml.setAttribute ("audioOutputDeviceName", setup.outputDeviceName);
+            if (setup.inputDeviceName.isNotEmpty())
+                xml.setAttribute ("audioInputDeviceName", setup.inputDeviceName);
         }
+        if (setup.sampleRate > 0.0)
+            xml.setAttribute ("audioDeviceRate", setup.sampleRate);
+        if (setup.bufferSize > 0)
+            xml.setAttribute ("audioDeviceBufferSize", setup.bufferSize);
 
-        if (! opened)
-        {
-            // Plano B: caminho clássico do JUCE. Alguns drivers ASIO recusam a
-            // abertura por XML quando o nome do dispositivo vem vazio.
-            error = deviceManager.initialise (numIn, numOut, nullptr, true);
-            if (error.isNotEmpty())
-                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                              : error;
-
-            if (requestedAvailable && requestedType.isNotEmpty())
-                deviceManager.setCurrentAudioDeviceType (requestedType, true);
-
-            if (deviceManager.getCurrentAudioDevice() == nullptr)
-                return isJack
-                    ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
-                    : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
-
-            error = deviceManager.setAudioDeviceSetup (setup, true);
-            if (error.isNotEmpty())
-                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                              : error;
-        }
-
-        deviceInitialised = true;
-    }
-    else
-    {
-        auto* currentDevice = deviceManager.getCurrentAudioDevice();
-        const bool typeMatches = currentDevice != nullptr
+        error = deviceManager.initialise (128, 128, &xml, true, "*", nullptr);
+        auto* openedDevice = deviceManager.getCurrentAudioDevice();
+        opened = error.isEmpty() && openedDevice != nullptr
             && (requestedType.isEmpty()
-                || currentDevice->getTypeName().equalsIgnoreCase (requestedType));
+                || openedDevice->getTypeName().equalsIgnoreCase (requestedType));
+    }
 
-        if (requestedAvailable && requestedType.isNotEmpty() && ! typeMatches)
+    if (! opened)
+    {
+        // Plano B: caminho clássico do JUCE para drivers que recusam o XML.
+        // Fora do JACK pedimos apenas estéreo; o XML acima já usa os canais
+        // padrão do driver quando o nome do dispositivo está disponível.
+        error = deviceManager.initialise (isJack ? numIn : 2,
+                                          isJack ? numOut : 2,
+                                          nullptr, true);
+        if (error.isNotEmpty())
+            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                          : error;
+
+        if (requestedAvailable && requestedType.isNotEmpty())
             deviceManager.setCurrentAudioDeviceType (requestedType, true);
 
-        currentDevice = deviceManager.getCurrentAudioDevice();
-        const auto current = deviceManager.getAudioDeviceSetup();
-        const bool sameSetup =
-            currentDevice != nullptr
-            && (setup.outputDeviceName.isEmpty() || current.outputDeviceName == setup.outputDeviceName)
-            && (setup.inputDeviceName.isEmpty()  || current.inputDeviceName  == setup.inputDeviceName)
-            && (setup.sampleRate <= 0.0 || std::abs (current.sampleRate - setup.sampleRate) < 0.5)
-            && (setup.bufferSize <= 0  || current.bufferSize == setup.bufferSize)
-            && current.inputChannels  == setup.inputChannels
-            && current.outputChannels == setup.outputChannels;
+        if (deviceManager.getCurrentAudioDevice() == nullptr)
+            return isJack
+                ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
+                : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
 
-        if (! sameSetup)
-        {
-            auto error = deviceManager.setAudioDeviceSetup (setup, true);
-            if (error.isNotEmpty())
-                return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                              : error;
-        }
+        error = deviceManager.setAudioDeviceSetup (setup, true);
+        if (error.isNotEmpty())
+            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
+                          : error;
     }
 
     // O JUCE pode devolver "sem erro" mesmo sem nenhum dispositivo aberto.
     if (deviceManager.getCurrentAudioDevice() == nullptr)
-
         return isJack
             ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
             : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
@@ -1600,12 +1690,10 @@ juce::String Engine::startAudio (const juce::var& options)
         && ! deviceManager.getCurrentAudioDevice()->getTypeName().equalsIgnoreCase (requestedType))
         return utf8 ("O backend de áudio solicitado não pôde ser aberto: ") + requestedType;
 
-    if (! audioCallbackAttached)
-    {
-        player.setProcessor (&graph);
-        deviceManager.addAudioCallback (&player);
-        audioCallbackAttached = true;
-    }
+    // O dispositivo já foi fechado por stopAudio; o próprio Engine é o
+    // callback de áudio/MIDI, como o AudioEngine do Element.
+    deviceManager.addAudioCallback (this);
+    audioCallbackAttached = true;
 
     if (! timingCallbackAttached)
     {
@@ -1615,7 +1703,7 @@ juce::String Engine::startAudio (const juce::var& options)
 
     if (! midiCallbackAttached)
     {
-        deviceManager.addMidiInputDeviceCallback ({}, &player);
+        deviceManager.addMidiInputDeviceCallback ({}, this);
         midiCallbackAttached = true;
     }
 
@@ -1631,13 +1719,13 @@ void Engine::stopAudio()
 {
     if (midiCallbackAttached)
     {
-        deviceManager.removeMidiInputDeviceCallback ({}, &player);
+        deviceManager.removeMidiInputDeviceCallback ({}, this);
         midiCallbackAttached = false;
     }
 
     if (audioCallbackAttached)
     {
-        deviceManager.removeAudioCallback (&player);
+        deviceManager.removeAudioCallback (this);
         audioCallbackAttached = false;
     }
 
@@ -1647,6 +1735,9 @@ void Engine::stopAudio()
         timingCallbackAttached = false;
     }
 
+    // Libera o grafo antes de fechar; na reabertura audioDeviceAboutToStart
+    // prepara tudo de novo com a taxa/block size do dispositivo escolhido.
+    graph.releaseResources();
     deviceManager.closeAudioDevice();
 }
 
@@ -3557,34 +3648,24 @@ juce::String Engine::savePluginPresetFile (const juce::String& layerId,
     if (plugin->getPluginDescription().pluginFormatName != "VST3")
         return utf8 ("Exportar .vstpreset só funciona em plugins VST3.");
 
-    struct Visitor final : public juce::ExtensionsVisitor
-    {
-        juce::MemoryBlock preset;
-        bool visited = false;
-
-        void visitVST3Client (const VST3Client& client) override
-        {
-            visited = true;
-            preset = client.getPreset();
-        }
-    } visitor;
-
-    plugin->getExtensions (visitor);
-    if (! visitor.visited)
+    auto* client = plugin->getVST3Client();
+    if (client == nullptr)
         return utf8 ("O plugin não expõe preset VST3.");
-    if (visitor.preset.getSize() == 0)
+
+    const auto preset = client->getPreset();
+    if (preset.getSize() == 0)
         return utf8 ("O plugin não forneceu um preset para exportar.");
 
     const juce::File target (filePath);
     if (! target.getParentDirectory().createDirectory())
         return utf8 ("Não foi possível criar a pasta do preset.");
 
-    if (! target.replaceWithData (visitor.preset.getData(), visitor.preset.getSize()))
+    if (! target.replaceWithData (preset.getData(), preset.getSize()))
         return utf8 ("Não foi possível gravar o preset: ") + filePath;
 
     result = Obj()
         .set ("layerId", resolveLayerId (layerId))
-        .set ("bytes", (int) visitor.preset.getSize())
+        .set ("bytes", (int) preset.getSize())
         .set ("path", target.getFullPathName());
     return {};
    #else
@@ -3605,8 +3686,9 @@ juce::String Engine::saveVst2FxpFile (const juce::String& layerId,
     if (plugin->getPluginDescription().pluginFormatName != "VST")
         return utf8 ("Exportar .fxp só funciona em plugins VST2.");
 
+    auto* client = plugin->getVSTClient();
     juce::MemoryBlock fxp;
-    if (! juce::VSTPluginFormat::saveToFXBFile (plugin, fxp, false) || fxp.getSize() == 0)
+    if (client == nullptr || ! client->saveToFXBFile (fxp, false) || fxp.getSize() == 0)
         return utf8 ("O plugin não expôs um estado .fxp.");
 
     const juce::File target (filePath);
@@ -3670,7 +3752,10 @@ juce::String Engine::setVst2FxpFile (const juce::String& layerId,
         const auto chunkSize = (int) readBe32 (bytes + 56);
         if (chunkSize <= 0 || (size_t) chunkSize + 60 > data.getSize())
             return utf8 ("O chunk do .fxp está inválido.");
-        if (! juce::VSTPluginFormat::setChunkData (plugin, bytes + 60, chunkSize, true))
+        auto* client = plugin->getVSTClient();
+        const juce::Span<const std::byte> chunk {
+            reinterpret_cast<const std::byte*> (bytes + 60), (size_t) chunkSize };
+        if (client == nullptr || ! client->setChunkData (chunk, true))
             return utf8 ("O plugin recusou o preset .fxp.");
     }
     else if (magic == "FxCk")
@@ -3842,7 +3927,8 @@ juce::String Engine::setPluginPresetFile (const juce::String& layerId, const juc
     if (! file.loadFileAsData (data))
         return utf8 ("Não foi possível ler o preset: ") + filePath;
 
-    if (! juce::VST3PluginFormat::setStateFromVSTPresetFile (plugin, data))
+    auto* client = plugin->getVST3Client();
+    if (client == nullptr || ! client->setPreset (data))
         return utf8 ("O plugin recusou o preset: ") + file.getFileName();
 
     result = describeLoadedPlugin (layerId);
@@ -4231,7 +4317,7 @@ juce::String Engine::sendMidi (const juce::MidiMessage& message)
 
     auto copy = message;
     copy.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);
-    player.getMidiMessageCollector().addMessageToQueue (copy);
+    midiCollector.addMessageToQueue (copy);
     return {};
 }
 

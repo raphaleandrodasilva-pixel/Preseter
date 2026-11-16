@@ -53,6 +53,8 @@ export interface VstPluginInfo {
   /** Programa interno atual, quando o plugin expõe programas. */
   program?: number;
   programCount?: number;
+  /** Nomes dos programas (instrumentos nativos/MDA). */
+  programNames?: string[];
 }
 
 /** De onde veio um preset de VST exibido nos Timbres. */
@@ -837,6 +839,11 @@ export interface AppPreferences {
   performanceMode: boolean;
   /** Mostra a escolha de templates ao abrir o app. Desligado = abre pronto para criar patch. */
   showTemplatesOnStartup: boolean;
+  /**
+   * Varre os plugins VST no boot. Desligado = usa só o cache de
+   * `known-plugins.xml`; o usuário pode escanear manualmente em Plugins VST.
+   */
+  scanPluginsOnStartup: boolean;
 }
 
 // Configuração de layout da interface

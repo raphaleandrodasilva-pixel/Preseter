@@ -8,7 +8,7 @@ Host de performance ao vivo para **VST3 e LV2** — Windows e Linux, no estilo M
 [![Build](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml/badge.svg)](https://github.com/raphaleandrodasilva-pixel/Preseter/actions/workflows/build.yml)
 ![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20Linux-0A6FE0)
 ![Electron](https://img.shields.io/badge/Electron-28-47848F)
-![JUCE](https://img.shields.io/badge/JUCE-8.0.8-8DC63F)
+![JUCE](https://img.shields.io/badge/JUCE-8.0.9-8DC63F)
 
 ## O que é
 
@@ -105,7 +105,7 @@ A lista completa, com os detalhes de cada modo, está no [`ROADMAP.md`](ROADMAP.
 
 ## Compilar do código
 
-Pré-requisitos gerais: **Node.js 20+** e **CMake 3.22+**. O motor baixa o JUCE 8.0.8 sozinho na
+Pré-requisitos gerais: **Node.js 20+** e **CMake 3.22+**. O motor baixa o JUCE 8.0.9 sozinho na
 primeira configuração (FetchContent), então o primeiro build é mais demorado.
 
 ### Windows

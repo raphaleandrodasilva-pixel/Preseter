@@ -73,7 +73,9 @@ private:
  * generalizar para vários plugins (slots/patches).
  */
 class Engine : private juce::ChangeListener,
-               private juce::Timer
+               private juce::Timer,
+               private juce::AudioIODeviceCallback,
+               private juce::MidiInputCallback
 {
 public:
     using Graph    = juce::AudioProcessorGraph;
@@ -252,6 +254,17 @@ private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
 
+    // Callback de áudio próprio (modelo do Element), sem AudioProcessorPlayer.
+    void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
+    void audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
+                                           int numInputChannels,
+                                           float* const* outputChannelData,
+                                           int numOutputChannels,
+                                           int numSamples,
+                                           const juce::AudioIODeviceCallbackContext& context) override;
+    void audioDeviceStopped() override;
+    void handleIncomingMidiMessage (juce::MidiInput* source, const juce::MidiMessage& message) override;
+
     void rebuildConnections();
     void updateSoloState();
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
@@ -314,7 +327,9 @@ private:
     bool timingCallbackAttached = false;
     juce::KnownPluginList knownPlugins;
     Graph graph;
-    juce::AudioProcessorPlayer player;
+    juce::MidiMessageCollector midiCollector;
+    /** Canais de entrada que não têm um canal de saída correspondente. */
+    juce::AudioBuffer<float> inputScratch;
 
     Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, metronomeNode, recorderNode, playbackNode, masterNode, limiterNode;
     /** Relógio do host entregue aos plugins (Fase 6.2). */
@@ -522,7 +537,6 @@ private:
 
     juce::File dataDirectory, knownPluginsFile, deadMansFile;
 
-    bool deviceInitialised = false;
     bool audioCallbackAttached = false;
     bool midiCallbackAttached = false;
 

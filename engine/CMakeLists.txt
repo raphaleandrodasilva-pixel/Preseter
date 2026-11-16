@@ -17,7 +17,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # checkout local, passe -DPRESETER_JUCE_DIR=/caminho/para/JUCE
 # --------------------------------------------------------------------------
 set(PRESETER_JUCE_DIR "" CACHE PATH "Checkout local do JUCE (opcional)")
-set(PRESETER_JUCE_TAG "8.0.8" CACHE STRING "Tag do JUCE usada pelo FetchContent")
+set(PRESETER_JUCE_TAG "8.0.13" CACHE STRING "Tag do JUCE usada pelo FetchContent")
+if(PRESETER_JUCE_TAG VERSION_LESS "8.0.13")
+    # O Element usa 8.0.13; a partir do 8.0.11 o JUCE traz o ASIO SDK
+    # embutido e as correções de áudio que faltavam no 8.0.8/8.0.9.
+    set(PRESETER_JUCE_TAG "8.0.13" CACHE STRING "Tag do JUCE usada pelo FetchContent" FORCE)
+endif()
 
 if(PRESETER_JUCE_DIR)
     add_subdirectory("${PRESETER_JUCE_DIR}" juce EXCLUDE_FROM_ALL)
@@ -209,11 +214,13 @@ if(APPLE)
 endif()
 
 if(WIN32 AND PRESETER_ENABLE_ASIO)
-    if(NOT PRESETER_ASIO_SDK_DIR)
-        message(FATAL_ERROR "PRESETER_ENABLE_ASIO=ON exige -DPRESETER_ASIO_SDK_DIR=<pasta do ASIO SDK>")
-    endif()
+    # Igual ao Element: usa os headers ASIO embutidos no JUCE 8.0.13.
+    # O SDK externo continua aceito para quem precisar, mas não é mais
+    # obrigatório nem entra no include por padrão.
     target_compile_definitions(PreseterEngine PRIVATE JUCE_ASIO=1)
-    target_include_directories(PreseterEngine PRIVATE "${PRESETER_ASIO_SDK_DIR}/common")
+    if(PRESETER_ASIO_SDK_DIR)
+        message(STATUS "ASIO: usando headers embutidos do JUCE (SDK externo ignorado)")
+    endif()
 endif()
 
 if(UNIX AND NOT APPLE AND PRESETER_ENABLE_JACK)
