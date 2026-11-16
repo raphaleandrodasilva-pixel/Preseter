@@ -28,12 +28,13 @@ Já feito:
 - Testes de silêncio digital: ASIO 44.1/256 e Exclusive 44.1/256 deram
   **−91 dBFS**; Tines tocou normalmente via ASIO.
 
-Ainda falha:
+Resolvido em 2026-11-16:
 
-- O ruído continua quando o app abre, mesmo com o WAV digital silencioso.
-- Fechar o app para o ruído.
-- Portanto, o problema está no caminho de dispositivo do nosso stack, não no
-  DSP/instrumentos.
+- O ruído parou com **JUCE 8.0.13 + ASIO bundled + callback próprio + scan de
+  plugins no boot desligado**.
+- O usuário confirmou que, ao abrir o app, não há mais ruído.
+- `DeviceManager` próprio e scanner em processo separado ficam como follow-up
+  de robustez; não foram necessários para eliminar o ruído nesta máquina.
 
 ## Diferenças restantes em relação ao Element
 
