@@ -122,7 +122,10 @@ class MainWindow {
   /** Varredura de plugins do startup em andamento. */
   private startupScanActive = false;
   private startupScanDone = false;
-  private rendererReady = false;
+  /** Interface terminou de carregar os dados iniciais. */
+  private rendererLoaded = false;
+  /** Interface já pintou o primeiro quadro (dois rAF no renderer). */
+  private rendererPainted = false;
   /** Usuário pediu para continuar em segundo plano. */
   private backgroundScan = false;
   private vstManager: VstManager;
@@ -393,7 +396,8 @@ class MainWindow {
   }
 
   private maybeCloseSplash(): void {
-    if (!this.rendererReady || (!this.startupScanDone && !this.backgroundScan)) return;
+    if (!this.rendererLoaded || !this.rendererPainted) return;
+    if (!this.startupScanDone && !this.backgroundScan) return;
     this.showMainWindow();
     this.setSplashProgress(100, 'Pronto');
     this.closeSplash();
@@ -403,7 +407,12 @@ class MainWindow {
   private showMainWindow(): void {
     const win = this.window;
     if (!win || win.isDestroyed()) return;
-    if (!win.isVisible()) win.show();
+    if (!win.isVisible()) {
+      // No Windows, maximize() já exibe a janela. Por isso ele nunca é chamado
+      // na criação: só aqui, depois que a interface está pronta.
+      win.show();
+      win.maximize();
+    }
     win.focus();
   }
 
@@ -490,12 +499,15 @@ class MainWindow {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
+        // A janela fica oculta durante o boot; sem isso o Chromium estrangula
+        // timers e a interface demora a pintar.
+        backgroundThrottling: false,
       },
       title: 'Preseter - Live Performance',
     });
-    // O app abre sempre maximizado; os bounds salvos valem para quando o
-    // usuário restaurar a janela.
-    this.window.maximize();
+    // O app abre sempre maximizado, mas só em showMainWindow(): chamar
+    // maximize() aqui faz a janela aparecer antes de a interface carregar.
+    // Os bounds salvos valem para quando o usuário restaurar a janela.
 
     // Carregar a interface
     const startUrl =
@@ -546,8 +558,12 @@ class MainWindow {
       this.setSplashProgress(Number(data?.percent ?? 0), data?.message);
     });
     ipcMain.on('startup-ready', () => {
-      this.rendererReady = true;
+      this.rendererLoaded = true;
       this.setSplashProgress(95, 'Finalizando…');
+      this.maybeCloseSplash();
+    });
+    ipcMain.on('startup-painted', () => {
+      this.rendererPainted = true;
       this.maybeCloseSplash();
     });
     ipcMain.on('splash-continue', () => {
@@ -826,6 +842,10 @@ class MainWindow {
     ipcMain.handle('vst-set-program', async (_event, layerId: string, index: number) => {
       await this.vstManager.setPluginProgram(layerId, index);
       return this.vstManager.getLoadedPlugins().find((item) => item.layerId === layerId) ?? null;
+    });
+
+    ipcMain.handle('vst-voices', async (_event, layerId: string) => {
+      return this.vstManager.getActiveVoices(layerId);
     });
 
     ipcMain.handle('vst-unload', async (_event, pluginId: string) => {
@@ -1643,7 +1663,10 @@ class MainWindow {
       const nativeSampler = isNativeSamplerAssignment(assignment);
       const nativeInstrument = assignment.pluginId === 'preseter.organ'
         || assignment.pluginId === 'preseter.tines'
-        || assignment.pluginId === 'preseter.reeds';
+        || assignment.pluginId === 'preseter.reeds'
+        || assignment.pluginId === 'preseter.piano'
+        || assignment.pluginId === 'preseter.dx'
+        || assignment.pluginId === 'preseter.jx';
       const samplePath = assignment.samplePath
         ? (path.isAbsolute(assignment.samplePath)
             ? assignment.samplePath

@@ -368,7 +368,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         ? 'tines'
         : assignment?.pluginId === 'preseter.reeds'
           ? 'reeds'
-          : null;
+          : assignment?.pluginId === 'preseter.piano'
+            ? 'piano'
+            : assignment?.pluginId === 'preseter.dx'
+              ? 'dx'
+              : assignment?.pluginId === 'preseter.jx'
+                ? 'jx'
+                : null;
     if (nativeKind) {
       if (!draft && activePreset) onEditPreset(activePreset);
       setNativeWindow((current) => (current?.layerId === layerId ? null : { layerId, kind: nativeKind }));
@@ -609,7 +615,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     return moved.map((preset) => preset.id);
   };
 
-  const scannedParams = useMemo(() => buildScannedParams(scannedPlugins), [scannedPlugins]);
+  const scannedParams = useMemo(
+    () => buildScannedParams(scannedPlugins, loadedPlugins),
+    [scannedPlugins, loadedPlugins]
+  );
   const midiInputNames = useMemo(
     () => midiDevices.filter((device) => device.type === 'input').map((device) => device.name),
     [midiDevices]
@@ -3626,6 +3635,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           currentSet={currentSet ?? null}
           layout={layout}
           scannedPlugins={scannedPlugins}
+          loadedPlugins={loadedPlugins}
           onChange={updateMappings}
           onClose={() => setMappingsOpen(false)}
         />

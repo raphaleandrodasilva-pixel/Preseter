@@ -1,4 +1,5 @@
 #include "NativeProcessor.h"
+#include "MdaFactories.h"
 
 #include <cmath>
 
@@ -21,6 +22,9 @@ juce::String kindName (NativeKind kind)
 {
     if (kind == NativeKind::organ) return "Preseter Organ";
     if (kind == NativeKind::tines) return "Preseter Tines";
+    if (kind == NativeKind::mdaPiano) return "Preseter Piano";
+    if (kind == NativeKind::mdaDx10) return "Preseter DX10";
+    if (kind == NativeKind::mdaJx10) return "Preseter JX10";
     return "Preseter Wurly";
 }
 
@@ -28,6 +32,9 @@ juce::String kindId (NativeKind kind)
 {
     if (kind == NativeKind::organ) return "preseter.organ";
     if (kind == NativeKind::tines) return "preseter.tines";
+    if (kind == NativeKind::mdaPiano) return "preseter.piano";
+    if (kind == NativeKind::mdaDx10) return "preseter.dx";
+    if (kind == NativeKind::mdaJx10) return "preseter.jx";
     return "preseter.reeds";
 }
 } // namespace
@@ -37,6 +44,9 @@ std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id)
     if (id == "preseter.organ") return std::make_unique<NativeProcessor> (NativeKind::organ, id, kindName (NativeKind::organ));
     if (id == "preseter.tines") return std::make_unique<NativeProcessor> (NativeKind::tines, id, kindName (NativeKind::tines));
     if (id == "preseter.reeds") return std::make_unique<NativeProcessor> (NativeKind::reeds, id, kindName (NativeKind::reeds));
+    if (id == "preseter.piano") return std::make_unique<NativeProcessor> (NativeKind::mdaPiano, id, kindName (NativeKind::mdaPiano));
+    if (id == "preseter.dx") return std::make_unique<NativeProcessor> (NativeKind::mdaDx10, id, kindName (NativeKind::mdaDx10));
+    if (id == "preseter.jx") return std::make_unique<NativeProcessor> (NativeKind::mdaJx10, id, kindName (NativeKind::mdaJx10));
     return nullptr;
 }
 
@@ -44,6 +54,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
 {
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
+
+    if (kind == NativeKind::mdaPiano || kind == NativeKind::mdaDx10
+        || kind == NativeKind::mdaJx10)
+        return layout;
 
     const auto add = [&layout] (const char* id, const char* name, float minimum, float maximum,
                                 float step, float defaultValue)
@@ -123,6 +137,12 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
         mdaEPiano = std::make_unique<MdaEPianoDsp>();
     else if (kind == NativeKind::reeds)
         wurli = std::make_unique<WurliProcessor>();
+    else if (kind == NativeKind::mdaPiano)
+        mdaProcessor = createMdaPiano();
+    else if (kind == NativeKind::mdaDx10)
+        mdaProcessor = createMdaDx10();
+    else if (kind == NativeKind::mdaJx10)
+        mdaProcessor = createMdaJx10();
 
     applyProgram (0);
 }
@@ -130,6 +150,14 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
 void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
+
+    if (mdaProcessor)
+    {
+        mdaProcessor->setRateAndBufferSizeDetails (sampleRate, samplesPerBlock);
+        mdaProcessor->prepareToPlay (sampleRate, samplesPerBlock);
+        mdaPrepared = true;
+        return;
+    }
 
     if (kind == NativeKind::tines)
     {
@@ -179,10 +207,39 @@ void NativeProcessor::resetDsp()
     reverbR = 0.0f;
 }
 
+void NativeProcessor::releaseResources()
+{
+    if (mdaProcessor)
+        mdaProcessor->releaseResources();
+}
+
 bool NativeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo()
         && layouts.getMainInputChannelSet() == juce::AudioChannelSet::disabled();
+}
+
+double NativeProcessor::getTailLengthSeconds() const
+{
+    return mdaProcessor ? mdaProcessor->getTailLengthSeconds() : 2.0;
+}
+
+int NativeProcessor::getActiveVoices() const noexcept
+{
+    // Os portes do MDA inicializam o contador de vozes em prepareToPlay/reset
+    // (o construtor do JX10 não o inicializa). Antes disso o valor é lixo.
+    if (mdaProcessor == nullptr || !mdaPrepared)
+        return 0;
+
+    int voices = 0;
+    if (kind == NativeKind::mdaPiano)
+        voices = mdaPianoActiveVoices (mdaProcessor.get());
+    else if (kind == NativeKind::mdaDx10)
+        voices = mdaDxActiveVoices (mdaProcessor.get());
+    else if (kind == NativeKind::mdaJx10)
+        voices = mdaJxActiveVoices (mdaProcessor.get());
+
+    return juce::jlimit (0, 64, voices);
 }
 
 float NativeProcessor::parameter (const char* id) const
@@ -250,6 +307,14 @@ void NativeProcessor::stopNote (int note)
 void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    if (mdaProcessor)
+    {
+        buffer.clear();
+        mdaProcessor->processBlock (buffer, midi);
+        return;
+    }
+
     buffer.clear();
 
     if (kind == NativeKind::tines)
@@ -587,18 +652,39 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
 
 int NativeProcessor::getNumPrograms()
 {
+    if (mdaProcessor) return mdaProcessor->getNumPrograms();
     if (kind == NativeKind::organ) return 4;
     if (kind == NativeKind::tines) return 4;
     return 4;
 }
 
+int NativeProcessor::getCurrentProgram()
+{
+    if (mdaProcessor) return mdaProcessor->getCurrentProgram();
+    return currentProgram;
+}
+
 void NativeProcessor::setCurrentProgram (int index)
 {
+    if (mdaProcessor)
+    {
+        mdaProcessor->setCurrentProgram (index);
+        currentProgram = mdaProcessor->getCurrentProgram();
+        return;
+    }
     applyProgram (juce::jlimit (0, getNumPrograms() - 1, index));
 }
 
 void NativeProcessor::applyProgram (int index)
 {
+    if (mdaProcessor)
+    {
+        const int count = juce::jmax (1, mdaProcessor->getNumPrograms());
+        currentProgram = juce::jlimit (0, count - 1, index);
+        mdaProcessor->setCurrentProgram (currentProgram);
+        return;
+    }
+
     currentProgram = juce::jlimit (0, getNumPrograms() - 1, index);
     const auto setDrawbars = [this] (std::array<float, 9> values)
     {
@@ -722,6 +808,8 @@ void NativeProcessor::applyProgram (int index)
 
 const juce::String NativeProcessor::getProgramName (int index)
 {
+    if (mdaProcessor)
+        return mdaProcessor->getProgramName (index);
     if (kind == NativeKind::organ)
     {
         static const char* names[] = { "Jazz", "Gospel", "Rock", "Combo" };
@@ -736,22 +824,42 @@ const juce::String NativeProcessor::getProgramName (int index)
     return juce::isPositiveAndBelow (index, 4) ? names[index] : juce::String();
 }
 
-void NativeProcessor::changeProgramName (int, const juce::String&) {}
+void NativeProcessor::changeProgramName (int index, const juce::String& newName)
+{
+    if (mdaProcessor)
+    {
+        mdaProcessor->changeProgramName (index, newName);
+        return;
+    }
+    juce::ignoreUnused (index, newName);
+}
 
 void NativeProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    if (mdaProcessor)
+    {
+        mdaProcessor->getStateInformation (destData);
+        return;
+    }
     if (auto xml = apvts.copyState().createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void NativeProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    if (mdaProcessor)
+    {
+        mdaProcessor->setStateInformation (data, sizeInBytes);
+        return;
+    }
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
 }
 
 juce::AudioProcessorEditor* NativeProcessor::createEditor()
 {
+    if (mdaProcessor)
+        return mdaProcessor->createEditorIfNeeded();
     return new juce::GenericAudioProcessorEditor (this);
 }
 

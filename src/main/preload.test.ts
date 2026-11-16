@@ -95,7 +95,12 @@ describe('preload electronAPI', () => {
 
     expect(typeof api.platform).toBe('string');
     for (const [name, method] of Object.entries(api)) {
-      if (name.startsWith('on') || name === 'startupProgress' || name === 'startupReady') continue;
+      if (
+        name.startsWith('on')
+        || name === 'startupProgress'
+        || name === 'startupReady'
+        || name === 'startupPainted'
+      ) continue;
       if (typeof method !== 'function') continue;
       invoke.mockClear();
       method('a', 'b', 'c', 'd', 'e');
@@ -106,8 +111,10 @@ describe('preload electronAPI', () => {
     send.mockClear();
     api.startupProgress(42, 'Carregando');
     api.startupReady();
+    api.startupPainted();
     expect(send).toHaveBeenNthCalledWith(1, 'startup-progress', { percent: 42, message: 'Carregando' });
     expect(send).toHaveBeenNthCalledWith(2, 'startup-ready');
+    expect(send).toHaveBeenNthCalledWith(3, 'startup-painted');
 
     for (const [name, method] of Object.entries(api)) {
       if (!name.startsWith('on')) continue;

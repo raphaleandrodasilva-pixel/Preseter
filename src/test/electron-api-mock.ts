@@ -78,6 +78,7 @@ export function createElectronApiMock(): ElectronApiMock {
     })),
     startupProgress: vi.fn(),
     startupReady: vi.fn(),
+    startupPainted: vi.fn(),
     vstHidePlugin: vi.fn(async () => ({ hiddenPluginIds: [], plugins: [] })),
     vstShowPlugin: vi.fn(async () => ({ hiddenPluginIds: [], plugins: [] })),
     vstAddPluginFolder: vi.fn(async () => ({ canceled: true, plugins: [] })),
@@ -97,6 +98,7 @@ export function createElectronApiMock(): ElectronApiMock {
     samplerReload: vi.fn(async () => ({})),
     samplerPickFile: vi.fn(async () => null),
     vstSetProgram: vi.fn(async () => null),
+    vstVoices: vi.fn(async () => 0),
     collectionStatus: vi.fn(async () => []),
     collectionReadiness: vi.fn(async () => ({
       total: 40,

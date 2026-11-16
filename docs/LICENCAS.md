@@ -44,6 +44,22 @@ O instrumento nativo **Preseter Tines** usa o DSP e os samples do mda ePiano.
 - Os samples (`mdaEPianoData.h`) fazem parte da distribuição do porte MIT e são
   usados com atribuição a Paul Kellett e M.I. Hollemans.
 
+## MDA Piano, DX10 e JX10 — Preseter Piano, Preseter DX10 e Preseter JX10
+
+Os instrumentos nativos **Preseter Piano**, **Preseter DX10** e **Preseter JX10**
+usam o código original do MDA (Piano, DX10 e JX10) através do porte JUCE.
+
+- Código original: **mda Piano**, **mda DX10** e **mda JX10**,
+  Copyright (c) Paul Kellett.
+- Porte JUCE: https://github.com/hollance/mda-plugins-juce
+- Commit fixado: `552702479a9eac534f3abbf6e878a5eab473e0cb` (2026-02-25)
+- Licença: MIT (`engine/third_party/mda-piano|mda-dx10|mda-jx10/LICENSE`).
+- Arquivos e adaptações: `engine/third_party/mda-piano|mda-dx10|mda-jx10/`.
+- O `mdaPianoData.h` (samples do piano) faz parte da distribuição do porte MIT e
+  é usado com atribuição a Paul Kellett e M.I. Hollemans.
+- Os três rodam como instrumentos delegados: o `NativeProcessor` do Preseter
+  expõe os parâmetros e o estado do `AudioProcessor` original.
+
 ## OpenWurli — motor do Preseter Wurly
 
 O instrumento nativo **Preseter Wurly** usa o DSP do projeto OpenWurli.

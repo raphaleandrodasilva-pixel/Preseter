@@ -18,6 +18,8 @@ interface AssignmentsMappingsTableProps {
   currentSet: PresetSet | null;
   layout: LayoutConfig | null;
   scannedPlugins: VstPluginInfo[];
+  /** Plugins carregados: fonte dos parâmetros dos instrumentos nativos. */
+  loadedPlugins?: VstPluginInfo[];
   onChange: (mappings: ConcertMapping[]) => void;
   onClose: () => void;
 }
@@ -86,6 +88,7 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
   currentSet,
   layout,
   scannedPlugins,
+  loadedPlugins = [],
   onChange,
   onClose,
 }) => {
@@ -103,10 +106,16 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
     () => (currentPatch?.plugins ?? []).filter((plugin) => plugin.role === 'instrument'),
     [currentPatch]
   );
-  const parameters = useMemo(
-    () => scannedPlugins.find((plugin) => plugin.path === pluginPath)?.parameters ?? [],
-    [scannedPlugins, pluginPath]
-  );
+  const parameters = useMemo(() => {
+    const scanned = scannedPlugins.find((plugin) => plugin.path === pluginPath)?.parameters ?? [];
+    if (scanned.length > 0) return scanned;
+    // Instrumentos nativos (e VST recém-carregados) expõem os parâmetros só
+    // depois de carregados; `loadedPlugins` é a fonte nesse caso.
+    const loaded = loadedPlugins.find(
+      (plugin) => plugin.path === pluginPath || plugin.id === pluginPath
+    );
+    return loaded?.parameters ?? [];
+  }, [scannedPlugins, loadedPlugins, pluginPath]);
 
   const addMapping = () => {
     const source: MidiBinding = {
@@ -266,7 +275,11 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
                   </label>
                   <label className="text-[11px] md:col-span-2" style={{ color: '#9A9AA0' }}>Parâmetro
                     <select className={`${classInput} mt-1`} value={parameterId} onChange={(event) => setParameterId(event.target.value)} disabled={!pluginPath}>
-                      <option value="">Selecione…</option>
+                      <option value="">
+                        {pluginPath && parameters.length === 0
+                          ? 'Carregue o patch para ler os parâmetros'
+                          : 'Selecione…'}
+                      </option>
                       {parameters.map((parameter) => (
                         <option key={parameter.id} value={parameter.id}>{parameter.name}</option>
                       ))}

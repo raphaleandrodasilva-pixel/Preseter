@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startupProgress: (percent: number, message?: string) =>
     ipcRenderer.send('startup-progress', { percent, message }),
   startupReady: () => ipcRenderer.send('startup-ready'),
+  /** A interface já pintou: só então a janela principal pode aparecer. */
+  startupPainted: () => ipcRenderer.send('startup-painted'),
   vstHidePlugin: (idOrPath: string) => ipcRenderer.invoke('vst-hide-plugin', idOrPath),
   vstShowPlugin: (idOrPath: string) => ipcRenderer.invoke('vst-show-plugin', idOrPath),
   vstAddPluginFolder: () => ipcRenderer.invoke('vst-add-plugin-folder'),
@@ -45,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   samplerReload: (layerId: string, samplePath: string, options?: Record<string, unknown>) =>
     ipcRenderer.invoke('sampler-reload', layerId, samplePath, options),
   vstSetProgram: (layerId: string, index: number) => ipcRenderer.invoke('vst-set-program', layerId, index),
+  vstVoices: (layerId: string) => ipcRenderer.invoke('vst-voices', layerId),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) =>
     ipcRenderer.invoke('vst-set-param', pluginId, paramId, value, slot),

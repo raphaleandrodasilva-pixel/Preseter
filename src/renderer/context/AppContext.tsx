@@ -674,6 +674,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setMidiError(error instanceof Error ? error.message : 'Falha ao iniciar os serviços do Preseter.');
       } finally {
         window.electronAPI.startupReady();
+        // Só avisa que pode mostrar a janela depois de dois frames: o primeiro
+        // garante que o React já desenhou, o segundo que o compositor pintou.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => window.electronAPI.startupPainted());
+        });
       }
     };
     void loadData();

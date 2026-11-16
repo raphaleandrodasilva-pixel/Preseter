@@ -167,6 +167,8 @@ public:
     juce::var describeSampler (const juce::String& layerId) const;
     /** Por padrão só os automatizáveis (esconde os ~2000 "MIDI CC" do wrapper VST3). */
     juce::var listParameters (const juce::String& layerId, bool includeNonAutomatable = false, int slot = -1) const;
+    /** Vozes ativas do instrumento nativo do layer (0 quando não houver). */
+    int getActiveVoices (const juce::String& layerId = {}) const;
     juce::String setParameter (const juce::String& layerId, int index, float normalizedValue, juce::var& result, int slot = -1);
     juce::String getParameter (const juce::String& layerId, int index, juce::var& result, int slot = -1) const;
 

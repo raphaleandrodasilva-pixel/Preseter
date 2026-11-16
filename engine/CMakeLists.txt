@@ -89,6 +89,12 @@ target_sources(PreseterEngine PRIVATE
     src/native/NativeProcessor.cpp
     src/native/SetBfreeOrganProcessor.cpp
     src/native/WurliProcessor.cpp
+    src/native/MdaPianoFactory.cpp
+    src/native/MdaDxFactory.cpp
+    src/native/MdaJxFactory.cpp
+    third_party/mda-piano/PluginProcessor.cpp
+    third_party/mda-dx10/PluginProcessor.cpp
+    third_party/mda-jx10/PluginProcessor.cpp
     third_party/mda-epiano/MdaEPianoDsp.cpp
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
@@ -96,6 +102,10 @@ target_sources(PreseterEngine PRIVATE
 
 target_include_directories(PreseterEngine PRIVATE
     src
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-common"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-piano"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-dx10"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-jx10"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-epiano"
     "${PRESETER_SETBFREE_DIR}/src"
     "${PRESETER_SETBFREE_DIR}/b_whirl"

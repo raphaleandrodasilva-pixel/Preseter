@@ -10,14 +10,25 @@ interface MappingTableProps {
   onSelect: (id: string) => void;
 }
 
-export function buildScannedParams(scannedPlugins: VstPluginInfo[]): {
+export function buildScannedParams(
+  scannedPlugins: VstPluginInfo[],
+  loadedPlugins: VstPluginInfo[] = []
+): {
   path: string;
   params: { id: string; name: string }[];
 }[] {
-  return scannedPlugins.map((plugin) => ({
-    path: plugin.path,
-    params: plugin.parameters.map((p) => ({ id: p.id, name: p.name })),
-  }));
+  // O scan não conhece os instrumentos nativos (nem sempre lista os parâmetros
+  // de um VST recém-carregado), então os carregados entram como complemento.
+  // O scan vence quando os dois têm o mesmo caminho.
+  const byPath = new Map<string, { id: string; name: string }[]>();
+  const add = (plugin: VstPluginInfo) => {
+    const key = plugin.path || plugin.id;
+    if (!key || byPath.has(key) || plugin.parameters.length === 0) return;
+    byPath.set(key, plugin.parameters.map((p) => ({ id: p.id, name: p.name })));
+  };
+  scannedPlugins.forEach(add);
+  loadedPlugins.forEach(add);
+  return [...byPath.entries()].map(([path, params]) => ({ path, params }));
 }
 
 export const MappingTable: React.FC<MappingTableProps> = ({

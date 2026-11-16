@@ -49,6 +49,8 @@ export interface EnginePluginInfo {
   isInstrument: boolean;
   inputs: number;
   outputs: number;
+  /** Nomes dos programas internos (instrumentos nativos/MDA). */
+  programNames?: string[];
 }
 
 export interface EngineLoadedPlugin {
@@ -75,6 +77,8 @@ export interface EngineLoadedPlugin {
   program?: number;
   /** Quantidade de programas internos expostos pelo plugin. */
   programCount?: number;
+  /** Nomes dos programas internos (instrumentos nativos/MDA). */
+  programNames?: string[];
 }
 
 export interface EngineParameter {
@@ -241,6 +245,8 @@ export interface EngineCommands {
   plugin: { args: {}; result: EngineLoadedPlugin | null };
   /** `all: true` inclui também os não automatizáveis. */
   params: { args: { all?: boolean; layerId?: string; slot?: number }; result: EngineParameter[] };
+  /** Vozes ativas do instrumento nativo do layer (rodapé do painel). */
+  voices: { args: { layerId?: string }; result: { activeVoices: number } };
   getParam: { args: { index: number; layerId?: string; slot?: number }; result: EngineParameter };
   setParam: { args: { index: number; value: number; layerId?: string; slot?: number }; result: EngineParameter };
   /** Estado completo do plugin (chunk) em base64. `slot` busca um insert; sem ele, o instrumento. */

@@ -215,7 +215,8 @@ void CommandRouter::handleLine (const juce::String& line)
             return;
         }
 
-        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds")
+        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
+            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -311,7 +312,8 @@ void CommandRouter::handleLine (const juce::String& line)
             return;
         }
 
-        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds")
+        if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
+            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -511,6 +513,12 @@ void CommandRouter::handleLine (const juce::String& line)
         ok (id, engine.listParameters (message["layerId"].toString(),
                                        boolArg (message, "all", false),
                                        intArg (message, "slot", -1)));
+        return;
+    }
+
+    if (cmd == "voices")
+    {
+        ok (id, Obj().set ("activeVoices", engine.getActiveVoices (message["layerId"].toString())));
         return;
     }
 

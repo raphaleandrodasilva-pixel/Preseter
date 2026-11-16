@@ -181,6 +181,51 @@ describe('AssignmentsMappingsTable', () => {
     ]);
   });
 
+  it('lista os parâmetros de um instrumento nativo já carregado', () => {
+    const nativePatch = createPreset({
+      id: 'preset-native',
+      name: 'Patch nativo',
+      plugins: [
+        {
+          pluginId: 'preseter.piano',
+          layerId: 'native-1',
+          name: 'Preseter Piano',
+          path: 'preseter.piano',
+          role: 'instrument',
+        },
+      ],
+    });
+    const { onChange } = setup({
+      currentPatch: nativePatch,
+      presets: [nativePatch],
+      scannedPlugins: [],
+      loadedPlugins: [
+        createPluginInfo({
+          id: 'preseter.piano',
+          layerId: 'native-1',
+          name: 'Preseter Piano',
+          path: 'preseter.piano',
+          format: 'Native',
+          parameters: [
+            { id: '0', name: 'Envelope Decay', label: '%', value: 0.5, defaultValue: 0.5, minValue: 0, maxValue: 1, stepCount: 100 },
+            { id: '1', name: 'Envelope Release', label: '%', value: 0.5, defaultValue: 0.5, minValue: 0, maxValue: 1, stepCount: 100 },
+          ],
+        }),
+      ],
+    });
+
+    select('Destino', 'parameter');
+    select('Plugin', 'preseter.piano');
+    expect(screen.getByLabelText('Parâmetro')).toBeEnabled();
+    expect(screen.getByRole('option', { name: 'Envelope Decay' })).toBeInTheDocument();
+
+    select('Parâmetro', '0');
+    fireEvent.click(screen.getByText('Adicionar'));
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ pluginPath: 'preseter.piano', parameterId: '0' }),
+    ]);
+  });
+
   it('warns when the selected scope is unavailable', () => {
     setup({ currentSet: null });
     select('Nível', 'set');

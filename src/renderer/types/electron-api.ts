@@ -62,6 +62,8 @@ export interface ElectronAPI {
   vstScanReport: () => Promise<VstScanReport>;
   startupProgress: (percent: number, message?: string) => void;
   startupReady: () => void;
+  /** Avisa o processo principal que a interface pintou o primeiro quadro. */
+  startupPainted: () => void;
   vstHidePlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstShowPlugin: (idOrPath: string) => Promise<{ hiddenPluginIds: string[]; plugins: VstPluginInfo[] }>;
   vstAddPluginFolder: () => Promise<{ canceled: boolean; folder?: string; folders?: string[]; plugins: VstPluginInfo[] }>;
@@ -71,6 +73,8 @@ export interface ElectronAPI {
   samplerInfo: (layerId: string) => Promise<Record<string, unknown>>;
   samplerReload: (layerId: string, samplePath: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   vstSetProgram: (layerId: string, index: number) => Promise<VstPluginInfo | null>;
+  /** Vozes ativas do instrumento nativo (painel do instrumento). */
+  vstVoices: (layerId: string) => Promise<number>;
   vstUnload: (pluginId: string) => Promise<boolean>;
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) => Promise<boolean>;
   vstParams: (ownerId: string, slot?: number) => Promise<EngineParameter[]>;

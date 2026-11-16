@@ -2326,6 +2326,11 @@ juce::AudioProcessor* Engine::getProcessor (const juce::String& requestedLayerId
     Graph::Node::Ptr node;
     if (insertSlot < 0)
     {
+        // Instrumentos delegados (MDA) expõem os parâmetros do AudioProcessor
+        // original; o engine usa essa instância para params/estado.
+        if (layer.native != nullptr)
+            if (auto* delegated = layer.native->getParameterProcessor())
+                return delegated;
         node = layer.pluginNode;
     }
     else if (insertSlot < kMaxInserts)
@@ -2334,6 +2339,17 @@ juce::AudioProcessor* Engine::getProcessor (const juce::String& requestedLayerId
     }
 
     return node != nullptr ? node->getProcessor() : nullptr;
+}
+
+int Engine::getActiveVoices (const juce::String& requestedLayerId) const
+{
+    const auto layerId = resolveLayerId (requestedLayerId);
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return 0;
+
+    const auto& layer = layers[(size_t) index];
+    return layer.native != nullptr ? layer.native->getActiveVoices() : 0;
 }
 
 int Engine::findBus (const juce::String& busId) const
@@ -3475,11 +3491,19 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
 
     if (layer.native != nullptr)
     {
+        auto* parameterSource = layer.native->getParameterProcessor();
+        const auto& nativeParameters = parameterSource != nullptr
+                                           ? parameterSource->getParameters()
+                                           : layer.native->getParameters();
         int automatableCount = 0;
-        for (auto* parameter : layer.native->getParameters())
+        for (auto* parameter : nativeParameters)
             if (parameter->isAutomatable())
                 ++automatableCount;
 
+        juce::Array<juce::var> programNames;
+        const int nativeProgramCount = layer.native->getNumPrograms();
+        for (int programIndex = 0; programIndex < nativeProgramCount; ++programIndex)
+            programNames.add (layer.native->getProgramName (programIndex));
         return Obj()
             .set ("layerId", layer.id)
             .set ("id", layer.native->getStableId())
@@ -3496,9 +3520,10 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
             .set ("maxNote", layer.maxNote)
             .set ("pinned", layer.pinned)
             .set ("parameterCount", automatableCount)
-            .set ("parameterCountTotal", layer.native->getParameters().size())
+            .set ("parameterCountTotal", nativeParameters.size())
             .set ("program", layer.native->getCurrentProgram())
-            .set ("programCount", layer.native->getNumPrograms());
+            .set ("programCount", nativeProgramCount)
+            .set ("programNames", juce::var (programNames));
     }
 
     auto* plugin = getPlugin (layerId);

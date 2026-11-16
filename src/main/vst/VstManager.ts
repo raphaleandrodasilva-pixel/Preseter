@@ -715,6 +715,14 @@ export class VstManager extends EventEmitter {
     return [...this.loadedPlugins.values()];
   }
 
+  /** Vozes ativas do instrumento nativo do layer (0 para VST/efeitos). */
+  async getActiveVoices(layerOrPluginId: string): Promise<number> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return 0;
+    const result = await this.engine.request('voices', { layerId: plugin.layerId });
+    return Number(result?.activeVoices ?? 0);
+  }
+
   async getAudioDevices() {
     return this.engine.request('audioConfiguration', {});
   }
@@ -823,6 +831,9 @@ export class VstManager extends EventEmitter {
       arch: this.detectArch(plugin.path),
       program: 'program' in plugin ? plugin.program : undefined,
       programCount: 'programCount' in plugin ? plugin.programCount : undefined,
+      programNames: 'programNames' in plugin && Array.isArray(plugin.programNames)
+        ? plugin.programNames.map((name) => String(name))
+        : undefined,
     };
   }
 
