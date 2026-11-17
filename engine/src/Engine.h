@@ -94,7 +94,7 @@ public:
     ~Engine() override;
 
     // ---- Áudio e MIDI ----------------------------------------------------
-    /** Opções: inputs, outputs, type, input, output, sampleRate, bufferSize, midi. */
+    /** Opções: inputs, outputs, useDefaultChannels, type, input, output, sampleRate, bufferSize, midi. */
     juce::String startAudio (const juce::var& options);
     void stopAudio();
     bool isAudioRunning() const;
@@ -267,6 +267,8 @@ private:
     void audioDeviceStopped() override;
     void handleIncomingMidiMessage (juce::MidiInput* source, const juce::MidiMessage& message) override;
 
+    Graph::Node::Ptr addGraphNode (std::unique_ptr<juce::AudioProcessor> processor);
+    void removeGraphNode (Graph::NodeID nodeId);
     void rebuildConnections();
     void updateSoloState();
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
@@ -329,6 +331,8 @@ private:
     bool timingCallbackAttached = false;
     juce::KnownPluginList knownPlugins;
     Graph graph;
+    juce::CriticalSection audioGraphLock;
+    std::atomic<bool> audioPrepared { false };
     juce::MidiMessageCollector midiCollector;
     /** Canais de entrada que não têm um canal de saída correspondente. */
     juce::AudioBuffer<float> inputScratch;

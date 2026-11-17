@@ -483,6 +483,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                         output: audioOutput || undefined,
                         inputs: audioInput ? 2 : 0,
                         outputs: audioOutputPairs * 2,
+                        useDefaultChannels: false,
                         ...(followDevice ? { followDevice: true } : { sampleRate, bufferSize }),
                       });
                       if (!started) {

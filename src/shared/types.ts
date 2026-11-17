@@ -738,6 +738,8 @@ export interface AudioStartOptions {
   sampleRate?: number;
   bufferSize?: number;
   midi?: boolean;
+  /** Usa os canais padrão do driver, como o Element. */
+  useDefaultChannels?: boolean;
   /** Usa a taxa e o buffer atuais do dispositivo, sem forçar valores. */
   followDevice?: boolean;
 }

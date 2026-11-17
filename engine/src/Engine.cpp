@@ -1332,16 +1332,16 @@ Engine::Engine()
         knownPlugins.recreateFromXml (*xml);
 
     using IO = Graph::AudioGraphIOProcessor;
-    audioInNode  = graph.addNode (std::make_unique<IO> (IO::audioInputNode));
-    audioOutNode = graph.addNode (std::make_unique<IO> (IO::audioOutputNode));
-    midiInNode   = graph.addNode (std::make_unique<IO> (IO::midiInputNode));
-    midiThruNode = graph.addNode (std::make_unique<MidiThruFilter>());
-    audioInputNode = graph.addNode (std::make_unique<AudioInputProcessor>());
-    metronomeNode = graph.addNode (std::make_unique<MetronomeProcessor>());
-    recorderNode = graph.addNode (std::make_unique<RecorderProcessor>());
-    playbackNode = graph.addNode (std::make_unique<PlaybackProcessor>());
-    masterNode   = graph.addNode (std::make_unique<ChannelStripProcessor>());
-    limiterNode  = graph.addNode (std::make_unique<SafetyLimiterProcessor>());
+    audioInNode  = addGraphNode (std::make_unique<IO> (IO::audioInputNode));
+    audioOutNode = addGraphNode (std::make_unique<IO> (IO::audioOutputNode));
+    midiInNode   = addGraphNode (std::make_unique<IO> (IO::midiInputNode));
+    midiThruNode = addGraphNode (std::make_unique<MidiThruFilter>());
+    audioInputNode = addGraphNode (std::make_unique<AudioInputProcessor>());
+    metronomeNode = addGraphNode (std::make_unique<MetronomeProcessor>());
+    recorderNode = addGraphNode (std::make_unique<RecorderProcessor>());
+    playbackNode = addGraphNode (std::make_unique<PlaybackProcessor>());
+    masterNode   = addGraphNode (std::make_unique<ChannelStripProcessor>());
+    limiterNode  = addGraphNode (std::make_unique<SafetyLimiterProcessor>());
 
     // Barramentos do concert: 4 Aux + 4 Output (Fase 3.2). O strip do barramento
     // não participa do solo (soloCount = nullptr), só do seu próprio mute.
@@ -1352,7 +1352,7 @@ Engine::Engine()
         bus.kind = Bus::Kind::aux;
         bus.index = i;
         bus.output = 1;
-        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        bus.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor>());
         buses.push_back (std::move (bus));
     }
     for (int i = 0; i < kOutputBuses; ++i)
@@ -1361,7 +1361,7 @@ Engine::Engine()
         bus.id = "output" + juce::String (i + 1);
         bus.kind = Bus::Kind::output;
         bus.index = i;
-        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        bus.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor>());
         buses.push_back (std::move (bus));
     }
 
@@ -1372,11 +1372,20 @@ Engine::Engine()
         bus.id = "patch";
         bus.kind = Bus::Kind::patch;
         bus.index = 0;
-        bus.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor>());
+        bus.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor>());
         buses.push_back (std::move (bus));
     }
 
     deviceManager.addChangeListener (this);
+
+    // Igual ao DeviceManager::attach do Element: o callback de áudio/MIDI é
+    // ligado uma única vez, antes de qualquer abertura de dispositivo.
+    deviceManager.addAudioCallback (this);
+    deviceManager.addAudioCallback (&timingCallback);
+    deviceManager.addMidiInputDeviceCallback ({}, this);
+    audioCallbackAttached = true;
+    timingCallbackAttached = true;
+    midiCallbackAttached = true;
 }
 
 Engine::~Engine()
@@ -1385,12 +1394,33 @@ Engine::~Engine()
     // Fecha as janelas de edição antes de destruir os plugins (o editor as referencia).
     editorWindows.clear();
     stopTimer();
-    deviceManager.removeChangeListener (this);
+    deviceManager.removeMidiInputDeviceCallback ({}, this);
     stopAudio();
-    graph.clear();
+    deviceManager.removeAudioCallback (this);
+    deviceManager.removeAudioCallback (&timingCallback);
+    midiCallbackAttached = false;
+    audioCallbackAttached = false;
+    timingCallbackAttached = false;
+    deviceManager.removeChangeListener (this);
+    {
+        const juce::ScopedLock lock (audioGraphLock);
+        graph.clear();
+    }
 }
 
 // ---- Áudio e MIDI -----------------------------------------------------------
+Engine::Graph::Node::Ptr Engine::addGraphNode (std::unique_ptr<juce::AudioProcessor> processor)
+{
+    const juce::ScopedLock lock (audioGraphLock);
+    return graph.addNode (std::move (processor));
+}
+
+void Engine::removeGraphNode (Graph::NodeID nodeId)
+{
+    const juce::ScopedLock lock (audioGraphLock);
+    graph.removeNode (nodeId);
+}
+
 void Engine::AudioTimingCallback::audioDeviceAboutToStart (juce::AudioIODevice* device)
 {
     xruns.store (0, std::memory_order_relaxed);
@@ -1428,6 +1458,9 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     if (device == nullptr)
         return;
 
+    const juce::ScopedLock lock (audioGraphLock);
+    audioPrepared.store (false, std::memory_order_release);
+
     const double sampleRate = device->getCurrentSampleRate();
     const int blockSize = device->getCurrentBufferSizeSamples();
     const int numIn = device->getActiveInputChannels().countNumberOfSetBits();
@@ -1445,6 +1478,7 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     graph.reset();
 
     inputScratch.setSize (juce::jmax (0, numIn - numOut), blockSize, false, false, true);
+    audioPrepared.store (true, std::memory_order_release);
 }
 
 void Engine::audioDeviceIOCallbackWithContext (
@@ -1460,12 +1494,30 @@ void Engine::audioDeviceIOCallbackWithContext (
     if (numSamples <= 0 || numOutputChannels <= 0)
         return;
 
-    const int totalChannels = juce::jmax (numInputChannels, numOutputChannels);
-    if (totalChannels > 32)
+    const auto clearOutputs = [outputChannelData, numOutputChannels, numSamples]
     {
         for (int channel = 0; channel < numOutputChannels; ++channel)
             if (outputChannelData[channel] != nullptr)
                 juce::FloatVectorOperations::clear (outputChannelData[channel], numSamples);
+    };
+
+    if (! audioPrepared.load (std::memory_order_acquire))
+    {
+        clearOutputs();
+        return;
+    }
+
+    const juce::ScopedLock lock (audioGraphLock);
+    if (! audioPrepared.load (std::memory_order_acquire))
+    {
+        clearOutputs();
+        return;
+    }
+
+    const int totalChannels = juce::jmax (numInputChannels, numOutputChannels);
+    if (totalChannels > 32)
+    {
+        clearOutputs();
         return;
     }
 
@@ -1505,19 +1557,24 @@ void Engine::audioDeviceIOCallbackWithContext (
 
 void Engine::audioDeviceStopped()
 {
+    const juce::ScopedLock lock (audioGraphLock);
+    audioPrepared.store (false, std::memory_order_release);
     graph.releaseResources();
     inputScratch.setSize (0, 0);
 }
 
 void Engine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
 {
-    midiCollector.addMessageToQueue (message);
+    if (audioPrepared.load (std::memory_order_acquire))
+        midiCollector.addMessageToQueue (message);
 }
 
 juce::String Engine::startAudio (const juce::var& options)
 {
     const int numIn  = options.hasProperty ("inputs")  ? (int) options["inputs"]  : 0;
     const int numOut = options.hasProperty ("outputs") ? (int) options["outputs"] : 2;
+    const bool useDefaultChannels = options.hasProperty ("useDefaultChannels")
+                                    && (bool) options["useDefaultChannels"];
     const bool followDevice = options.hasProperty ("followDevice")
                               && (bool) options["followDevice"];
 
@@ -1525,36 +1582,35 @@ juce::String Engine::startAudio (const juce::var& options)
     if (options.hasProperty ("type"))
         requestedType = options["type"].toString().trim();
 
-    bool requestedAvailable = requestedType.isEmpty();
-    if (! requestedType.isEmpty())
+    auto isTypeAvailable = [this] (const juce::String& typeName)
     {
-        for (auto* type : deviceManager.getAvailableDeviceTypes())
-        {
-            if (type->getTypeName().equalsIgnoreCase (requestedType))
-            {
-                requestedAvailable = true;
-                break;
-            }
-        }
+        if (typeName.isEmpty())
+            return true;
 
-        if (! requestedAvailable)
-        {
-            if (requestedType.containsIgnoreCase ("JACK"))
-                return utf8 ("JACK não está disponível neste engine. Compile com PRESETER_ENABLE_JACK=ON e instale libjack.");
-            // Tipos salvos em outro sistema (ex.: Windows Audio no Linux) são ignorados;
-            // o engine segue com o dispositivo padrão.
-        }
+        for (auto* type : deviceManager.getAvailableDeviceTypes())
+            if (type->getTypeName().equalsIgnoreCase (typeName))
+                return true;
+
+        return false;
+    };
+
+    bool requestedAvailable = isTypeAvailable (requestedType);
+    if (! requestedAvailable && requestedType.containsIgnoreCase ("JACK"))
+        return utf8 ("JACK não está disponível neste engine. Compile com PRESETER_ENABLE_JACK=ON e instale libjack.");
+
+    const bool isJack = requestedType.containsIgnoreCase ("JACK");
+
+    // Sem configuração salva no Windows, começa no modo que o Element usa.
+    if (! isJack && requestedType.isEmpty())
+    {
+       #if JUCE_WINDOWS
+        requestedType = "Windows Audio (Low Latency Mode)";
+       #endif
     }
 
-    const bool isJack = requestedAvailable && requestedType.containsIgnoreCase ("JACK");
+    requestedAvailable = isTypeAvailable (requestedType);
 
-    // Fecha o dispositivo atual antes de montar a nova configuração. ASIO4ALL
-    // e WASAPI exclusivo não gostam de receber setAudioDeviceSetup em um
-    // dispositivo já aberto; o Element fecha e reabre do zero.
-    stopAudio();
-
-    // Igual ao Element: usa os canais padrão do driver em vez de forçar uma
-    // máscara fixa. No ASIO4ALL isso abre 2 entradas + 2 saídas.
+    // O modo padrão segue os canais ativos do driver, como o Element.
     juce::AudioDeviceManager::AudioDeviceSetup setup;
     if (options.hasProperty ("output")) setup.outputDeviceName = options["output"].toString();
     if (options.hasProperty ("input"))  setup.inputDeviceName  = options["input"].toString();
@@ -1574,7 +1630,7 @@ juce::String Engine::startAudio (const juce::var& options)
     if (! isJack && ! followDevice && options.hasProperty ("bufferSize"))
         setup.bufferSize = (int) options["bufferSize"];
 
-    if (isJack)
+    if (isJack || ! useDefaultChannels)
     {
         setup.useDefaultInputChannels  = false;
         setup.useDefaultOutputChannels = false;
@@ -1585,7 +1641,6 @@ juce::String Engine::startAudio (const juce::var& options)
     }
     else
     {
-        // Sem máscara explícita: o JUCE usa os canais padrão do dispositivo.
         setup.useDefaultInputChannels  = true;
         setup.useDefaultOutputChannels = true;
         setup.inputChannels.clear();
@@ -1623,17 +1678,77 @@ juce::String Engine::startAudio (const juce::var& options)
         }
     }
 
-    juce::String error;
-    bool opened = false;
+    auto* currentDevice = deviceManager.getCurrentAudioDevice();
+    const auto currentSetup = deviceManager.getAudioDeviceSetup();
+    const int currentInputs = currentDevice != nullptr
+        ? currentDevice->getActiveInputChannels().countNumberOfSetBits()
+        : 0;
+    const int currentOutputs = currentDevice != nullptr
+        ? currentDevice->getActiveOutputChannels().countNumberOfSetBits()
+        : 0;
+    const bool channelsMatch = useDefaultChannels
+        ? currentSetup.useDefaultInputChannels && currentSetup.useDefaultOutputChannels
+        : ! currentSetup.useDefaultInputChannels && ! currentSetup.useDefaultOutputChannels
+          && currentInputs == numIn && currentOutputs == numOut;
+    const bool typeMatches = currentDevice != nullptr
+        && (requestedType.isEmpty()
+            || currentDevice->getTypeName().equalsIgnoreCase (requestedType));
+    const bool sameDevice = typeMatches
+        && channelsMatch
+        && (setup.outputDeviceName.isEmpty() || currentSetup.outputDeviceName == setup.outputDeviceName)
+        && (setup.inputDeviceName.isEmpty() || currentSetup.inputDeviceName == setup.inputDeviceName);
+    const bool sameRate = followDevice || setup.sampleRate <= 0.0
+        || std::abs (currentSetup.sampleRate - setup.sampleRate) < 0.5;
+    const bool sameBuffer = followDevice || setup.bufferSize <= 0
+        || currentSetup.bufferSize == setup.bufferSize;
 
-    if (! isJack && requestedType.isNotEmpty() && setup.outputDeviceName.isNotEmpty())
+    // Mesma configuração e dispositivo aberto: não reabre.
+    if (sameDevice && sameRate && sameBuffer)
     {
-        // Mesmo formato que o Element salva: nomes de entrada/saída, taxa e
-        // buffer. Não gravamos audioDeviceInChans/OutChans para que o JUCE
-        // negocie os canais padrão com o driver.
+        rebuildConnections();
+        return {};
+    }
+
+    // Troca de configuração no dispositivo aberto: setAudioDeviceSetup, como
+    // o Element. Só fecha/reabre se o driver recusar.
+    if (! isJack && currentDevice != nullptr && typeMatches)
+    {
+        const auto error = deviceManager.setAudioDeviceSetup (setup, true);
+        if (error.isEmpty())
+        {
+            rebuildConnections();
+            return {};
+        }
+    }
+
+    // Abre do zero. Fecha o dispositivo, mas mantém os callbacks ligados.
+    stopAudio();
+
+    juce::String error;
+    if (isJack)
+    {
+        error = deviceManager.initialise (numIn, numOut, nullptr, true);
+        if (error.isNotEmpty())
+            return utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error;
+
+        if (requestedAvailable && requestedType.isNotEmpty())
+            deviceManager.setCurrentAudioDeviceType (requestedType, true);
+
+        if (deviceManager.getCurrentAudioDevice() == nullptr)
+            return utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.");
+
+        error = deviceManager.setAudioDeviceSetup (setup, true);
+        if (error.isNotEmpty())
+            return utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error;
+    }
+    else
+    {
+        // Sem máscaras no XML, o JUCE usa os canais padrão do driver, como o Element.
         juce::XmlElement xml ("DEVICESETUP");
-        xml.setAttribute ("deviceType", requestedType);
-        if (setup.outputDeviceName == setup.inputDeviceName)
+        if (requestedType.isNotEmpty())
+            xml.setAttribute ("deviceType", requestedType);
+        if (setup.outputDeviceName.isNotEmpty()
+            && setup.outputDeviceName == setup.inputDeviceName)
             xml.setAttribute ("audioDeviceName", setup.outputDeviceName);
         else
         {
@@ -1646,38 +1761,34 @@ juce::String Engine::startAudio (const juce::var& options)
             xml.setAttribute ("audioDeviceRate", setup.sampleRate);
         if (setup.bufferSize > 0)
             xml.setAttribute ("audioDeviceBufferSize", setup.bufferSize);
+        if (! useDefaultChannels)
+        {
+            xml.setAttribute ("audioDeviceInChans", setup.inputChannels.toString (2));
+            xml.setAttribute ("audioDeviceOutChans", setup.outputChannels.toString (2));
+        }
 
         error = deviceManager.initialise (128, 128, &xml, true, "*", nullptr);
-        auto* openedDevice = deviceManager.getCurrentAudioDevice();
-        opened = error.isEmpty() && openedDevice != nullptr
-            && (requestedType.isEmpty()
-                || openedDevice->getTypeName().equalsIgnoreCase (requestedType));
-    }
+        if (error.isEmpty() && deviceManager.getCurrentAudioDevice() == nullptr)
+            error = utf8 ("Nenhum dispositivo de áudio pôde ser aberto.");
 
-    if (! opened)
-    {
-        // Plano B: caminho clássico do JUCE para drivers que recusam o XML.
-        // Fora do JACK pedimos apenas estéreo; o XML acima já usa os canais
-        // padrão do driver quando o nome do dispositivo está disponível.
-        error = deviceManager.initialise (isJack ? numIn : 2,
-                                          isJack ? numOut : 2,
-                                          nullptr, true);
         if (error.isNotEmpty())
-            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                          : error;
+        {
+            const auto fallbackSetup = deviceManager.getAudioDeviceSetup();
+            error = deviceManager.setAudioDeviceSetup (fallbackSetup, true);
+            if (error.isEmpty() && deviceManager.getCurrentAudioDevice() == nullptr)
+                error = utf8 ("Nenhum dispositivo de áudio pôde ser aberto.");
+        }
 
-        if (requestedAvailable && requestedType.isNotEmpty())
-            deviceManager.setCurrentAudioDeviceType (requestedType, true);
-
-        if (deviceManager.getCurrentAudioDevice() == nullptr)
-            return isJack
-                ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
-                : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
-
-        error = deviceManager.setAudioDeviceSetup (setup, true);
         if (error.isNotEmpty())
-            return isJack ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas. ") + error
-                          : error;
+        {
+           #if JUCE_WINDOWS
+            deviceManager.setCurrentAudioDeviceType ("Windows Audio (Low Latency Mode)", true);
+           #endif
+            error = deviceManager.initialiseWithDefaultDevices (128, 128);
+        }
+
+        if (error.isNotEmpty())
+            return error;
     }
 
     // O JUCE pode devolver "sem erro" mesmo sem nenhum dispositivo aberto.
@@ -1686,26 +1797,8 @@ juce::String Engine::startAudio (const juce::var& options)
             ? utf8 ("JACK não abriu. Inicie o servidor JACK/PipeWire e confira as portas.")
             : utf8 ("Nenhum dispositivo de áudio pôde ser aberto. Verifique a placa de som e o driver.");
 
-    if (requestedAvailable && ! requestedType.isEmpty()
-        && ! deviceManager.getCurrentAudioDevice()->getTypeName().equalsIgnoreCase (requestedType))
-        return utf8 ("O backend de áudio solicitado não pôde ser aberto: ") + requestedType;
-
-    // O dispositivo já foi fechado por stopAudio; o próprio Engine é o
-    // callback de áudio/MIDI, como o AudioEngine do Element.
-    deviceManager.addAudioCallback (this);
-    audioCallbackAttached = true;
-
-    if (! timingCallbackAttached)
-    {
-        deviceManager.addAudioCallback (&timingCallback);
-        timingCallbackAttached = true;
-    }
-
-    if (! midiCallbackAttached)
-    {
-        deviceManager.addMidiInputDeviceCallback ({}, this);
-        midiCallbackAttached = true;
-    }
+    // O callback já foi ligado no construtor (como o DeviceManager::attach
+    // do Element); startAudio não adiciona nem remove callbacks.
 
     if (! options.hasProperty ("midi") || (bool) options["midi"])
         for (const auto& device : juce::MidiInput::getAvailableDevices())
@@ -1717,27 +1810,9 @@ juce::String Engine::startAudio (const juce::var& options)
 
 void Engine::stopAudio()
 {
-    if (midiCallbackAttached)
-    {
-        deviceManager.removeMidiInputDeviceCallback ({}, this);
-        midiCallbackAttached = false;
-    }
-
-    if (audioCallbackAttached)
-    {
-        deviceManager.removeAudioCallback (this);
-        audioCallbackAttached = false;
-    }
-
-    if (timingCallbackAttached)
-    {
-        deviceManager.removeAudioCallback (&timingCallback);
-        timingCallbackAttached = false;
-    }
-
-    // Libera o grafo antes de fechar; na reabertura audioDeviceAboutToStart
-    // prepara tudo de novo com a taxa/block size do dispositivo escolhido.
-    graph.releaseResources();
+    // O callback permanece ligado (como no DeviceManager::attach do Element).
+    // O JUCE chama audioDeviceStopped antes de fechar; esse callback libera o
+    // grafo sem competir com o processamento de áudio.
     deviceManager.closeAudioDevice();
 }
 
@@ -2439,15 +2514,15 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.maxNote = maxNote;
             layer.role = Layer::Role::adopted;
             layer.pluginNode = candidate.pluginNode;   // a instância continua viva e soando
-            layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
-            layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
-            layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+            layer.midiFilterNode = addGraphNode (std::make_unique<NoteRangeFilter>());
+            layer.midiFxNode = addGraphNode (std::make_unique<ArpeggiatorProcessor>());
+            layer.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
 
             if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr || layer.stripNode == nullptr)
             {
-                if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
-                if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
-                if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+                if (layer.midiFilterNode != nullptr) removeGraphNode (layer.midiFilterNode->nodeID);
+                if (layer.midiFxNode != nullptr) removeGraphNode (layer.midiFxNode->nodeID);
+                if (layer.stripNode != nullptr) removeGraphNode (layer.stripNode->nodeID);
                 done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
                 return;
             }
@@ -2463,19 +2538,19 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             for (auto& insertNode : candidate.insertNodes)
                 if (insertNode != nullptr)
                 {
-                    graph.removeNode (insertNode->nodeID);
+                    removeGraphNode (insertNode->nodeID);
                     insertNode = nullptr;
                 }
             for (auto& sendNode : candidate.sendNodes)
                 if (sendNode != nullptr)
                 {
-                    graph.removeNode (sendNode->nodeID);
+                    removeGraphNode (sendNode->nodeID);
                     sendNode = nullptr;
                 }
             candidate.pluginNode = nullptr;
-            if (candidate.midiFilterNode != nullptr) graph.removeNode (candidate.midiFilterNode->nodeID);
-            if (candidate.midiFxNode != nullptr) graph.removeNode (candidate.midiFxNode->nodeID);
-            if (candidate.stripNode != nullptr) graph.removeNode (candidate.stripNode->nodeID);
+            if (candidate.midiFilterNode != nullptr) removeGraphNode (candidate.midiFilterNode->nodeID);
+            if (candidate.midiFxNode != nullptr) removeGraphNode (candidate.midiFxNode->nodeID);
+            if (candidate.stripNode != nullptr) removeGraphNode (candidate.stripNode->nodeID);
             layers.erase (layers.begin() + i);
 
             layers.push_back (std::move (layer));
@@ -2488,8 +2563,17 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
 
     loadingLayerIds.add (layerId);
 
-    const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
-    const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
+    double sampleRate = 44100.0;
+    int blockSize = 512;
+    {
+        const juce::ScopedLock lock (audioGraphLock);
+        const auto graphSampleRate = graph.getSampleRate();
+        const auto graphBlockSize = graph.getBlockSize();
+        if (graphSampleRate > 0)
+            sampleRate = graphSampleRate;
+        if (graphBlockSize > 0)
+            blockSize = graphBlockSize;
+    }
     std::weak_ptr<bool> alive = aliveFlag;
 
     formatManager.createPluginInstanceAsync (
@@ -2516,18 +2600,18 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
             layer.role = staged ? Layer::Role::staged : Layer::Role::active;
             layer.pinned = pinned;
             instance->setPlayHead (&playHead);
-            layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
-            layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
-            layer.pluginNode = graph.addNode (std::move (instance));
-            layer.stripNode = graph.addNode (
+            layer.midiFilterNode = addGraphNode (std::make_unique<NoteRangeFilter>());
+            layer.midiFxNode = addGraphNode (std::make_unique<ArpeggiatorProcessor>());
+            layer.pluginNode = addGraphNode (std::move (instance));
+            layer.stripNode = addGraphNode (
                 std::make_unique<ChannelStripProcessor> (&soloLayerCount));
             if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
                 || layer.pluginNode == nullptr || layer.stripNode == nullptr)
             {
-                if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
-                if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
-                if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
-                if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+                if (layer.midiFilterNode != nullptr) removeGraphNode (layer.midiFilterNode->nodeID);
+                if (layer.midiFxNode != nullptr) removeGraphNode (layer.midiFxNode->nodeID);
+                if (layer.pluginNode != nullptr) removeGraphNode (layer.pluginNode->nodeID);
+                if (layer.stripNode != nullptr) removeGraphNode (layer.stripNode->nodeID);
                 done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
                 return;
             }
@@ -2587,19 +2671,19 @@ void Engine::loadSampler (const juce::String& filePath, const juce::String& requ
     layer.minNote = minNote;
     layer.maxNote = maxNote;
     layer.role = staged ? Layer::Role::staged : Layer::Role::active;
-    layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
-    layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
-    layer.pluginNode = graph.addNode (std::move (processor));
-    layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+    layer.midiFilterNode = addGraphNode (std::make_unique<NoteRangeFilter>());
+    layer.midiFxNode = addGraphNode (std::make_unique<ArpeggiatorProcessor>());
+    layer.pluginNode = addGraphNode (std::move (processor));
+    layer.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
     layer.sampler = sampler;
 
     if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
         || layer.pluginNode == nullptr || layer.stripNode == nullptr)
     {
-        if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
-        if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
-        if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
-        if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+        if (layer.midiFilterNode != nullptr) removeGraphNode (layer.midiFilterNode->nodeID);
+        if (layer.midiFxNode != nullptr) removeGraphNode (layer.midiFxNode->nodeID);
+        if (layer.pluginNode != nullptr) removeGraphNode (layer.pluginNode->nodeID);
+        if (layer.stripNode != nullptr) removeGraphNode (layer.stripNode->nodeID);
         done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
         return;
     }
@@ -2663,19 +2747,19 @@ void Engine::loadNative (const juce::String& nativeId, const juce::String& reque
     layer.minNote = minNote;
     layer.maxNote = maxNote;
     layer.role = staged ? Layer::Role::staged : Layer::Role::active;
-    layer.midiFilterNode = graph.addNode (std::make_unique<NoteRangeFilter>());
-    layer.midiFxNode = graph.addNode (std::make_unique<ArpeggiatorProcessor>());
-    layer.pluginNode = graph.addNode (std::move (processor));
-    layer.stripNode = graph.addNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
+    layer.midiFilterNode = addGraphNode (std::make_unique<NoteRangeFilter>());
+    layer.midiFxNode = addGraphNode (std::make_unique<ArpeggiatorProcessor>());
+    layer.pluginNode = addGraphNode (std::move (processor));
+    layer.stripNode = addGraphNode (std::make_unique<ChannelStripProcessor> (&soloLayerCount));
     layer.native = nativeProcessor;
 
     if (layer.midiFilterNode == nullptr || layer.midiFxNode == nullptr
         || layer.pluginNode == nullptr || layer.stripNode == nullptr)
     {
-        if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
-        if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
-        if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
-        if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+        if (layer.midiFilterNode != nullptr) removeGraphNode (layer.midiFilterNode->nodeID);
+        if (layer.midiFxNode != nullptr) removeGraphNode (layer.midiFxNode->nodeID);
+        if (layer.pluginNode != nullptr) removeGraphNode (layer.pluginNode->nodeID);
+        if (layer.stripNode != nullptr) removeGraphNode (layer.stripNode->nodeID);
         done ({}, utf8 ("Não foi possível adicionar o instrumento ao grafo de áudio."));
         return;
     }
@@ -2776,14 +2860,14 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
     destroyEditorWindowsFor (layer.id);
     for (const auto& insertNode : layer.insertNodes)
         if (insertNode != nullptr)
-            graph.removeNode (insertNode->nodeID);
+            removeGraphNode (insertNode->nodeID);
     for (const auto& sendNode : layer.sendNodes)
         if (sendNode != nullptr)
-            graph.removeNode (sendNode->nodeID);
-    if (layer.pluginNode != nullptr) graph.removeNode (layer.pluginNode->nodeID);
-    if (layer.midiFilterNode != nullptr) graph.removeNode (layer.midiFilterNode->nodeID);
-    if (layer.midiFxNode != nullptr) graph.removeNode (layer.midiFxNode->nodeID);
-    if (layer.stripNode != nullptr) graph.removeNode (layer.stripNode->nodeID);
+            removeGraphNode (sendNode->nodeID);
+    if (layer.pluginNode != nullptr) removeGraphNode (layer.pluginNode->nodeID);
+    if (layer.midiFilterNode != nullptr) removeGraphNode (layer.midiFilterNode->nodeID);
+    if (layer.midiFxNode != nullptr) removeGraphNode (layer.midiFxNode->nodeID);
+    if (layer.stripNode != nullptr) removeGraphNode (layer.stripNode->nodeID);
     for (int slot = 0; slot < kMaxInserts; ++slot)
         loadingInsertKeys.removeString (layer.id + "#" + juce::String (slot));
     layers.erase (layers.begin() + index);
@@ -3171,8 +3255,17 @@ void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
     }
     loadingInsertKeys.add (key);
 
-    const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
-    const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
+    double sampleRate = 44100.0;
+    int blockSize = 512;
+    {
+        const juce::ScopedLock lock (audioGraphLock);
+        const auto graphSampleRate = graph.getSampleRate();
+        const auto graphBlockSize = graph.getBlockSize();
+        if (graphSampleRate > 0)
+            sampleRate = graphSampleRate;
+        if (graphBlockSize > 0)
+            blockSize = graphBlockSize;
+    }
     std::weak_ptr<bool> alive = aliveFlag;
 
     formatManager.createPluginInstanceAsync (
@@ -3203,11 +3296,11 @@ void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
             if (*slotNode != nullptr)
             {
                 destroyEditorWindow (editorKey (ownerId, slot));
-                graph.removeNode ((*slotNode)->nodeID);
+                removeGraphNode ((*slotNode)->nodeID);
                 *slotNode = nullptr;
             }
 
-            auto node = graph.addNode (std::move (instance));
+            auto node = addGraphNode (std::move (instance));
             if (node == nullptr)
             {
                 done ({}, utf8 ("Não foi possível adicionar o efeito ao grafo de áudio."));
@@ -3235,7 +3328,7 @@ juce::String Engine::removeInsert (const juce::String& requestedOwnerId, int slo
     if (*slotNode != nullptr)
     {
         destroyEditorWindow (editorKey (ownerId, slot));
-        graph.removeNode ((*slotNode)->nodeID);
+        removeGraphNode ((*slotNode)->nodeID);
         *slotNode = nullptr;
     }
     if (auto* bypassPtr = insertSlotBypass (ownerId, slot))
@@ -3369,7 +3462,7 @@ juce::String Engine::setSend (const juce::String& layerId, int aux, double level
 
     if (levelDb > (double) kSendOffDb && layer.sendNodes[(size_t) auxIndex] == nullptr)
     {
-        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        auto node = addGraphNode (std::make_unique<SendGainProcessor>());
         if (node == nullptr)
             return utf8 ("Não foi possível criar o send para o Aux.");
         layer.sendNodes[(size_t) auxIndex] = node;
@@ -3399,7 +3492,7 @@ juce::String Engine::setPatchSend (int aux, double levelDb)
     bus.sendLevelDb[(size_t) auxIndex] = (float) levelDb;
     if (levelDb > (double) kSendOffDb && bus.sendNodes[(size_t) auxIndex] == nullptr)
     {
-        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        auto node = addGraphNode (std::make_unique<SendGainProcessor>());
         if (node == nullptr)
             return utf8 ("Não foi possível criar o send do patch para o Aux.");
         bus.sendNodes[(size_t) auxIndex] = node;
@@ -3424,7 +3517,7 @@ juce::String Engine::setLayerPatchSend (const juce::String& layerId, double leve
     layer.patchSendDb = (float) levelDb;
     if (levelDb > (double) kSendOffDb && layer.patchSendNode == nullptr)
     {
-        auto node = graph.addNode (std::make_unique<SendGainProcessor>());
+        auto node = addGraphNode (std::make_unique<SendGainProcessor>());
         if (node == nullptr)
             return utf8 ("Não foi possível criar o send do layer para o bus do patch.");
         layer.patchSendNode = node;
@@ -3809,8 +3902,17 @@ void Engine::scanPluginPrograms (const juce::String& idOrPath, Done done)
         return;
     }
 
-    const double sampleRate = graph.getSampleRate() > 0 ? graph.getSampleRate() : 44100.0;
-    const int blockSize     = graph.getBlockSize() > 0 ? graph.getBlockSize() : 512;
+    double sampleRate = 44100.0;
+    int blockSize = 512;
+    {
+        const juce::ScopedLock lock (audioGraphLock);
+        const auto graphSampleRate = graph.getSampleRate();
+        const auto graphBlockSize = graph.getBlockSize();
+        if (graphSampleRate > 0)
+            sampleRate = graphSampleRate;
+        if (graphBlockSize > 0)
+            blockSize = graphBlockSize;
+    }
     std::weak_ptr<bool> alive = aliveFlag;
 
     formatManager.createPluginInstanceAsync (
@@ -4080,6 +4182,8 @@ void Engine::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void Engine::rebuildConnections()
 {
+    const juce::ScopedLock lock (audioGraphLock);
+
     for (const auto& connection : graph.getConnections())
         graph.removeConnection (connection);
 

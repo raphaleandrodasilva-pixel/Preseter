@@ -320,7 +320,27 @@ describe('VstManager loading', () => {
     await manager.loadPlugin('scan-plugin-1', 'layer-2');
 
     expect(request).toHaveBeenCalledWith('load', expect.objectContaining({ plugin: 'scan-plugin-1' }), 60_000);
-    expect(request).toHaveBeenCalledWith('audioStart', { outputs: 2, inputs: 0 });
+    expect(request).toHaveBeenCalledWith('audioStart', {
+      outputs: 2,
+      inputs: 0,
+      useDefaultChannels: true,
+    });
+  });
+
+  it('uses the app audio configuration when a plugin needs to start audio', async () => {
+    const { engine, request } = makeEngine((command, args) => {
+      if (command === 'load') return enginePlugin({ path: String(args.path) });
+      if (command === 'audioConfiguration') return devices(false);
+      if (command === 'params') return [engineParameter()];
+      return undefined;
+    });
+    const ensureAudio = vi.fn(async () => devices(true));
+    const manager = new VstManager(engine, null, ensureAudio);
+
+    await manager.loadPlugin('C:/plugins/test.vst3', 'layer-1');
+
+    expect(ensureAudio).toHaveBeenCalledTimes(1);
+    expect(request).not.toHaveBeenCalledWith('audioStart', { outputs: 2, inputs: 0 });
   });
 
   it('rejects 32-bit plugins on a 64-bit host', async () => {

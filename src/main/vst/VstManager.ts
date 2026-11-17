@@ -8,6 +8,7 @@ import type {
   EnginePluginInfo,
 } from '../../shared/engine-protocol';
 import type {
+  AudioDeviceSnapshot,
   AudioInputSettings,
   AudioInputState,
   AudioStartOptions,
@@ -45,7 +46,9 @@ export class VstManager extends EventEmitter {
   constructor(
     engine: EngineProcess = new EngineProcess(),
     /** Pasta dos plugins empacotados com o app (aparecem como nativos do Preseter). */
-    private readonly bundledFolder: string | null = null
+    private readonly bundledFolder: string | null = null,
+    /** Usa a configuração salva do app quando um plugin precisa iniciar o áudio. */
+    private readonly ensureAudio?: () => Promise<AudioDeviceSnapshot>
   ) {
     super();
     this.engine = engine;
@@ -212,10 +215,7 @@ export class VstManager extends EventEmitter {
       enginePlugin = await requestLoad();
     }
     try {
-      const devices = await this.getAudioDevices();
-      if (!devices.running) {
-        await this.startAudio({ outputs: 2, inputs: 0 });
-      }
+      await this.ensureAudioRunning();
       // Troca de patch: não espera a lista completa de parâmetros (alguns
       // plugins expõem milhares). Ela chega em segundo plano e atualiza a UI.
       if (command === 'stageLoad') {
@@ -656,13 +656,27 @@ export class VstManager extends EventEmitter {
         : { layerId, slot, path: pluginPathOrId, bypass };
       const state = await this.engine.request('setInsert', request, 60_000);
       try {
-        const devices = await this.getAudioDevices();
-        if (!devices.running) await this.startAudio({ outputs: 2, inputs: 0 });
+        await this.ensureAudioRunning();
       } catch (error) {
         console.warn('[Preseter] Não foi possível garantir o áudio após o insert:', error);
       }
       return state;
     });
+  }
+
+  private async ensureAudioRunning(): Promise<void> {
+    const devices = await this.getAudioDevices();
+    if (devices.running) return;
+
+    if (this.ensureAudio) {
+      const started = await this.ensureAudio();
+      if (!started.running) {
+        throw new Error('O áudio não iniciou com a configuração salva do Preseter.');
+      }
+      return;
+    }
+
+    await this.startAudio({ outputs: 2, inputs: 0, useDefaultChannels: true });
   }
 
   async removeInsert(layerId: string, slot: number): Promise<EngineInsertState> {

@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemCon
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { audioOptionsMatch, resolveAudioSettings } from './audio-config';
 import { VstManager } from './vst/VstManager';
 import { VstPresetLibrary } from './vst/VstPresetLibrary';
 import { PresetManager } from './preset/PresetManager';
@@ -147,6 +148,8 @@ class MainWindow {
   private lastLoadedPresetId: string | null = null;
   /** Fila para não carregar patches concorrentemente. */
   private patchLoadQueue: Promise<unknown> = Promise.resolve();
+  /** Serializa start/stop/restart de áudio: uma abertura por vez. */
+  private audioOperationQueue: Promise<unknown> = Promise.resolve();
   private patchLoadInFlight: { id: string; promise: Promise<boolean> } | null = null;
   private recovering: Promise<void> | null = null;
   /** true quando o usuário já confirmou o fechamento com alterações pendentes. */
@@ -169,7 +172,11 @@ class MainWindow {
   };
 
   constructor() {
-    this.vstManager = new VstManager(undefined, bundledPluginFolders()[0] ?? null);
+    this.vstManager = new VstManager(
+      undefined,
+      bundledPluginFolders()[0] ?? null,
+      () => this.ensureAudioForPlugins()
+    );
     this.vstPresetLibrary = new VstPresetLibrary(app.getPath('userData'), app.getPath('documents'));
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
@@ -1259,8 +1266,9 @@ class MainWindow {
     }));
 
     ipcMain.handle('audio-start', async (_event, options: AudioStartOptions) => {
-      const devices = await this.startAudioLogged(options, 'settings');
-      this.writeAudioSettings({ ...options, enabled: true });
+      const request = { ...options, useDefaultChannels: options.useDefaultChannels ?? false };
+      const devices = await this.startAudioLogged(request, 'settings');
+      this.writeAudioSettings(resolveAudioSettings(request, devices).settings);
       return { devices, settings: this.readAudioSettings() };
     });
 
@@ -2394,7 +2402,8 @@ class MainWindow {
     const devices = await this.vstManager.getAudioDevices();
     if (!devices.running) {
       try {
-        await this.startAudioLogged({ outputs: 2, inputs: 0 }, 'fxp-generation');
+        const { enabled: _enabled, ...audioOptions } = this.readAudioSettings();
+        await this.startAudioLogged(audioOptions, 'fxp-generation');
       } catch {
         throw new Error('Inicie o áudio antes de gerar os bancos do FSVR.');
       }
@@ -2637,7 +2646,13 @@ class MainWindow {
   }
 
   private readAudioSettings(): SavedAudioSettings {
-    const defaults: SavedAudioSettings = { enabled: false, inputs: 0, outputs: 2, midi: true };
+    const defaults: SavedAudioSettings = {
+      enabled: false,
+      inputs: 0,
+      outputs: 2,
+      midi: true,
+      useDefaultChannels: true,
+    };
     try {
       if (!fs.existsSync(this.audioSettingsPath)) return defaults;
       const data: unknown = JSON.parse(fs.readFileSync(this.audioSettingsPath, 'utf8'));
@@ -2687,19 +2702,56 @@ class MainWindow {
     }
   }
 
-  private async startAudioLogged(
+  /** Executa uma operação de áudio por vez. */
+  private enqueueAudioOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.audioOperationQueue.then(operation, operation);
+    this.audioOperationQueue = next.then(
+      () => undefined,
+      () => undefined
+    );
+    return next;
+  }
+
+  private startAudioLogged(
+    options: AudioStartOptions,
+    reason: string
+  ): Promise<AudioDeviceSnapshot> {
+    return this.enqueueAudioOperation(() => this.startAudioNow(options, reason));
+  }
+
+  private ensureAudioForPlugins(): Promise<AudioDeviceSnapshot> {
+    const { enabled: _enabled, ...options } = this.readAudioSettings();
+    return this.startAudioLogged(options, 'plugin-audio');
+  }
+
+  private async startAudioNow(
     options: AudioStartOptions,
     reason: string
   ): Promise<AudioDeviceSnapshot> {
     this.audioLog('start-request', { reason, options });
     try {
+      const current = await this.vstManager.getAudioDevices().catch(() => null);
+      if (current && audioOptionsMatch(current, options)) {
+        this.audioLog('start-skip', { reason, current: current.current });
+        return current;
+      }
+
       const devices = await this.vstManager.startAudio(options);
+      const resolved = resolveAudioSettings(options, devices);
       this.audioLog('start-ok', {
         reason,
         running: devices.running,
         current: devices.current,
         asioDriverAvailable: devices.asioDriverAvailable,
       });
+      if (resolved.fellBack) {
+        this.writeAudioSettings(resolved.settings);
+        this.audioLog('device-fallback', {
+          reason,
+          requestedType: options.type ?? null,
+          activeDevice: devices.current,
+        });
+      }
       return devices;
     } catch (error) {
       this.audioLog('start-error', {
@@ -2710,7 +2762,11 @@ class MainWindow {
     }
   }
 
-  private async stopAudioLogged(reason: string): Promise<void> {
+  private stopAudioLogged(reason: string): Promise<void> {
+    return this.enqueueAudioOperation(() => this.stopAudioNow(reason));
+  }
+
+  private async stopAudioNow(reason: string): Promise<void> {
     let before: AudioDeviceSnapshot | null = null;
     try {
       before = await this.vstManager.getAudioDevices();
@@ -2731,16 +2787,18 @@ class MainWindow {
   }
 
   /** Fecha e reabre o dispositivo sem reiniciar o app nem recarregar plugins. */
-  private async restartAudioLogged(): Promise<AudioSettingsSnapshot> {
-    const saved = this.readAudioSettings();
-    this.audioLog('restart-begin', { saved });
-    await this.stopAudioLogged('manual-restart');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const { enabled: _enabled, ...startOptions } = saved;
-    const devices = await this.startAudioLogged(startOptions, 'manual-restart');
-    this.writeAudioSettings({ ...saved, enabled: true });
-    this.audioLog('restart-end', { current: devices.current });
-    return { devices, settings: this.readAudioSettings() };
+  private restartAudioLogged(): Promise<AudioSettingsSnapshot> {
+    return this.enqueueAudioOperation(async () => {
+      const saved = this.readAudioSettings();
+      this.audioLog('restart-begin', { saved });
+      await this.stopAudioNow('manual-restart');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const { enabled: _enabled, ...startOptions } = saved;
+      const devices = await this.startAudioNow(startOptions, 'manual-restart');
+      this.writeAudioSettings(resolveAudioSettings(startOptions, devices).settings);
+      this.audioLog('restart-end', { current: devices.current });
+      return { devices, settings: this.readAudioSettings() };
+    });
   }
 
   private async openAudioLog(): Promise<boolean> {
