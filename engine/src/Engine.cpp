@@ -1632,6 +1632,8 @@ juce::String Engine::startAudio (const juce::var& options)
     }
 
     requestedAvailable = isTypeAvailable (requestedType);
+    if (! requestedAvailable && requestedType.isNotEmpty())
+        return utf8 ("O backend de áudio solicitado não está disponível: ") + requestedType;
 
     // O modo padrão segue os canais ativos do driver, como o Element.
     juce::AudioDeviceManager::AudioDeviceSetup setup;
@@ -1790,24 +1792,28 @@ juce::String Engine::startAudio (const juce::var& options)
             xml.setAttribute ("audioDeviceOutChans", setup.outputChannels.toString (2));
         }
 
-        error = deviceManager.initialise (128, 128, &xml, true, "*", nullptr);
+        // Não deixar o fallback interno do JUCE trocar para o primeiro backend (ASIO).
+        error = deviceManager.initialise (128, 128, &xml, false, {}, nullptr);
         if (error.isEmpty() && deviceManager.getCurrentAudioDevice() == nullptr)
             error = utf8 ("Nenhum dispositivo de áudio pôde ser aberto.");
 
         if (error.isNotEmpty())
         {
-            const auto fallbackSetup = deviceManager.getAudioDeviceSetup();
-            error = deviceManager.setAudioDeviceSetup (fallbackSetup, true);
+            const auto requestedError = error;
+            deviceManager.closeAudioDevice();
+
+            juce::XmlElement defaultSetup ("DEVICESETUP");
+            if (requestedType.isNotEmpty())
+                defaultSetup.setAttribute ("deviceType", requestedType);
+
+            error = deviceManager.initialise (128, 128, &defaultSetup, false, {}, nullptr);
             if (error.isEmpty() && deviceManager.getCurrentAudioDevice() == nullptr)
                 error = utf8 ("Nenhum dispositivo de áudio pôde ser aberto.");
-        }
 
-        if (error.isNotEmpty())
-        {
-           #if JUCE_WINDOWS
-            deviceManager.setCurrentAudioDeviceType ("Windows Audio (Low Latency Mode)", true);
-           #endif
-            error = deviceManager.initialiseWithDefaultDevices (128, 128);
+            if (error.isNotEmpty())
+                return utf8 ("Falha ao abrir o backend de áudio solicitado (")
+                    + requestedType + utf8 ("). Configuração salva: ") + requestedError
+                    + utf8 ("; tentativa com padrões do mesmo backend: ") + error;
         }
 
         if (error.isNotEmpty())
