@@ -82,14 +82,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   }, [tab]);
   useEffect(() => {
     if (!audioDevices) return;
-    // Ao trocar o driver, não pré-selecionamos o primeiro dispositivo:
-    // deixar o usuário escolher. Se há tipo salvo, usa ele; senão vazio.
     const savedType = audioSettings?.type ?? audioDevices.current?.type ?? '';
     const available = filterAudioTypes(audioDevices, platform);
-    setAudioType(available.some((item) => item.type === savedType) ? savedType : '');
-    // Não pré-selecionar entrada/saída: deixar vazio para o usuário escolher.
-    setAudioInput('');
-    setAudioOutput('');
+    const selectedType = available.find((item) => item.type === savedType);
+    const activeDevice = audioDevices.current?.type === savedType ? audioDevices.current : null;
+    setAudioType(selectedType ? savedType : '');
+    const savedSettingsMatch = !audioSettings?.type || audioSettings.type === savedType;
+    const savedInput = savedSettingsMatch ? audioSettings?.input : undefined;
+    const savedOutput = savedSettingsMatch ? audioSettings?.output : undefined;
+    const activeInput = activeDevice?.inputChannels ? activeDevice.name : '';
+    const activeOutput = activeDevice?.outputChannels ? activeDevice.name : '';
+    const input = savedInput || activeInput;
+    const output = savedOutput || activeOutput;
+    setAudioInput(input && selectedType?.inputs.includes(input) ? input : '');
+    setAudioOutput(output && selectedType?.outputs.includes(output) ? output : '');
     setSampleRate(audioDevices.current?.sampleRate ?? audioSettings?.sampleRate ?? 48000);
     setBufferSize(audioDevices.current?.bufferSize ?? audioSettings?.bufferSize ?? 512);
     setFollowDevice(audioSettings?.followDevice === true);

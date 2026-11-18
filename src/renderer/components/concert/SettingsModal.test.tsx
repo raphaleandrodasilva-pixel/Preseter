@@ -184,3 +184,141 @@ describe('SettingsModal — formatos do dispositivo de áudio', () => {
     expect(Array.from(buffers.options, (option) => Number(option.value))).toContain(512);
   });
 });
+
+describe('SettingsModal — dispositivos de áudio selecionados', () => {
+  it('restores saved and active devices when reopening the audio tab', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      asioSupported: true,
+      asioDriverAvailable: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 44100,
+        bufferSize: 512,
+        inputChannels: 2,
+        outputChannels: 2,
+        outputLatencyMs: 13,
+      },
+      audioTypes: [
+        { type: 'ASIO', outputs: ['ASIO4ALL v2', 'ASIO Output 1'], inputs: ['ASIO4ALL v2', 'ASIO Input 1'] },
+      ],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({
+          type: 'ASIO',
+          input: 'ASIO Input 1',
+          output: 'ASIO Output 1',
+          inputs: 2,
+          outputs: 2,
+        }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="general" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Áudio' }));
+    await waitFor(() => {
+      expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO Input 1');
+      expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO Output 1');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Geral' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Áudio' }));
+    await waitFor(() => {
+      expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO Input 1');
+      expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO Output 1');
+    });
+  });
+
+  it('uses the active device when saved input and output names are absent', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 44100,
+        bufferSize: 512,
+        inputChannels: 2,
+        outputChannels: 2,
+        outputLatencyMs: 13,
+      },
+      audioTypes: [
+        { type: 'ASIO', outputs: ['ASIO4ALL v2'], inputs: ['ASIO4ALL v2'] },
+      ],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({ type: 'ASIO', inputs: 2, outputs: 2 }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO4ALL v2');
+      expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO4ALL v2');
+    });
+  });
+
+  it('clears device selections when the backend changes', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      asioSupported: true,
+      asioDriverAvailable: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 44100,
+        bufferSize: 512,
+        inputChannels: 2,
+        outputChannels: 2,
+        outputLatencyMs: 13,
+      },
+      audioTypes: [
+        { type: 'ASIO', outputs: ['ASIO4ALL v2'], inputs: ['ASIO4ALL v2'] },
+        { type: 'Windows Audio', outputs: ['Speakers'], inputs: ['Microphone'] },
+      ],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({
+          type: 'ASIO',
+          input: 'ASIO4ALL v2',
+          output: 'ASIO4ALL v2',
+          inputs: 2,
+          outputs: 2,
+        }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO4ALL v2');
+      expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO4ALL v2');
+    });
+
+    fireEvent.change(screen.getByLabelText('Backend de áudio'), {
+      target: { value: 'Windows Audio' },
+    });
+    expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('');
+    expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('');
+  });
+});
