@@ -26,9 +26,19 @@ const asioDevice: NonNullable<AudioDeviceSnapshot['current']> = {
 describe('audio configuration matching', () => {
   it('defaults legacy ASIO settings to following the device but preserves explicit choices', () => {
     expect(normalizeAudioSettings({ type: 'ASIO', sampleRate: 44100, bufferSize: 512 }))
-      .toMatchObject({ followDevice: true, sampleRate: 44100, bufferSize: 512 });
-    expect(normalizeAudioSettings({ type: 'ASIO', followDevice: false }).followDevice).toBe(false);
-    expect(normalizeAudioSettings({ type: 'Windows Audio' }).followDevice).toBeUndefined();
+      .toMatchObject({
+        followDevice: true,
+        useDefaultChannels: true,
+        sampleRate: 44100,
+        bufferSize: 512,
+      });
+    expect(normalizeAudioSettings({ type: 'ASIO', followDevice: false })).toMatchObject({
+      followDevice: false,
+      useDefaultChannels: true,
+    });
+    const legacyWindows = normalizeAudioSettings({ type: 'Windows Audio' });
+    expect(legacyWindows.type).toBe('Windows Audio (Low Latency Mode)');
+    expect(legacyWindows.followDevice).toBeUndefined();
   });
 
   it('accepts driver-default channels even when the stored count differs', () => {

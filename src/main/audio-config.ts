@@ -9,10 +9,13 @@ export function normalizeAudioSettings(saved: Partial<SavedAudioSettings> = {}):
     ...saved,
     enabled: saved.enabled === true,
   };
-  if (settings.followDevice !== undefined) return settings;
-  return settings.type?.toLowerCase().includes('asio')
-    ? { ...settings, followDevice: true }
-    : settings;
+  const type = settings.type?.toLowerCase();
+  return {
+    ...settings,
+    ...(settings.followDevice === undefined && type?.includes('asio') ? { followDevice: true } : {}),
+    ...(type?.includes('asio') ? { useDefaultChannels: true } : {}),
+    ...(type === 'windows audio' ? { type: 'Windows Audio (Low Latency Mode)' } : {}),
+  };
 }
 
 export function audioOptionsMatch(

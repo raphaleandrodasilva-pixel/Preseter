@@ -15,6 +15,12 @@
 
 namespace preseter
 {
+class PreseterAudioDeviceManager final : public juce::AudioDeviceManager
+{
+public:
+    void createAudioDeviceTypes (juce::OwnedArray<juce::AudioIODeviceType>& types) override;
+};
+
 /** Playhead do host: entrega tempo, compasso e posição aos plugins (Fase 6.2). */
 class HostPlayHead final : public juce::AudioPlayHead
 {
@@ -325,7 +331,7 @@ private:
         double lastCallbackMs = 0.0;
     };
 
-    juce::AudioDeviceManager deviceManager;
+    PreseterAudioDeviceManager deviceManager;
     juce::AudioPluginFormatManager formatManager;
     AudioTimingCallback timingCallback;
     bool timingCallbackAttached = false;

@@ -1316,6 +1316,27 @@ juce::var parameterToVar (juce::AudioProcessorParameter& p, int index)
 }
 } // namespace
 
+void PreseterAudioDeviceManager::createAudioDeviceTypes (
+    juce::OwnedArray<juce::AudioIODeviceType>& types)
+{
+   #if JUCE_WINDOWS
+    const auto addIfAvailable = [&types] (juce::AudioIODeviceType* type)
+    {
+        if (type != nullptr)
+            types.add (type);
+    };
+
+    addIfAvailable (juce::AudioIODeviceType::createAudioIODeviceType_ASIO());
+    addIfAvailable (juce::AudioIODeviceType::createAudioIODeviceType_WASAPI (
+        juce::WASAPIDeviceMode::exclusive));
+    addIfAvailable (juce::AudioIODeviceType::createAudioIODeviceType_WASAPI (
+        juce::WASAPIDeviceMode::sharedLowLatency));
+    addIfAvailable (juce::AudioIODeviceType::createAudioIODeviceType_DirectSound());
+   #else
+    juce::AudioDeviceManager::createAudioDeviceTypes (types);
+   #endif
+}
+
 // ---------------------------------------------------------------------------
 Engine::Engine()
 {
