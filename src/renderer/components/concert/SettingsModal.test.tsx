@@ -227,6 +227,7 @@ describe('SettingsModal — dispositivos de áudio selecionados', () => {
     await waitFor(() => {
       expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO Input 1');
       expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO Output 1');
+      expect(screen.getByRole('checkbox', { name: /Seguir o dispositivo/ })).toBeChecked();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Geral' }));
@@ -234,6 +235,7 @@ describe('SettingsModal — dispositivos de áudio selecionados', () => {
     await waitFor(() => {
       expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('ASIO Input 1');
       expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('ASIO Output 1');
+      expect(screen.getByRole('checkbox', { name: /Seguir o dispositivo/ })).toBeChecked();
     });
   });
 
@@ -320,5 +322,45 @@ describe('SettingsModal — dispositivos de áudio selecionados', () => {
     });
     expect((screen.getByLabelText('Entrada') as HTMLSelectElement).value).toBe('');
     expect((screen.getByLabelText('Saída') as HTMLSelectElement).value).toBe('');
+    expect(screen.getByRole('checkbox', { name: /Seguir o dispositivo/ })).not.toBeChecked();
+
+    fireEvent.change(screen.getByLabelText('Backend de áudio'), {
+      target: { value: 'ASIO' },
+    });
+    expect(screen.getByRole('checkbox', { name: /Seguir o dispositivo/ })).toBeChecked();
+  });
+
+  it('preserves an explicit manual ASIO configuration', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      asioSupported: true,
+      asioDriverAvailable: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 44100,
+        bufferSize: 512,
+        inputChannels: 0,
+        outputChannels: 2,
+        outputLatencyMs: 13,
+      },
+      audioTypes: [{ type: 'ASIO', outputs: ['ASIO4ALL v2'], inputs: [] }],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({ type: 'ASIO', followDevice: false }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: /Seguir o dispositivo/ })).not.toBeChecked();
+    });
   });
 });

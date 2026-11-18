@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, screen, session, Menu, MenuItemCon
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { audioOptionsMatch, resolveAudioSettings } from './audio-config';
+import { audioOptionsMatch, normalizeAudioSettings, resolveAudioSettings } from './audio-config';
 import { VstManager } from './vst/VstManager';
 import { VstPresetLibrary } from './vst/VstPresetLibrary';
 import { PresetManager } from './preset/PresetManager';
@@ -2646,26 +2646,15 @@ class MainWindow {
   }
 
   private readAudioSettings(): SavedAudioSettings {
-    const defaults: SavedAudioSettings = {
-      enabled: false,
-      inputs: 0,
-      outputs: 2,
-      midi: true,
-      useDefaultChannels: true,
-    };
     try {
-      if (!fs.existsSync(this.audioSettingsPath)) return defaults;
+      if (!fs.existsSync(this.audioSettingsPath)) return normalizeAudioSettings();
       const data: unknown = JSON.parse(fs.readFileSync(this.audioSettingsPath, 'utf8'));
       if (!data || typeof data !== 'object') throw new TypeError('O arquivo de áudio precisa conter um objeto.');
       const saved = data as Partial<SavedAudioSettings>;
-      return {
-        ...defaults,
-        ...saved,
-        enabled: saved.enabled === true,
-      };
+      return normalizeAudioSettings(saved);
     } catch (error) {
       console.warn('[Preseter] Configuração de áudio salva inválida; usando padrões:', error);
-      return defaults;
+      return normalizeAudioSettings();
     }
   }
 

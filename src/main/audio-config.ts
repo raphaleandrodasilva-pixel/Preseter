@@ -1,5 +1,20 @@
 import type { AudioDeviceSnapshot, AudioStartOptions, SavedAudioSettings } from '../shared/types';
 
+export function normalizeAudioSettings(saved: Partial<SavedAudioSettings> = {}): SavedAudioSettings {
+  const settings: SavedAudioSettings = {
+    inputs: 0,
+    outputs: 2,
+    midi: true,
+    useDefaultChannels: true,
+    ...saved,
+    enabled: saved.enabled === true,
+  };
+  if (settings.followDevice !== undefined) return settings;
+  return settings.type?.toLowerCase().includes('asio')
+    ? { ...settings, followDevice: true }
+    : settings;
+}
+
 export function audioOptionsMatch(
   snapshot: AudioDeviceSnapshot,
   options: AudioStartOptions

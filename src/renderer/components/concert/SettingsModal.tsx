@@ -98,7 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     setAudioOutput(output && selectedType?.outputs.includes(output) ? output : '');
     setSampleRate(audioDevices.current?.sampleRate ?? audioSettings?.sampleRate ?? 48000);
     setBufferSize(audioDevices.current?.bufferSize ?? audioSettings?.bufferSize ?? 512);
-    setFollowDevice(audioSettings?.followDevice === true);
+    setFollowDevice(audioSettings?.followDevice ?? /asio/i.test(savedType));
     const channels = audioSettings?.outputs ?? audioDevices.current?.outputChannels ?? 2;
     setAudioOutputPairs(Math.max(1, Math.min(4, Math.ceil(channels / 2))));
   }, [audioDevices, audioSettings]);
@@ -354,11 +354,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   <select
                     value={audioType}
                     onChange={(event) => {
-                      setAudioType(event.target.value);
+                      const nextType = event.target.value;
+                      setAudioType(nextType);
                       // Ao trocar o driver não pré-selecionamos o primeiro dispositivo:
                       // o usuário escolhe. Sem entrada escolhida aplicamos inputs: 0.
                       setAudioInput('');
                       setAudioOutput('');
+                      setFollowDevice(/asio/i.test(nextType));
                     }}
                     className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100"
                   >
