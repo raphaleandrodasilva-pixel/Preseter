@@ -90,8 +90,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     // Não pré-selecionar entrada/saída: deixar vazio para o usuário escolher.
     setAudioInput('');
     setAudioOutput('');
-    setSampleRate(audioSettings?.sampleRate ?? audioDevices.current?.sampleRate ?? 48000);
-    setBufferSize(audioSettings?.bufferSize ?? audioDevices.current?.bufferSize ?? 512);
+    setSampleRate(audioDevices.current?.sampleRate ?? audioSettings?.sampleRate ?? 48000);
+    setBufferSize(audioDevices.current?.bufferSize ?? audioSettings?.bufferSize ?? 512);
     setFollowDevice(audioSettings?.followDevice === true);
     const channels = audioSettings?.outputs ?? audioDevices.current?.outputChannels ?? 2;
     setAudioOutputPairs(Math.max(1, Math.min(4, Math.ceil(channels / 2))));
@@ -131,6 +131,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   };
 
   const currentAudio = audioDevices?.current ?? null;
+  const availableSampleRates = [
+    ...(currentAudio?.availableSampleRates?.length
+      ? currentAudio.availableSampleRates
+      : [44100, 48000, 88200, 96000, 176400, 192000]),
+  ];
+  if (currentAudio && !availableSampleRates.includes(currentAudio.sampleRate))
+    availableSampleRates.push(currentAudio.sampleRate);
+  const availableBufferSizes = [
+    ...(currentAudio?.availableBufferSizes?.length
+      ? currentAudio.availableBufferSizes
+      : [64, 128, 256, 480, 512, 1024, 2048]),
+  ];
+  if (currentAudio && !availableBufferSizes.includes(currentAudio.bufferSize))
+    availableBufferSizes.push(currentAudio.bufferSize);
   const audioLatencyMs =
     currentAudio && currentAudio.sampleRate > 0
       ? (currentAudio.bufferSize / currentAudio.sampleRate) * 1000
@@ -424,7 +438,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                       onChange={(event) => setSampleRate(Number(event.target.value))}
                       className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100 disabled:opacity-50"
                     >
-                      {[44100, 48000, 88200, 96000, 176400, 192000].map((rate) => <option key={rate} value={rate}>{rate} Hz</option>)}
+                      {availableSampleRates.map((rate) => <option key={rate} value={rate}>{rate} Hz</option>)}
                     </select>
                   </label>
                   <label className="block text-xs" style={{ color: '#9A9AA0' }}>
@@ -435,7 +449,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                       onChange={(event) => setBufferSize(Number(event.target.value))}
                       className="hw-inset mt-1 w-full px-2 py-2 text-xs text-slate-100 disabled:opacity-50"
                     >
-                      {[64, 128, 256, 480, 512, 1024, 2048].map((size) => <option key={size} value={size}>{size} samples</option>)}
+                      {availableBufferSizes.map((size) => <option key={size} value={size}>{size} samples</option>)}
                     </select>
                   </label>
                 </div>

@@ -762,6 +762,9 @@ export interface AudioDeviceSnapshot {
     inputChannels: number;
     outputChannels: number;
     outputLatencyMs: number;
+    /** Taxas e tamanhos de buffer informados pelo dispositivo ativo. */
+    availableSampleRates?: number[];
+    availableBufferSizes?: number[];
     /** Falhas aproximadas de callback do motor (quando disponível). */
     xruns?: number;
   };

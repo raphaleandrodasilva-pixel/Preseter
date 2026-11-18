@@ -104,3 +104,83 @@ describe('SettingsModal — gravação', () => {
     expect(options).not.toContain('ASIO');
   });
 });
+
+describe('SettingsModal — formatos do dispositivo de áudio', () => {
+  it('uses the sample rates and buffer sizes reported by the active device', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      asioSupported: true,
+      asioDriverAvailable: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 48000,
+        bufferSize: 256,
+        inputChannels: 2,
+        outputChannels: 2,
+        outputLatencyMs: 8,
+        availableSampleRates: [44100, 48000],
+        availableBufferSizes: [128, 256],
+      },
+      audioTypes: [{ type: 'ASIO', outputs: ['ASIO4ALL v2'], inputs: ['ASIO4ALL v2'] }],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({
+          type: 'ASIO',
+          sampleRate: 44100,
+          bufferSize: 512,
+        }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    const rates = await screen.findByLabelText('Taxa de amostragem') as HTMLSelectElement;
+    const buffers = screen.getByLabelText('Tamanho do buffer') as HTMLSelectElement;
+    expect(Array.from(rates.options, (option) => Number(option.value))).toEqual([44100, 48000]);
+    expect(Array.from(buffers.options, (option) => Number(option.value))).toEqual([128, 256]);
+    expect(rates.value).toBe('48000');
+    expect(buffers.value).toBe('256');
+  });
+
+  it('keeps fallback choices when a backend does not report supported formats', async () => {
+    const devices = createAudioDeviceSnapshot({
+      running: true,
+      current: {
+        type: 'ASIO',
+        name: 'ASIO4ALL v2',
+        sampleRate: 48000,
+        bufferSize: 512,
+        inputChannels: 2,
+        outputChannels: 2,
+        outputLatencyMs: 8,
+        availableSampleRates: [],
+        availableBufferSizes: [],
+      },
+      audioTypes: [{ type: 'ASIO', outputs: ['ASIO4ALL v2'], inputs: ['ASIO4ALL v2'] }],
+    });
+    vi.mocked(window.electronAPI.audioSettingsGet).mockResolvedValue(
+      createAudioSettingsSnapshot({
+        devices,
+        settings: createSavedAudioSettings({ type: 'ASIO' }),
+      })
+    );
+
+    render(
+      <AppProvider>
+        <SettingsModal initialTab="audio" onClose={vi.fn()} />
+      </AppProvider>
+    );
+
+    const rates = await screen.findByLabelText('Taxa de amostragem') as HTMLSelectElement;
+    const buffers = screen.getByLabelText('Tamanho do buffer') as HTMLSelectElement;
+    expect(Array.from(rates.options, (option) => Number(option.value))).toContain(48000);
+    expect(Array.from(buffers.options, (option) => Number(option.value))).toContain(512);
+  });
+});

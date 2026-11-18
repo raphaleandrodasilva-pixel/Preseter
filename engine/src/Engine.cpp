@@ -1859,6 +1859,14 @@ juce::var Engine::describeDevices()
     if (auto* device = deviceManager.getCurrentAudioDevice())
     {
         const auto rate = device->getCurrentSampleRate();
+        juce::Array<juce::var> availableSampleRates;
+        for (const auto sampleRate : device->getAvailableSampleRates())
+            availableSampleRates.add (sampleRate);
+
+        juce::Array<juce::var> availableBufferSizes;
+        for (const auto bufferSize : device->getAvailableBufferSizes())
+            availableBufferSizes.add (bufferSize);
+
         current = Obj()
                       .set ("type", device->getTypeName())
                       .set ("name", device->getName())
@@ -1867,6 +1875,8 @@ juce::var Engine::describeDevices()
                       .set ("inputChannels", device->getActiveInputChannels().countNumberOfSetBits())
                       .set ("outputChannels", device->getActiveOutputChannels().countNumberOfSetBits())
                       .set ("outputLatencyMs", rate > 0 ? device->getOutputLatencyInSamples() * 1000.0 / rate : 0.0)
+                      .set ("availableSampleRates", juce::var (availableSampleRates))
+                      .set ("availableBufferSizes", juce::var (availableBufferSizes))
                       .set ("xruns", timingCallback.xruns.load (std::memory_order_relaxed));
     }
 
