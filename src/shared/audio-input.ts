@@ -12,7 +12,7 @@ export const MAX_AUDIO_INPUT_CHANNELS = 16;
 /** Valores iniciais: volume 0 dB e proteção ligada. */
 export function defaultAudioInput(): AudioInputSettings {
   return {
-    enabled: true,
+    enabled: false,
     inputChannel: 0,
     mode: 'mono',
     volumeDb: 0,

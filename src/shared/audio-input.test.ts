@@ -9,7 +9,7 @@ import {
 describe('defaultAudioInput', () => {
   it('returns the default input strip', () => {
     expect(defaultAudioInput()).toEqual({
-      enabled: true,
+      enabled: false,
       inputChannel: 0,
       mode: 'mono',
       volumeDb: 0,
