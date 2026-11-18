@@ -1489,6 +1489,8 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 
     midiCollector.reset (sampleRate);
 
+    graph.releaseResources();
+
     // Mesmo caminho do AudioEngine do Element: prepara o grafo com a taxa,
     // block size e canais reais do dispositivo.
     graph.setPlayConfigDetails (juce::jmax (0, numIn),
