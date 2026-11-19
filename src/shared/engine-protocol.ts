@@ -159,7 +159,9 @@ export interface EngineCommands {
   ping: { args: {}; result: { pong: true } };
   quit: { args: {}; result: null };
   devices: { args: {}; result: EngineDevices };
-  audioConfiguration: { args: {}; result: EngineDevices };
+  audioConfiguration: { args: { rescan?: boolean }; result: EngineDevices };
+  /** Abre o painel do driver (modal no motor) e devolve o estado depois de fechado. */
+  audioControlPanel: { args: {}; result: EngineDevices };
   audioStart: {
     args: {
       inputs?: number;

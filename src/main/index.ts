@@ -1260,10 +1260,19 @@ class MainWindow {
       return this.vstManager.setLayerOutput(layerId, output);
     });
 
-    ipcMain.handle('audio-settings-get', async () => ({
-      devices: await this.vstManager.getAudioDevices(),
+    ipcMain.handle('audio-settings-get', async (_event, rescan?: boolean) => ({
+      devices: await this.vstManager.getAudioDevices(rescan === true),
       settings: this.readAudioSettings(),
     }));
+
+    ipcMain.handle('audio-control-panel', () =>
+      this.enqueueAudioOperation(async () => {
+        this.audioLog('control-panel-open');
+        const devices = await this.vstManager.showAudioControlPanel();
+        this.audioLog('control-panel-closed', { current: devices.current });
+        return { devices, settings: this.readAudioSettings() };
+      })
+    );
 
     ipcMain.handle('audio-start', async (_event, options: AudioStartOptions) => {
       const request = { ...options, useDefaultChannels: options.useDefaultChannels ?? false };

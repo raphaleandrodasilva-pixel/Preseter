@@ -76,7 +76,16 @@ void CommandRouter::handleLine (const juce::String& line)
     // ---- Ãudio e MIDI ------------------------------------------------------
     if (cmd == "devices")
     {
-        ok (id, engine.describeDevices());
+        ok (id, engine.describeDevices (boolArg (message, "rescan", false)));
+        return;
+    }
+
+    if (cmd == "audioControlPanel")
+    {
+        if (auto error = engine.showAudioControlPanel(); error.isNotEmpty())
+            fail (id, error);
+        else
+            ok (id, engine.describeDevices());
         return;
     }
 
@@ -91,7 +100,7 @@ void CommandRouter::handleLine (const juce::String& line)
 
     if (cmd == "audioConfiguration")
     {
-        ok (id, engine.describeAudioConfiguration());
+        ok (id, engine.describeAudioConfiguration (boolArg (message, "rescan", false)));
         return;
     }
 

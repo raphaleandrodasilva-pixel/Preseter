@@ -737,8 +737,17 @@ export class VstManager extends EventEmitter {
     return Number(result?.activeVoices ?? 0);
   }
 
-  async getAudioDevices() {
-    return this.engine.request('audioConfiguration', {});
+  /** Estado do áudio. `rescan` varre os drivers de novo (só ao abrir as configurações). */
+  async getAudioDevices(rescan = false) {
+    return this.engine.request('audioConfiguration', rescan ? { rescan: true } : {});
+  }
+
+  /**
+   * Abre o painel do driver (ex.: ASIO4ALL). O painel é modal no motor, então
+   * a resposta só chega quando o usuário o fecha.
+   */
+  async showAudioControlPanel() {
+    return this.engine.request('audioControlPanel', {}, 10 * 60_000);
   }
 
   async startAudio(options: AudioStartOptions) {

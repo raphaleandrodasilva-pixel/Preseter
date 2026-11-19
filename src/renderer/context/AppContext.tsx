@@ -246,7 +246,8 @@ export interface AppContextType {
   setVstLayerPatchSend: (layerId: string, levelDb: number) => Promise<boolean>;
   /** Saída (Output 1..4) do channel strip de um layer (Fase 3.2). */
   setVstLayerOutput: (layerId: string, output: number) => Promise<boolean>;
-  refreshAudioSettings: () => Promise<void>;
+  /** `rescan` varre os drivers de áudio de novo (ao abrir as configurações). */
+  refreshAudioSettings: (rescan?: boolean) => Promise<void>;
   startAudio: (options: AudioStartOptions) => Promise<boolean>;
   stopAudio: () => Promise<boolean>;
   updatePreferences: (update: Partial<AppPreferences>) => Promise<AppPreferences | null>;
@@ -2136,9 +2137,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const refreshAudioSettings = useCallback(async () => {
+  const refreshAudioSettings = useCallback(async (rescan = false) => {
     try {
-      const snapshot = await window.electronAPI.audioSettingsGet();
+      const snapshot = await window.electronAPI.audioSettingsGet(rescan);
       setAudioDevices(snapshot.devices);
       setAudioSettings(snapshot.settings);
       setMidiError(null);
