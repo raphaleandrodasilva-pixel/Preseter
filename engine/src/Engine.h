@@ -117,6 +117,8 @@ public:
     // ---- Plugins ---------------------------------------------------------
     juce::StringArray getFormatNames() const;
     juce::var listKnownPlugins() const;
+    /** Arquivos que falharam e estão na blacklist do KnownPluginList. */
+    juce::StringArray getBlacklistedPlugins() const;
 
     /** Varre os diretórios padrão (+ extras). Roda aos poucos pelo timer. */
     void scan (const juce::StringArray& extraPaths, bool rescan, Progress progress, Done done);

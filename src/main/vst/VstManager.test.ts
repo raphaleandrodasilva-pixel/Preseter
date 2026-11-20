@@ -190,7 +190,7 @@ describe('VstManager scanning', () => {
   it('carrega a lista de plugins do cache sem varrer as pastas', async () => {
     const { engine, request } = makeEngine((command) =>
       command === 'plugins'
-        ? { formats: 'VST3', plugins: [scannedPlugin()] }
+        ? { formats: 'VST3', plugins: [scannedPlugin()], blacklisted: ['C:/plugins/travado.vst3'] }
         : undefined
     );
     const manager = new VstManager(engine);
@@ -198,6 +198,11 @@ describe('VstManager scanning', () => {
     expect(request).toHaveBeenCalledWith('plugins', {});
     expect(plugins).toHaveLength(1);
     expect(plugins[0]).toMatchObject({ id: 'scan-plugin-1', name: 'Scanned' });
+    // O relatório precisa refletir o cache, senão o Log mostra 0 plugins/bloqueados.
+    expect(manager.getScanReport()).toMatchObject({
+      count: 1,
+      blacklisted: ['C:/plugins/travado.vst3'],
+    });
   });
 
   it('deduplicates plugins returned by the engine', async () => {    const { engine } = makeEngine((command) =>

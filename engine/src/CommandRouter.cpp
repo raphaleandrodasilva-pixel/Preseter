@@ -170,8 +170,13 @@ void CommandRouter::handleLine (const juce::String& line)
     // ---- Plugins -----------------------------------------------------------
     if (cmd == "plugins")
     {
+        juce::Array<juce::var> blacklisted;
+        for (const auto& file : engine.getBlacklistedPlugins())
+            blacklisted.add (file);
+
         ok (id, Obj().set ("formats", juce::var (engine.getFormatNames().joinIntoString (",")))
-                     .set ("plugins", engine.listKnownPlugins()));
+                     .set ("plugins", engine.listKnownPlugins())
+                     .set ("blacklisted", juce::var (blacklisted)));
         return;
     }
 

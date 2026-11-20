@@ -2243,6 +2243,11 @@ juce::var Engine::listKnownPlugins() const
     return juce::var (list);
 }
 
+juce::StringArray Engine::getBlacklistedPlugins() const
+{
+    return knownPlugins.getBlacklistedFiles();
+}
+
 /** Uma pasta é um bundle LV2 (ou contém bundles) se tiver manifest.ttl. */
 static bool looksLikeLv2Bundle (const juce::File& folder)
 {
@@ -2305,8 +2310,10 @@ void Engine::scan (const juce::StringArray& extraPaths, bool rescan, Progress pr
         // que falhou uma vez nunca mais é tentado, nem ao pedir para escanear
         // de novo (caso do Surge XT instrumento).
         knownPlugins.clearBlacklistedFiles();
-        // Plugins que travaram numa varredura anterior devem ser tentados de novo.
-        deadMansFile.deleteFile();
+        // O scan-deadman.txt é mantido de propósito: ele registra plugins que
+        // derrubaram o processo. Apagar aqui faria o motor cair de novo no
+        // mesmo plugin a cada rescan. Para retentar um caso específico existe
+        // o comando `unblacklist`, que também limpa esse registro.
     }
 
     scanState = {};
@@ -2376,8 +2383,26 @@ bool Engine::unblacklistPlugin (const juce::String& path)
 
     const auto before = knownPlugins.getBlacklistedFiles().size();
     knownPlugins.removeFromBlacklist (path);
+    const bool wasBlacklisted = knownPlugins.getBlacklistedFiles().size() != before;
 
-    if (knownPlugins.getBlacklistedFiles().size() == before)
+    // O scan-deadman.txt guarda quem derrubou o processo. Sem limpar aqui, o
+    // próximo scanner blacklistaria o plugin de novo antes de tentar carregá-lo.
+    if (deadMansFile.existsAsFile())
+    {
+        juce::StringArray crashed;
+        deadMansFile.readLines (crashed);
+        const int index = crashed.indexOf (path);
+        if (index >= 0)
+        {
+            crashed.remove (index);
+            if (crashed.isEmpty())
+                deadMansFile.deleteFile();
+            else
+                deadMansFile.replaceWithText (crashed.joinIntoString ("\n"), false, false, "\n");
+        }
+    }
+
+    if (! wasBlacklisted)
         return false;
 
     saveKnownPlugins();

@@ -138,6 +138,13 @@ export class VstManager extends EventEmitter {
   async loadKnownPlugins(): Promise<VstPluginInfo[]> {
     const result = await this.engine.request('plugins', {});
     this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+    // O relatório precisa refletir o cache: sem escanear nesta sessão, o Log
+    // mostraria 0 plugins e 0 bloqueados mesmo com a lista cheia.
+    this.scanReport = {
+      ...this.scanReport,
+      count: this.scannedPlugins.length,
+      blacklisted: result.blacklisted ?? this.scanReport.blacklisted,
+    };
     this.emit('scanned', this.scannedPlugins);
     return this.scannedPlugins;
   }

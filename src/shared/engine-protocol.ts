@@ -181,7 +181,7 @@ export interface EngineCommands {
   setLayerMix: { args: LayerMixUpdate & { layerId: string }; result: EngineMixState };
   setMasterMix: { args: MasterMixUpdate; result: EngineMixState };
   midiEnable: { args: { identifier?: string; enabled?: boolean }; result: EngineDevices };
-  plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[] } };
+  plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[]; blacklisted?: string[] } };
   scan: { args: { paths?: string[]; rescan?: boolean }; result: EngineScanResult };
   /** Remove um plugin da blacklist para que o próximo scan o tente de novo. */
   unblacklist: { args: { path: string }; result: { removed: boolean } };
