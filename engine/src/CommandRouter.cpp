@@ -175,6 +175,25 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "unblacklist")
+    {
+        const auto path = message["path"].toString();
+        if (path.isEmpty())
+        {
+            fail (id, utf8 ("Informe \"path\" do plugin bloqueado."));
+            return;
+        }
+
+        if (! engine.unblacklistPlugin (path))
+        {
+            fail (id, utf8 ("Plugin não estava na blacklist."));
+            return;
+        }
+
+        ok (id, Obj().set ("removed", true));
+        return;
+    }
+
     if (cmd == "scan")
     {
         juce::StringArray extraPaths;

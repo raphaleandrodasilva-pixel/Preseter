@@ -183,6 +183,8 @@ export interface EngineCommands {
   midiEnable: { args: { identifier?: string; enabled?: boolean }; result: EngineDevices };
   plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[] } };
   scan: { args: { paths?: string[]; rescan?: boolean }; result: EngineScanResult };
+  /** Remove um plugin da blacklist para que o próximo scan o tente de novo. */
+  unblacklist: { args: { path: string }; result: { removed: boolean } };
   load: {
     args: {
       plugin?: string;

@@ -28,13 +28,14 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(127);
+    expect(handlers.size).toBe(128);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
       'vst-scan',
       'vst-rescan',
       'vst-scan-report',
+      'vst-unblacklist',
       'vst-hide-plugin',
       'vst-show-plugin',
       'vst-presets-list',

@@ -611,6 +611,12 @@ class MainWindow {
 
     ipcMain.handle('vst-scan-report', () => this.vstManager.getScanReport());
 
+    // Tira um plugin da blacklist para que o próximo scan tente carregá-lo.
+    ipcMain.handle('vst-unblacklist', async (_event, path: string) => {
+      await this.vstManager.unblacklistPlugin(String(path));
+      return this.vstManager.getScanReport();
+    });
+
     // Descarta a lista acumulada no motor e escaneia tudo de novo.
     ipcMain.handle('vst-rescan', async () => {
       const plugins = await this.scanWithPreferences(true);

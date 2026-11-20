@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstScan: () => ipcRenderer.invoke('vst-scan'),
   vstRescan: () => ipcRenderer.invoke('vst-rescan'),
   vstScanReport: () => ipcRenderer.invoke('vst-scan-report'),
+  vstUnblacklist: (path: string) => ipcRenderer.invoke('vst-unblacklist', path),
   startupProgress: (percent: number, message?: string) =>
     ipcRenderer.send('startup-progress', { percent, message }),
   startupReady: () => ipcRenderer.send('startup-ready'),

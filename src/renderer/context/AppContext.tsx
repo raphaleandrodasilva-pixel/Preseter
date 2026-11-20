@@ -195,6 +195,8 @@ export interface AppContextType {
   // Ações VST
   scanVstPlugins: () => Promise<any[]>;
   rescanVstPlugins: () => Promise<any[]>;
+  /** Tira um plugin da blacklist do motor para que o próximo scan o tente. */
+  unblacklistVstPlugin: (path: string) => Promise<boolean>;
   hideVstPlugin: (idOrPath: string) => Promise<boolean>;
   showVstPlugin: (idOrPath: string) => Promise<boolean>;
   hiddenPluginIds: string[];
@@ -1662,6 +1664,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [refreshVstScanReport]);
 
+  const unblacklistVstPlugin = useCallback(async (path: string) => {
+    try {
+      const report = await window.electronAPI.vstUnblacklist(path);
+      setVstScanReport(report);
+      setMidiError(null);
+      return true;
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'Falha ao desbloquear o plugin.');
+      return false;
+    }
+  }, []);
+
   const showVstPlugin = useCallback(async (idOrPath: string) => {
     try {
       const result = await window.electronAPI.vstShowPlugin(idOrPath);
@@ -2362,6 +2376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     subscribeMidiLearn,
     scanVstPlugins,
     rescanVstPlugins,
+    unblacklistVstPlugin,
     hideVstPlugin,
     showVstPlugin,
     addVstPluginFolder,

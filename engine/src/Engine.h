@@ -121,6 +121,10 @@ public:
     /** Varre os diretórios padrão (+ extras). Roda aos poucos pelo timer. */
     void scan (const juce::StringArray& extraPaths, bool rescan, Progress progress, Done done);
 
+    /** Tira um plugin da blacklist para que a próxima varredura o tente de novo.
+        A blacklist é mantida pelo KnownPluginList e sobrevive ao rescan. */
+    bool unblacklistPlugin (const juce::String& path);
+
     /** idOrPath é um id retornado por scan/plugins ou o caminho do .vst3. */
     void loadPlugin (const juce::String& idOrPath, const juce::String& layerId,
                      int minNote, int maxNote, Done done, bool staged = false, bool pinned = false);

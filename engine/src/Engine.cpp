@@ -2301,6 +2301,10 @@ void Engine::scan (const juce::StringArray& extraPaths, bool rescan, Progress pr
     if (rescan)
     {
         knownPlugins.clear();
+        // KnownPluginList::clear() não mexe na blacklist: sem isto, um plugin
+        // que falhou uma vez nunca mais é tentado, nem ao pedir para escanear
+        // de novo (caso do Surge XT instrumento).
+        knownPlugins.clearBlacklistedFiles();
         // Plugins que travaram numa varredura anterior devem ser tentados de novo.
         deadMansFile.deleteFile();
     }
@@ -2363,6 +2367,21 @@ void Engine::saveKnownPlugins()
 {
     if (auto xml = knownPlugins.createXml())
         xml->writeTo (knownPluginsFile);
+}
+
+bool Engine::unblacklistPlugin (const juce::String& path)
+{
+    if (path.isEmpty())
+        return false;
+
+    const auto before = knownPlugins.getBlacklistedFiles().size();
+    knownPlugins.removeFromBlacklist (path);
+
+    if (knownPlugins.getBlacklistedFiles().size() == before)
+        return false;
+
+    saveKnownPlugins();
+    return true;
 }
 
 bool Engine::findDescription (const juce::String& key, juce::PluginDescription& out)

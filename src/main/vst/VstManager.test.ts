@@ -167,6 +167,26 @@ describe('VstManager scanning', () => {
     });
   });
 
+  it('remove um plugin da blacklist e atualiza o relatório', async () => {
+    const { engine, request } = makeEngine((command) =>
+      command === 'scan'
+        ? {
+            count: 0,
+            plugins: [],
+            failed: [],
+            blacklisted: ['C:/plugins/travado.vst3', 'C:/plugins/outro.vst3'],
+          }
+        : undefined
+    );
+    const manager = new VstManager(engine);
+    await manager.scanDirectories(['C:/plugins']);
+
+    await manager.unblacklistPlugin('C:/plugins/travado.vst3');
+
+    expect(request).toHaveBeenCalledWith('unblacklist', { path: 'C:/plugins/travado.vst3' });
+    expect(manager.getScanReport().blacklisted).toEqual(['C:/plugins/outro.vst3']);
+  });
+
   it('carrega a lista de plugins do cache sem varrer as pastas', async () => {
     const { engine, request } = makeEngine((command) =>
       command === 'plugins'

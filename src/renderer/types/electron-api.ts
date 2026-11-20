@@ -60,6 +60,7 @@ export interface ElectronAPI {
   vstScan: () => Promise<VstPluginInfo[]>;
   vstRescan: () => Promise<VstPluginInfo[]>;
   vstScanReport: () => Promise<VstScanReport>;
+  vstUnblacklist: (path: string) => Promise<VstScanReport>;
   startupProgress: (percent: number, message?: string) => void;
   startupReady: () => void;
   /** Avisa o processo principal que a interface pintou o primeiro quadro. */

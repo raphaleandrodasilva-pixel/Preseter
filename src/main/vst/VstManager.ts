@@ -88,6 +88,15 @@ export class VstManager extends EventEmitter {
     });
   }
 
+  /** Tira um plugin da blacklist do motor para que o próximo scan o tente. */
+  async unblacklistPlugin(path: string): Promise<void> {
+    await this.engine.request('unblacklist', { path });
+    this.scanReport = {
+      ...this.scanReport,
+      blacklisted: this.scanReport.blacklisted.filter((item) => item !== path),
+    };
+  }
+
   private runScan(args: { paths?: string[]; rescan?: boolean }): Promise<VstPluginInfo[]> {
     if (this.scanPromise) return this.scanPromise;
     this.scanPromise = (async () => {
