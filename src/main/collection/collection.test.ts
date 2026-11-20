@@ -44,6 +44,30 @@ const plugins = [
     path: 'C:/plugins/calfnxt/calfNXTDelay.vst3',
     isInstrument: false,
   },
+  {
+    id: 'calf-eq',
+    name: 'calfNXT Equalizer',
+    path: 'C:/plugins/calfnxt/calfNXTEqualizer.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-comp',
+    name: 'calfNXT Compressor',
+    path: 'C:/plugins/calfnxt/calfNXTCompressor.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-pulsator',
+    name: 'calfNXT Pulsator',
+    path: 'C:/plugins/calfnxt/calfNXTPulsator.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-filter',
+    name: 'calfNXT Filter',
+    path: 'C:/plugins/calfnxt/calfNXTFilter.vst3',
+    isInstrument: false,
+  },
 ];
 
 /** Cria a pasta de sons com as três bibliotecas usadas pela Factory 40. */
@@ -288,7 +312,7 @@ describe('buildCollectionConcert', () => {
       expect(file.patches.find((patch) => patch.name === 'Warm Analog Pad')?.icon).toBe('pad');
       expect(
         file.patches.find((patch) => patch.name === 'Synth Bass')?.plugins?.[0]?.pluginId
-      ).toBe('surge');
+      ).toBe('preseter.jx');
       expect(
         file.patches.flatMap((patch) => patch.plugins ?? []).every((layer) => typeof layer.mix?.volumeDb === 'number')
       ).toBe(true);
@@ -300,16 +324,18 @@ describe('buildCollectionConcert', () => {
     }
   });
 
-  it('uses fallbacks when an optional instrument is missing', () => {
+  it('gera os 40 patches sem depender de plugins externos de instrumento', () => {
     const sounds = makeSoundsFolder();
     try {
       const { file, skipped } = buildCollectionConcert(
-        plugins.filter((plugin) => plugin.id !== 'odin' && plugin.id !== 'helm'),
+        plugins.filter((plugin) => plugin.isInstrument !== true),
         { tempo: 100, soundsFolder: sounds }
       );
       expect(file.patches).toHaveLength(40);
       expect(skipped).toEqual([]);
-      expect(file.patches.find((patch) => patch.name === 'Vintage Analog Lead')?.plugins?.[0]?.name).toMatch(/Surge/i);
+      expect(
+        file.patches.find((patch) => patch.name === 'Vintage Analog Lead')?.plugins?.[0]
+      ).toMatchObject({ pluginId: 'preseter.jx', path: 'preseter.jx' });
     } finally {
       removeTempDir(sounds);
     }

@@ -2,7 +2,29 @@
 
 > Respostas levantadas no código em 20/11/2026. Cada item aponta arquivo e linha.
 > Onde o documento original dizia `a confirmar`, aqui está o valor real.
-> Nada foi alterado no produto nesta tarefa.
+
+## 0. Estado da implementação (20/11/2026)
+
+| Tarefa | Estado | Onde |
+|---|---|---|
+| F0 — confirmações | **concluída** | este documento |
+| F1 — `nativeInstrument` com piano/dx/jx | **concluída** | `collection-presets.ts`, `nativeAssignmentFor` |
+| F2 — inserts/sends por patch | **concluída** | `generateCollection.ts` (`resolveEffectInserts`) |
+| F3 — Aux 1 Reverb e Aux 2 Delay | **concluída** | `generateCollection.ts` |
+| F4 — mapeamento dos 40 patches | **concluída** | `collection-presets.ts` |
+| F5 — teste de som por patch | pendente | precisa do motor com áudio |
+| F6 — docs PATCHES/COLECAO | pendente | — |
+
+Resultado medido com o scan real (78 plugins) e a pasta de sons:
+
+- **18 patches** com insert no strip;
+- **2 patches** com insert no Master (Brass Section, Acoustic Rock Kit);
+- **36 patches** com send ativo (os 4 sem send são Clavinet, Precision Bass, Synth Bass e Deep Synth Bass);
+- **Aux 1** = calfNXT Reverb e **Aux 2** = calfNXT Delay habilitados; Aux 3/4 desligados;
+- nenhum patch em `missing`.
+
+> Antes do F4, apenas o **Rhodes Classic** tinha efeitos — era só o mecanismo do F2/F3.
+> A tabela §5 abaixo é a que está no código agora.
 
 ---
 
@@ -216,9 +238,9 @@ assignment. O motor já aceita `setParam` por índice (`CommandRouter.cpp`).
 
 ---
 
-## 7. Proposta de programas para os patches marcados `a confirmar`
+## 7. Programas aplicados nos patches de DX10/JX10
 
-Sujeita à aprovação do Rafael; nomes conferidos nas tabelas acima.
+Escolha aplicada ao código no F4; nomes conferidos nas tabelas acima.
 
 | # | Patch | Instrumento proposto | Programa |
 |---|---|---|---|

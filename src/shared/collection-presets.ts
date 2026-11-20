@@ -157,9 +157,10 @@ const arp = (mode: ArpSettings['mode'] = 'up'): ArpSettings => ({
 });
 
 /**
- * 40 patches da Factory 40, seguindo docs/Preseter_Biblioteca_40_Patches.md e
- * os JSONs em docs/Preseter_Factory_40_JSON. Os instrumentos sampleados usam o
- * sampler nativo; os sintetizadores seguem em plugins.
+ * 40 patches da Factory 40, seguindo docs/FACTORY-40-NATIVOS.md.
+ * Instrumentos: sampler nativo para acústicos, Preseter Organ/Tines/Wurly,
+ * DX10, JX10. Efeitos: só calfNXT, resolvidos por nome em `effectKey`.
+ * Pianos acústicos usam SEMPRE o sampler (nunca `preseter.piano`).
  */
 export const COLLECTION_SETS: CollectionSet[] = [
   ['Pianos & Keys', [
@@ -167,25 +168,31 @@ export const COLLECTION_SETS: CollectionSet[] = [
       S(-2, 0, 127, 'Piano de cauda', {
         library: 'salamander', loop: false, velocity: 1, polyphony: 64,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['Soft Grand', [
       S(-3, 0, 127, 'Piano macio', {
         library: 'salamander', loop: false, cutoff: 5500, attack: 0.004,
         release: 0.25, velocity: 0.75, polyphony: 64,
       }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Equalizer')],
+      sends: auxSends({ 1: -12 }),
+    }],
     ['Pop Piano', [
       S(-1, 0, 127, 'Piano pop', {
         library: 'salamander', loop: false, cutoff: 14000, attack: 0.001,
         velocity: 1, polyphony: 64,
       }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Compressor')],
+      sends: auxSends({ 1: -16 }),
+    }],
     ['Upright Piano', [
       S(-2, 0, 127, 'Piano vertical', {
         library: 'sonatina', bank: 0, program: 0, loop: false, release: 0.35,
         velocity: 0.95, polyphony: 48,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -16 }) }],
     ['Rhodes Classic', [
       N('tines', -3, 0, 127, 'Rhodes', 0),
     ], {
@@ -194,33 +201,42 @@ export const COLLECTION_SETS: CollectionSet[] = [
     }],
     ['Wurlitzer EP', [
       N('reeds', -3, 0, 127, 'Wurly', 0),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Pulsator')],
+      sends: auxSends({ 1: -16, 2: -22 }),
+    }],
     ['FM Electric Piano', [
-      S(-3, 0, 127, 'Piano elétrico FM', {
-        library: 'musescore', bank: 8, program: 5, loop: true, release: 0.8,
-        velocity: 1.1, polyphony: 32,
-      }),
-    ]],
+      N('dx', -3, 0, 127, 'Piano elétrico FM', 0),
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -16, 2: -22 }),
+    }],
     ['Clavinet Funk', [
       S(-2, 0, 127, 'Clavinet', {
         library: 'musescore', bank: 0, program: 7, loop: false, release: 0.12,
         cutoff: 12000, velocity: 1.1, polyphony: 24,
       }),
-    ]],
+    ], { inserts: [FX('calfNXT Phaser')] }],
   ]],
   ['Organs', [
     ['Hammond Jazz', [
       N('organ', -3, 0, 127, 'Hammond jazz', 0),
-    ]],
+    ], { sends: auxSends({ 1: -20 }) }],
     ['Hammond Gospel', [
       N('organ', -2, 0, 127, 'Hammond gospel', 1),
-    ]],
+    ], { sends: auxSends({ 1: -18 }) }],
     ['Hammond Rock', [
       N('organ', -2, 0, 127, 'Hammond rock', 2),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Compressor')],
+      sends: auxSends({ 1: -22 }),
+    }],
     ['Vintage Transistor Organ', [
       N('organ', -3, 0, 127, 'Órgão combo', 3),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Phaser')],
+      sends: auxSends({ 1: -20 }),
+    }],
   ]],
   ['Strings', [
     ['Solo Violin', [
@@ -228,7 +244,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 12, loop: true, release: 0.45,
         velocity: 0.9, polyphony: 16,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -10 }) }],
     ['String Ensemble', [
       S(-3, 55, 108, 'Violinos', {
         library: 'sonatina', bank: 0, program: 2, loop: true, release: 0.5, polyphony: 24,
@@ -242,7 +258,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       S(-5, 24, 66, 'Contrabaixos', {
         library: 'sonatina', bank: 0, program: 10, loop: true, release: 0.5, polyphony: 8,
       }, { pan: 0.18 }),
-    ]],
+    ], { sends: auxSends({ 1: -10 }) }],
     ['Cinematic Strings', [
       S(-2, 55, 108, 'Violinos', {
         library: 'sonatina', bank: 0, program: 2, loop: true, attack: 0.35,
@@ -252,18 +268,22 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 8, loop: true, attack: 0.4,
         release: 1.8, polyphony: 16,
       }, { pan: 0.12 }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Equalizer')],
+      sends: auxSends({ 1: -8 }),
+    }],
     ['Pizzicato Strings', [
       S(-3, 36, 96, 'Cordas em pizzicato', {
         library: 'sonatina', bank: 0, program: 3, loop: false, release: 0.18,
         velocity: 1.1, polyphony: 24,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['Warm String Pad', [
-      L('SURGE', -3, 0, 127, 'Pad de cordas', undefined, {
-        factoryPreset: 'Pads/Subtle Comb Strings.fxp',
-      }),
-    ]],
+      N('jx', -3, 0, 127, 'Pad de cordas', 29),
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -10 }),
+    }],
   ]],
   ['Brass', [
     ['Solo Trumpet', [
@@ -271,19 +291,19 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 27, loop: true, release: 0.35,
         velocity: 0.95, polyphony: 16,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['Trombone', [
       S(-2, 0, 127, 'Trombone', {
         library: 'sonatina', bank: 0, program: 31, loop: true, release: 0.4,
         velocity: 0.95, polyphony: 16,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['French Horn', [
       S(-2, 0, 127, 'Trompa', {
         library: 'sonatina', bank: 0, program: 29, loop: true, release: 0.45,
         velocity: 0.9, polyphony: 16,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -12 }) }],
     ['Brass Section', [
       S(-3, 60, 108, 'Trompetes', {
         library: 'sonatina', bank: 0, program: 28, loop: true, release: 0.4, polyphony: 16,
@@ -294,7 +314,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
       S(-4, 36, 84, 'Trompas', {
         library: 'sonatina', bank: 0, program: 30, loop: true, release: 0.5, polyphony: 12,
       }, { pan: 0.15 }),
-    ]],
+    ], {
+      master: [FX('calfNXT Compressor')],
+      sends: auxSends({ 1: -14 }),
+    }],
   ]],
   ['Woodwinds', [
     ['Concert Flute', [
@@ -302,19 +325,19 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 14, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['Clarinet', [
       S(-2, 0, 127, 'Clarinete', {
         library: 'sonatina', bank: 0, program: 20, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
     ['Oboe', [
       S(-2, 0, 127, 'Oboé', {
         library: 'sonatina', bank: 0, program: 16, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -14 }) }],
   ]],
   ['Guitars & Bass', [
     ['Acoustic Guitar Nylon', [
@@ -322,30 +345,38 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'musescore', bank: 0, program: 24, loop: false, release: 0.5,
         velocity: 1, polyphony: 24,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -16, 2: -20 }) }],
     ['Acoustic Guitar Steel', [
       S(-3, 0, 127, 'Violão de aço', {
         library: 'musescore', bank: 0, program: 25, loop: false, release: 0.5,
         velocity: 1, polyphony: 24,
       }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Compressor')],
+      sends: auxSends({ 1: -16, 2: -20 }),
+    }],
     ['Electric Guitar Clean', [
       S(-3, 0, 127, 'Guitarra limpa', {
         library: 'musescore', bank: 0, program: 27, loop: false, release: 0.45,
         velocity: 1, polyphony: 24,
       }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -16, 2: -20 }),
+    }],
     ['Precision Bass', [
       S(-3, 0, 127, 'Baixo precision', {
         library: 'musescore', bank: 0, program: 34, loop: false, release: 0.25,
         velocity: 1, polyphony: 12,
       }),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Compressor'), FX('calfNXT Equalizer')],
+    }],
     ['Synth Bass', [
-      L('SURGE', -2, 0, 127, 'Baixo sintetizado', undefined, {
-        factoryPreset: 'Basses/Sub 1.fxp',
-      }),
-    ]],
+      N('jx', -2, 0, 127, 'Baixo sintetizado', 17),
+    ], {
+      inserts: [FX('calfNXT Filter')],
+    }],
   ]],
   ['Drums & Percussion', [
     ['Acoustic Rock Kit', [
@@ -353,33 +384,56 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'musescore', bank: 128, program: 0, loop: false, release: 0.05,
         velocity: 1, polyphony: 32,
       }),
-    ]],
+    ], {
+      master: [FX('calfNXT Compressor')],
+      sends: auxSends({ 1: -18 }),
+    }],
     ['Electronic Drum Kit', [
       S(-2, 0, 127, 'Kit eletrônico', {
         library: 'musescore', bank: 128, program: 24, loop: false, release: 0.05,
         velocity: 1, polyphony: 32,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -18 }) }],
     ['Orchestral Percussion', [
       S(-2, 0, 127, 'Percussão orquestral', {
         library: 'sonatina', bank: 0, program: 36, loop: false, release: 0.2,
         velocity: 1, polyphony: 32,
       }),
-    ]],
+    ], { sends: auxSends({ 1: -12 }) }],
   ]],
   ['Synthesizers', [
-    ['Analog Poly Synth', [L('SURGE', -2, 0, 127, 'Analógico polifônico', undefined, { factoryPreset: 'Polysynths/Jupiter-8.fxp' })]],
-    ['Vintage Analog Lead', [L('SURGE', -2, 0, 127, 'Lead analógico', undefined, { factoryPreset: 'Leads/Moogy Saw.fxp' })]],
-    ['Modern Synth Lead', [L('SURGE', -2, 0, 127, 'Lead moderno', undefined, { factoryPreset: 'Leads/Classic Lead 1.fxp' })]],
-    ['Warm Analog Pad', [L('SURGE', -3, 0, 127, 'Pad analógico', undefined, { factoryPreset: 'Pads/MKS-70 Warm Pad.fxp' })]],
+    ['Analog Poly Synth', [
+      N('jx', -2, 0, 127, 'Analógico polifônico', 3),
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -14, 2: -20 }),
+    }],
+    ['Vintage Analog Lead', [
+      N('jx', -2, 0, 127, 'Lead analógico', 8),
+    ], { sends: auxSends({ 1: -16, 2: -14 }) }],
+    ['Modern Synth Lead', [
+      N('jx', -2, 0, 127, 'Lead moderno', 9),
+    ], { sends: auxSends({ 1: -16, 2: -14 }) }],
+    ['Warm Analog Pad', [
+      N('jx', -3, 0, 127, 'Pad analógico', 27),
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -10 }),
+    }],
     ['Digital Bell', [
-      S(-3, 0, 127, 'Sino digital', {
-        library: 'musescore', bank: 0, program: 14, loop: false, release: 1.5,
-        velocity: 1, polyphony: 16,
-      }),
-    ]],
-    ['Arpeggiator', [L('SURGE', -2, 0, 127, 'Arpejo', undefined, { arp: arp(), factoryPreset: 'Plucks/FM Pluck.fxp' })]],
-    ['Deep Synth Bass', [L('SURGE', -2, 0, 127, 'Baixo profundo', undefined, { factoryPreset: 'Basses/Deep End.fxp' })]],
-    ['Ambient Texture', [L('SURGE', -3, 0, 127, 'Textura ambiente', undefined, { factoryPreset: 'Pads/Computers In Space.fxp' })]],
+      N('dx', -3, 0, 127, 'Sino digital', 4),
+    ], { sends: auxSends({ 1: -12, 2: -20 }) }],
+    ['Arpeggiator', [
+      N('jx', -2, 0, 127, 'Arpejo', 12, { arp: arp() }),
+    ], { sends: auxSends({ 1: -16, 2: -14 }) }],
+    ['Deep Synth Bass', [
+      N('jx', -2, 0, 127, 'Baixo profundo', 20),
+    ], { inserts: [FX('calfNXT Equalizer')] }],
+    ['Ambient Texture', [
+      N('jx', -3, 0, 127, 'Textura ambiente', 48),
+    ], {
+      inserts: [FX('calfNXT Chorus')],
+      sends: auxSends({ 1: -8, 2: -12 }),
+    }],
   ]],
 ];
