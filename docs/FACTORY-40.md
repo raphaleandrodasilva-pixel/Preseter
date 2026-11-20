@@ -23,6 +23,12 @@ Confirmado em `engine/src/native/NativeProcessor.cpp` (33–38 e 44–48) e
 Nomes e quantidades confirmados em `NativeProcessor.cpp` 653–659 e 809–825:
 para órgão/tines/reeds, `getNumPrograms()` retorna **4** (não 1).
 
+> **Piano acústico NÃO usa `preseter.piano`.** A regra da coleção continua sendo
+> **sampler** (Salamander para Grand/Pop, Sonatina para Upright). O
+> `preseter.piano` foi confirmado aqui apenas porque existe no motor; ele só pode
+> entrar como **camada opcional de reforço** no Pop Piano (#3), e somente se o
+> Rafael aprovar. Nenhum dos 40 patches deve trocar o sampler pelo nativo.
+
 O motor já aceita os seis ids em `load`/`stageLoad`
 (`CommandRouter.cpp` 251–252 e 348–349). O que falta é só a coleção
 saber gerá-los (§6 deste documento).
@@ -235,8 +241,12 @@ Alternativas úteis: DX10 `9 — Tinkle` e `29 — Harmonics` para sinos; JX10
 
 ## 8. Resumo das decisões
 
-1. Piano acústico continua no **sampler** (decisão do Rafael).
-2. Órgão, Tines, Wurly, Piano, DX10 e JX10 já existem e podem ser usados pelo id.
+1. **Piano acústico = sampler, sempre** (decisão do Rafael). Os patches 1–4
+   (Concert Grand, Soft Grand, Pop Piano, Upright) usam `preseter.sampler`.
+   `preseter.piano` **não** substitui o sampler; no máximo entra como camada
+   extra no Pop Piano, se aprovado.
+2. Órgão, Tines, Wurly, DX10 e JX10 já existem e podem ser usados pelo id.
+   (`preseter.piano` também existe, mas não é usado nos pianos acústicos.)
 3. Efeitos: só calfNXT, resolvidos **por nome** no scan; ausente → `missing`.
 4. Estado do calfNXT **não** será pré-semeado; usar defaults + inserts/sends.
 5. Aux 1 (Reverb) e Aux 2 (Delay) precisam ser habilitados no concert gerado.
