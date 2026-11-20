@@ -834,6 +834,9 @@ class MainWindow {
     ipcMain.handle('sampler-pick-file', async () => {
       const result = await dialog.showOpenDialog({
         title: 'Carregar sample (SF2 ou SFZ)',
+        // Abre na pasta onde a Loja instala as bibliotecas: os samples novos
+        // aparecem direto, sem o usuário procurar o caminho.
+        defaultPath: this.soundsFolder(),
         properties: ['openFile'],
         filters: [
           { name: 'Sampler', extensions: ['sf2', 'sfz'] },

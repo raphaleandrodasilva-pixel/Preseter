@@ -176,6 +176,7 @@ export const StoreSettings: React.FC = () => {
   const [provider, setProvider] = useState<'all' | StoreSource>('all');
   const [showIncompatible, setShowIncompatible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [rescanning, setRescanning] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [imagesBusy, setImagesBusy] = useState(false);
   const [forceReinstall, setForceReinstall] = useState(false);
@@ -340,6 +341,26 @@ export const StoreSettings: React.FC = () => {
       };
     });
   }, []);
+
+  /**
+   * Instalador externo: o usuário já rodou o .exe do fabricante. Varre as
+   * pastas para o plugin entrar na lista e atualiza o status da Loja.
+   */
+  const handleRescanAfterInstall = async (item: StoreItemView) => {
+    if (rescanning) return;
+    setRescanning(true);
+    setNotice(null);
+    setError(null);
+    try {
+      await window.electronAPI.vstScan();
+      await refresh();
+      setNotice(`Varredura concluída. Se ${item.name} foi instalado, ele já aparece em Adicionar layer.`);
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Não foi possível escanear os plugins.');
+    } finally {
+      setRescanning(false);
+    }
+  };
 
   const handleDownload = async (item: StoreItemView) => {
     if (!item.compatible || item.variant?.kind === 'manual' || busy) return;
@@ -935,14 +956,25 @@ export const StoreSettings: React.FC = () => {
                     </button>
                   )}
                   {detail.status === 'ready' && detail.filePath && (
-                    <button
-                      type="button"
-                      className="w-full rounded px-3 py-2 text-[11px] font-semibold"
-                      style={{ background: '#FF9F0A', color: '#1A1A1A' }}
-                      onClick={() => void window.electronAPI.storeOpenInstaller(detail.filePath as string)}
-                    >
-                      Abrir instalador
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="w-full rounded px-3 py-2 text-[11px] font-semibold"
+                        style={{ background: '#FF9F0A', color: '#1A1A1A' }}
+                        onClick={() => void window.electronAPI.storeOpenInstaller(detail.filePath as string)}
+                      >
+                        Abrir instalador
+                      </button>
+                      <button
+                        type="button"
+                        className="hw-squarebtn w-full px-3 py-1.5 text-[10px] disabled:opacity-40"
+                        onClick={() => void handleRescanAfterInstall(detail)}
+                        disabled={rescanning}
+                        title="Varre as pastas agora e atualiza a lista de plugins"
+                      >
+                        {rescanning ? 'Escaneando…' : 'Já instalei, escanear'}
+                      </button>
+                    </>
                   )}
                   {detail.status === 'installed' && (
                     <button

@@ -153,6 +153,36 @@ describe('StoreSettings', () => {
     expect(await screen.findByText('Download concluído.')).toBeInTheDocument();
   });
 
+  it('escaneia os plugins depois de instalar por um instalador externo', async () => {
+    const installer = {
+      ...variant,
+      kind: 'installer' as const,
+      fileName: 'PluginSetup.exe',
+    };
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(
+      snapshot([
+        storeItem({
+          status: 'ready',
+          filePath: 'C:/Users/rapha/Downloads/PluginSetup.exe',
+          variant: installer,
+          variants: [installer],
+        }),
+      ])
+    );
+    vi.mocked(window.electronAPI.vstScan).mockResolvedValue([]);
+
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Já instalei, escanear/ }));
+
+    await waitFor(() => expect(window.electronAPI.vstScan).toHaveBeenCalled());
+    expect(await screen.findByText(/Varredura concluída/)).toBeInTheDocument();
+  });
+
   it('updates the remote catalog and reflects the new snapshot', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot());
     const updated = snapshot([storeItem({ name: 'Plugin Alfa 2.0' })]);
