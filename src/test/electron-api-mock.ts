@@ -336,6 +336,7 @@ export function createElectronApiMock(): ElectronApiMock {
       settings: createAudioSettingsSnapshot().settings,
     })),
     audioOpenLog: vi.fn(async () => true),
+    audioControlPanel: vi.fn(async () => createAudioSettingsSnapshot()),
     openPluginDialog: vi.fn(async () => null),
 
     presetSave: vi.fn(async () => true),

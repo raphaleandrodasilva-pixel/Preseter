@@ -105,7 +105,13 @@ public:
     void stopAudio();
     bool isAudioRunning() const;
 
-    juce::var describeDevices();
+    /** Lista os dispositivos. Como o Element, varre os drivers só na primeira
+        vez ou quando `rescan` é pedido, e não a cada consulta de estado. */
+    juce::var describeDevices (bool rescan = false);
+
+    /** Abre o painel do driver (ASIO4ALL etc.). Se o usuário mudou algo, o
+        dispositivo é fechado e reaberto, como faz o seletor de áudio do JUCE. */
+    juce::String showAudioControlPanel();
     juce::String setMidiInputEnabled (const juce::String& identifier, bool enabled);
 
     // ---- Plugins ---------------------------------------------------------
@@ -243,7 +249,7 @@ public:
     /** Saída (Output 1..4) para onde o channel strip do layer manda o áudio. */
     juce::String setLayerOutput (const juce::String& layerId, int output);
 
-    juce::var describeAudioConfiguration();
+    juce::var describeAudioConfiguration (bool rescan = false);
     juce::String audioConfigurationError();
     juce::var describeMixState() const;
     /** Configura o strip de entrada de áudio do patch (Fase 3.5). */
@@ -314,17 +320,17 @@ private:
     void finishScan();
     void saveKnownPlugins();
 
-    /** Mede o intervalo entre callbacks para estimar falhas de áudio. */
-    struct AudioTimingCallback final : juce::AudioIODeviceCallback
+    // Mede o intervalo entre callbacks para estimar falhas de áudio (xruns).
+    // NÃO é um AudioIODeviceCallback: com mais de um callback
+    // registrado, o AudioDeviceManager soma na saída o buffer temporário dos
+    // callbacks extras (que este medidor nunca escrevia), e lixo de memória ia
+    // para a placa. Como no Element, há um único callback (o Engine), que
+    // chama este medidor.
+    struct AudioTimingMeter
     {
-        void audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
-                                               int numInputChannels,
-                                               float* const* outputChannelData,
-                                               int numOutputChannels,
-                                               int numSamples,
-                                               const juce::AudioIODeviceCallbackContext& context) override;
-        void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
-        void audioDeviceStopped() override;
+        void start (juce::AudioIODevice* device);
+        void stop();
+        void tick();
 
         std::atomic<int> xruns { 0 };
         double expectedMs = 0.0;
@@ -333,8 +339,8 @@ private:
 
     PreseterAudioDeviceManager deviceManager;
     juce::AudioPluginFormatManager formatManager;
-    AudioTimingCallback timingCallback;
-    bool timingCallbackAttached = false;
+    AudioTimingMeter timingMeter;
+    bool deviceTypesScanned = false;
     juce::KnownPluginList knownPlugins;
     Graph graph;
     juce::CriticalSection audioGraphLock;

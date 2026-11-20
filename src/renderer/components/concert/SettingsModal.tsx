@@ -60,7 +60,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
 
   useEffect(() => setTab(initialTab), [initialTab]);
   useEffect(() => {
-    if (tab === 'audio') void refreshAudioSettings();
+    if (tab === 'audio') void refreshAudioSettings(true);
   }, [tab, refreshAudioSettings]);
   useEffect(() => {
     if (tab !== 'audio') return;
@@ -559,6 +559,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   >
                     Reiniciar áudio
                   </button>
+                  {audioDevices?.current?.hasControlPanel && (
+                    <button
+                      onClick={async () => {
+                        setAudioBusy(true);
+                        setAudioNotice('Painel do driver aberto. Feche-o para continuar.');
+                        try {
+                          await window.electronAPI.audioControlPanel();
+                          await refreshAudioSettings();
+                          setAudioNotice('Painel do driver fechado.');
+                        } catch (error) {
+                          setAudioNotice(
+                            error instanceof Error ? error.message : 'Não foi possível abrir o painel do driver.'
+                          );
+                        } finally {
+                          setAudioBusy(false);
+                        }
+                      }}
+                      disabled={audioBusy}
+                      className="hw-squarebtn px-3 py-2 text-xs disabled:opacity-50"
+                      style={{ color: '#EDEDEF' }}
+                      title="Abre o painel do driver (no ASIO4ALL: saídas ativas da placa, buffer e opções)"
+                    >
+                      Painel do driver
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={() => void window.electronAPI.audioOpenLog()}

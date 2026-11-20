@@ -159,7 +159,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-layer-patch-send', layerId, levelDb),
   vstSetLayerOutput: (layerId: string, output: number) =>
     ipcRenderer.invoke('vst-set-layer-output', layerId, output),
-  audioSettingsGet: () => ipcRenderer.invoke('audio-settings-get'),
+  audioSettingsGet: (rescan?: boolean) => ipcRenderer.invoke('audio-settings-get', rescan === true),
+  audioControlPanel: () => ipcRenderer.invoke('audio-control-panel'),
   preferencesGet: () => ipcRenderer.invoke('preferences-get'),
   preferencesSet: (update: unknown) => ipcRenderer.invoke('preferences-set', update),
   performanceModeGet: () => ipcRenderer.invoke('performance-mode-get'),

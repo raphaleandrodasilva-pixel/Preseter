@@ -188,7 +188,8 @@ export interface ElectronAPI {
   vstSetPatchSend: (aux: number, levelDb: number) => Promise<EngineMixState>;
   vstSetLayerPatchSend: (layerId: string, levelDb: number) => Promise<EngineMixState>;
   vstSetLayerOutput: (layerId: string, output: number) => Promise<EngineMixState>;
-  audioSettingsGet: () => Promise<AudioSettingsSnapshot>;
+  audioSettingsGet: (rescan?: boolean) => Promise<AudioSettingsSnapshot>;
+  audioControlPanel: () => Promise<AudioSettingsSnapshot>;
   preferencesGet: () => Promise<AppPreferences>;
   preferencesSet: (update: Partial<AppPreferences>) => Promise<AppPreferences>;
   performanceModeGet: () => Promise<AudioPerformanceStatus>;

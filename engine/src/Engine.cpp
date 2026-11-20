@@ -1399,13 +1399,12 @@ Engine::Engine()
 
     deviceManager.addChangeListener (this);
 
-    // Igual ao DeviceManager::attach do Element: o callback de áudio/MIDI é
-    // ligado uma única vez, antes de qualquer abertura de dispositivo.
+    // Igual ao DeviceManager::attach do Element: um único callback de áudio,
+    // ligado uma vez, antes de qualquer abertura de dispositivo. Não registrar
+    // um segundo: o JUCE soma na saída o buffer dos callbacks extras.
     deviceManager.addAudioCallback (this);
-    deviceManager.addAudioCallback (&timingCallback);
     deviceManager.addMidiInputDeviceCallback ({}, this);
     audioCallbackAttached = true;
-    timingCallbackAttached = true;
     midiCallbackAttached = true;
 }
 
@@ -1418,10 +1417,8 @@ Engine::~Engine()
     deviceManager.removeMidiInputDeviceCallback ({}, this);
     stopAudio();
     deviceManager.removeAudioCallback (this);
-    deviceManager.removeAudioCallback (&timingCallback);
     midiCallbackAttached = false;
     audioCallbackAttached = false;
-    timingCallbackAttached = false;
     deviceManager.removeChangeListener (this);
     {
         const juce::ScopedLock lock (audioGraphLock);
@@ -1442,7 +1439,7 @@ void Engine::removeGraphNode (Graph::NodeID nodeId)
     graph.removeNode (nodeId);
 }
 
-void Engine::AudioTimingCallback::audioDeviceAboutToStart (juce::AudioIODevice* device)
+void Engine::AudioTimingMeter::start (juce::AudioIODevice* device)
 {
     xruns.store (0, std::memory_order_relaxed);
     lastCallbackMs = 0.0;
@@ -1456,14 +1453,12 @@ void Engine::AudioTimingCallback::audioDeviceAboutToStart (juce::AudioIODevice* 
     }
 }
 
-void Engine::AudioTimingCallback::audioDeviceStopped()
+void Engine::AudioTimingMeter::stop()
 {
     lastCallbackMs = 0.0;
 }
 
-void Engine::AudioTimingCallback::audioDeviceIOCallbackWithContext (
-    const float* const*, int, float* const*, int, int,
-    const juce::AudioIODeviceCallbackContext&)
+void Engine::AudioTimingMeter::tick()
 {
     if (expectedMs <= 0.0)
         return;
@@ -1478,6 +1473,8 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 {
     if (device == nullptr)
         return;
+
+    timingMeter.start (device);
 
     const juce::ScopedLock lock (audioGraphLock);
     audioPrepared.store (false, std::memory_order_release);
@@ -1513,6 +1510,7 @@ void Engine::audioDeviceIOCallbackWithContext (
     const juce::AudioIODeviceCallbackContext&)
 {
     juce::ScopedNoDenormals noDenormals;
+    timingMeter.tick();
 
     if (numSamples <= 0 || numOutputChannels <= 0)
         return;
@@ -1580,6 +1578,7 @@ void Engine::audioDeviceIOCallbackWithContext (
 
 void Engine::audioDeviceStopped()
 {
+    timingMeter.stop();
     const juce::ScopedLock lock (audioGraphLock);
     audioPrepared.store (false, std::memory_order_release);
     graph.releaseResources();
@@ -1850,8 +1849,14 @@ bool Engine::isAudioRunning() const
     return audioCallbackAttached && deviceManager.getCurrentAudioDevice() != nullptr;
 }
 
-juce::var Engine::describeDevices()
+juce::var Engine::describeDevices (bool rescan)
 {
+    // O Element varre os drivers uma vez no boot. Varrer ASIO/WASAPI/DirectSound
+    // a cada consulta (e o app consulta em cada carga de plugin) mexe nos
+    // endpoints da placa enquanto o ASIO4ALL está com ela aberta.
+    const bool scan = rescan || ! deviceTypesScanned;
+    deviceTypesScanned = true;
+
     juce::Array<juce::var> types;
     bool asioBackendAvailable = false;
     bool asioDriverAvailable = false;
@@ -1865,7 +1870,8 @@ juce::var Engine::describeDevices()
 
     for (auto* type : deviceManager.getAvailableDeviceTypes())
     {
-        type->scanForDevices();
+        if (scan)
+            type->scanForDevices();
 
         juce::Array<juce::var> outputs, inputs;
         for (const auto& name : type->getDeviceNames (false)) outputs.add (name);
@@ -1906,7 +1912,8 @@ juce::var Engine::describeDevices()
                       .set ("outputLatencyMs", rate > 0 ? device->getOutputLatencyInSamples() * 1000.0 / rate : 0.0)
                       .set ("availableSampleRates", juce::var (availableSampleRates))
                       .set ("availableBufferSizes", juce::var (availableBufferSizes))
-                      .set ("xruns", timingCallback.xruns.load (std::memory_order_relaxed));
+                      .set ("hasControlPanel", device->hasControlPanel())
+                      .set ("xruns", timingMeter.xruns.load (std::memory_order_relaxed));
     }
 
     juce::Array<juce::var> midiInputs;
@@ -1935,9 +1942,29 @@ juce::var Engine::describeDevices()
                 : juce::String ("JACK compilado, mas nenhum servidor JACK/PipeWire foi encontrado. Inicie o jackd ou o pipewire-jack.")));
 }
 
-juce::var Engine::describeAudioConfiguration()
+juce::var Engine::describeAudioConfiguration (bool rescan)
 {
-    return describeDevices();
+    return describeDevices (rescan);
+}
+
+juce::String Engine::showAudioControlPanel()
+{
+    auto* device = deviceManager.getCurrentAudioDevice();
+    if (device == nullptr)
+        return utf8 ("Nenhum dispositivo de áudio está aberto.");
+    if (! device->hasControlPanel())
+        return utf8 ("Este driver não tem painel de controle.");
+
+    // Mesmo fluxo do AudioDeviceSelectorComponent do JUCE (usado pelo Element):
+    // se o painel indicar mudança, fecha e reabre o último dispositivo para
+    // aplicar buffer/saídas escolhidos no driver.
+    if (device->showControlPanel())
+    {
+        deviceManager.closeAudioDevice();
+        deviceManager.restartLastAudioDevice();
+        rebuildConnections();
+    }
+    return {};
 }
 
 juce::String Engine::audioConfigurationError()
@@ -4224,22 +4251,23 @@ void Engine::rebuildConnections()
     const juce::ScopedLock lock (audioGraphLock);
 
     for (const auto& connection : graph.getConnections())
-        graph.removeConnection (connection);
+        graph.removeConnection (connection, Graph::UpdateKind::none);
 
     const int graphIn  = graph.getMainBusNumInputChannels();
     const int graphOut = graph.getMainBusNumOutputChannels();
     if (masterNode != nullptr && limiterNode != nullptr && metronomeNode != nullptr && recorderNode != nullptr && audioOutNode != nullptr)
         for (int ch = 0; ch < juce::jmin (2, graphOut); ++ch)
         {
-            graph.addConnection ({ { masterNode->nodeID, ch }, { limiterNode->nodeID, ch } });
-            graph.addConnection ({ { limiterNode->nodeID, ch }, { metronomeNode->nodeID, ch } });
-            graph.addConnection ({ { metronomeNode->nodeID, ch }, { recorderNode->nodeID, ch } });
-            graph.addConnection ({ { recorderNode->nodeID, ch }, { audioOutNode->nodeID, ch } });
+            graph.addConnection ({ { masterNode->nodeID, ch }, { limiterNode->nodeID, ch } }, Graph::UpdateKind::none);
+            graph.addConnection ({ { limiterNode->nodeID, ch }, { metronomeNode->nodeID, ch } }, Graph::UpdateKind::none);
+            graph.addConnection ({ { metronomeNode->nodeID, ch }, { recorderNode->nodeID, ch } }, Graph::UpdateKind::none);
+            graph.addConnection ({ { recorderNode->nodeID, ch }, { audioOutNode->nodeID, ch } }, Graph::UpdateKind::none);
         }
 
     if (midiInNode != nullptr && midiThruNode != nullptr)
         graph.addConnection ({ { midiInNode->nodeID, Graph::midiChannelIndex },
-                               { midiThruNode->nodeID, Graph::midiChannelIndex } });
+                               { midiThruNode->nodeID, Graph::midiChannelIndex } },
+                             Graph::UpdateKind::none);
 
     // Liga `from` -> `to` respeitando mono/estéreo: fonte mono duplica no canal
     // direito; destino mono soma os dois canais (canais de insert podem ser mono).
@@ -4258,14 +4286,14 @@ void Engine::rebuildConnections()
         if (inCh == 1 && outCh >= 2)
         {
             for (int ch = 0; ch < juce::jmin (2, outCh); ++ch)
-                graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, 0 } });
+                graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, 0 } }, Graph::UpdateKind::none);
             return;
         }
 
         for (int ch = 0; ch < juce::jmin (2, outCh, inCh); ++ch)
-            graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, ch } });
+            graph.addConnection ({ { from->nodeID, ch }, { to->nodeID, ch } }, Graph::UpdateKind::none);
         if (outCh == 1 && inCh >= 2)
-            graph.addConnection ({ { from->nodeID, 0 }, { to->nodeID, 1 } });
+            graph.addConnection ({ { from->nodeID, 0 }, { to->nodeID, 1 } }, Graph::UpdateKind::none);
     };
 
     // Liga uma fonte ao barramento passando pela cadeia de inserts (pulando os com bypass).
@@ -4293,9 +4321,9 @@ void Engine::rebuildConnections()
             input != nullptr && input->isEnabled())
         {
             const int start = juce::jlimit (0, graphIn - 1, input->getInputChannel());
-            graph.addConnection ({ { audioInNode->nodeID, start }, { audioInputNode->nodeID, 0 } });
+            graph.addConnection ({ { audioInNode->nodeID, start }, { audioInputNode->nodeID, 0 } }, Graph::UpdateKind::none);
             if (! input->isMono() && start + 1 < graphIn)
-                graph.addConnection ({ { audioInNode->nodeID, start + 1 }, { audioInputNode->nodeID, 1 } });
+                graph.addConnection ({ { audioInNode->nodeID, start + 1 }, { audioInputNode->nodeID, 1 } }, Graph::UpdateKind::none);
 
             if (const int outIndex = findBus (outputBusId (input->getOutput())); outIndex >= 0)
                 connectToBus (audioInputNode, buses[(size_t) outIndex]);
@@ -4317,7 +4345,7 @@ void Engine::rebuildConnections()
     for (const auto& bus : buses)
         if (bus.kind == Bus::Kind::output && bus.stripNode != nullptr)
             for (int ch = 0; ch < 2; ++ch)
-                graph.addConnection ({ { bus.stripNode->nodeID, ch }, { masterNode->nodeID, ch } });
+                graph.addConnection ({ { bus.stripNode->nodeID, ch }, { masterNode->nodeID, ch } }, Graph::UpdateKind::none);
 
     // Bus do patch -> Output 1 (o Master do Patch continua sendo a Output 1 no
     // palco, mas agora com um strip próprio antes dela).
@@ -4407,22 +4435,34 @@ void Engine::rebuildConnections()
                 connectToBus (sendNode, buses[(size_t) auxBusIndex]);
         }
 
-        if (processor->getMainBusNumInputChannels() > 0)
+        // Entrada do dispositivo só vai para efeitos carregados como layer. Muitos
+        // instrumentos VST declaram um barramento de entrada; ligá-lo à placa
+        // jogava o microfone/line-in (que o ASIO4ALL abre junto com a saída)
+        // dentro do timbre. O Element também não liga entradas sozinho.
+        if (! processor->acceptsMidi() && processor->getMainBusNumInputChannels() > 0)
             for (int ch = 0; ch < juce::jmin (processor->getMainBusNumInputChannels(), graphIn); ++ch)
-                graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } });
+                graph.addConnection ({ { audioInNode->nodeID, ch }, { layer.pluginNode->nodeID, ch } }, Graph::UpdateKind::none);
 
         // Só o patch atual (e os strips do concert/set) recebem MIDI; o anterior
         // (lingering) fica só com o áudio das caudas.
         if (current)
         {
             graph.addConnection ({ { midiThruNode->nodeID, Graph::midiChannelIndex },
-                                   { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } });
+                                   { layer.midiFilterNode->nodeID, Graph::midiChannelIndex } },
+                                 Graph::UpdateKind::none);
             graph.addConnection ({ { layer.midiFilterNode->nodeID, Graph::midiChannelIndex },
-                                   { layer.midiFxNode->nodeID, Graph::midiChannelIndex } });
+                                   { layer.midiFxNode->nodeID, Graph::midiChannelIndex } },
+                                 Graph::UpdateKind::none);
             graph.addConnection ({ { layer.midiFxNode->nodeID, Graph::midiChannelIndex },
-                                   { layer.pluginNode->nodeID, Graph::midiChannelIndex } });
+                                   { layer.pluginNode->nodeID, Graph::midiChannelIndex } },
+                                 Graph::UpdateKind::none);
         }
     }
+
+    // Uma reconstrução só, no fim. Antes, cada add/remove reconstruía a ordem
+    // de processamento do grafo com o callback de áudio esperando a trava,
+    // o que podia causar estalos em cada troca de patch ou de dispositivo.
+    graph.rebuild();
 }
 
 void Engine::updateTailTimer()

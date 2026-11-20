@@ -767,6 +767,8 @@ export interface AudioDeviceSnapshot {
     availableBufferSizes?: number[];
     /** Falhas aproximadas de callback do motor (quando disponível). */
     xruns?: number;
+    /** O driver tem painel próprio (ASIO4ALL, painéis de interfaces ASIO). */
+    hasControlPanel?: boolean;
   };
   audioTypes: Array<{ type: string; outputs: string[]; inputs: string[] }>;
   midiInputs: Array<{ name: string; identifier: string; enabled: boolean }>;

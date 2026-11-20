@@ -51,6 +51,25 @@ Todos os testes gravaram 3 s de silêncio e foram analisados com
 
 O valor −91 dB é o piso do medidor de 24 bits; o WAV é silêncio digital.
 
+## Limite deste teste (2026-11-19)
+
+O WAV vem do gravador **dentro do grafo**, antes do `AudioDeviceManager`. Ele
+não enxerga o que o JUCE faz depois do callback. Por isso não pegou o ruído do
+ASIO4ALL, causado por:
+
+1. **Dois callbacks de áudio** (o `Engine` e o medidor de xruns, desde
+   `313c100`). Com mais de um callback, o `AudioDeviceManager` soma na saída o
+   `tempBuffer` dos extras. O medidor nunca escrevia nele, então lixo de
+   memória ia para a placa. Agora há um único callback, como no Element.
+2. **Entrada da placa ligada aos instrumentos.** Desde `4b9df84` o áudio abre
+   com os canais padrão do driver; no ASIO4ALL isso abre também o
+   microfone/line-in da Realtek, que entrava em todo VST com barramento de
+   entrada. Agora a entrada só vai para efeitos carregados como layer (e para
+   o strip de entrada, quando habilitado).
+
+Validação de ruído precisa ser feita **ouvindo a saída da placa** (ou gravando
+a saída com outro programa), não só com o WAV interno.
+
 ## Como repetir
 
 ```sh
