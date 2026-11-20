@@ -295,7 +295,8 @@ describe('ChannelStrips — aba Aux', () => {
 
     const aux1 = screen.getByTestId('bus-strip-aux1');
     fireEvent.click(within(aux1).getByText('＋ Adicionar efeito'));
-    expect(screen.getByText('Reverb')).toBeInTheDocument();
+    // O efeito do catálogo aparece com o nome Preseter.
+    expect(screen.getByText(/Preseter Reverb/)).toBeInTheDocument();
   });
 
   it('opens the Aux tab when a send knob is selected', () => {

@@ -13,6 +13,7 @@ const PROJECTS = [
   { name: 'MDA DX10 (porte JUCE MIT)', license: 'MIT', use: 'Preseter DX10' },
   { name: 'MDA JX10 (porte JUCE MIT)', license: 'MIT', use: 'Preseter JX10' },
   { name: 'OpenWurli', license: 'GPL-3.0-or-later', use: 'Preseter Wurly' },
+  { name: 'calfNXT / Calf Studio Gear', license: 'GPL-3.0-or-later', use: 'Efeitos Preseter' },
   { name: 'Element', license: 'GPL-3.0-or-later', use: 'Referência de áudio ASIO/WASAPI' },
   { name: 'JUCE', license: 'AGPL-3.0 / comercial', use: 'Motor e interface' },
 ];

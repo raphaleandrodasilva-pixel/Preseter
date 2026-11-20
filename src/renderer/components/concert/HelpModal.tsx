@@ -31,6 +31,26 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
     ],
   },
   {
+    title: 'Efeitos',
+    items: [
+      'Os efeitos Preseter (Reverb, Delay, Compressor, EQ, Chorus…) já vêm no app.',
+      'No insert, clique em “E” para abrir o painel Preseter; “Editor original” abre a interface do plugin.',
+      'O seletor no topo traz os presets de fábrica; “+ Preset” guarda os valores atuais na sua lista.',
+      'Analyzer e Tuner continuam abrindo o editor original do plugin.',
+      'Para controlar um efeito por MIDI: Mapeamentos → Destino “Parâmetro de plugin” → escolha o insert.',
+    ],
+  },
+  {
+    title: 'Créditos',
+    items: [
+      'Preseter Organ: setBfree (GPL-2.0-or-later).',
+      'Preseter Tines, Piano, DX10 e JX10: MDA / Paul Kellett, porte JUCE de M.I. Hollemans (MIT).',
+      'Preseter Wurly: OpenWurli (GPL-3.0-or-later).',
+      'Efeitos Preseter: calfnXT / Calf Studio Gear, fork boomshop/calfnxt (GPL-3.0-or-later).',
+      'Ajuda → Sobre mostra a versão e a lista completa de licenças.',
+    ],
+  },
+  {
     title: 'MIDI e áudio',
     items: [
       'Configure dispositivos de áudio e MIDI em Configurações.',

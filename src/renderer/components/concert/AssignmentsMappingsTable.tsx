@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type {
+  BusSettings,
+  ConcertBusSettings,
   ConcertMapping,
   LayoutConfig,
   MappableAction,
@@ -8,6 +10,7 @@ import type {
   PresetSet,
   VstPluginInfo,
 } from '@shared/types';
+import { effectDisplayName } from '@shared/effects/catalog';
 import { ModalShell } from '../ui/ModalShell';
 
 interface AssignmentsMappingsTableProps {
@@ -20,8 +23,19 @@ interface AssignmentsMappingsTableProps {
   scannedPlugins: VstPluginInfo[];
   /** Plugins carregados: fonte dos parâmetros dos instrumentos nativos. */
   loadedPlugins?: VstPluginInfo[];
+  /** Barramentos do concert, para listar os inserts de Aux/Output. */
+  buses?: ConcertBusSettings;
   onChange: (mappings: ConcertMapping[]) => void;
   onClose: () => void;
+}
+
+/** Alvo de parâmetro: instrumento do layer ou insert (owner + slot). */
+interface ParameterTarget {
+  key: string;
+  label: string;
+  path: string;
+  owner?: string;
+  slot?: number;
 }
 
 type TargetKind = 'element' | 'parameter' | 'action';
@@ -89,6 +103,7 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
   layout,
   scannedPlugins,
   loadedPlugins = [],
+  buses,
   onChange,
   onClose,
 }) => {
@@ -98,14 +113,63 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
   const [number, setNumber] = useState(1);
   const [targetKind, setTargetKind] = useState<TargetKind>('element');
   const [elementId, setElementId] = useState('');
-  const [pluginPath, setPluginPath] = useState('');
+  const [targetKey, setTargetKey] = useState('');
   const [parameterId, setParameterId] = useState('');
   const [action, setAction] = useState<MappableAction>('panic');
 
-  const instruments = useMemo(
-    () => (currentPatch?.plugins ?? []).filter((plugin) => plugin.role === 'instrument'),
-    [currentPatch]
-  );
+  /**
+   * Alvos de parâmetro: cada instrumento do patch e cada insert (layer,
+   * Master do Patch e Aux). Inserts usam a chave `insert:<owner>:<slot>`;
+   * instrumentos continuam usando o caminho, como antes.
+   */
+  const parameterTargets = useMemo<ParameterTarget[]>(() => {
+    const list: ParameterTarget[] = [];
+    for (const [index, assignment] of (currentPatch?.plugins ?? []).entries()) {
+      if (assignment.role !== 'instrument' || assignment.externalMidi) continue;
+      const owner = assignment.layerId ?? `${currentPatch?.id}:layer:${index}`;
+      list.push({ key: assignment.path, label: assignment.name, path: assignment.path });
+      for (const insert of [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+        list.push({
+          key: `insert:${owner}:${insert.slot}`,
+          label: `${assignment.name} · ${effectDisplayName(insert.path, insert.name)}`,
+          path: insert.path,
+          owner,
+          slot: insert.slot,
+        });
+      }
+    }
+    for (const insert of [...(currentPatch?.master?.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+      list.push({
+        key: `insert:patch:${insert.slot}`,
+        label: `Master do Patch · ${effectDisplayName(insert.path, insert.name)}`,
+        path: insert.path,
+        owner: 'patch',
+        slot: insert.slot,
+      });
+    }
+    const pushBuses = (prefix: 'aux' | 'output', busList: BusSettings[] | undefined) => {
+      for (const [index, bus] of (busList ?? []).entries()) {
+        const owner = `${prefix}${index + 1}`;
+        const name = prefix === 'aux' ? `Aux ${index + 1}` : `Output ${index + 1}`;
+        for (const insert of [...(bus.inserts ?? [])].sort((a, b) => a.slot - b.slot)) {
+          list.push({
+            key: `insert:${owner}:${insert.slot}`,
+            label: `${name} · ${effectDisplayName(insert.path, insert.name)}`,
+            path: insert.path,
+            owner,
+            slot: insert.slot,
+          });
+        }
+      }
+    };
+    pushBuses('aux', buses?.aux);
+    pushBuses('output', buses?.outputs);
+    return list;
+  }, [currentPatch, buses]);
+
+  const selectedTarget = parameterTargets.find((target) => target.key === targetKey);
+  const pluginPath = selectedTarget?.path ?? '';
+
   const parameters = useMemo(() => {
     const scanned = scannedPlugins.find((plugin) => plugin.path === pluginPath)?.parameters ?? [];
     if (scanned.length > 0) return scanned;
@@ -134,8 +198,13 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
       ...(level === 'set' && currentSet ? { setId: currentSet.id } : {}),
       ...(level === 'patch' && currentPatch ? { patchId: currentPatch.id } : {}),
       ...(targetKind === 'element' && elementId ? { elementId } : {}),
-      ...(targetKind === 'parameter' && parameterId
-        ? { pluginPath, parameterId }
+      ...(targetKind === 'parameter' && parameterId && selectedTarget
+        ? {
+            pluginPath: selectedTarget.path,
+            parameterId,
+            ...(selectedTarget.owner ? { paramOwner: selectedTarget.owner } : {}),
+            ...(selectedTarget.slot !== undefined ? { paramSlot: selectedTarget.slot } : {}),
+          }
         : {}),
       ...(targetKind === 'action' ? { action } : {}),
     };
@@ -266,17 +335,17 @@ export const AssignmentsMappingsTable: React.FC<AssignmentsMappingsTableProps> =
               {targetKind === 'parameter' && (
                 <>
                   <label className="text-[11px]" style={{ color: '#9A9AA0' }}>Plugin
-                    <select className={`${classInput} mt-1`} value={pluginPath} onChange={(event) => { setPluginPath(event.target.value); setParameterId(''); }}>
+                    <select className={`${classInput} mt-1`} value={targetKey} onChange={(event) => { setTargetKey(event.target.value); setParameterId(''); }}>
                       <option value="">Selecione…</option>
-                      {instruments.map((plugin) => (
-                        <option key={plugin.layerId ?? plugin.path} value={plugin.path}>{plugin.name}</option>
+                      {parameterTargets.map((target) => (
+                        <option key={target.key} value={target.key}>{target.label}</option>
                       ))}
                     </select>
                   </label>
                   <label className="text-[11px] md:col-span-2" style={{ color: '#9A9AA0' }}>Parâmetro
-                    <select className={`${classInput} mt-1`} value={parameterId} onChange={(event) => setParameterId(event.target.value)} disabled={!pluginPath}>
+                    <select className={`${classInput} mt-1`} value={parameterId} onChange={(event) => setParameterId(event.target.value)} disabled={!targetKey}>
                       <option value="">
-                        {pluginPath && parameters.length === 0
+                        {targetKey && parameters.length === 0
                           ? 'Carregue o patch para ler os parâmetros'
                           : 'Selecione…'}
                       </option>

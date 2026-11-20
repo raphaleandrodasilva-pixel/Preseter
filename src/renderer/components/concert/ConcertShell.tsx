@@ -50,6 +50,8 @@ import { ConcertSettingsModal } from './ConcertSettingsModal';
 import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { SamplerWindow } from './SamplerWindow';
 import { NativeInstrumentWindow, type NativeInstrumentKind } from './NativeInstrumentWindow';
+import { PreseterEffectWindow } from './PreseterEffectWindow';
+import { findEffect, type EffectDefinition } from '@shared/effects/catalog';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
 import { TunerModal } from './TunerModal';
@@ -113,7 +115,7 @@ interface ConcertShellProps {  mode: ConcertMode;
   onEditPreset: (preset: Preset) => void;
   onSaveDraft: (preset?: Preset) => Promise<boolean> | boolean | void;
   onMidiMessage: (message: number[]) => void;
-  onSetVstParameter: (pluginPath: string, parameterId: string, value: number) => void;
+  onSetVstParameter: (pluginPath: string, parameterId: string, value: number, slot?: number) => void;
   onError: (message: string) => void;
 }
 
@@ -323,6 +325,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [openEditors, setOpenEditors] = useState<Set<string>>(() => new Set());
   const [samplerWindowLayerId, setSamplerWindowLayerId] = useState<string | null>(null);
   const [nativeWindow, setNativeWindow] = useState<{ layerId: string; kind: NativeInstrumentKind } | null>(null);
+  const [effectWindow, setEffectWindow] = useState<{
+    ownerId: string;
+    slot: number;
+    effect: EffectDefinition;
+  } | null>(null);
   const [audioInputState, setAudioInputState] = useState<AudioInputState | null>(null);
   const [editZoom, setEditZoom] = useState<CanvasZoom>(() => {
     try {
@@ -839,10 +846,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         if (!pluginPath || !mapping.parameterId) continue;
         const mappingMin = mapping.mappingMin ?? 0;
         const mappingMax = mapping.mappingMax ?? 1;
+        // Inserts de efeito guardam o dono (layer/patch/aux) e o slot; o
+        // instrumento do layer continua sendo endereçado pelo caminho.
         onSetVstParameter(
-          pluginPath,
+          mapping.paramOwner ?? pluginPath,
           mapping.parameterId,
-          mappingMin + eventNormalized * (mappingMax - mappingMin)
+          mappingMin + eventNormalized * (mappingMax - mappingMin),
+          mapping.paramSlot
         );
       }
     });
@@ -1895,7 +1905,35 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     );
   };
 
+  /** Inserts dos efeitos Preseter abrem o painel próprio em vez da UI do plugin. */
+  const findInsertByOwner = (ownerId: string, slot: number): Insert | undefined => {
+    const current = draftRef.current;
+    if (!current) return undefined;
+    if (ownerId === 'patch' || ownerId === 'output1') {
+      return (current.master?.inserts ?? []).find((insert) => insert.slot === slot);
+    }
+    const assignment = (current.plugins ?? []).find(
+      (item, index) => (item.layerId ?? `${current.id}:layer:${index}`) === ownerId
+    );
+    if (assignment) return (assignment.inserts ?? []).find((insert) => insert.slot === slot);
+    if (!concertSettings) return undefined;
+    const index = busIndexOf(ownerId);
+    if (!Number.isInteger(index) || index < 0) return undefined;
+    const buses = concertSettings.buses;
+    const bus = ownerId.startsWith('aux') ? buses.aux?.[index] : buses.outputs?.[index];
+    return (bus?.inserts ?? []).find((insert) => insert.slot === slot);
+  };
+
+  const openPreseterInsert = (ownerId: string, slot: number): boolean => {
+    const insert = findInsertByOwner(ownerId, slot);
+    const effect = insert ? findEffect(insert.path) ?? findEffect(insert.name) : undefined;
+    if (!effect?.nativePanel) return false;
+    setEffectWindow({ ownerId, slot, effect });
+    return true;
+  };
+
   const openInsertEditor = (layerId: string, slot: number) => {
+    if (openPreseterInsert(layerId, slot)) return;
     void window.electronAPI.vstInsertOpenEditor(layerId, slot);
   };
 
@@ -2122,6 +2160,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   };
 
   const openBusInsertEditor = (busId: string, slot: number) => {
+    if (openPreseterInsert(busId, slot)) return;
     void window.electronAPI.vstInsertOpenEditor(busId, slot);
   };
 
@@ -3534,6 +3573,25 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           />
         );
       })()}
+      {effectWindow && (
+        <PreseterEffectWindow
+          ownerId={effectWindow.ownerId}
+          slot={effectWindow.slot}
+          effect={effectWindow.effect}
+          onClose={() => setEffectWindow(null)}
+          onSave={async () => {
+            const targetPreset = draft ?? currentPreset;
+            if (!targetPreset) return;
+            const next = { ...targetPreset, updatedAt: Date.now() };
+            onDraftChange(next);
+            const saved = await onSaveDraft(next);
+            setActionNotice(saved === false ? 'Não foi possível salvar o patch' : 'Efeito salvo no patch');
+          }}
+          onOpenOriginal={() => {
+            void window.electronAPI.vstInsertOpenEditor(effectWindow.ownerId, effectWindow.slot);
+          }}
+        />
+      )}
       {samplerWindowLayerId && (() => {
         const targetPreset = draft ?? currentPreset;
         const assignment = (targetPreset?.plugins ?? []).find(
@@ -3636,6 +3694,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           layout={layout}
           scannedPlugins={scannedPlugins}
           loadedPlugins={loadedPlugins}
+          buses={concertSettings?.buses}
           onChange={updateMappings}
           onClose={() => setMappingsOpen(false)}
         />

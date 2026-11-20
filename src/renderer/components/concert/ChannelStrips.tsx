@@ -19,6 +19,7 @@ import type {
   VstPreset,
 } from '@shared/types';
 import { DEFAULT_ARP, MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
+import { effectDisplayName } from '@shared/effects/catalog';
 import type { ExternalMidiConfig } from '@shared/external-midi';
 import { noteName } from '../composer/elementFactory';
 import { ArpeggiatorModal } from './ArpeggiatorModal';
@@ -205,7 +206,9 @@ const formatStripValue = (strip: EffectiveStrip | undefined, attr: StripAttribut
     case 'sends':
       return strip.sends.map((level, index) => `A${index + 1} ${level > SEND_OFF_DB ? level.toFixed(0) : '−∞'}`).join(' · ');
     case 'inserts':
-      return strip.inserts.length === 0 ? 'nenhum' : strip.inserts.map((insert) => insert.name).join(' · ');
+      return strip.inserts.length === 0
+      ? 'nenhum'
+      : strip.inserts.map((insert) => effectDisplayName(insert.path, insert.name)).join(' · ');
     default:
       return '—';
   }
@@ -600,6 +603,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     onRequestInsert: () => void;
   }) => {
     const { ownerId, slot, insert } = options;
+    const insertName = insert ? effectDisplayName(insert.path, insert.name) : '';
     return (
       <div
         key={slot}
@@ -611,15 +615,15 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           <>
             <span
               className="min-w-0 flex-1 truncate"
-              title={`${insert.name} — ${insert.bypass ? 'em bypass' : 'ativo'}`}
+              title={`${insertName} — ${insert.bypass ? 'em bypass' : 'ativo'}`}
               style={insert.bypass ? { color: '#8E8E93', textDecoration: 'line-through' } : undefined}
             >
-              {insert.name}
+              {insertName}
             </span>
             <button
               className="hw-squarebtn shrink-0 px-1 disabled:opacity-40"
               aria-pressed={insert.bypass}
-              aria-label={`Bypass de ${insert.name}`}
+              aria-label={`Bypass de ${insertName}`}
               title="Bypass do efeito"
               disabled={!editable || busy}
               onClick={(event) => { event.stopPropagation(); options.onToggleBypass(ownerId, slot, !insert.bypass); }}
@@ -629,7 +633,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             </button>
             <button
               className="hw-squarebtn shrink-0 px-1"
-              aria-label={`Abrir a janela de ${insert.name}`}
+              aria-label={`Abrir a janela de ${insertName}`}
               title="Abrir a janela do efeito"
               onClick={(event) => { event.stopPropagation(); options.onOpenEditor(ownerId, slot); }}
             >
@@ -637,7 +641,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
             </button>
             <button
               className="hw-squarebtn shrink-0 px-1 disabled:opacity-40"
-              aria-label={`Remover ${insert.name}`}
+              aria-label={`Remover ${insertName}`}
               title="Remover o efeito"
               disabled={!editable || busy}
               onClick={(event) => { event.stopPropagation(); options.onRemove(ownerId, slot); }}
@@ -1583,10 +1587,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 }
                 return added;
               })}
-              title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${plugin.name} — ${plugin.path}`}
+              title={plugin.arch === 'x86' ? 'Plugin 32-bit: precisa de uma bridge 32-bit' : `${effectDisplayName(plugin.path, plugin.name)} — ${plugin.path}`}
             >
               <span className="block truncate">
-                {plugin.isInstrument ? '♪ ' : 'FX '}{plugin.name}
+                {plugin.isInstrument ? '♪ ' : 'FX '}{effectDisplayName(plugin.path, plugin.name)}
               </span>
               <span className="text-[9px]" style={{ color: plugin.arch === 'x86' ? '#FF9F0A' : '#8E8E93' }}>
                 {plugin.format ?? 'VST'}{plugin.arch === 'x86' ? ' · 32-bit' : ''}
@@ -2077,7 +2081,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 })();
               }}
             >
-              {plugin.name}
+              {effectDisplayName(plugin.path, plugin.name)}
             </button>
           ))}
         </div>

@@ -226,6 +226,59 @@ describe('AssignmentsMappingsTable', () => {
     ]);
   });
 
+  it('lista inserts de efeito e grava dono + slot no mapeamento', () => {
+    const currentPatch = createPreset({
+      id: 'preset-fx',
+      name: 'Patch com efeito',
+      plugins: [
+        {
+          pluginId: 'plugin-1',
+          layerId: 'layer-1',
+          name: 'Piano',
+          path: 'C:/piano.vst3',
+          role: 'instrument',
+          inserts: [
+            {
+              slot: 0,
+              pluginId: 'calfnxt-reverb',
+              name: 'calfNXT Reverb',
+              path: 'C:/plugins/calfNXTReverb.vst3',
+              bypass: false,
+            },
+          ],
+        },
+      ],
+    });
+    const { onChange } = setup({
+      currentPatch,
+      presets: [currentPatch],
+      scannedPlugins: [
+        createPluginInfo({
+          path: 'C:/plugins/calfNXTReverb.vst3',
+          name: 'calfNXT Reverb',
+          parameters: [
+            { id: 'room', name: 'Room Size', label: 'm', value: 0.3, defaultValue: 0.3, minValue: 2, maxValue: 40, stepCount: 100 },
+          ],
+        }),
+      ],
+    });
+
+    select('Destino', 'parameter');
+    expect(screen.getByRole('option', { name: 'Piano · Preseter Reverb' })).toBeInTheDocument();
+
+    select('Plugin', 'insert:layer-1:0');
+    select('Parâmetro', 'room');
+    fireEvent.click(screen.getByText('Adicionar'));
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        pluginPath: 'C:/plugins/calfNXTReverb.vst3',
+        parameterId: 'room',
+        paramOwner: 'layer-1',
+        paramSlot: 0,
+      }),
+    ]);
+  });
+
   it('warns when the selected scope is unavailable', () => {
     setup({ currentSet: null });
     select('Nível', 'set');
