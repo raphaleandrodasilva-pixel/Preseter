@@ -38,7 +38,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
     hideVstPlugin, showVstPlugin, hiddenPluginIds,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
-    preferences, updatePreferences, layout, vstScanReport, refreshVstScanReport,
+    preferences, updatePreferences, layout, vstScanReport,
     midiMonitor, clearMidiMonitor,
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -917,18 +917,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                   Adicionar pasta de plugins
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  if (!window.confirm('Reescanear do zero? O motor vai descartar a lista atual e procurar todos os plugins de novo; isso pode demorar.')) return;
-                  setScanning(true);
-                  void rescanVstPlugins().finally(() => setScanning(false));
-                }}
-                disabled={scanning}
-                className="hw-squarebtn w-full rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
-                title="Descarta a lista acumulada no motor e escaneia tudo de novo"
-              >
-                {scanning ? 'Escaneando…' : 'Reescanear do zero'}
-              </button>
               <label className="flex items-start gap-2 text-xs" style={{ color: '#C6C6CB' }}>
                 <input
                   type="checkbox"
@@ -973,30 +961,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               <section>
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="hw-label">Varredura</h4>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="hw-squarebtn px-2 py-1 text-[10px]"
-                      onClick={() => void refreshVstScanReport()}
-                    >
-                      Atualizar
-                    </button>
-                    <button
-                      type="button"
-                      className="hw-squarebtn px-2 py-1 text-[10px]"
-                      onClick={() => setPluginLogOpen(true)}
-                      title="Abrir o relatório de varredura (pastas, falhas e plugins bloqueados)"
-                    >
-                      Log
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="hw-squarebtn px-2 py-1 text-[10px]"
+                    onClick={() => setPluginLogOpen(true)}
+                    title="Abrir o relatório de varredura (pastas, falhas e plugins bloqueados)"
+                  >
+                    Log
+                  </button>
                 </div>
                 <p className="text-[10px]" style={{ color: '#8E8E93' }}>
-                  {vstScanReport
-                    ? `${vstScanReport.count} plugin(s) encontrados`
-                      + (vstScanReport.scannedAt > 0 ? ` · ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}` : '')
-                      + (vstScanReport.blacklisted.length > 0 ? ` · ${vstScanReport.blacklisted.length} bloqueado(s)` : '')
-                    : 'Nenhuma varredura registrada ainda.'}
+                  {`${scannedPlugins.length} disponíveis`}
+                  {(vstScanReport?.blacklisted.length ?? 0) > 0
+                    ? ` · ${vstScanReport?.blacklisted.length ?? 0} bloqueado(s)`
+                    : ''}
+                  {vstScanReport?.scannedAt
+                    ? ` · última varredura ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}`
+                    : ' · lista carregada do cache'}
                 </p>
               </section>
               <section>
@@ -1189,6 +1170,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
             ) : (
               <p>Nenhuma varredura registrada ainda.</p>
             )}
+
+            <div className="border-t pt-3" style={{ borderColor: '#303032' }}>
+              <p className="mb-2 font-semibold" style={{ color: '#C6C6CB' }}>Manutenção</p>
+              <p className="mb-2">
+                Descartar a lista atual e procurar todos os plugins de novo. Também limpa a
+                blacklist, mas mantém a proteção dos plugins que derrubaram o motor.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm('Reescanear do zero? O motor vai descartar a lista atual e procurar todos os plugins de novo; isso pode demorar.')) return;
+                  setScanning(true);
+                  void rescanVstPlugins().finally(() => setScanning(false));
+                }}
+                disabled={scanning}
+                className="hw-squarebtn w-full rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-110 disabled:opacity-50"
+              >
+                {scanning ? 'Escaneando…' : 'Reescanear do zero'}
+              </button>
+            </div>
           </div>
         </ModalShell>
       )}
