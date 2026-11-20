@@ -382,6 +382,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const [highlightedAux, setHighlightedAux] = useState<number | null>(null);
   const [arpLayer, setArpLayer] = useState<{ layerId: string; name: string; settings: ArpSettings } | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
+  /** Busca do seletor de instrumento/plugin (nome ou fabricante). */
+  const [pickerQuery, setPickerQuery] = useState('');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [splitDraft, setSplitDraft] = useState<{
     baseLayerId: string;
@@ -457,6 +459,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   };
   const selectedKey = selectedLayer?.layerId ?? null;
   useEffect(() => { onSelectedLayerChange?.(selectedKey); }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cada abertura do seletor começa com a busca vazia.
+  useEffect(() => { setPickerQuery(''); }, [picker]);
 
   useEffect(() => subscribeParameterLearn(setLearningParameter), []);
 
@@ -1542,8 +1547,18 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               : isLayerPicker
                 ? 'Adicionar layer — escolha o instrumento'
                 : `Channel strip do ${picker.level === 'concert' ? 'concert' : 'set'}`;
-          const preseterPlugins = isLayerPicker ? list.filter((plugin) => plugin.manufacturer === 'Preseter') : [];
-          const externalPlugins = isLayerPicker ? list.filter((plugin) => plugin.manufacturer !== 'Preseter') : list;
+          const term = pickerQuery.trim().toLowerCase();
+          const filtered = term.length === 0
+            ? list
+            : list.filter((plugin) => plugin.name.toLowerCase().includes(term)
+                || (plugin.manufacturer ?? '').toLowerCase().includes(term));
+          const byName = (a: VstPluginInfo, b: VstPluginInfo) =>
+            a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+          const preseterPlugins = isLayerPicker
+            ? filtered.filter((plugin) => plugin.manufacturer === 'Preseter').sort(byName)
+            : [];
+          const externalPlugins = (isLayerPicker ? filtered.filter((plugin) => plugin.manufacturer !== 'Preseter') : filtered)
+            .sort(byName);
           const renderPlugin = (plugin: VstPluginInfo) => (
             <button
               key={plugin.id}
@@ -1584,22 +1599,33 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 <span className="hw-label">{title}</span>
                 <button className="px-1 text-xs text-slate-400" onClick={() => setPicker(null)}>✕</button>
               </div>
-              {list.length === 0 ? (
+              <input
+                autoFocus
+                type="text"
+                value={pickerQuery}
+                onChange={(event) => setPickerQuery(event.target.value)}
+                placeholder="Buscar por nome ou fabricante"
+                aria-label="Buscar plugin"
+                className="hw-inset mb-1 w-full px-2 py-1.5 text-xs text-slate-100"
+              />
+              {filtered.length === 0 ? (
                 <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
-                  {scanning ? 'Escaneando VST3…' : isLayerPicker ? 'Nenhum instrumento encontrado.' : 'Nenhum plugin encontrado.'}
-                  {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+                  {term.length > 0
+                    ? `Nenhum plugin corresponde a "${pickerQuery.trim()}".`
+                    : scanning ? 'Escaneando VST3…' : isLayerPicker ? 'Nenhum instrumento encontrado.' : 'Nenhum plugin encontrado.'}
+                  {!scanning && term.length === 0 && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
                 </div>
               ) : (
                 <>
                   {preseterPlugins.length > 0 && (
                     <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
-                      Preseter
+                      Preseter ({preseterPlugins.length})
                     </div>
                   )}
                   {preseterPlugins.map(renderPlugin)}
                   {externalPlugins.length > 0 && (
                     <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
-                      {isLayerPicker ? 'Plugins VST3' : 'Plugins'}
+                      {isLayerPicker ? 'Plugins VST3' : 'Plugins'} ({externalPlugins.length})
                     </div>
                   )}
                   {externalPlugins.map(renderPlugin)}

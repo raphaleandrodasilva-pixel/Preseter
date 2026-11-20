@@ -93,9 +93,9 @@ const AppContent: React.FC = () => {
     });
     setSelectedId(null);
     setArmedKey(null);
-    setMode('layout');
+    setMode('edit');
     setError(null);
-    showToast(setId ? 'Novo patch no set — desenhe o layout.' : 'Novo patch — desenhe o layout.');
+    showToast(setId ? 'Novo patch no set — escolha o instrumento.' : 'Novo patch — escolha o instrumento.');
   };
 
   const editPreset = (preset: Preset) => {

@@ -8,6 +8,7 @@ import type {
   ScrollSpeed,
 } from '@shared/types';
 import { useAppContext } from '../../context/AppContext';
+import { ModalShell } from '../ui/ModalShell';
 import { StoreSettings } from './StoreSettings';
 
 export type SettingsTab = 'midi' | 'vst' | 'audio' | 'general' | 'view' | 'store';
@@ -33,7 +34,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClose }) => {
   const {
     midiDevices, midiError, midiLastMessage, openMidiInputs, selectedMidiOutputId, listMidiDevices, openMidiPort,
-    scannedPlugins, loadedPlugins, scanVstPlugins, rescanVstPlugins, addVstPluginFolder, removeVstPluginFolder,
+    scannedPlugins, loadedPlugins, scanVstPlugins, rescanVstPlugins, unblacklistVstPlugin, addVstPluginFolder, removeVstPluginFolder,
     hideVstPlugin, showVstPlugin, hiddenPluginIds,
     loadVstPlugin, unloadVstPlugin, setVstParameter,
     audioDevices, audioSettings, refreshAudioSettings, startAudio, stopAudio,
@@ -42,6 +43,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
   } = useAppContext();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [scanning, setScanning] = useState(false);
+  /** Lista de plugins disponíveis começa recolhida: quem carrega plugin usa o seletor de layer. */
+  const [availableOpen, setAvailableOpen] = useState(false);
+  /** Relatório de varredura (log) em janela própria. */
+  const [pluginLogOpen, setPluginLogOpen] = useState(false);
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
   const [audioType, setAudioType] = useState('');
   const [audioInput, setAudioInput] = useState('');
@@ -967,61 +972,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
               </section>
               <section>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="hw-label">Diagnóstico da varredura</h4>
-                  <button
-                    type="button"
-                    className="hw-squarebtn px-2 py-1 text-[10px]"
-                    onClick={() => void refreshVstScanReport()}
-                  >
-                    Atualizar
-                  </button>
-                </div>
-                {vstScanReport ? (
-                  <div className="hw-inset space-y-1 p-2 text-[10px]" style={{ color: '#9A9AA0' }}>
-                    <p>
-                      {vstScanReport.count} plugin(s) encontrados
-                      {vstScanReport.scannedAt > 0
-                        ? ` · ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}`
-                        : ''}
-                    </p>
-                    <div>
-                      <span className="font-semibold" style={{ color: '#C6C6CB' }}>Pastas varridas:</span>
-                      <ul className="mt-0.5 space-y-0.5">
-                        {vstScanReport.paths.length === 0 && <li>(caminhos padrão do motor)</li>}
-                        {vstScanReport.paths.map((folder) => (
-                          <li key={folder} className="break-all">{folder}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    {vstScanReport.failed.length > 0 && (
-                      <div>
-                        <span className="font-semibold" style={{ color: '#FFB74D' }}>
-                          Falharam ({vstScanReport.failed.length}):
-                        </span>
-                        <ul className="mt-0.5 space-y-0.5">
-                          {vstScanReport.failed.slice(0, 6).map((file) => (
-                            <li key={file} className="break-all" title={file}>{file}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {vstScanReport.blacklisted.length > 0 && (
-                      <p style={{ color: '#FF8A80' }}>
-                        Bloqueados: {vstScanReport.blacklisted.length}
-                      </p>
-                    )}
-                    {vstScanReport.error && (
-                      <p style={{ color: '#FF8A80' }}>Erro: {vstScanReport.error}</p>
-                    )}
+                  <h4 className="hw-label">Varredura</h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="hw-squarebtn px-2 py-1 text-[10px]"
+                      onClick={() => void refreshVstScanReport()}
+                    >
+                      Atualizar
+                    </button>
+                    <button
+                      type="button"
+                      className="hw-squarebtn px-2 py-1 text-[10px]"
+                      onClick={() => setPluginLogOpen(true)}
+                      title="Abrir o relatório de varredura (pastas, falhas e plugins bloqueados)"
+                    >
+                      Log
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-[10px]" style={{ color: '#8E8E93' }}>
-                    Nenhuma varredura registrada ainda.
-                  </p>
-                )}
+                </div>
+                <p className="text-[10px]" style={{ color: '#8E8E93' }}>
+                  {vstScanReport
+                    ? `${vstScanReport.count} plugin(s) encontrados`
+                      + (vstScanReport.scannedAt > 0 ? ` · ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}` : '')
+                      + (vstScanReport.blacklisted.length > 0 ? ` · ${vstScanReport.blacklisted.length} bloqueado(s)` : '')
+                    : 'Nenhuma varredura registrada ainda.'}
+                </p>
               </section>
               <section>
-                <h4 className="hw-label mb-2">Disponíveis ({scannedPlugins.length})</h4>
+                <button
+                  type="button"
+                  className="mb-2 flex w-full items-center justify-between text-left"
+                  onClick={() => setAvailableOpen((open) => !open)}
+                  aria-expanded={availableOpen}
+                  title={availableOpen ? 'Recolher lista' : 'Mostrar plugins disponíveis'}
+                >
+                  <h4 className="hw-label">Disponíveis ({scannedPlugins.length})</h4>
+                  <span className="text-[10px]" style={{ color: '#9A9AA0' }}>{availableOpen ? '▾' : '▸'}</span>
+                </button>
+                {availableOpen && (
+                  <>
                 <div className="max-h-48 space-y-1.5 overflow-y-auto">
                   {scannedPlugins.length === 0 && <p className="text-xs" style={{ color: '#9A9AA0' }}>Nenhum plugin ainda. O app escaneia os diretórios VST3 e as pastas adicionadas automaticamente ao iniciar; aguarde ou clique em Escanear plugins.</p>}
                   {scannedPlugins.map((p) => {
@@ -1076,6 +1066,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
                     ))}
                   </div>
                 )}
+                  </>
+                )}
               </section>
               <section>
                 <h4 className="hw-label mb-2">Carregados ({loadedPlugins.length})</h4>
@@ -1129,6 +1121,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ initialTab, onClos
           )}
         </div>
       </div>
+
+      {pluginLogOpen && (
+        <ModalShell
+          label="Plugins VST"
+          title="Log da varredura"
+          lcd={vstScanReport ? `${vstScanReport.count} plugin(s)` : undefined}
+          onClose={() => setPluginLogOpen(false)}
+        >
+          <div className="space-y-3 px-5 py-4 text-[11px]" style={{ color: '#9A9AA0' }}>
+            {vstScanReport ? (
+              <>
+                <p>
+                  {vstScanReport.count} plugin(s) encontrados
+                  {vstScanReport.scannedAt > 0 ? ` · ${new Date(vstScanReport.scannedAt).toLocaleTimeString()}` : ''}
+                </p>
+                <div>
+                  <span className="font-semibold" style={{ color: '#C6C6CB' }}>Pastas varridas</span>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {vstScanReport.paths.length === 0 && <li>(caminhos padrão do motor)</li>}
+                    {vstScanReport.paths.map((folder) => (
+                      <li key={folder} className="break-all">{folder}</li>
+                    ))}
+                  </ul>
+                </div>
+                {vstScanReport.failed.length > 0 && (
+                  <div>
+                    <span className="font-semibold" style={{ color: '#FFB74D' }}>
+                      Falharam ({vstScanReport.failed.length})
+                    </span>
+                    <ul className="mt-0.5 space-y-0.5">
+                      {vstScanReport.failed.map((file) => (
+                        <li key={file} className="break-all" title={file}>{file}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold" style={{ color: '#FF8A80' }}>
+                    Bloqueados ({vstScanReport.blacklisted.length})
+                  </span>
+                  {vstScanReport.blacklisted.length === 0 ? (
+                    <p className="mt-0.5">Nenhum plugin bloqueado.</p>
+                  ) : (
+                    <ul className="mt-0.5 space-y-1">
+                      {vstScanReport.blacklisted.map((file) => (
+                        <li key={file} className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 break-all" title={file}>{file}</span>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold hover:brightness-110"
+                            style={accentBtn}
+                            onClick={() => void unblacklistVstPlugin(file)}
+                            title="Tirar da blacklist; depois use Escanear plugins para tentar de novo"
+                          >
+                            Desbloquear
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {vstScanReport.error && (
+                  <p style={{ color: '#FF8A80' }}>Erro: {vstScanReport.error}</p>
+                )}
+              </>
+            ) : (
+              <p>Nenhuma varredura registrada ainda.</p>
+            )}
+          </div>
+        </ModalShell>
+      )}
     </div>
   );
 };
