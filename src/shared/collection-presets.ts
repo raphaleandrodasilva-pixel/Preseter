@@ -1,4 +1,5 @@
 import type { ArpSettings } from './types';
+import { MAX_AUX_BUSES, SEND_OFF_DB } from './types';
 
 /** Estrutura dos 40 patches da Factory 40. */
 
@@ -69,6 +70,27 @@ export interface CollectionLayerSpec {
 export interface CollectionPatchMeta {
   midiChannel?: number;
   description?: string;
+  /**
+   * Inserts do strip de cada layer do patch. Aceita o nome do scan
+   * (`calfNXT Reverb`), o nome Preseter (`Preseter Reverb`) ou a key curta
+   * (`reverb`); a identidade é resolvida por `effectKey`.
+   */
+  inserts?: string[];
+  /** Inserts do Master do Patch (processam todos os layers). */
+  master?: string[];
+  /** Sends do bus do patch para os Aux 1..4, em dB (`SEND_OFF_DB` = desligado). */
+  sends?: number[];
+}
+
+/** Marca um efeito nativo por nome/key (legível na tabela dos 40 patches). */
+export const FX = (name: string): string => name;
+
+/** Monta os sends do patch (Aux 1..4), preenchendo o que não foi citado com OFF. */
+export function auxSends (values: Partial<Record<1 | 2 | 3 | 4, number>>): number[] {
+  return Array.from(
+    { length: MAX_AUX_BUSES },
+    (_, index) => values[(index + 1) as 1 | 2 | 3 | 4] ?? SEND_OFF_DB
+  );
 }
 
 export type CollectionPatch = [string, CollectionLayerSpec[], CollectionPatchMeta?];
@@ -166,7 +188,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ]],
     ['Rhodes Classic', [
       N('tines', -3, 0, 127, 'Rhodes', 0),
-    ]],
+    ], {
+      inserts: [FX('calfNXT Chorus'), FX('calfNXT Phaser')],
+      sends: auxSends({ 1: -16, 2: -22 }),
+    }],
     ['Wurlitzer EP', [
       N('reeds', -3, 0, 127, 'Wurly', 0),
     ]],

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildCollectionConcert, analyzeCollectionConcert, nativeAssignmentFor } from './generateCollection';
+import {
+  analyzeCollectionConcert,
+  buildCollectionConcert,
+  findEffectPlugin,
+  nativeAssignmentFor,
+  resolveEffectInserts,
+} from './generateCollection';
 import { N } from '../../shared/collection-presets';
 import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
@@ -13,6 +19,31 @@ const plugins = [
   { id: 'dexed', name: 'Dexed', isInstrument: true },
   { id: 'helm', name: 'Helm', isInstrument: true },
   { id: 'odin', name: 'Odin 2', isInstrument: true },
+  // Efeitos nativos: o scan reporta o nome calfNXT e o caminho do bundle.
+  {
+    id: 'calf-chorus',
+    name: 'calfNXT Chorus',
+    path: 'C:/plugins/calfnxt/calfNXTChorus.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-phaser',
+    name: 'calfNXT Phaser',
+    path: 'C:/plugins/calfnxt/calfNXTPhaser.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-reverb',
+    name: 'calfNXT Reverb',
+    path: 'C:/plugins/calfnxt/calfNXTReverb.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-delay',
+    name: 'calfNXT Delay',
+    path: 'C:/plugins/calfnxt/calfNXTDelay.vst3',
+    isInstrument: false,
+  },
 ];
 
 /** Cria a pasta de sons com as três bibliotecas usadas pela Factory 40. */
@@ -136,6 +167,64 @@ describe('instrumentos nativos no gerador', () => {
 
     // Camada sem nativeInstrument e sem sample = plugin externo; não monta nativo.
     expect(nativeAssignmentFor({ inst: 'SURGE', db: 0, min: 0, max: 127, label: '' }, 'p', 1)).toBeNull();
+  });
+});
+
+describe('efeitos nativos na coleção', () => {
+  it('resolve o efeito por nome, nome Preseter ou key curta', () => {
+    expect(findEffectPlugin(plugins, 'calfNXT Reverb')?.id).toBe('calf-reverb');
+    expect(findEffectPlugin(plugins, 'Preseter Reverb')?.id).toBe('calf-reverb');
+    expect(findEffectPlugin(plugins, 'reverb')?.id).toBe('calf-reverb');
+    expect(findEffectPlugin(plugins, 'C:/plugins/calfnxt/calfNXTChorus.vst3')?.id).toBe('calf-chorus');
+    expect(findEffectPlugin(plugins, 'nao-existe')).toBeUndefined();
+  });
+
+  it('gera os inserts do strip e os sends do patch', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const { file, missing } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+      const rhodes = file.patches.find((patch) => patch.name === 'Rhodes Classic');
+
+      expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.pluginId)).toEqual([
+        'calf-chorus',
+        'calf-phaser',
+      ]);
+      expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.slot)).toEqual([0, 1]);
+      expect(rhodes?.plugins?.[0]?.inserts?.every((insert) => insert.bypass === false)).toBe(true);
+      expect(rhodes?.master?.sends).toEqual([-16, -22, -60, -60]);
+      expect(missing).toEqual([]);
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('registra em missing e não quebra o patch quando o efeito falta', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const semEfeitos = plugins.filter((plugin) => !plugin.name.startsWith('calfNXT'));
+      const { file, missing } = buildCollectionConcert(semEfeitos, { soundsFolder: sounds });
+      const rhodes = file.patches.find((patch) => patch.name === 'Rhodes Classic');
+
+      expect(rhodes).toBeDefined();
+      expect(rhodes?.plugins?.[0]?.inserts).toBeUndefined();
+      // O send continua, pois é nível do bus e não depende do plugin.
+      expect(rhodes?.master?.sends).toEqual([-16, -22, -60, -60]);
+      expect(missing).toEqual(expect.arrayContaining(['calfNXT Chorus', 'calfNXT Phaser']));
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('resolveEffectInserts respeita o limite de 4 slots', () => {
+    const missing = new Set<string>();
+    const inserts = resolveEffectInserts(
+      plugins,
+      ['Chorus', 'Phaser', 'Reverb', 'Delay', 'Chorus'],
+      missing
+    );
+    expect(inserts.map((insert) => insert.slot)).toEqual([0, 1, 2, 3]);
+    expect(inserts).toHaveLength(4);
+    expect(missing.size).toBe(0);
   });
 });
 

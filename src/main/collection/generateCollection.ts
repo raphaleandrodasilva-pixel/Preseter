@@ -1,4 +1,5 @@
-import type { Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import type { Insert, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import { MAX_INSERTS } from '../../shared/types';
 import type { CollectionReadiness } from '../../shared/collection';
 import { existsSync, readFileSync } from 'fs';
 import * as os from 'os';
@@ -8,12 +9,53 @@ import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec } from '../../shared/collection-presets';
+import { effectKey } from '../../shared/effects/catalog';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
 export interface CollectionPlugin {
   id: string;
   name: string;
   isInstrument?: boolean;
+  /** Caminho do bundle no scan; necessário para montar um `Insert`. */
+  path?: string;
+}
+
+/**
+ * Acha um efeito nativo pelo nome do scan, nome Preseter ou key curta.
+ * A identidade é o `effectKey` (basename sem `calfNXT`, minúsculo alfanumérico).
+ */
+export function findEffectPlugin (
+  plugins: CollectionPlugin[],
+  ref: string
+): CollectionPlugin | undefined {
+  const key = effectKey(ref);
+  if (!key) return undefined;
+  return plugins.find((plugin) => effectKey(plugin.path ?? plugin.name) === key);
+}
+
+/** Resolve uma lista de efeitos em inserts (slots 0..3); ausente vai para `missing`. */
+export function resolveEffectInserts (
+  plugins: CollectionPlugin[],
+  refs: string[] | undefined,
+  missing: Set<string>
+): Insert[] {
+  const inserts: Insert[] = [];
+  for (const ref of refs ?? []) {
+    if (inserts.length >= MAX_INSERTS) break;
+    const found = findEffectPlugin(plugins, ref);
+    if (!found) {
+      missing.add(ref);
+      continue;
+    }
+    inserts.push({
+      slot: inserts.length,
+      pluginId: found.id,
+      name: found.name,
+      path: found.path ?? found.id,
+      bypass: false,
+    });
+  }
+  return inserts;
 }
 
 /** Nome mostrado para cada instrumento nativo do Preseter. */
@@ -181,13 +223,20 @@ export function buildCollectionConcert(
       const assignments: PresetPluginAssignment[] = [];
       const vstStates: Record<string, any> = {};
       let blocked: string | null = null;
+      // Inserts de timbre: valem para o strip de cada layer do patch.
+      const stripInserts = resolveEffectInserts(plugins, meta?.inserts, missing);
+      const cloneInserts = (): Insert[] => stripInserts.map((insert) => ({ ...insert }));
       layers.forEach((layer, index) => {
         const layerId = `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`;
 
         // Instrumento nativo do Preseter (órgão, tines, reeds, piano, DX10, JX10).
         if (layer.nativeInstrument) {
           const assignment = nativeAssignmentFor(layer, layerId, layers.length);
-          if (assignment) assignments.push(assignment);
+          if (assignment) {
+            assignments.push(stripInserts.length > 0
+              ? { ...assignment, inserts: cloneInserts() }
+              : assignment);
+          }
           return;
         }
 
@@ -235,6 +284,7 @@ export function buildCollectionConcert(
               fineTune: layer.sample.fineTune ?? 0,
               gain: layer.sample.gain ?? 0,
             },
+            ...(stripInserts.length > 0 ? { inserts: cloneInserts() } : {}),
           });
           return;
         }
@@ -263,6 +313,7 @@ export function buildCollectionConcert(
           },
           ...(layer.arp ? { arp: layer.arp } : {}),
           ...(layer.programIndex !== undefined ? { programIndex: layer.programIndex } : {}),
+          ...(stripInserts.length > 0 ? { inserts: cloneInserts() } : {}),
         });
         if (layer.factoryPreset && /surge/i.test(plugin.name)) {
           const state = loadSurgePresetState(layer.factoryPreset);
@@ -276,6 +327,17 @@ export function buildCollectionConcert(
       const notes = meta?.description
         || layers.map((layer) => layer.label).filter(Boolean).join(' + ')
         || name;
+      // Master do patch (processa todos os layers) e sends para os Aux.
+      const masterInserts = resolveEffectInserts(plugins, meta?.master, missing);
+      const master = masterInserts.length > 0 || meta?.sends
+        ? {
+            volumeDb: 0,
+            pan: 0,
+            muted: false,
+            inserts: masterInserts,
+            ...(meta?.sends ? { sends: meta.sends } : {}),
+          }
+        : undefined;
       rawPatches.push({
         id: nextId('preset'),
         name,
@@ -287,6 +349,7 @@ export function buildCollectionConcert(
         midiChannel: meta?.midiChannel ?? 0,
         plugins: assignments,
         vstStates,
+        ...(master ? { master } : {}),
         layout: { elements: keyboardRig(notes, tempo), background: null, tempo },
         createdAt: now,
         updatedAt: now,
