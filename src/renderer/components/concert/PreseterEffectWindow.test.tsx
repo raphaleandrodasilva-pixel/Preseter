@@ -57,7 +57,9 @@ describe('PreseterEffectWindow', () => {
     expect(await screen.findByText('Preseter Reverb')).toBeInTheDocument();
     expect(screen.getByText('EFEITO')).toBeInTheDocument();
     expect(screen.getByText('CALFNXT')).toBeInTheDocument();
-    expect(screen.getByText('Controles')).toBeInTheDocument();
+    expect(screen.getByText('Espaço')).toBeInTheDocument();
+    expect(screen.getByText('Cor')).toBeInTheDocument();
+    expect(screen.getByText('Dinâmica')).toBeInTheDocument();
     expect(screen.getByText('Avançado')).toBeInTheDocument();
     expect(screen.getByLabelText('Tamanho da sala')).toBeInTheDocument();
     expect(screen.getByLabelText('Decaimento')).toBeInTheDocument();
@@ -97,6 +99,35 @@ describe('PreseterEffectWindow', () => {
     const stored = JSON.parse(localStorage.getItem(`preseter.effectPresets.v1.${effect.id}`) ?? '[]');
     expect(stored).toHaveLength(1);
     expect(Object.keys(stored[0].values)).toHaveLength(effect.paramCount);
+  });
+
+  it('arma o learn com o botão direito e mostra o CC mapeado', async () => {
+    const onLearnMapping = vi.fn();
+    const onClearMapping = vi.fn();
+    renderWindow({
+      mappings: [
+        {
+          id: 'm1',
+          source: { type: 'cc', channel: 0, controllerNumber: 74 },
+          patchId: 'patch-1',
+          pluginPath: 'C:/plugins/calfNXTReverb.vst3',
+          parameterId: '5',
+          paramOwner: 'patch',
+          paramSlot: 0,
+        },
+      ],
+      onLearnMapping,
+      onClearMapping,
+    });
+
+    expect(await screen.findByText('CC 74')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('CC 74'));
+    expect(onClearMapping).toHaveBeenCalledWith('5');
+
+    fireEvent.contextMenu(screen.getByLabelText('Tamanho da sala'));
+    expect(screen.getByText('aguardando CC…')).toBeInTheDocument();
+    expect(screen.getByText(/Aguardando CC/)).toBeInTheDocument();
+    expect(onLearnMapping).not.toHaveBeenCalled();
   });
 
   it('abre o editor original pelo rodapé', async () => {

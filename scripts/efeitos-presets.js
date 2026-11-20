@@ -104,4 +104,79 @@ module.exports = {
     { id: 'attack', label: 'Mais ataque', values: { attack_boost: 0.4, release_boost: -0.1, mix: 1 } },
     { id: 'sustain', label: 'Mais sustain', values: { attack_boost: -0.2, release_boost: 0.3, mix: 1 } },
   ],
+  Equalizer: [
+    {
+      id: 'vocal',
+      label: 'Voz',
+      values: {
+        b01_active: 1, b01_freq: 120, b01_gain: -2, b01_q: 0.8,
+        b02_active: 1, b02_freq: 2500, b02_gain: 2, b02_q: 1,
+        b03_active: 1, b03_freq: 8000, b03_gain: 2, b03_q: 0.8,
+      },
+    },
+    {
+      id: 'master',
+      label: 'Master',
+      values: {
+        b01_active: 1, b01_freq: 40, b01_gain: 1,
+        b02_active: 1, b02_freq: 300, b02_gain: -1,
+        b03_active: 1, b03_freq: 12000, b03_gain: 1.5,
+      },
+    },
+    {
+      id: 'low-cut',
+      label: 'Corte de graves',
+      values: {
+        b01_active: 1, b01_freq: 80, b01_gain: -6, b01_q: 0.7,
+        b02_active: 1, b02_freq: 200, b02_gain: -3,
+      },
+    },
+    {
+      id: 'presence',
+      label: 'Presença',
+      values: {
+        b02_active: 1, b02_freq: 3000, b02_gain: 3, b02_q: 1.2,
+        b03_active: 1, b03_freq: 9000, b03_gain: 2,
+      },
+    },
+  ],
+  Mbcomp: [
+    {
+      id: 'master-soft',
+      label: 'Master suave',
+      values: {
+        b01_threshold: -18, b01_ratio: 2, b02_threshold: -18, b02_ratio: 2,
+        b03_threshold: -20, b03_ratio: 2, b04_threshold: -20, b04_ratio: 2,
+        b01_attack: 20, b01_release: 200, b02_attack: 15, b02_release: 180,
+        b03_attack: 10, b03_release: 140, b04_attack: 5, b04_release: 100,
+      },
+    },
+    {
+      id: 'drums',
+      label: 'Bateria',
+      values: {
+        b01_threshold: -14, b01_ratio: 4, b01_makeup: 2,
+        b02_threshold: -14, b02_ratio: 4, b02_makeup: 2,
+        b03_threshold: -16, b03_ratio: 4, b03_makeup: 2,
+        b04_threshold: -16, b04_ratio: 4, b04_makeup: 2,
+        b01_attack: 10, b01_release: 120, b02_attack: 8, b02_release: 100,
+        b03_attack: 5, b03_release: 80, b04_attack: 3, b04_release: 60,
+      },
+    },
+    {
+      id: 'bus',
+      label: 'Bus (glue)',
+      values: {
+        b01_threshold: -12, b01_ratio: 1.5, b02_threshold: -12, b02_ratio: 1.5,
+        b03_threshold: -12, b03_ratio: 1.5, b04_threshold: -12, b04_ratio: 1.5,
+        b01_attack: 30, b01_release: 250, b02_attack: 30, b02_release: 250,
+        b03_attack: 30, b03_release: 250, b04_attack: 30, b04_release: 250,
+      },
+    },
+  ],
+  Mblimiter: [
+    { id: 'master-1', label: 'Master -1 dB', values: { limit: -1, true_peak: 1, oversampling: 4 } },
+    { id: 'master-03', label: 'Master -0.3 dB', values: { limit: -0.3, true_peak: 1, oversampling: 4 } },
+    { id: 'soft', label: 'Suave', values: { limit: -2, release: 120, true_peak: 1 } },
+  ],
 };

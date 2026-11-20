@@ -3578,6 +3578,37 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           ownerId={effectWindow.ownerId}
           slot={effectWindow.slot}
           effect={effectWindow.effect}
+          mappings={mappings}
+          onLearnMapping={(source, parameterId) => {
+            const current = draftRef.current;
+            const insert = findInsertByOwner(effectWindow.ownerId, effectWindow.slot);
+            if (!current || !insert) return;
+            const next: ConcertMapping = {
+              id: `mapping_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              source,
+              patchId: current.id,
+              pluginPath: insert.path,
+              parameterId,
+              paramOwner: effectWindow.ownerId,
+              paramSlot: effectWindow.slot,
+            };
+            // Um CC por parâmetro: aprendeu de novo, troca o anterior.
+            const remaining = mappings.filter((mapping) =>
+              !(mapping.parameterId === parameterId
+                && mapping.paramOwner === effectWindow.ownerId
+                && mapping.paramSlot === effectWindow.slot)
+            );
+            updateMappings([...remaining, next]);
+            setActionNotice(`CC ${source.controllerNumber ?? '?'} mapeado em ${effectWindow.effect.displayName}`);
+          }}
+          onClearMapping={(parameterId) => {
+            updateMappings(mappings.filter((mapping) =>
+              !(mapping.parameterId === parameterId
+                && mapping.paramOwner === effectWindow.ownerId
+                && mapping.paramSlot === effectWindow.slot)
+            ));
+            setActionNotice('Mapeamento removido');
+          }}
           onClose={() => setEffectWindow(null)}
           onSave={async () => {
             const targetPreset = draft ?? currentPreset;

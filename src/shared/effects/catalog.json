@@ -1696,7 +1696,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1712,7 +1712,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1728,7 +1728,7 @@
      "scale": "log",
      "precision": 3,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1744,7 +1744,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1760,7 +1760,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1776,7 +1776,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1792,7 +1792,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1808,7 +1808,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Mix",
      "collapsed": false
     },
     {
@@ -1824,7 +1824,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Mix",
      "collapsed": false
     },
     {
@@ -1840,7 +1840,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -1856,7 +1856,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Avançado",
      "collapsed": false
     },
     {
@@ -1872,7 +1872,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -1888,7 +1888,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -1904,7 +1904,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -1920,7 +1920,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -2101,7 +2101,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Sidechain",
      "collapsed": false
     },
     {
@@ -2117,7 +2117,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2133,7 +2133,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2149,7 +2149,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2165,7 +2165,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2181,7 +2181,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2197,7 +2197,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2213,7 +2213,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2229,7 +2229,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2245,7 +2245,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Sidechain",
      "collapsed": false
     },
     {
@@ -2261,7 +2261,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -2277,7 +2277,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -2293,7 +2293,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -2309,7 +2309,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -2325,7 +2325,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -2514,7 +2514,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Crush",
      "collapsed": false
     },
     {
@@ -2530,7 +2530,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Crush",
      "collapsed": false
     },
     {
@@ -2546,7 +2546,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Crush",
      "collapsed": false
     },
     {
@@ -2562,7 +2562,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Crush",
      "collapsed": false
     },
     {
@@ -2578,7 +2578,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Crush",
      "collapsed": false
     },
     {
@@ -3062,7 +3062,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3078,7 +3078,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3094,7 +3094,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3110,7 +3110,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3126,7 +3126,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3142,7 +3142,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Tempo",
      "collapsed": false
     },
     {
@@ -3158,7 +3158,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Repetição",
      "collapsed": false
     },
     {
@@ -3174,7 +3174,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Repetição",
      "collapsed": false
     },
     {
@@ -3190,7 +3190,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Repetição",
      "collapsed": false
     },
     {
@@ -3206,7 +3206,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Repetição",
      "collapsed": false
     },
     {
@@ -3222,7 +3222,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Repetição",
      "collapsed": false
     },
     {
@@ -3238,7 +3238,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -3254,7 +3254,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -3270,7 +3270,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -3286,7 +3286,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     }
    ],
@@ -7837,6 +7837,65 @@
       "227": 0,
       "228": 0
      }
+    },
+    {
+     "id": "vocal",
+     "label": "Voz",
+     "values": {
+      "3": 1,
+      "6": 0.005005005005005005,
+      "7": 0.4722222222222222,
+      "8": 0.023411371237458196,
+      "17": 1,
+      "20": 0.12412412412412413,
+      "21": 0.5277777777777778,
+      "22": 0.030100334448160536,
+      "31": 1,
+      "34": 0.3993993993993994,
+      "35": 0.5277777777777778,
+      "36": 0.023411371237458196
+     }
+    },
+    {
+     "id": "master",
+     "label": "Master",
+     "values": {
+      "3": 1,
+      "6": 0.001001001001001001,
+      "7": 0.5138888888888888,
+      "17": 1,
+      "20": 0.014014014014014014,
+      "21": 0.4861111111111111,
+      "31": 1,
+      "34": 0.5995995995995996,
+      "35": 0.5208333333333334
+     }
+    },
+    {
+     "id": "low-cut",
+     "label": "Corte de graves",
+     "values": {
+      "3": 1,
+      "6": 0.003003003003003003,
+      "7": 0.4166666666666667,
+      "8": 0.020066889632107024,
+      "17": 1,
+      "20": 0.009009009009009009,
+      "21": 0.4583333333333333
+     }
+    },
+    {
+     "id": "presence",
+     "label": "Presença",
+     "values": {
+      "17": 1,
+      "20": 0.14914914914914915,
+      "21": 0.5416666666666666,
+      "22": 0.03678929765886287,
+      "31": 1,
+      "34": 0.4494494494494494,
+      "35": 0.5277777777777778
+     }
     }
    ]
   },
@@ -8652,7 +8711,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -8668,7 +8727,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -8684,7 +8743,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -8700,7 +8759,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro",
      "collapsed": false
     },
     {
@@ -8716,7 +8775,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8732,7 +8791,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saída",
      "collapsed": false
     },
     {
@@ -8748,7 +8807,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8764,7 +8823,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8780,7 +8839,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8796,7 +8855,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8812,7 +8871,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Envelope",
      "collapsed": false
     },
     {
@@ -8828,7 +8887,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saída",
      "collapsed": false
     },
     {
@@ -9291,7 +9350,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9307,7 +9366,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9323,7 +9382,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9339,7 +9398,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9355,7 +9414,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pré)",
      "collapsed": false
     },
     {
@@ -9371,7 +9430,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pré)",
      "collapsed": false
     },
     {
@@ -9387,7 +9446,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pré)",
      "collapsed": false
     },
     {
@@ -9403,7 +9462,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pré)",
      "collapsed": false
     },
     {
@@ -9419,7 +9478,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pós)",
      "collapsed": false
     },
     {
@@ -9435,7 +9494,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pós)",
      "collapsed": false
     },
     {
@@ -9451,7 +9510,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pós)",
      "collapsed": false
     },
     {
@@ -9467,7 +9526,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Filtro (pós)",
      "collapsed": false
     },
     {
@@ -9483,7 +9542,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Avançado",
+     "group": "Escuta",
      "collapsed": false
     },
     {
@@ -9499,7 +9558,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Avançado",
+     "group": "Escuta",
      "collapsed": false
     },
     {
@@ -9515,7 +9574,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9531,7 +9590,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9547,7 +9606,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saturação",
      "collapsed": false
     },
     {
@@ -9593,6 +9652,75 @@
       "18": 0.5,
       "19": 0.5,
       "20": 0
+     }
+    },
+    {
+     "id": "wide",
+     "label": "Wide",
+     "values": {
+      "3": 0.7474747474747475,
+      "4": 0.5,
+      "5": 0,
+      "6": 0.875,
+      "7": 0,
+      "8": 1,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 1,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0.3333333333333333,
+      "18": 0.5,
+      "19": 0.5
+     }
+    },
+    {
+     "id": "exciter",
+     "label": "Exciter",
+     "values": {
+      "3": 0.7474747474747475,
+      "4": 0.75,
+      "5": 0.8333333333333334,
+      "6": 0.7916666666666666,
+      "7": 0.14914914914914915,
+      "8": 1,
+      "9": 0.5,
+      "10": 0,
+      "11": 0.27427427427427425,
+      "12": 1,
+      "13": 0.25,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0.3333333333333333,
+      "18": 0.5,
+      "19": 0.5
+     }
+    },
+    {
+     "id": "bass",
+     "label": "Bass",
+     "values": {
+      "3": 0.7474747474747475,
+      "4": 0.25,
+      "5": 0.8333333333333334,
+      "6": 0.875,
+      "7": 0,
+      "8": 0.0065065065065065065,
+      "9": 0,
+      "10": 0.5,
+      "11": 0,
+      "12": 0.004004004004004004,
+      "13": 0,
+      "14": 0.25,
+      "15": 0,
+      "16": 0,
+      "17": 0.3333333333333333,
+      "18": 0.5,
+      "19": 0.5
      }
     }
    ]
@@ -9976,7 +10104,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -9992,7 +10120,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10008,7 +10136,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10024,7 +10152,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10040,7 +10168,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10056,7 +10184,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10072,7 +10200,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10088,7 +10216,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10104,7 +10232,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Limitação",
      "collapsed": false
     },
     {
@@ -10120,7 +10248,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10136,7 +10264,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10152,7 +10280,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10168,7 +10296,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10184,7 +10312,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Avançado",
+     "group": "Hold",
      "collapsed": false
     },
     {
@@ -10200,7 +10328,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Hold",
      "collapsed": false
     },
     {
@@ -10216,7 +10344,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Hold",
      "collapsed": false
     },
     {
@@ -10232,7 +10360,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -10248,7 +10376,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     }
    ],
@@ -11884,6 +12012,76 @@
       "89": 0,
       "90": 0
      }
+    },
+    {
+     "id": "master-soft",
+     "label": "Master suave",
+     "values": {
+      "13": 0.7,
+      "14": 0.05263157894736842,
+      "16": 0.03980796159231846,
+      "17": 0.09954977488744372,
+      "26": 0.7,
+      "27": 0.05263157894736842,
+      "29": 0.02980596119223845,
+      "30": 0.0895447723861931,
+      "39": 0.6666666666666666,
+      "40": 0.05263157894736842,
+      "42": 0.019803960792158435,
+      "43": 0.06953476738369184,
+      "52": 0.6666666666666666,
+      "53": 0.05263157894736842,
+      "55": 0.009801960392078417,
+      "56": 0.04952476238119059
+     }
+    },
+    {
+     "id": "drums",
+     "label": "Bateria",
+     "values": {
+      "13": 0.7666666666666667,
+      "14": 0.15789473684210525,
+      "16": 0.019803960792158435,
+      "17": 0.05952976488244122,
+      "18": 0.08333333333333333,
+      "26": 0.7666666666666667,
+      "27": 0.15789473684210525,
+      "29": 0.015803160632126428,
+      "30": 0.04952476238119059,
+      "31": 0.08333333333333333,
+      "39": 0.7333333333333333,
+      "40": 0.15789473684210525,
+      "42": 0.009801960392078417,
+      "43": 0.03951975987993997,
+      "44": 0.08333333333333333,
+      "52": 0.7333333333333333,
+      "53": 0.15789473684210525,
+      "55": 0.0058011602320464095,
+      "56": 0.029514757378689346,
+      "57": 0.08333333333333333
+     }
+    },
+    {
+     "id": "bus",
+     "label": "Bus (glue)",
+     "values": {
+      "13": 0.8,
+      "14": 0.02631578947368421,
+      "16": 0.0598119623924785,
+      "17": 0.12456228114057029,
+      "26": 0.8,
+      "27": 0.02631578947368421,
+      "29": 0.0598119623924785,
+      "30": 0.12456228114057029,
+      "39": 0.8,
+      "40": 0.02631578947368421,
+      "42": 0.0598119623924785,
+      "43": 0.12456228114057029,
+      "52": 0.8,
+      "53": 0.02631578947368421,
+      "55": 0.0598119623924785,
+      "56": 0.12456228114057029
+     }
     }
    ]
   },
@@ -12737,6 +12935,33 @@
       "46": 0.125,
       "47": 0,
       "48": 0
+     }
+    },
+    {
+     "id": "master-1",
+     "label": "Master -1 dB",
+     "values": {
+      "10": 0.9583333333333334,
+      "16": 1,
+      "22": 1
+     }
+    },
+    {
+     "id": "master-03",
+     "label": "Master -0.3 dB",
+     "values": {
+      "10": 0.9874999999999999,
+      "16": 1,
+      "22": 1
+     }
+    },
+    {
+     "id": "soft",
+     "label": "Suave",
+     "values": {
+      "10": 0.9166666666666666,
+      "12": 0.11911911911911911,
+      "22": 1
      }
     }
    ]
@@ -14163,7 +14388,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14179,7 +14404,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14195,7 +14420,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14211,7 +14436,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14227,7 +14452,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14243,7 +14468,7 @@
      "scale": "linear",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Espaço",
      "collapsed": false
     },
     {
@@ -14259,7 +14484,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14275,7 +14500,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14291,7 +14516,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14307,7 +14532,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14339,7 +14564,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14355,7 +14580,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14371,7 +14596,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Cor",
      "collapsed": false
     },
     {
@@ -14387,7 +14612,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Reflexões",
      "collapsed": false
     },
     {
@@ -14403,7 +14628,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Reflexões",
      "collapsed": false
     },
     {
@@ -14419,7 +14644,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Reflexões",
      "collapsed": false
     },
     {
@@ -14435,7 +14660,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Reflexões",
      "collapsed": false
     },
     {
@@ -14451,7 +14676,7 @@
      "scale": "log",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -14467,7 +14692,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Modulação",
      "collapsed": false
     },
     {
@@ -14483,7 +14708,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Imagem",
      "collapsed": false
     },
     {
@@ -14499,7 +14724,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Imagem",
      "collapsed": false
     },
     {
@@ -14515,7 +14740,7 @@
      "scale": "linear",
      "precision": 2,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14531,7 +14756,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14547,7 +14772,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14563,7 +14788,7 @@
      "scale": "log",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14579,7 +14804,7 @@
      "scale": "log",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14595,7 +14820,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": true,
-     "group": "Controles",
+     "group": "Dinâmica",
      "collapsed": false
     },
     {
@@ -14611,7 +14836,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saída",
      "collapsed": false
     },
     {
@@ -14627,7 +14852,7 @@
      "scale": "dB",
      "precision": 1,
      "toggle": false,
-     "group": "Controles",
+     "group": "Saída",
      "collapsed": false
     },
     {
@@ -14643,7 +14868,7 @@
      "scale": "linear",
      "precision": 0,
      "toggle": false,
-     "group": "Controles",
+     "group": "Avançado",
      "collapsed": false
     }
    ],

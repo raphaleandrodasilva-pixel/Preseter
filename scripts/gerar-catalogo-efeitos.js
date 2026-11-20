@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BANK = require('./efeitos-presets');
+const GROUPS = require('./efeitos-grupos');
 
 const root = path.resolve(__dirname, '..');
 const base = path.join(root, 'vendor', 'calfnxt', 'plugins');
@@ -167,6 +168,40 @@ function extractParams (src) {
   return new Function('return ' + src.slice(start, end + 1))();
 }
 
+/** Fim de um objeto `{...}` a partir do `{` (respeitando strings). */
+function objectEnd (src, start) {
+  let depth = 0, inStr = null, esc = false;
+  for (let i = start; i < src.length; i += 1) {
+    const ch = src[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === inStr) inStr = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === '{') depth += 1;
+    else if (ch === '}') { depth -= 1; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
+/**
+ * Alguns bundles guardam os valores dos presets em constantes
+ * (`values: pA`). Troca pela definição (`pA={...}`) antes de avaliar.
+ */
+function resolveValueRefs (src, text) {
+  return text.replace(/values:\s*([A-Za-z_$][\w$]*)/g, (whole, name) => {
+    const at = src.indexOf(name + '=');
+    if (at < 0) return whole;
+    const start = src.indexOf('{', at);
+    if (start < 0) return whole;
+    const end = objectEnd(src, start);
+    if (end < 0) return whole;
+    return 'values:' + src.slice(start, end + 1);
+  });
+}
+
 function extractPresets (src, from, paramIds) {
   const re = /=\s*\[/g;
   re.lastIndex = from;
@@ -176,10 +211,10 @@ function extractPresets (src, from, paramIds) {
     const start = src.indexOf('[', match.index);
     const end = arrayEnd(src, start);
     if (end < 0) break;
-    const text = src.slice(start, end + 1);
-    if (text.includes('values:') && text.includes('label:')) {
+    const raw = src.slice(start, end + 1);
+    if (raw.includes('values:') && raw.includes('label:')) {
       try {
-        const arr = new Function('return ' + text)();
+        const arr = new Function('return ' + resolveValueRefs(src, raw))();
         if (Array.isArray(arr) && arr.length > 0 && arr[0] && arr[0].values && arr[0].label) {
           const keys = Object.keys(arr[0].values);
           if (keys.some((key) => paramIds.has(key))) return arr;
@@ -233,9 +268,10 @@ function main () {
     const key = entry.replace(/^calfNXT/, '').replace(/\.vst3$/i, '');
     const identity = IDENTITY[key] ?? { name: `Preseter ${key}`, short: key, category: 'Efeito', native: true };
 
+    const curated = GROUPS[key]?.groups ?? {};
     const params = schema.map((p, index) => {
       const engineName = probe?.[entry]?.params?.[index]?.name ?? p.name;
-      const group = groupFor(p);
+      const group = curated[p.id] ?? groupFor(p);
       return {
         index,
         id: p.id,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EngineParameter } from '@shared/engine-protocol';
+import type { ConcertMapping, MidiBinding } from '@shared/types';
 import {
   clamp01,
   formatParam,
@@ -19,6 +20,10 @@ interface PreseterEffectWindowProps {
   ownerId: string;
   slot: number;
   effect: EffectDefinition;
+  /** Mapeamentos atuais (para mostrar o CC de cada controle). */
+  mappings?: ConcertMapping[];
+  onLearnMapping?: (source: MidiBinding, parameterId: string) => void;
+  onClearMapping?: (parameterId: string) => void;
   onClose: () => void;
   onSave: () => void | Promise<void>;
   onOpenOriginal: () => void;
@@ -101,20 +106,46 @@ const Section: React.FC<{ title: string; collapsed: boolean; children: React.Rea
   );
 };
 
+const CcBadge: React.FC<{ controller?: number; armed: boolean; onClear: () => void }> = ({ controller, armed, onClear }) => {
+  if (armed) {
+    return (
+      <span className="rounded px-1 text-[8px] font-semibold" style={{ background: 'rgba(10,132,255,0.2)', color: '#7FB6FF' }}>
+        aguardando CC…
+      </span>
+    );
+  }
+  if (controller === undefined) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      title="Remover o mapeamento MIDI"
+      className="rounded px-1 text-[8px] font-semibold"
+      style={{ background: 'rgba(255,159,10,0.16)', color: '#FFB74D' }}
+    >
+      CC {controller}
+    </button>
+  );
+};
+
 export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
   ownerId,
   slot,
   effect,
+  mappings = [],
+  onLearnMapping,
+  onClearMapping,
   onClose,
   onSave,
   onOpenOriginal,
 }) => {
-  const { getVstParameters, setVstParameter } = useAppContext();
+  const { getVstParameters, setVstParameter, subscribeMidiLearn } = useAppContext();
   const [params, setParams] = useState<EngineParameter[]>([]);
   const [presetId, setPresetId] = useState('default');
   const [userPresets, setUserPresets] = useState<EffectPreset[]>(() => readUserPresets(effect.id));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [learnIndex, setLearnIndex] = useState<number | null>(null);
   const [box, setBox] = useState({ x: 120, y: 60, w: 940, h: 640 });
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
@@ -210,6 +241,29 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
   const onOff = activeParam ?? bypassParam;
   const isOn = onOff ? onOff.value >= 0.5 : true;
 
+  const mappingFor = useCallback((index: number): ConcertMapping | undefined =>
+    mappings.find((mapping) =>
+      mapping.paramOwner === ownerId
+      && mapping.paramSlot === slot
+      && mapping.parameterId === String(index)
+    ), [mappings, ownerId, slot]);
+
+  // Learn: armado num controle, o próximo CC vira o mapeamento do insert.
+  useEffect(() => {
+    if (learnIndex === null) return undefined;
+    const unsubscribe = subscribeMidiLearn((event) => {
+      if (event.kind !== 'cc') return;
+      const source: MidiBinding = {
+        type: 'cc',
+        channel: event.channel,
+        controllerNumber: event.number,
+      };
+      onLearnMapping?.(source, String(learnIndex));
+      setLearnIndex(null);
+    });
+    return unsubscribe;
+  }, [learnIndex, onLearnMapping, subscribeMidiLearn]);
+
   return (
     <div className="pointer-events-none fixed inset-0 z-[90]">
       <div
@@ -302,10 +356,27 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
                 {group.params.map((param) => {
                   const parameter = byIndex.get(param.index);
                   const normalized = parameter?.value ?? paramDefault(param);
+                  const mapping = mappingFor(param.index);
+                  const armed = learnIndex === param.index;
+                  const controller = mapping?.source.type === 'cc' ? mapping.source.controllerNumber : undefined;
+                  const shell = (children: React.ReactNode) => (
+                    <div
+                      key={param.index}
+                      onContextMenu={(event) => { event.preventDefault(); setLearnIndex(param.index); }}
+                      className="flex flex-col items-center gap-0.5"
+                    >
+                      {children}
+                      <CcBadge
+                        controller={controller}
+                        armed={armed}
+                        onClear={() => onClearMapping?.(String(param.index))}
+                      />
+                    </div>
+                  );
+
                   if (param.toggle) {
-                    return (
+                    return shell(
                       <Toggle
-                        key={param.index}
                         label={param.label}
                         active={normalized >= 0.5}
                         onChange={(next) => void setValue(param, next ? 1 : 0)}
@@ -315,8 +386,8 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
                   if (isChoice(param)) {
                     const options: number[] = [];
                     for (let value = param.min; value <= param.max; value += 1) options.push(value);
-                    return (
-                      <label key={param.index} className="flex min-w-[110px] flex-col gap-1">
+                    return shell(
+                      <label className="flex min-w-[110px] flex-col gap-1">
                         <span className="text-[9px]" style={{ color: '#8E8E93' }}>{param.label}</span>
                         <select
                           value={Math.round(param.min + normalized * (param.max - param.min))}
@@ -332,9 +403,8 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
                       </label>
                     );
                   }
-                  return (
+                  return shell(
                     <Knob
-                      key={param.index}
                       label={param.label}
                       value={paramPosition(param, normalized)}
                       display={formatParam(param, normalized)}
@@ -349,9 +419,9 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
               <div className="hw-label mb-2">Sobre</div>
               <p className="text-[9px] leading-relaxed" style={{ color: '#8E8E93' }}>
                 {effect.displayName} usa o DSP do calfnXT/Calf (GPL-3.0-or-later) dentro do Preseter.
-                Os parâmetros são endereçáveis por MIDI na tabela de mapeamentos (insert {slot + 1} de{' '}
-                {ownerId === 'patch' ? 'Master do Patch' : ownerId}). “Salvar” grava o estado no patch;
-                “+ Preset” guarda os valores atuais na sua lista.
+                Clique com o botão direito num controle para mapear um CC (ou use a tabela de
+                mapeamentos). Insert {slot + 1} de {ownerId === 'patch' ? 'Master do Patch' : ownerId}.
+                “Salvar” grava o estado no patch; “+ Preset” guarda os valores atuais na sua lista.
               </p>
             </section>
 
@@ -362,6 +432,14 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
         <footer className="flex flex-wrap items-center gap-3 px-4 py-2 text-[10px]" style={{ borderTop: '1px solid #3A3A3C', color: '#8E8E93' }}>
           <span style={{ color: isOn ? '#30D158' : '#8E8E93' }}>● {isOn ? 'Ativo' : 'Desligado'}</span>
           <span>{effect.paramCount} parâmetros</span>
+          {learnIndex !== null ? (
+            <span className="rounded px-2 py-0.5" style={{ background: 'rgba(10,132,255,0.2)', color: '#7FB6FF' }}>
+              Aguardando CC…{' '}
+              <button type="button" className="underline" onClick={() => setLearnIndex(null)}>cancelar</button>
+            </span>
+          ) : (
+            <span className="hidden sm:inline">Botão direito num controle = mapear CC</span>
+          )}
           <button
             type="button"
             className="rounded px-2 py-0.5 text-[10px] hover:bg-white/10"
