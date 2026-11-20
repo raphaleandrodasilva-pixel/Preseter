@@ -65,31 +65,23 @@ jobs:
           key: juce-${{ runner.os }}-${{ hashFiles('engine/CMakeLists.txt') }}
           restore-keys: juce-${{ runner.os }}-
 
-      # O SDK do ASIO não é versionado. Se o espelho falhar, o build segue sem ASIO.
-      - name: Baixar SDK ASIO
-        shell: pwsh
-        run: |
-          $dest = Join-Path $env:RUNNER_TEMP 'asio-sdk'
-          git clone --depth 1 https://github.com/audiosdk/asio.git $dest 2>$null
-          if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $dest 'common/asio.h'))) {
-            "PRESETER_ASIO_SDK_DIR=$dest" | Out-File -FilePath $env:GITHUB_ENV -Append
-            Write-Host "ASIO SDK pronto em $dest"
-          } else {
-            Write-Host "::warning::ASIO SDK indisponivel; o engine sera compilado sem ASIO."
-          }
-
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
+      # O ASIO é sempre ligado no Windows: o JUCE 8.0.13 já traz os headers em
+      # modules/juce_audio_devices/native/asio. Não depende de SDK externo nem
+      # de download, então o build não pode sair sem ASIO por falha de rede.
       - name: Compilar o engine
         shell: pwsh
         run: |
-          $cmakeArgs = @('-S', 'engine', '-B', 'engine/build', '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release')
-          if ($env:PRESETER_ASIO_SDK_DIR) {
-            $cmakeArgs += '-DPRESETER_ENABLE_ASIO=ON'
-            $cmakeArgs += "-DPRESETER_ASIO_SDK_DIR=$env:PRESETER_ASIO_SDK_DIR"
-          }
+          $cmakeArgs = @(
+            '-S', 'engine',
+            '-B', 'engine/build',
+            '-G', 'Ninja',
+            '-DCMAKE_BUILD_TYPE=Release',
+            '-DPRESETER_ENABLE_ASIO=ON'
+          )
           cmake @cmakeArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build engine/build --target PreseterEngine
