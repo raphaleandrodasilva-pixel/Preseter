@@ -10,6 +10,10 @@ docs/*.pdf
 pdf/
 presets/*.json
 
+# SDK ASIO da Steinberg: licença própria, obtido separadamente e não versionado.
+# O engine usa os headers ASIO embutidos no JUCE.
+asio/
+
 # Motor nativo (JUCE)
 engine/build/
 engine/build-*/
