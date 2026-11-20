@@ -368,6 +368,40 @@ export function buildCollectionConcert(
   }
 
   const migrated = migrateConcertLayout(createEmptyLayout(tempo), rawPatches);
+
+  // Aux 1 = Reverb e Aux 2 = Delay, como na arquitetura do app. Sem o efeito,
+  // o barramento fica desabilitado e o nome entra em `missing`.
+  const settings = createDefaultConcertSettings();
+  const enableAux = (
+    index: number,
+    ref: string,
+    effect: CollectionPlugin | undefined
+  ) => {
+    const bus = settings.buses.aux[index];
+    if (!bus) return;
+    if (!effect) {
+      missing.add(ref);
+      return;
+    }
+    settings.buses.aux[index] = {
+      ...bus,
+      enabled: true,
+      volumeDb: 0,
+      pan: 0,
+      muted: false,
+      output: 1,
+      inserts: [{
+        slot: 0,
+        pluginId: effect.id,
+        name: effect.name,
+        path: effect.path ?? effect.id,
+        bypass: false,
+      }],
+    };
+  };
+  enableAux(0, 'calfNXT Reverb', findEffectPlugin(plugins, 'calfNXT Reverb'));
+  enableAux(1, 'calfNXT Delay', findEffectPlugin(plugins, 'calfNXT Delay'));
+
   const file: PreseterConcertFile = {
     format: CONCERT_FILE_FORMAT,
     version: CONCERT_FILE_VERSION,
@@ -375,7 +409,7 @@ export function buildCollectionConcert(
       id: nextId('concert'),
       name: options.name ?? 'Coleção Preseter',
       tempo,
-      settings: createDefaultConcertSettings(),
+      settings,
       strips: [],
       createdAt: now,
       updatedAt: now,

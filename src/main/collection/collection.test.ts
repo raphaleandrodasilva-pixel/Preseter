@@ -215,6 +215,38 @@ describe('efeitos nativos na coleção', () => {
     }
   });
 
+  it('habilita Aux 1 Reverb e Aux 2 Delay no concert gerado', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+      const aux = file.concert.settings.buses.aux;
+
+      expect(aux[0]).toMatchObject({ enabled: true, output: 1, volumeDb: 0 });
+      expect(aux[0].inserts.map((insert) => insert.pluginId)).toEqual(['calf-reverb']);
+      expect(aux[1]).toMatchObject({ enabled: true, output: 1 });
+      expect(aux[1].inserts.map((insert) => insert.pluginId)).toEqual(['calf-delay']);
+      expect(aux[2].enabled).toBe(false);
+      expect(aux[3].enabled).toBe(false);
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('deixa os Aux desabilitados quando os efeitos não estão no scan', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const semEfeitos = plugins.filter((plugin) => !plugin.name.startsWith('calfNXT'));
+      const { file, missing } = buildCollectionConcert(semEfeitos, { soundsFolder: sounds });
+      const aux = file.concert.settings.buses.aux;
+
+      expect(aux[0].enabled).toBe(false);
+      expect(aux[1].enabled).toBe(false);
+      expect(missing).toEqual(expect.arrayContaining(['calfNXT Reverb', 'calfNXT Delay']));
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
   it('resolveEffectInserts respeita o limite de 4 slots', () => {
     const missing = new Set<string>();
     const inserts = resolveEffectInserts(
