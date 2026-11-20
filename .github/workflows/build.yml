@@ -65,6 +65,14 @@ jobs:
           key: juce-${{ runner.os }}-${{ hashFiles('engine/CMakeLists.txt') }}
           restore-keys: juce-${{ runner.os }}-
 
+      # O cache do _deps traz o CMakeCache do juceaide com o caminho do cl.exe
+      # da imagem antiga. Quando o runner atualiza o MSVC, o configure falha
+      # com "Failed to configure juceaide". Descartar só o build do JUCE
+      # mantém o fonte em cache e evita o erro.
+      - name: Descartar build antigo do JUCE
+        shell: pwsh
+        run: Remove-Item -Recurse -Force engine/build/_deps/juce-build -ErrorAction SilentlyContinue
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -132,6 +140,11 @@ jobs:
           path: engine/build/_deps
           key: juce-${{ runner.os }}-${{ hashFiles('engine/CMakeLists.txt') }}
           restore-keys: juce-${{ runner.os }}-
+
+      # Mesma limpeza do job do Windows: o cache pode trazer um CMakeCache do
+      # juceaide apontando para um compilador que não existe mais na imagem.
+      - name: Descartar build antigo do JUCE
+        run: rm -rf engine/build/_deps/juce-build
 
       - name: Instalar dependências do motor
         run: |
