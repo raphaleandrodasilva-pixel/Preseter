@@ -16,6 +16,54 @@ export interface CollectionPlugin {
   isInstrument?: boolean;
 }
 
+/** Nome mostrado para cada instrumento nativo do Preseter. */
+export const NATIVE_INSTRUMENT_NAMES: Record<
+  NonNullable<CollectionLayerSpec['nativeInstrument']>,
+  string
+> = {
+  organ: 'Preseter Organ',
+  tines: 'Preseter Tines',
+  reeds: 'Preseter Wurly',
+  piano: 'Preseter Piano',
+  dx: 'Preseter DX10',
+  jx: 'Preseter JX10',
+};
+
+/**
+ * Monta o assignment de um layer que usa instrumento nativo.
+ * O id (e o path) é sempre `preseter.<nativeInstrument>`.
+ */
+export function nativeAssignmentFor(
+  layer: CollectionLayerSpec,
+  layerId: string,
+  layerCount: number
+): PresetPluginAssignment | null {
+  if (!layer.nativeInstrument) return null;
+
+  const nativeId = `preseter.${layer.nativeInstrument}`;
+  return {
+    pluginId: nativeId,
+    layerId,
+    name: layerCount > 1 && layer.label
+      ? `Preseter — ${layer.label}`
+      : NATIVE_INSTRUMENT_NAMES[layer.nativeInstrument],
+    path: nativeId,
+    role: 'instrument',
+    programIndex: layer.programIndex ?? 0,
+    minNote: layer.min,
+    maxNote: layer.max,
+    velocityMin: layer.velocityMin ?? 1,
+    velocityMax: layer.velocityMax ?? 127,
+    mix: {
+      volumeDb: layer.db,
+      pan: layer.pan ?? 0,
+      muted: false,
+      solo: false,
+    },
+    ...(layer.arp ? { arp: layer.arp } : {}),
+  };
+}
+
 interface InstrumentSpec {
   label: string;
   match: RegExp[];
@@ -136,28 +184,10 @@ export function buildCollectionConcert(
       layers.forEach((layer, index) => {
         const layerId = `${name.replace(/\W+/g, '-').toLowerCase()}:layer:${index}`;
 
-        // Instrumento nativo do Preseter (órgão, tines, reeds).
+        // Instrumento nativo do Preseter (órgão, tines, reeds, piano, DX10, JX10).
         if (layer.nativeInstrument) {
-          const nativeId = `preseter.${layer.nativeInstrument}`;
-          assignments.push({
-            pluginId: nativeId,
-            layerId,
-            name: layers.length > 1 && layer.label ? `Preseter — ${layer.label}` : nativeId.replace('preseter.', 'Preseter '),
-            path: nativeId,
-            role: 'instrument',
-            programIndex: layer.programIndex ?? 0,
-            minNote: layer.min,
-            maxNote: layer.max,
-            velocityMin: layer.velocityMin ?? 1,
-            velocityMax: layer.velocityMax ?? 127,
-            mix: {
-              volumeDb: layer.db,
-              pan: layer.pan ?? 0,
-              muted: false,
-              solo: false,
-            },
-            ...(layer.arp ? { arp: layer.arp } : {}),
-          });
+          const assignment = nativeAssignmentFor(layer, layerId, layers.length);
+          if (assignment) assignments.push(assignment);
           return;
         }
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildCollectionConcert, analyzeCollectionConcert } from './generateCollection';
+import { buildCollectionConcert, analyzeCollectionConcert, nativeAssignmentFor } from './generateCollection';
+import { N } from '../../shared/collection-presets';
 import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
@@ -94,6 +95,47 @@ describe('collection catalog', () => {
 
     expect(linuxIds).toContain('setbfree');
     expect(winIds).not.toContain('setbfree');
+  });
+});
+
+describe('instrumentos nativos no gerador', () => {
+  it('monta DX10 e JX10 com id, programa, faixa e velocity', () => {
+    const dx = nativeAssignmentFor(
+      N('dx', -3, 12, 96, 'FM', 4, { velocityMin: 20, velocityMax: 100 }),
+      'patch:layer:0',
+      2
+    );
+    expect(dx).toMatchObject({
+      pluginId: 'preseter.dx',
+      path: 'preseter.dx',
+      name: 'Preseter — FM',
+      role: 'instrument',
+      programIndex: 4,
+      minNote: 12,
+      maxNote: 96,
+      velocityMin: 20,
+      velocityMax: 100,
+      mix: { volumeDb: -3, pan: 0, muted: false, solo: false },
+    });
+
+    const jx = nativeAssignmentFor(N('jx', 0, 0, 127, 'Pad', 27), 'patch:layer:1', 1);
+    expect(jx).toMatchObject({
+      pluginId: 'preseter.jx',
+      path: 'preseter.jx',
+      name: 'Preseter JX10',
+      programIndex: 27,
+      velocityMin: 1,
+      velocityMax: 127,
+    });
+  });
+
+  it('mantém o piano nativo como instrumento disponível, sem mexer no sampler', () => {
+    const piano = nativeAssignmentFor(N('piano', 0, 0, 127, 'Piano'), 'patch:layer:0', 1);
+    expect(piano?.pluginId).toBe('preseter.piano');
+    expect(piano?.name).toBe('Preseter Piano');
+
+    // Camada sem nativeInstrument e sem sample = plugin externo; não monta nativo.
+    expect(nativeAssignmentFor({ inst: 'SURGE', db: 0, min: 0, max: 127, label: '' }, 'p', 1)).toBeNull();
   });
 });
 

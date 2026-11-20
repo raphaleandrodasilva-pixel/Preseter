@@ -54,8 +54,14 @@ export interface CollectionLayerSpec {
   arp?: ArpSettings;
   /** Preset de fábrica do Surge XT (caminho relativo em patches_factory). */
   factoryPreset?: string;
-  /** Quando presente, o layer usa um instrumento nativo do Preseter. */
-  nativeInstrument?: 'organ' | 'tines' | 'reeds';
+  /**
+   * Quando presente, o layer usa um instrumento nativo do Preseter.
+   * O id é montado como `preseter.<nativeInstrument>`.
+   *
+   * `piano` existe no motor, mas **não** substitui o sampler nos pianos
+   * acústicos: só pode entrar como camada extra, com aprovação.
+   */
+  nativeInstrument?: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx';
   /** Quando presente, o layer usa o sampler nativo (SF2/SFZ). */
   sample?: SampleSpec;
 }
@@ -88,7 +94,7 @@ export const S = (
   extra: Partial<CollectionLayerSpec> = {}
 ): CollectionLayerSpec => ({ inst: 'NATIVE', db, min, max, label, sample, ...extra });
 
-/** Layer de instrumento nativo (órgão, tines ou reeds). */
+/** Layer de instrumento nativo (órgão, tines, reeds, piano, DX10 ou JX10). */
 export const N = (
   nativeInstrument: NonNullable<CollectionLayerSpec['nativeInstrument']>,
   db: number,
