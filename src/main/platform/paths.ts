@@ -122,6 +122,29 @@ export function bundledPluginFolder(
   );
 }
 
+/**
+ * Pasta dos plugins LV2 empacotados com o app (Guitarix).
+ * Em desenvolvimento: `<repo>/vendor/guitarix/plugins-win|plugins-linux`.
+ * No instalador: `<resources>/plugins/guitarix` (extraResources).
+ */
+export function bundledGuitarixFolder(
+  appPath: string,
+  resourcesPath: string,
+  packaged: boolean,
+  platform: NodeJS.Platform = process.platform
+): string {
+  // O Guitarix embarcado só existe para Windows e Linux; no macOS o scan não
+  // deve tentar abrir os .so ELF da pasta Linux.
+  if (platform !== 'win32' && platform !== 'linux') return '';
+  if (packaged) return path.join(resourcesPath, 'plugins', 'guitarix');
+  return path.join(
+    appPath,
+    'vendor',
+    'guitarix',
+    platform === 'win32' ? 'plugins-win' : 'plugins-linux'
+  );
+}
+
 /** Expande ~, $HOME e variáveis de perfil/XDG usadas no catálogo. */
 export function expandUserPath(
   value: string,

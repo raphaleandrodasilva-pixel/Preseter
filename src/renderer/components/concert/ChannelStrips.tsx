@@ -19,7 +19,8 @@ import type {
   VstPreset,
 } from '@shared/types';
 import { DEFAULT_ARP, MAX_AUX_BUSES, MAX_INSERTS, MAX_OUTPUT_BUSES, SEND_OFF_DB, STRIP_ATTRIBUTES } from '@shared/types';
-import { effectDisplayName } from '@shared/effects/catalog';
+import { effectDisplayName, findEffect } from '@shared/effects/catalog';
+import { NATIVE_INSTRUMENTS, nativeInstrumentEntry } from '@shared/native-instruments';
 import type { ExternalMidiConfig } from '@shared/external-midi';
 import { noteName } from '../composer/elementFactory';
 import { ArpeggiatorModal } from './ArpeggiatorModal';
@@ -33,6 +34,11 @@ import {
   type StripValue,
 } from '@shared/strip-levels';
 import { learnParameter, subscribeParameterLearn } from '../../services/parameter-learn';
+
+/** Efeitos embutidos do Preseter (calfnXT e a cadeia de guitarra do Guitarix). */
+function isPreseterPlugin (plugin: VstPluginInfo): boolean {
+  return plugin.manufacturer === 'Preseter' || findEffect(plugin.path)?.source === 'guitarix';
+}
 
 interface ChannelStripsProps {
   preset: Preset | null;
@@ -296,86 +302,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     format: 'Native',
     arch: 'x64',
   };
-  const nativeEntries: VstPluginInfo[] = [
-    {
-      id: 'preseter.organ',
-      name: 'Preseter Organ',
-      path: 'preseter.organ',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Órgão',
-      format: 'Native',
-      arch: 'x64',
-    },
-    {
-      id: 'preseter.tines',
-      name: 'Preseter Tines',
-      path: 'preseter.tines',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Piano elétrico',
-      format: 'Native',
-      arch: 'x64',
-    },
-    {
-      id: 'preseter.reeds',
-      name: 'Preseter Wurly',
-      path: 'preseter.reeds',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Piano elétrico',
-      format: 'Native',
-      arch: 'x64',
-    },
-    {
-      id: 'preseter.piano',
-      name: 'Preseter Piano',
-      path: 'preseter.piano',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Piano acústico',
-      format: 'Native',
-      arch: 'x64',
-    },
-    {
-      id: 'preseter.dx',
-      name: 'Preseter DX10',
-      path: 'preseter.dx',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Sintetizador FM',
-      format: 'Native',
-      arch: 'x64',
-    },
-    {
-      id: 'preseter.jx',
-      name: 'Preseter JX10',
-      path: 'preseter.jx',
-      isLoaded: false,
-      isInstrument: true,
-      parameters: [],
-      manufacturer: 'Preseter',
-      version: '1.0',
-      category: 'Sintetizador analógico',
-      format: 'Native',
-      arch: 'x64',
-    },
-  ];
+  const nativeEntries: VstPluginInfo[] = NATIVE_INSTRUMENTS
+    .map((instrument) => nativeInstrumentEntry(instrument.id))
+    .filter((entry): entry is VstPluginInfo => entry !== null);
   const instruments = [...nativeEntries, samplerEntry, ...scannedPlugins.filter((plugin) => plugin.isInstrument)];
   const effects = scannedPlugins.filter((plugin) => !plugin.isInstrument);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
@@ -1264,7 +1193,9 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     const items = presetsForPlugin(plugin);
     return [
       { label: 'Do plugin', items: items.filter((item) => item.source === 'program').sort(byName) },
-      { label: 'Meus presets', items: items.filter((item) => item.source === 'snapshot').sort(byName) },
+      { label: 'Meus presets', items: items.filter((item) => item.source === 'snapshot'
+        || (item.source === 'sy1' && item.collection === 'Meus presets')).sort(byName) },
+      { label: 'Patches .sy1', items: items.filter((item) => item.source === 'sy1').sort(byName) },
       { label: 'Presets .fxp', items: items.filter((item) => item.source === 'fxp').sort(byName) },
       { label: 'Presets VST3', items: items.filter((item) => item.source === 'vstpreset').sort(byName) },
     ].filter((group) => group.items.length > 0);
@@ -1558,11 +1489,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 || (plugin.manufacturer ?? '').toLowerCase().includes(term));
           const byName = (a: VstPluginInfo, b: VstPluginInfo) =>
             a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
-          const preseterPlugins = isLayerPicker
-            ? filtered.filter((plugin) => plugin.manufacturer === 'Preseter').sort(byName)
-            : [];
-          const externalPlugins = (isLayerPicker ? filtered.filter((plugin) => plugin.manufacturer !== 'Preseter') : filtered)
-            .sort(byName);
+          const preseterPlugins = filtered.filter(isPreseterPlugin).sort(byName);
+          const externalPlugins = filtered.filter((plugin) => !isPreseterPlugin(plugin)).sort(byName);
           const renderPlugin = (plugin: VstPluginInfo) => (
             <button
               key={plugin.id}
@@ -2061,29 +1989,51 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
               {scanning ? 'Escaneando VST3…' : 'Nenhum efeito encontrado.'}
               {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
             </div>
-          ) : effects.map((plugin) => (
-            <button
-              key={plugin.id}
-              disabled={busy}
-              className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
-              title={plugin.path}
-              onClick={() => {
-                const current = insertPicker;
-                setInsertPicker(null);
-                void (async () => {
-                  setBusy(true);
-                  try {
-                    const added = await current.pick(plugin);
-                    if (!added) setInsertPicker(current);
-                  } finally {
-                    setBusy(false);
-                  }
-                })();
-              }}
-            >
-              {effectDisplayName(plugin.path, plugin.name)}
-            </button>
-          ))}
+          ) : (() => {
+            const byName = (a: VstPluginInfo, b: VstPluginInfo) =>
+              a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+            const preseterPlugins = effects.filter(isPreseterPlugin).sort(byName);
+            const externalPlugins = effects.filter((plugin) => !isPreseterPlugin(plugin)).sort(byName);
+            const renderOption = (plugin: VstPluginInfo) => (
+              <button
+                key={plugin.id}
+                disabled={busy}
+                className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+                title={plugin.path}
+                onClick={() => {
+                  const current = insertPicker;
+                  setInsertPicker(null);
+                  void (async () => {
+                    setBusy(true);
+                    try {
+                      const added = await current.pick(plugin);
+                      if (!added) setInsertPicker(current);
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                {effectDisplayName(plugin.path, plugin.name)}
+              </button>
+            );
+            return (
+              <>
+                {preseterPlugins.length > 0 && (
+                  <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
+                    Preseter ({preseterPlugins.length})
+                  </div>
+                )}
+                {preseterPlugins.map(renderOption)}
+                {externalPlugins.length > 0 && (
+                  <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
+                    Plugins ({externalPlugins.length})
+                  </div>
+                )}
+                {externalPlugins.map(renderOption)}
+              </>
+            );
+          })()}
         </div>
       )}
       {arpLayer && (

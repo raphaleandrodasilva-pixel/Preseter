@@ -1,4 +1,5 @@
 import raw from './catalog.json';
+import guitarixRaw from './guitarix.json';
 
 export type EffectScale = 'linear' | 'dB' | 'log';
 
@@ -21,6 +22,8 @@ export interface EffectParam {
   precision: number;
   /** 0..1 sem casas decimais: renderiza como liga/desliga. */
   toggle: boolean;
+  /** Rótulos das escolhas (LV2 scale points), indexados pelo valor inteiro. */
+  choices?: string[];
   group: string;
   collapsed: boolean;
 }
@@ -42,6 +45,12 @@ export interface EffectDefinition {
   category: string;
   /** Painel Preseter. `false` = abre o editor original do plugin. */
   nativePanel: boolean;
+  /** Origem do DSP (define o badge do painel). */
+  source?: 'calfnxt' | 'guitarix';
+  /** Mostrar o botão “Editor original” (UI xputty/X11 não abre no Windows). */
+  originalEditor?: boolean;
+  /** Nomes alternativos que o plugin reporta (ex.: `GxTubeScreamer`). */
+  pluginNames?: string[];
   paramCount: number;
   subtitle: string;
   params: EffectParam[];
@@ -54,16 +63,21 @@ interface CatalogFile {
 }
 
 const catalog = raw as unknown as CatalogFile;
+const guitarix = guitarixRaw as unknown as CatalogFile;
 
-export const EFFECTS: EffectDefinition[] = catalog.effects;
+export const EFFECTS: EffectDefinition[] = [...catalog.effects, ...guitarix.effects];
 export const PANEL_EFFECTS: EffectDefinition[] = EFFECTS.filter((effect) => effect.nativePanel);
 export const ORIGINAL_EDITOR_EFFECTS: EffectDefinition[] = EFFECTS.filter((effect) => !effect.nativePanel);
 
-/** Normaliza nome/caminho para casar com a chave do catálogo. */
+/**
+ * Normaliza nome/caminho/URI para casar com a chave do catálogo.
+ * LV2 usa URI (`http://…/gxts9#ts9sim`): fica o trecho do bundle (`gxts9`).
+ */
 export function effectKey (text: string): string {
-  const base = String(text ?? '').replace(/\\/g, '/').split('/').pop() ?? '';
+  const clean = String(text ?? '').replace(/\\/g, '/').split('#')[0];
+  const base = clean.split('/').filter(Boolean).pop() ?? '';
   return base
-    .replace(/\.(vst3|vst|dll|so|dylib)$/i, '')
+    .replace(/\.(vst3|vst|dll|so|dylib|lv2)$/i, '')
     .replace(/^calfnxt/i, '')
     .replace(/^preseter/i, '')
     .replace(/[^a-z0-9]/gi, '')
@@ -71,7 +85,16 @@ export function effectKey (text: string): string {
 }
 
 const byKey = new Map<string, EffectDefinition>();
-for (const effect of EFFECTS) byKey.set(effect.match.toLowerCase(), effect);
+for (const effect of EFFECTS) {
+  const keys = [
+    effect.match,
+    effectKey(effect.displayName),
+    effectKey(effect.shortName),
+    effectKey(effect.id),
+    ...(effect.pluginNames ?? []).map(effectKey),
+  ];
+  for (const key of keys) if (key) byKey.set(key.toLowerCase(), effect);
+}
 
 /** Acha o efeito pelo caminho do plugin, nome do plugin ou nome Preseter. */
 export function findEffect (pathOrName: string): EffectDefinition | undefined {
@@ -83,6 +106,24 @@ export function findEffect (pathOrName: string): EffectDefinition | undefined {
 /** Nome exibido para um insert (Preseter Reverb etc.), com fallback no original. */
 export function effectDisplayName (pathOrName: string, fallback: string): string {
   return findEffect(pathOrName)?.displayName ?? fallback;
+}
+
+/**
+ * Valores de um preset do catálogo, já no formato que o motor usa em `setParam`
+ * (índice do parâmetro → valor normalizado 0..1). Lista vazia se o efeito ou o
+ * preset não existirem.
+ */
+export function effectPresetValues (
+  pathOrName: string,
+  presetId: string | undefined
+): Array<{ index: number; value: number }> {
+  if (!presetId) return [];
+  const preset = findEffect(pathOrName)?.presets.find((entry) => entry.id === presetId);
+  if (!preset) return [];
+  return Object.entries(preset.values)
+    .map(([index, value]) => ({ index: Number(index), value }))
+    .filter((entry) => Number.isSafeInteger(entry.index))
+    .sort((a, b) => a.index - b.index);
 }
 
 export const clamp01 = (value: number): number =>
@@ -134,8 +175,9 @@ export function formatParam (param: EffectParam, normalized: number): string {
 
 /** Parâmetros que devem aparecer como escolha (0..N inteiro) em vez de knob. */
 export function isChoice (param: EffectParam): boolean {
-  return !param.toggle
-    && param.scale === 'linear'
+  if (param.toggle) return false;
+  if (param.choices && param.choices.length > 0) return true;
+  return param.scale === 'linear'
     && param.precision === 0
     && param.max > param.min
     && param.max - param.min <= 8;

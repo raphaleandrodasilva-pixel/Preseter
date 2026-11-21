@@ -130,6 +130,56 @@ describe('PreseterEffectWindow', () => {
     expect(onLearnMapping).not.toHaveBeenCalled();
   });
 
+  it('usa o badge GUITARIX e esconde o editor original quando não há UI', async () => {
+    const guitarix = findEffect('GxTubeScreamer')!;
+    vi.mocked(window.electronAPI.vstParams).mockResolvedValue(
+      guitarix.params.map((param) => ({
+        index: param.index,
+        id: String(param.index),
+        name: param.engineName,
+        label: param.unit,
+        value: paramDefault(param),
+        defaultValue: paramDefault(param),
+        text: '',
+        stepCount: 0,
+        automatable: true,
+      }))
+    );
+
+    renderWindow({ effect: guitarix, ownerId: 'layer-1', slot: 1 });
+
+    expect(await screen.findByText('Preseter Overdrive')).toBeInTheDocument();
+    expect(screen.getByText('GUITARIX')).toBeInTheDocument();
+    expect(screen.queryByText('Editor original')).toBeNull();
+    expect(screen.getByLabelText('Drive')).toBeInTheDocument();
+    expect(screen.getByText('Guitarix · GPL-3.0-or-later')).toBeInTheDocument();
+    expect(screen.getByText(/usa o DSP do Guitarix \(GPL-3\.0-or-later\)/)).toBeInTheDocument();
+  });
+
+  it('mostra as escolhas do Amp como select com os rotulos do LV2', async () => {
+    const amp = findEffect('GxAmplifier-X')!;
+    vi.mocked(window.electronAPI.vstParams).mockResolvedValue(
+      amp.params.map((param) => ({
+        index: param.index,
+        id: String(param.index),
+        name: param.engineName,
+        label: param.unit,
+        value: paramDefault(param),
+        defaultValue: paramDefault(param),
+        text: '',
+        stepCount: 0,
+        automatable: true,
+      }))
+    );
+
+    renderWindow({ effect: amp, ownerId: 'layer-1', slot: 1 });
+
+    const select = await screen.findByLabelText('Modelo do amp');
+    expect(select.tagName).toBe('SELECT');
+    expect(select.querySelectorAll('option')).toHaveLength(19);
+    expect(screen.getByRole('option', { name: '12AU7' })).toBeInTheDocument();
+  });
+
   it('abre o editor original pelo rodapé', async () => {
     const { onOpenOriginal } = renderWindow();
     await screen.findByText('Preseter Reverb');

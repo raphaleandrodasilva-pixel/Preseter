@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bundledPluginFolder, expandUserPath, getPlatformPaths, presetWatchFolders } from './paths';
+import { bundledGuitarixFolder, bundledPluginFolder, expandUserPath, getPlatformPaths, presetWatchFolders } from './paths';
 
 const home = 'C:/Users/Test';
 const env = {
@@ -57,5 +57,18 @@ describe('platform paths', () => {
       .toBe(path.join(appPath, 'vendor', 'calfnxt', 'plugins-linux'));
     expect(bundledPluginFolder(appPath, resources, true, 'linux'))
       .toBe(path.join(resources, 'plugins', 'calfnxt'));
+  });
+
+  it('acha o Guitarix embarcado só em Windows/Linux', () => {
+    const appPath = 'C:/repo/preseter';
+    const resources = 'C:/Program Files/Preseter/resources';
+    expect(bundledGuitarixFolder(appPath, resources, false, 'win32'))
+      .toBe(path.join(appPath, 'vendor', 'guitarix', 'plugins-win'));
+    expect(bundledGuitarixFolder(appPath, resources, false, 'linux'))
+      .toBe(path.join(appPath, 'vendor', 'guitarix', 'plugins-linux'));
+    expect(bundledGuitarixFolder(appPath, resources, true, 'linux'))
+      .toBe(path.join(resources, 'plugins', 'guitarix'));
+    expect(bundledGuitarixFolder(appPath, resources, false, 'darwin')).toBe('');
+    expect(bundledGuitarixFolder(appPath, resources, true, 'darwin')).toBe('');
   });
 });

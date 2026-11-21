@@ -13,7 +13,12 @@ const PROJECTS = [
   { name: 'MDA DX10 (porte JUCE MIT)', license: 'MIT', use: 'Preseter DX10' },
   { name: 'MDA JX10 (porte JUCE MIT)', license: 'MIT', use: 'Preseter JX10' },
   { name: 'OpenWurli', license: 'GPL-3.0-or-later', use: 'Preseter Wurly' },
+  { name: 'Oxo Synth2 (Synth2)', license: 'MIT', use: 'Preseter Synth2' },
+  { name: 'MuseScore_General (S. Christian Collins / FluidR3)', license: 'MIT', use: 'Kit do Preseter Drums' },
   { name: 'calfNXT / Calf Studio Gear', license: 'GPL-3.0-or-later', use: 'Efeitos Preseter' },
+  { name: 'Guitarix', license: 'GPL-3.0-or-later', use: 'Efeitos Preseter de guitarra' },
+  { name: 'zita-convolver / zita-resampler', license: 'GPL-3.0-or-later', use: 'Dentro do Guitarix' },
+  { name: 'FFTW', license: 'GPL-2.0-or-later', use: 'Dentro do Guitarix' },
   { name: 'Element', license: 'GPL-3.0-or-later', use: 'Referência de áudio ASIO/WASAPI' },
   { name: 'JUCE', license: 'AGPL-3.0 / comercial', use: 'Motor e interface' },
 ];

@@ -218,6 +218,17 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "warmLv2")
+    {
+        juce::StringArray paths;
+        if (auto* array = message["paths"].getArray())
+            for (const auto& item : *array)
+                paths.add (item.toString());
+
+        ok (id, Obj().set ("bundles", engine.warmLv2Bundles (paths)));
+        return;
+    }
+
     if (cmd == "load")
     {
         auto key = message["plugin"].toString();
@@ -249,7 +260,8 @@ void CommandRouter::handleLine (const juce::String& line)
         }
 
         if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
-            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx")
+            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx"
+            || key == "preseter.synth2" || key == "preseter.drums")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -346,7 +358,8 @@ void CommandRouter::handleLine (const juce::String& line)
         }
 
         if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
-            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx")
+            || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx"
+            || key == "preseter.synth2" || key == "preseter.drums")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -417,6 +430,27 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "setDrums")
+    {
+        juce::var result;
+        const auto error = engine.setDrums (message["layerId"].toString(), message, result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "drums")
+    {
+        ok (id, engine.describeDrums (message["layerId"].toString()));
+        return;
+    }
+
+    if (cmd == "drumsPosition")
+    {
+        ok (id, engine.describeDrumsPosition (message["layerId"].toString()));
+        return;
+    }
+
     if (cmd == "setTranspose")
     {
         const auto error = engine.setTranspose (intArg (message, "semitones", 0));
@@ -442,6 +476,12 @@ void CommandRouter::handleLine (const juce::String& line)
             boolArg (message, "playing", false));
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, juce::var());
+        return;
+    }
+
+    if (cmd == "transport")
+    {
+        ok (id, engine.describeTransport());
         return;
     }
 
@@ -615,6 +655,27 @@ void CommandRouter::handleLine (const juce::String& line)
         juce::var result;
         const auto error = engine.setPluginProgram (message["layerId"].toString(),
                                                     intArg (message, "index", -1), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "synth2LoadPatch")
+    {
+        juce::var result;
+        const auto error = engine.loadSynth2Patch (message["layerId"].toString(),
+                                                   message["data"].toString(),
+                                                   message["name"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "synth2SavePatch")
+    {
+        juce::var result;
+        const auto error = engine.exportSynth2Patch (message["layerId"].toString(),
+                                                     message["name"].toString(), result);
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;

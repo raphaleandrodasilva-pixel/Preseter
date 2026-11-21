@@ -37,7 +37,7 @@ import type {
   CollectionReadiness,
 } from '@shared/collection';
 import type { StoreSnapshot, StoreUpdateResult, StoreImageRefreshResult } from '@shared/store';
-import type { ArpSettings, EngineArpState } from '@shared/types';
+import type { ArpSettings, EngineArpState, EngineDrumPattern, EngineDrumsState } from '@shared/types';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
 export interface ElectronAPI {
@@ -135,6 +135,11 @@ export interface ElectronAPI {
   vstPresetSaveSnapshot: (payload: { layerId: string; name: string; category?: string }) => Promise<VstPreset | null>;
   vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) => Promise<VstPreset | null>;
   vstPresetDelete: (presetId: string) => Promise<boolean>;
+  vstPresetsAddSynth2Folder: () => Promise<{
+    canceled: boolean;
+    presets: VstPresetListResult | null;
+    folder: string | null;
+  }>;
   vstPresetExport: (payload: { layerId: string; name?: string }) => Promise<{
     canceled: boolean;
     path: string | null;
@@ -160,6 +165,14 @@ export interface ElectronAPI {
   vstSetLayerRange: (layerId: string, minNote: number, maxNote: number) => Promise<VstPluginInfo>;
   vstSetLayerVelocity: (layerId: string, minVelocity: number, maxVelocity: number) => Promise<VstPluginInfo>;
   vstSetArp: (layerId: string, settings: ArpSettings) => Promise<EngineArpState>;
+  drumsSet: (layerId: string, options: {
+    enabled?: boolean;
+    pattern?: EngineDrumPattern;
+    gainDb?: number;
+    soloPad?: number;
+  }) => Promise<EngineDrumsState>;
+  drumsInfo: (layerId: string) => Promise<EngineDrumsState>;
+  drumsPosition: (layerId: string) => Promise<{ enabled: boolean; currentStep: number }>;
   audioInputSet: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState>;
   audioInputState: () => Promise<AudioInputState>;
   midiThruSet: (blocked: MidiThruBlock[]) => Promise<boolean>;
@@ -249,7 +262,7 @@ export interface ElectronAPI {
     name: string;
     phase: string;
   }) => void) => void;
-  onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => void;
+  onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => () => void;
   onPluginLoaded: (callback: (plugin: any) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;
   onParameterChanged: (callback: (data: any) => void) => void;

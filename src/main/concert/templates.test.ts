@@ -5,11 +5,12 @@ import { buildTemplateConcert, CONCERT_TEMPLATES, listTemplates } from './templa
 describe('concert templates', () => {
   it('lists template summaries without implementation fields', () => {
     const templates = listTemplates();
-    expect(templates).toHaveLength(5);
+    expect(templates).toHaveLength(6);
     expect(templates.map((template) => template.id)).toEqual([
       'vazio',
       'teclado',
       'worship',
+      'guitarra',
       'fullset',
       'midi-externo',
     ]);
@@ -19,7 +20,7 @@ describe('concert templates', () => {
       description: expect.any(String),
     });
     expect(templates[0]).not.toHaveProperty('sets');
-    expect(CONCERT_TEMPLATES).toHaveLength(5);
+    expect(CONCERT_TEMPLATES).toHaveLength(6);
   });
 
   it('builds an empty concert with the default keyboard layout', () => {
@@ -78,6 +79,28 @@ describe('concert templates', () => {
     expect(file.patches.every((patch) => patch.layout.tempo === 72)).toBe(true);
     expect(file.patches[0].notes).toBe('Pad de fundo');
     expect(file.patches.map((patch) => patch.icon)).toEqual(['pad', 'pad-bright', 'piano', 'generic']);
+  });
+
+  it('builds the guitar template with the Guitarix master chain', () => {
+    const file = buildTemplateConcert('guitarra');
+    expect(file.concert.name).toBe('Meu Concert de Guitarra');
+    expect(file.sets.map((set) => set.name)).toEqual(['Guitarra']);
+    expect(file.patches.map((patch) => patch.name)).toEqual([
+      'Guitarra Clean',
+      'Guitarra Crunch',
+      'Guitarra Lead',
+    ]);
+
+    const [clean, crunch, lead] = file.patches;
+    expect(clean.master?.inserts.map((insert) => insert.path)).toEqual([
+      'http://guitarix.sourceforge.net/plugins/gx_studiopre#studiopre',
+      'http://guitarix.sourceforge.net/plugins/gx_cabinet#CABINET',
+      'http://guitarix.sourceforge.net/plugins/gx_tremolo#_tremolo',
+    ]);
+    expect(clean.master?.inserts.map((insert) => insert.presetId)).toEqual(['bright', 'open', 'subtle']);
+    expect(crunch.master?.inserts.map((insert) => insert.presetId)).toEqual(['crunch', 'crunch']);
+    expect(lead.master?.inserts.map((insert) => insert.presetId)).toEqual(['lead', 'lead']);
+    expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
   });
 
   it('builds the MIDI external template with one set, one patch and keyboard', () => {

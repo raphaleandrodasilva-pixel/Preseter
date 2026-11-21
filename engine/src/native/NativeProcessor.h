@@ -2,16 +2,27 @@
 
 #include "MdaEPianoDsp.h"
 #include "SetBfreeOrganProcessor.h"
+#include "Synth2Dsp.h"
 #include "WurliProcessor.h"
+#include "drums/DrumPattern.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
 #include <atomic>
 #include <memory>
+#include <vector>
 
 namespace preseter
 {
+class MasterClock;
+
+namespace drums
+{
+class DrumKitEngine;
+class DrumSequencer;
+}
+
 namespace native
 {
 enum class NativeKind
@@ -21,7 +32,9 @@ enum class NativeKind
     reeds,
     mdaPiano,
     mdaDx10,
-    mdaJx10
+    mdaJx10,
+    synth2,
+    drums
 };
 
 class NativeProcessor;
@@ -34,6 +47,7 @@ class NativeProcessor final : public juce::AudioProcessor, private juce::AsyncUp
 {
 public:
     NativeProcessor (NativeKind kindToUse, juce::String stableId, juce::String displayName);
+    ~NativeProcessor() override;
 
     const juce::String& getStableId() const noexcept { return stableId; }
     NativeKind getNativeKind() const noexcept { return kind; }
@@ -69,6 +83,34 @@ public:
 
     void applyProgram (int index);
 
+    /** Synth2: carrega um patch .sy1 (texto). Chamar na thread de mensagem. */
+    bool loadSynth2Patch (const juce::String& text, const juce::String& name = {});
+    /** Synth2: carrega os programas de fábrica (.sy1) de uma pasta. */
+    void loadSynth2FactoryPrograms (const juce::String& directory);
+    /** Synth2: exporta os valores atuais como .sy1 (ver=112). */
+    juce::String exportSynth2Patch (const juce::String& name) const;
+
+    /** Preseter Drums: carrega o kit (SF2/SFZ). Chamar na thread de mensagem. */
+    bool loadDrumKit (const juce::File& file, int bank, int program, juce::String& error);
+    /** Preseter Drums: descrição do kit carregado (para logs/interface). */
+    juce::String describeDrumKit() const;
+
+    /** D4: liga o sequenciador ao relógio mestre. */
+    void setMasterClock (const MasterClock* clockToUse);
+
+    /** Preseter Drums: publica o padrão e liga/desliga o sequenciador (thread de mensagem). */
+    bool setDrumPattern (const juce::var& options, juce::String& error);
+    void setDrumSequencerEnabled (bool shouldBeEnabled);
+    bool isDrumSequencerEnabled() const;
+    /** Preseter Drums: padrão, passo atual e pads (para a interface/estado). */
+    juce::var describeDrums() const;
+    /** Preseter Drums: solo transitório (-1 = nenhum) e volume geral. */
+    void setDrumSolo (int pad);
+    void setDrumGainDb (float db);
+    int getDrumCurrentStep() const;
+    /** Nome do patch .sy1 atualmente carregado (vazio nos outros nativos). */
+    juce::String getSynth2PatchName() const;
+
 private:
     struct Voice
     {
@@ -92,7 +134,10 @@ private:
     Voice* allocateVoice();
     void startNote (int note, float velocity);
     void stopNote (int note);
+    /** D4/D6: aplica volume/mudo das trilhas aos pads do kit. */
+    void applyDrumPatternPadSettings (const drums::DrumPattern& pattern);
     void updateOrganParameters();
+    void processSynth2 (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
     void renderModal (juce::AudioBuffer<float>& buffer, int numSamples);
     void handleAsyncUpdate() override;
     float parameter (const char* id) const;
@@ -106,8 +151,41 @@ private:
     std::unique_ptr<SetBfreeOrgan> setBfree;
     std::unique_ptr<MdaEPianoDsp> mdaEPiano;
     std::unique_ptr<WurliProcessor> wurli;
+    std::unique_ptr<Synth2Dsp> synth2;
+    struct Synth2Program
+    {
+        juce::String name;
+        Synth2PatchValues values {};
+    };
+    std::vector<Synth2Program> synth2Programs;
+    std::atomic<int> synth2PendingProgram { -1 };
+    std::array<int32_t, kSynth2ParamCount> synth2Values {};
+    int32_t synth2Volume = -1;
+    /** Força a releitura dos 100 parâmetros no próximo bloco (estado/patch novo). */
+    std::atomic<bool> synth2ForceParams { true };
+    /** Pede o fade/limpeza de delay antes de aplicar um patch novo. */
+    std::atomic<bool> synth2PatchReload { false };
     /** Instrumentos do MDA rodam o AudioProcessor original do porte (MIT). */
     std::unique_ptr<juce::AudioProcessor> mdaProcessor;
+    /** Preseter Drums: motor de pads (D3). */
+    std::unique_ptr<drums::DrumKitEngine> drumKit;
+    /** Preseter Drums: sequenciador (D4) e relógio mestre. */
+    std::unique_ptr<drums::DrumSequencer> drumSequencer;
+    const MasterClock* masterClock = nullptr;
+    drums::DrumPattern drumPattern;
+    /** MIDI de entrada do bloco, copiado para um array fixo (sem alocar na thread de áudio). */
+    struct DrumInputEvent
+    {
+        int position = 0;
+        juce::MidiMessage message;
+    };
+    std::array<DrumInputEvent, 128> drumInputEvents {};
+    /** Estado do kit (caminho/nome) para salvar no patch (D6). */
+    juce::String drumKitPath;
+    int drumKitBank = 128;
+    int drumKitProgram = 0;
+    /** Volume geral do Drums (dB), salvo no estado. */
+    float drumGainDb = 0.0f;
     /** prepareToPlay já rodou no delegado (contador de vozes confiável). */
     bool mdaPrepared = false;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};

@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { PresetPluginAssignment } from '@shared/types';
+import type { PresetPluginAssignment, ConcertMapping, MidiBinding } from '@shared/types';
 import type { EngineParameter } from '@shared/engine-protocol';
 import { useAppContext } from '../../context/AppContext';
+import { ChoiceButton, Knob, NumberField, ParamKnob } from './native-controls';
+import { Synth2Panel } from './Synth2Panel';
+import { DrumMachinePanel } from './DrumMachinePanel';
 
-export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx';
+export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'synth2' | 'drums';
 
 interface NativeInstrumentWindowProps {
   kind: NativeInstrumentKind;
@@ -11,6 +14,10 @@ interface NativeInstrumentWindowProps {
   assignment: PresetPluginAssignment;
   onClose: () => void;
   onSave: () => void | Promise<void>;
+  /** Mappings do concert (usado pelo Synth2 para mostrar/aprender CCs). */
+  mappings?: ConcertMapping[];
+  onLearnMapping?: (source: MidiBinding, parameterId: string) => void;
+  onClearMapping?: (parameterId: string) => void;
 }
 
 const DRAW_BARS: Array<[string, string]> = [
@@ -32,151 +39,15 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
   piano: { name: 'Preseter Piano', badge: 'MDA PIANO', subtitle: 'Piano acústico por samples · 12 parâmetros' },
   dx: { name: 'Preseter DX10', badge: 'MDA DX10', subtitle: 'FM de 2 operadores · 16 parâmetros' },
   jx: { name: 'Preseter JX10', badge: 'MDA JX10', subtitle: 'Sintetizador analógico · 24 parâmetros' },
+  synth2: { name: 'Preseter Synth2', badge: 'OXO SYNTH2', subtitle: 'Recriação do Synth1 · motor Oxo Synth2 (MIT)' },
+  drums: { name: 'Preseter Drums', badge: 'EM CONSTRUÇÃO', subtitle: 'Pads e sequenciador de passos em implementação' },
 };
 
 const CREDITS: Partial<Record<NativeInstrumentKind, string>> = {
   piano: 'Baseado em mda Piano · Paul Kellett',
   dx: 'Baseado em mda DX10 · Paul Kellett',
   jx: 'Baseado em mda JX10 · Paul Kellett',
-};
-
-interface KnobProps {
-  label: string;
-  value: number;
-  display: string;
-  onChange: (value: number) => void;
-}
-
-const Knob: React.FC<KnobProps> = ({ label, value, display, onChange }) => (
-  <div className="flex min-w-[74px] flex-col items-center gap-1">
-    <div className="relative h-14 w-14 rounded-full" style={{ background: `conic-gradient(#0A84FF ${Math.round(value * 300)}deg, #343438 0)` }}>
-      <div className="absolute inset-[5px] rounded-full" style={{ background: '#1C1C1E' }} />
-      <div
-        className="absolute left-1/2 top-[7px] h-3 w-[2px] origin-bottom rounded"
-        style={{ background: '#E5E5EA', transform: `translateX(-50%) rotate(${-135 + value * 270}deg)`, transformOrigin: '50% 21px' }}
-      />
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.001}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={label}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      />
-    </div>
-    <span className="text-[10px] font-semibold text-white">{display}</span>
-    <span className="text-[9px]" style={{ color: '#8E8E93' }}>{label}</span>
-  </div>
-);
-
-const ChoiceButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="rounded px-2 py-1 text-[10px] font-semibold"
-    style={active
-      ? { background: '#0A84FF', color: '#FFFFFF' }
-      : { background: 'rgba(255,255,255,0.05)', color: '#C6C6CB', border: '1px solid #3A3A3C' }}
-  >
-    {children}
-  </button>
-);
-
-interface NumberFieldProps {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  decimals: number;
-  onChange: (value: number) => void;
-  compact?: boolean;
-}
-
-const NumberField: React.FC<NumberFieldProps> = ({ value, min, max, step, decimals, onChange, compact = false }) => {
-  const format = (v: number) => v.toFixed(decimals);
-  const [text, setText] = useState(format(value));
-
-  useEffect(() => { setText(format(value)); }, [value, decimals]);
-
-  const commit = () => {
-    const parsed = Number(text.replace(',', '.'));
-    if (!Number.isFinite(parsed)) {
-      setText(format(value));
-      return;
-    }
-    const clamped = Math.max(min, Math.min(max, parsed));
-    onChange(clamped);
-    setText(format(clamped));
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onFocus={(event) => event.currentTarget.select()}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          event.currentTarget.blur();
-        } else if (event.key === 'Escape') {
-          setText(format(value));
-          event.currentTarget.blur();
-        } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-          event.preventDefault();
-          const delta = (event.key === 'ArrowUp' ? 1 : -1) * step;
-          const next = Math.max(min, Math.min(max, (Number(text.replace(',', '.')) || value) + delta));
-          onChange(next);
-          setText(format(next));
-        }
-      }}
-      aria-label="Valor do parâmetro"
-      className={`hw-inset px-1 py-0.5 text-center text-[10px] tabular-nums text-white ${compact ? 'w-[42px]' : 'w-[68px]'}`}
-    />
-  );
-};
-
-interface ParamKnobProps {
-  label: string;
-  paramName: string;
-  min: number;
-  max: number;
-  step: number;
-  decimals: number;
-  valueOf: (name: string) => number;
-  setNamed: (name: string, value: number) => void;
-  display?: (real: number) => string;
-}
-
-const ParamKnob: React.FC<ParamKnobProps> = ({
-  label, paramName, min, max, step, decimals, valueOf, setNamed, display,
-}) => {
-  const normalized = valueOf(paramName);
-  const real = min + normalized * (max - min);
-  const toNormalized = (value: number) => (max > min ? (value - min) / (max - min) : 0);
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <Knob
-        label={label}
-        value={normalized}
-        display={display ? display(real) : `${real.toFixed(decimals)}`}
-        onChange={(value) => setNamed(paramName, value)}
-      />
-      <NumberField
-        value={real}
-        min={min}
-        max={max}
-        step={step}
-        decimals={decimals}
-        onChange={(value) => setNamed(paramName, toNormalized(value))}
-      />
-    </div>
-  );
+  synth2: 'Motor: Oxo Synth2 · François Chabloz (chab) · MIT',
 };
 
 // --- Painéis dos instrumentos MDA (Piano, DX10, JX10) ------------------------
@@ -533,6 +404,9 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   assignment,
   onClose,
   onSave,
+  mappings = [],
+  onLearnMapping,
+  onClearMapping,
 }) => {
   const { getVstParameters, setVstParameter, loadedPlugins } = useAppContext();
   const [params, setParams] = useState<EngineParameter[]>([]);
@@ -546,7 +420,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const program = plugin?.program ?? assignment.programIndex ?? 0;
   const mdaKind = kind === 'piano' || kind === 'dx' || kind === 'jx';
   const programCount = plugin?.programCount
-    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : 4);
+    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : kind === 'drums' ? 1 : 4);
 
   const refresh = async () => {
     try {
@@ -575,7 +449,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   // Vozes ativas dos instrumentos MDA: o rodapé mostra quantas estão soando.
   useEffect(() => {
-    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx') return;
+    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx' && kind !== 'synth2') return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -613,6 +487,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const setPhysical = (name: string, value: number, max: number) => setNamed(name, value / max);
 
   const changeProgram = async (index: number) => {
+    if (index < 0) return;
     try {
       await window.electronAPI.vstSetProgram(layerId, index);
       await refresh();
@@ -629,6 +504,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     if (kind === 'organ') return ['Jazz', 'Gospel', 'Rock', 'Combo'];
     if (kind === 'tines') return ['Suitcase', 'Stage', 'Mellow', 'Bark'];
     if (kind === 'reeds') return ['Clássico', 'Suitcase', 'Stage', 'Bark'];
+    if (kind === 'drums') return ['Kit vazio'];
     return Array.from({ length: programCount }, (_, index) => `Preset ${index + 1}`);
   }, [kind, plugin?.programNames, programCount]);
 
@@ -638,7 +514,9 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
       ? 8
       : kind === 'tines'
         ? Math.round(valueOf('Polyphony'))
-        : 64;
+        : kind === 'synth2'
+          ? Math.round(1 + 31 * valueOf('polyphony'))
+          : 64;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[90]">
@@ -677,11 +555,12 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
           <select
             value={program}
             onChange={(event) => void changeProgram(Number(event.target.value))}
-            className="hw-inset px-2 py-1 text-[10px] text-white"
+            className="hw-inset max-w-[220px] px-2 py-1 text-[10px] text-white"
             aria-label="Preset do instrumento"
           >
+            {kind === 'synth2' && program < 0 && <option value={-1}>Patch atual (.sy1)</option>}
             {programNames.slice(0, programCount).map((name, index) => (
-              <option key={name} value={index}>{name}</option>
+              <option key={`${name}-${index}`} value={index}>{name}</option>
             ))}
           </select>
           <button
@@ -891,6 +770,20 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                 </p>
               </section>
             </div>
+          ) : kind === 'synth2' ? (
+            <Synth2Panel
+              layerId={layerId}
+              assignment={assignment}
+              params={params}
+              onChange={setNamed}
+              onRefresh={refresh}
+              mappings={mappings}
+              onLearnMapping={onLearnMapping}
+              onClearMapping={onClearMapping}
+              initialName={plugin?.patchName}
+            />
+          ) : kind === 'drums' ? (
+            <DrumMachinePanel layerId={layerId} />
           ) : (
             <MdaPanel
               kind={kind as MdaKind}
@@ -918,7 +811,11 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
         <footer className="flex flex-wrap items-center gap-3 px-4 py-2 text-[10px]" style={{ borderTop: '1px solid #3A3A3C', color: '#8E8E93' }}>
           <span style={{ color: '#30D158' }}>● Ativo</span>
           <span>
-            Polifonia {mdaKind ? `${activeVoices ?? 0} / ${polyphonyMax}` : `${polyphonyMax}/${64}`}
+            Polifonia {kind === 'drums'
+              ? '—'
+              : mdaKind || kind === 'synth2'
+                ? `${activeVoices ?? 0} / ${polyphonyMax}`
+                : `${polyphonyMax}/${64}`}
           </span>
           <span>CPU —</span>
           <span>{CREDITS[kind] ?? `Motor: Preseter (${kind})`}</span>

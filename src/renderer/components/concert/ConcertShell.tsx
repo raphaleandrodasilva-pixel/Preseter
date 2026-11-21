@@ -64,6 +64,7 @@ import { PatchLcd } from '../hardware/PatchLcd';
 import { StageControl } from '../stage/StageControl';
 import type { RawMidiEvent } from '../../services/WebMidiService';
 import { setParameterLearnHandler } from '../../services/parameter-learn';
+import { nativeInstrumentEntry } from '@shared/native-instruments';
 import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
 import { useComputerKeyboardMidi } from '../../hooks/useComputerKeyboardMidi';
 
@@ -167,10 +168,15 @@ const FixedCanvas: React.FC<{
   zoom?: CanvasZoom;
   scrollable?: boolean;
   onScaleChange?: (scale: number) => void;
-}> = ({ children, zoom = 'fit', scrollable = false, onScaleChange }) => {
+  /** Y lógico (no canvas) que deve ficar visível ao abrir. */
+  focusY?: number;
+  /** Muda quando o alvo muda (patch/elemento), para rolar de novo só nesse caso. */
+  focusKey?: string;
+}> = ({ children, zoom = 'fit', scrollable = false, onScaleChange, focusY, focusKey }) => {
   const ref = useRef<HTMLDivElement>(null);
   const onScaleChangeRef = useRef(onScaleChange);
   onScaleChangeRef.current = onScaleChange;
+  const lastFocus = useRef<string | null>(null);
   const [fit, setFit] = useState({ scale: 1, left: 8, top: 8, contentW: 0, contentH: 0 });
 
   useEffect(() => {
@@ -201,6 +207,20 @@ const FixedCanvas: React.FC<{
     ro.observe(el);
     return () => ro.disconnect();
   }, [zoom]);
+
+  // Ao abrir o patch (ou trocar de patch), rola até o teclado. Só na primeira
+  // vez para cada alvo, para não brigar com o scroll manual do usuário.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !scrollable || focusY === undefined || focusKey === undefined) return;
+    if (lastFocus.current === focusKey) return;
+    lastFocus.current = focusKey;
+
+    const center = fit.top + focusY * fit.scale;
+    const top = Math.max(0, Math.min(el.scrollHeight, center - el.clientHeight / 2));
+    // scrollTop funciona no jsdom (testes) e mantém o comportamento previsível.
+    el.scrollTop = top;
+  }, [scrollable, focusKey, focusY, fit.scale, fit.top]);
 
   return (
     <div
@@ -381,7 +401,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               ? 'dx'
               : assignment?.pluginId === 'preseter.jx'
                 ? 'jx'
-                : null;
+                : assignment?.pluginId === 'preseter.synth2'
+                  ? 'synth2'
+                  : assignment?.pluginId === 'preseter.drums'
+                    ? 'drums'
+                    : null;
     if (nativeKind) {
       if (!draft && activePreset) onEditPreset(activePreset);
       setNativeWindow((current) => (current?.layerId === layerId ? null : { layerId, kind: nativeKind }));
@@ -1029,6 +1053,17 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       }),
     [baseElements, draftPatchSends, liveValues]
   );
+
+  /**
+   * No Edit, o canvas abre rolado até o teclado. Usa o teclado mais abaixo do
+   * layout (o principal costuma ficar na parte inferior da tela).
+   */
+  const editFocusElement = useMemo(() => {
+    if (mode !== 'edit') return null;
+    const keyboards = displayElements.filter((element) => element.type === 'keyboard');
+    if (keyboards.length === 0) return null;
+    return keyboards.reduce((lowest, element) => (element.y > lowest.y ? element : lowest));
+  }, [displayElements, mode]);
   const performElements = useMemo(() => {
     const sends = currentPreset?.master?.sends ?? defaultPatchSends();
     return (currentPreset?.layout.elements ?? []).map((element) => {
@@ -1360,7 +1395,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         item.id === preset.pluginId ||
         item.path === preset.pluginPath ||
         item.name === preset.pluginName
-    ) ?? null;
+    ) ?? (nativeInstrumentEntry(preset.pluginId) as VstPluginInfo | null);
 
   /** Carrega um preset criando um timbre novo. */
   const performPresetLoad = async (
@@ -3271,15 +3306,6 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               <span className="truncate" style={{ color: '#9A9AA0' }}>
                 {(draft ?? currentPreset) ? `${(draft ?? currentPreset)?.name} · ${(draft ?? currentPreset)?.layout.elements.length ?? 0} controle(s)${draft ? ' · editando (não salvo)' : ''}` : 'Nenhum patch'}
               </span>
-              {midiLastMessage && (
-                <span
-                  className="max-w-[320px] truncate rounded px-2 py-0.5 font-mono text-[10px]"
-                  style={{ background: '#1F1F21', color: '#7FB6FF' }}
-                  title={midiLastMessage}
-                >
-                  {midiLastMessage}
-                </span>
-              )}
               {mode === 'layout' && concertSettings && (
                 <button
                   type="button"
@@ -3354,6 +3380,10 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                 zoom={mode === 'edit' ? editZoom : 'fit'}
                 scrollable={mode === 'edit'}
                 onScaleChange={mode === 'edit' ? setEditScale : undefined}
+                focusY={editFocusElement ? editFocusElement.y + editFocusElement.height / 2 : undefined}
+                focusKey={editFocusElement
+                  ? `${(draft ?? currentPreset)?.id ?? 'patch'}:${editFocusElement.id}`
+                  : undefined}
                 children={(scale, canvasW, canvasH) => (
                   <>
                     <ComposerCanvas
@@ -3563,6 +3593,33 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             kind={nativeWindow.kind}
             layerId={nativeWindow.layerId}
             assignment={assignment}
+            mappings={mappings}
+            onLearnMapping={(source, parameterId) => {
+              const current = draftRef.current;
+              if (!current || !nativeWindow) return;
+              const next: ConcertMapping = {
+                id: `mapping_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                source,
+                patchId: current.id,
+                pluginPath: assignment.path,
+                parameterId,
+                paramOwner: nativeWindow.layerId,
+              };
+              // Um CC por parâmetro: aprendeu de novo, troca o anterior.
+              const remaining = mappings.filter((mapping) =>
+                !(mapping.paramOwner === nativeWindow.layerId && mapping.parameterId === parameterId)
+              );
+              updateMappings([...remaining, next]);
+              setActionNotice(`MIDI mapeado em ${assignment.name}`);
+            }}
+            onClearMapping={(parameterId) => {
+              if (!nativeWindow) return;
+              updateMappings(mappings.filter((mapping) =>
+                !(mapping.parameterId === parameterId
+                  && (mapping.paramOwner === nativeWindow.layerId
+                    || (!mapping.paramOwner && mapping.pluginPath === 'preseter.synth2')))
+              ));
+            }}
             onClose={() => setNativeWindow(null)}
             onSave={async () => {
               const next = { ...targetPreset, updatedAt: Date.now() };

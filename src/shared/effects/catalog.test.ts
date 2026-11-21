@@ -1,93 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import {
-  EFFECTS,
-  PANEL_EFFECTS,
-  effectDisplayName,
-  findEffect,
-  formatParam,
-  isChoice,
-  paramPosition,
-  positionToNormalized,
-  type EffectParam,
-} from './catalog';
-
-function param (overrides: Partial<EffectParam>): EffectParam {
-  return {
-    index: 0,
-    id: 'p',
-    name: 'P',
-    engineName: 'P',
-    label: 'P',
-    unit: '',
-    min: 0,
-    max: 1,
-    default: 0,
-    scale: 'linear',
-    precision: 2,
-    toggle: false,
-    group: 'Controles',
-    collapsed: false,
-    ...overrides,
-  };
-}
+import { effectKey, effectPresetValues, findEffect } from './catalog';
 
 describe('catálogo de efeitos', () => {
-  it('encontra o efeito pelo caminho, pelo nome do plugin e pelo nome Preseter', () => {
-    expect(findEffect('C:/plugins/calfNXTReverb.vst3')?.displayName).toBe('Preseter Reverb');
-    expect(findEffect('calfNXT Delay')?.displayName).toBe('Preseter Delay');
-    expect(findEffect('Preseter Compressor')?.displayName).toBe('Preseter Compressor');
-    expect(findEffect('C:/plugins/Outro.vst3')).toBeUndefined();
+  it('casa nome do scan, nome Preseter e key curta', () => {
+    expect(effectKey('C:/plugins/calfnxt/calfNXTReverb.vst3')).toBe('reverb');
+    expect(effectKey('calfNXTMbcomp.vst3')).toBe('mbcomp');
+    expect(findEffect('Preseter Reverb')?.match).toBe('Reverb');
+    expect(findEffect('calfNXT Reverb')?.match).toBe('Reverb');
+    expect(findEffect('reverb')?.match).toBe('Reverb');
   });
 
-  it('mantém o nome original quando o plugin não está no catálogo', () => {
-    expect(effectDisplayName('C:/plugins/Outro.vst3', 'Outro FX')).toBe('Outro FX');
-    expect(effectDisplayName('C:/plugins/calfNXTReverb.vst3', 'qualquer')).toBe('Preseter Reverb');
+  it('extrai os valores de um preset no formato do motor', () => {
+    const values = effectPresetValues('C:/plugins/calfnxt/calfNXTReverb.vst3', 'hall');
+    expect(values.length).toBeGreaterThan(0);
+    expect(values.every((entry) => Number.isSafeInteger(entry.index))).toBe(true);
+    expect(values.every((entry) => entry.value >= 0 && entry.value <= 1)).toBe(true);
+    // Ordenado por índice, para a aplicação ficar determinística.
+    expect(values.map((entry) => entry.index)).toEqual(
+      [...values.map((entry) => entry.index)].sort((a, b) => a - b)
+    );
   });
 
-  it('marca Analyzer e Tuner como editor original', () => {
-    const analyzer = findEffect('calfNXTAnalyzer.vst3');
-    const tuner = findEffect('calfNXT Tuner');
-    expect(analyzer?.nativePanel).toBe(false);
-    expect(tuner?.nativePanel).toBe(false);
-    expect(PANEL_EFFECTS.length).toBe(EFFECTS.length - 2);
+  it('devolve lista vazia para preset ou efeito inexistente', () => {
+    expect(effectPresetValues('C:/plugins/calfnxt/calfNXTReverb.vst3', 'nao-existe')).toEqual([]);
+    expect(effectPresetValues('C:/plugins/outro/nada.vst3', 'hall')).toEqual([]);
+    expect(effectPresetValues('C:/plugins/calfnxt/calfNXTReverb.vst3', undefined)).toEqual([]);
   });
 
-  it('formata o valor real com a unidade e a precisão do plugin', () => {
-    const room = param({ min: 2, max: 40, precision: 1, unit: 'm' });
-    expect(formatParam(room, 0.5)).toBe('21.0 m');
-    const ratio = param({ min: 1, max: 20, precision: 1, unit: ':1' });
-    expect(formatParam(ratio, 0)).toBe('1.0:1');
-    const plain = param({ precision: 0, unit: '' });
-    expect(formatParam(plain, 1)).toBe('1');
+  it('casa o LV2 do Guitarix pela URI e pelo nome do plugin', () => {
+    const uri = 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim';
+    const byUri = findEffect(uri);
+    const byName = findEffect('GxTubeScreamer');
+    expect(byUri?.displayName).toBe('Preseter Overdrive');
+    expect(byName?.id).toBe(byUri?.id);
+    expect(effectKey(uri)).toBe('gxts9');
+    expect(byUri?.source).toBe('guitarix');
+    expect(byUri?.originalEditor).toBe(false);
+    expect(findEffect('Preseter Overdrive')?.id).toBe(byUri?.id);
+    expect(findEffect('overdrive')?.id).toBe(byUri?.id);
+    expect(findEffect('Preseter Amp')?.id).toBe('preseter.gx.amp');
+    expect(byUri?.params.map((param) => param.label)).toEqual(['Nível', 'Timbre', 'Drive', 'Bypass']);
+    expect(byUri?.presets.map((preset) => preset.label)).toContain('Crunch');
+    const crunch = effectPresetValues(uri, 'crunch');
+    expect(crunch.map((entry) => entry.index)).toEqual([0, 1, 2, 3]);
   });
 
-  it('acha parâmetros logarítmicos pela posição do knob', () => {
-    const decay = param({ min: 0.4, max: 15, scale: 'log' });
-    for (const normalized of [0, 0.1, 0.5, 0.9, 1]) {
-      const position = paramPosition(decay, normalized);
-      expect(positionToNormalized(decay, position)).toBeCloseTo(normalized, 6);
-    }
-    const linear = param({ min: 0, max: 10 });
-    expect(paramPosition(linear, 0.25)).toBeCloseTo(0.25, 6);
-  });
-
-  it('reconhece toggles e escolhas', () => {
-    expect(param({ min: 0, max: 1, precision: 0, toggle: true }).toggle).toBe(true);
-    expect(isChoice(param({ min: 1, max: 8, precision: 0 }))).toBe(true);
-    expect(isChoice(param({ min: 0, max: 20, precision: 0 }))).toBe(false);
-    expect(isChoice(param({ min: 0, max: 1, precision: 2 }))).toBe(false);
-  });
-
-  it('traz presets de fábrica com valores normalizados', () => {
-    const reverb = findEffect('calfNXTReverb.vst3');
-    expect(reverb).toBeDefined();
-    expect(reverb!.presets.length).toBeGreaterThan(3);
-    expect(reverb!.presets.map((preset) => preset.label)).toContain('Hall');
-    for (const preset of reverb!.presets) {
-      for (const value of Object.values(preset.values)) {
-        expect(value).toBeGreaterThanOrEqual(0);
-        expect(value).toBeLessThanOrEqual(1);
-      }
+  it('traz os cinco efeitos Guitarix com nomes Preseter', () => {
+    const names = [
+      ['GxTubeScreamer', 'Preseter Overdrive'],
+      ['Gx_studiopre', 'Preseter Preamp'],
+      ['GxCabinet', 'Preseter Cab'],
+      ['GxAmplifier-X', 'Preseter Amp'],
+      ['Gx_tremolo', 'Preseter Tremolo'],
+    ];
+    for (const [pluginName, displayName] of names) {
+      const effect = findEffect(pluginName);
+      expect(effect?.displayName).toBe(displayName);
+      expect(effect?.source).toBe('guitarix');
+      expect(effect?.params.length).toBeGreaterThan(0);
+      expect(effect?.presets.length).toBeGreaterThanOrEqual(4);
     }
   });
 });

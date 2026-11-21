@@ -134,6 +134,7 @@ Com o motor compilado, na raiz do projeto:
 ```bash
 node scripts/engine-smoke.js                         # ping, dispositivos e scan
 node scripts/engine-smoke.js --plugin=Surge --audio  # carrega um plugin e toca uma nota
+node scripts/engine-synth2-smoke.js                  # Preseter Synth2: parâmetros, .sy1 e estado
 ```
 
 Veja as opções no topo de `scripts/engine-smoke.js`.
@@ -148,6 +149,17 @@ tem 4 slots de insert: clique em um slot para escolher um efeito VST3, use **B**
 deixá-lo em bypass e **E** para abrir a janela do efeito. Essas configurações ficam
 salvas no patch. Um patch aceita quantos instrumentos você precisar; a partir de
 quatro channel strips o processamento pode pesar. Os slots de sends são placeholders.
+
+### Preseter Synth2 (Oxo Synth2)
+
+Instrumento nativo baseado no motor do **Oxo Synth2** (MIT; ver
+`third_party/oxo-synth2/UPSTREAM.md`), uma recriação do Synth1. Expõe os 99
+parâmetros do patch + volume, MIDI completo (nota, bend, CC, aftertouch,
+all-notes-off, program change), transporte do host e patches `.sy1` (incluindo
+a conversão de formatos antigos do Synth1). O banco de fábrica em
+`presets/synth2/` é exposto como programas internos (`getNumPrograms` /
+`setProgram`) e o instrumento responde a Program Change. O painel React fica
+em `src/renderer/components/concert/Synth2Panel.tsx`.
 
 ### Plugin de teste (sem depender de terceiros)
 
@@ -196,6 +208,7 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setLayerOutput` | `layerId`, `output` (1..4) | Saída do channel strip do layer |
 | `midiEnable` | `identifier?`, `enabled?` | Liga/desliga uma entrada MIDI (ou todas) |
 | `scan` | `paths?`, `rescan?` | Varre VST3 (pastas padrão + extras) |
+| `warmLv2` | `paths?` | Carrega os bundles `.lv2` das pastas no mundo do formato, sem scanner (usado no boot; o cache lista as URIs sem carregar os bundles) |
 | `plugins` | — | Lista os plugins já conhecidos |
 | `load` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?`, `pinned?` | Adiciona um instrumento; com `pinned: true` é um strip do concert/set e fica carregado entre patches |
 | `stageLoad` | `plugin` (id) ou `path`, `layerId?`, `minNote?`, `maxNote?` | Carrega um instrumento em modo encadeado para troca de patch; reaproveita a instância se o mesmo plugin já estiver carregado (nunca reaproveita um layer `pinned`) |
@@ -207,6 +220,8 @@ Logs de texto vão para **stderr**, nunca para stdout.
 | `setArp` | `layerId`, `enabled?`, `mode?`, `rate?`, `octaves?`, `gate?`, `swing?`, `hold?` | Configura o arpejador MIDI do layer (Fase 7.2); `mode` = `up`/`down`/`updown`/`random`/`played`, `rate` = `1/4`..`1/32` |
 | `arp` | `layerId` | Estado atual do arpejador do layer |
 | `loadSoundFont` | `layerId`, `path`, `programIndex?` | Carrega um SF2 num layer com juicysfplugin e opcionalmente seleciona o programa GM |
+| `synth2LoadPatch` | `layerId`, `data` | Preseter Synth2: aplica um patch `.sy1` (texto, formato Synth1) no layer |
+| `synth2SavePatch` | `layerId`, `name` | Preseter Synth2: exporta o som atual como `.sy1` (ver=112) e devolve `data` |
 | `setTranspose` | `semitones` (-72..72) | Transpose global (patch + set + concert) aplicado a todas as notas |
 | `setAudioInput` | `enabled`, `inputChannel`, `mode` (`mono`/`stereo`), `volumeDb`, `pan`, `muted`, `feedbackProtection`, `output`, `resetFeedback?` | Configura o strip de entrada de áudio (Fase 3.5) |
 | `audioInput` | — | Estado do strip de entrada (configuração + `peakDb`/`feedback`) |

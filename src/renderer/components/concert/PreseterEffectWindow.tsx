@@ -294,7 +294,9 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white">{effect.displayName}</span>
               <span className="rounded px-1.5 py-0.5 text-[8px] font-bold" style={{ background: 'rgba(48,209,88,0.16)', color: '#30D158' }}>EFEITO</span>
-              <span className="rounded px-1.5 py-0.5 text-[8px] font-bold" style={{ background: 'rgba(255,159,10,0.16)', color: '#FFB74D' }}>CALFNXT</span>
+              <span className="rounded px-1.5 py-0.5 text-[8px] font-bold" style={{ background: 'rgba(255,159,10,0.16)', color: '#FFB74D' }}>
+                {effect.source === 'guitarix' ? 'GUITARIX' : 'CALFNXT'}
+              </span>
             </div>
             <div className="truncate text-[10px]" style={{ color: '#8E8E93' }}>{effect.subtitle}</div>
           </div>
@@ -398,7 +400,9 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
                           className="hw-inset px-2 py-1 text-[10px] text-white"
                           aria-label={param.label}
                         >
-                          {options.map((value) => <option key={value} value={value}>{value}</option>)}
+                          {options.map((value) => (
+                            <option key={value} value={value}>{param.choices?.[value] ?? value}</option>
+                          ))}
                         </select>
                       </label>
                     );
@@ -418,7 +422,9 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
             <section className="hw-inset p-3">
               <div className="hw-label mb-2">Sobre</div>
               <p className="text-[9px] leading-relaxed" style={{ color: '#8E8E93' }}>
-                {effect.displayName} usa o DSP do calfnXT/Calf (GPL-3.0-or-later) dentro do Preseter.
+                {effect.source === 'guitarix'
+                  ? `${effect.displayName} usa o DSP do Guitarix (GPL-3.0-or-later) dentro do Preseter.`
+                  : `${effect.displayName} usa o DSP do calfnXT/Calf (GPL-3.0-or-later) dentro do Preseter.`}
                 Clique com o botão direito num controle para mapear um CC (ou use a tabela de
                 mapeamentos). Insert {slot + 1} de {ownerId === 'patch' ? 'Master do Patch' : ownerId}.
                 “Salvar” grava o estado no patch; “+ Preset” guarda os valores atuais na sua lista.
@@ -440,16 +446,20 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
           ) : (
             <span className="hidden sm:inline">Botão direito num controle = mapear CC</span>
           )}
-          <button
-            type="button"
-            className="rounded px-2 py-0.5 text-[10px] hover:bg-white/10"
-            style={{ color: '#7FB6FF' }}
-            onClick={onOpenOriginal}
-            title="Abrir a interface original do plugin"
-          >
-            Editor original
-          </button>
-          <span className="ml-auto truncate">calfnXT · GPL-3.0-or-later</span>
+          {effect.originalEditor !== false && (
+            <button
+              type="button"
+              className="rounded px-2 py-0.5 text-[10px] hover:bg-white/10"
+              style={{ color: '#7FB6FF' }}
+              onClick={onOpenOriginal}
+              title="Abrir a interface original do plugin"
+            >
+              Editor original
+            </button>
+          )}
+          <span className="ml-auto truncate">
+            {effect.source === 'guitarix' ? 'Guitarix · GPL-3.0-or-later' : 'calfnXT · GPL-3.0-or-later'}
+          </span>
         </footer>
       </div>
     </div>

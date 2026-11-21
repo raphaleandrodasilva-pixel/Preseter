@@ -5,6 +5,7 @@ import type { EngineParameter } from '@shared/engine-protocol';
 import type { PresetPluginAssignment, VstPluginInfo } from '@shared/types';
 import { AppProvider } from '../../context/AppContext';
 import { NativeInstrumentWindow } from './NativeInstrumentWindow';
+import { SYNTH2_CONTROLS } from './synth2Params';
 import { createConcertState } from '../../../test/fixtures';
 
 const PIANO_PARAMS = [
@@ -218,5 +219,76 @@ describe('NativeInstrumentWindow — instrumentos MDA', () => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     expect(screen.getByText('P-LEGATO')).toBeInTheDocument();
+  });
+});
+
+describe('NativeInstrumentWindow — Preseter Synth2', () => {
+  const SYNTH2_PARAMS = SYNTH2_CONTROLS.map((control) => control.name);
+
+  it('desenha as seções, a lista de patches .sy1 e o learn MIDI', async () => {
+    vi.mocked(window.electronAPI.vstParams).mockResolvedValue(paramsOf(SYNTH2_PARAMS));
+    vi.mocked(window.electronAPI.vstLoaded).mockResolvedValue([
+      pluginFor('preseter.synth2', ['INIT']),
+    ]);
+    vi.mocked(window.electronAPI.vstPresetsList).mockResolvedValue({
+      presets: [{
+        id: 'sy1:/x/Meu.sy1',
+        name: 'Meu Patch',
+        category: 'Synth',
+        source: 'sy1',
+        pluginId: 'preseter.synth2',
+        pluginName: 'Preseter Synth2',
+        pluginPath: 'preseter.synth2',
+        filePath: '/x/Meu.sy1',
+        collection: 'Synth2',
+        favorite: false,
+        createdAt: 1,
+        updatedAt: 1,
+      }],
+      status: { scanning: false, scanned: 0, total: 0 },
+    });
+
+    const onLearnMapping = vi.fn();
+    const onClearMapping = vi.fn();
+    render(
+      <AppProvider>
+        <NativeInstrumentWindow
+          kind="synth2"
+          layerId="patch:layer:0"
+          assignment={assignmentFor('preseter.synth2')}
+          onClose={vi.fn()}
+          onSave={vi.fn()}
+          mappings={[{
+            id: 'm1',
+            source: { type: 'cc', channel: 0, controllerNumber: 74 },
+            patchId: 'patch-1',
+            pluginPath: 'preseter.synth2',
+            parameterId: '0',
+            paramOwner: 'patch:layer:0',
+          }]}
+          onLearnMapping={onLearnMapping}
+          onClearMapping={onClearMapping}
+        />
+      </AppProvider>
+    );
+
+    expect(await screen.findByText('Preseter Synth2')).toBeInTheDocument();
+    expect(screen.getByText('OSC 1')).toBeInTheDocument();
+    expect(screen.getByText('FILTRO')).toBeInTheDocument();
+    expect(screen.getByText('ARPEGGIATOR')).toBeInTheDocument();
+
+    expect(await screen.findByText('Meu Patch')).toBeInTheDocument();
+    expect(screen.getByText('CC 74 · ch 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('Remover mapping'));
+    expect(onClearMapping).toHaveBeenCalledWith('0');
+
+    fireEvent.click(screen.getByText('Meu Patch'));
+    await waitFor(() => {
+      expect(window.electronAPI.vstPresetApply).toHaveBeenCalledWith('sy1:/x/Meu.sy1', 'patch:layer:0');
+    });
+
+    fireEvent.click(screen.getAllByText('MIDI')[0]);
+    expect(screen.getByText('Ouvindo…')).toBeInTheDocument();
+    expect(onLearnMapping).not.toHaveBeenCalled();
   });
 });

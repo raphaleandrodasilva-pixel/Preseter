@@ -112,7 +112,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     return pluginPresets.filter((preset) => {
       if (category === 'Favoritos' && !preset.favorite) return false;
       if (category === 'Recentes' && !recent.includes(preset.id)) return false;
-      if (category === 'Meus presets' && preset.source !== 'snapshot') return false;
+      if (category === 'Meus presets' && preset.source !== 'snapshot'
+        && !(preset.source === 'sy1' && preset.collection === 'Meus presets')) return false;
       if (
         category !== 'Favoritos' &&
         category !== 'Recentes' &&
@@ -337,10 +338,11 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
   };
 
   const deletePreset = async (preset: VstPreset) => {
-    if (preset.source !== 'snapshot' && preset.source !== 'fxp') return;
+    if (preset.source !== 'snapshot' && preset.source !== 'fxp' && preset.source !== 'sy1') return;
+    if (preset.source === 'sy1' && preset.readOnly) return;
     if (
-      preset.source === 'fxp' &&
-      !window.confirm(`Excluir o arquivo .fxp "${preset.name}" do disco?`)
+      (preset.source === 'fxp' || preset.source === 'sy1') &&
+      !window.confirm(`Excluir o arquivo ${preset.source === 'sy1' ? '.sy1' : '.fxp'} "${preset.name}" do disco?`)
     ) {
       return;
     }
@@ -349,8 +351,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
       const deleted = await window.electronAPI.vstPresetDelete(preset.id);
       if (deleted) {
         setMessage(
-          preset.source === 'fxp'
-            ? `Arquivo .fxp “${preset.name}” excluído.`
+          preset.source === 'fxp' || preset.source === 'sy1'
+            ? `Arquivo ${preset.source === 'sy1' ? '.sy1' : '.fxp'} “${preset.name}” excluído.`
             : `Preset “${preset.name}” excluído.`
         );
         setSelectedId(null);
@@ -618,12 +620,17 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               >
                 {preset.favorite ? '★' : '☆'}
               </button>
-              {(preset.source === 'snapshot' || preset.source === 'fxp') && (
+              {(preset.source === 'snapshot' || preset.source === 'fxp'
+                || (preset.source === 'sy1' && !preset.readOnly)) && (
                 <button
                   onClick={() => void deletePreset(preset)}
                   className="px-1 text-[10px] opacity-0 group-hover:opacity-100"
                   style={{ color: '#FF8A80' }}
-                  title={preset.source === 'fxp' ? 'Excluir arquivo .fxp' : 'Excluir preset'}
+                  title={preset.source === 'sy1'
+                    ? 'Excluir arquivo .sy1'
+                    : preset.source === 'fxp'
+                      ? 'Excluir arquivo .fxp'
+                      : 'Excluir preset'}
                 >
                   🗑
                 </button>

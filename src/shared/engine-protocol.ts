@@ -12,6 +12,8 @@ import type {
   BusMixUpdate,
   EngineArpState,
   EngineBusState,
+  EngineDrumPattern,
+  EngineDrumsState,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -51,6 +53,8 @@ export interface EnginePluginInfo {
   outputs: number;
   /** Nomes dos programas internos (instrumentos nativos/MDA). */
   programNames?: string[];
+  /** Preseter Synth2: nome do patch .sy1 carregado. */
+  patchName?: string;
 }
 
 export interface EngineLoadedPlugin {
@@ -79,6 +83,8 @@ export interface EngineLoadedPlugin {
   programCount?: number;
   /** Nomes dos programas internos (instrumentos nativos/MDA). */
   programNames?: string[];
+  /** Preseter Synth2: nome do patch .sy1 carregado. */
+  patchName?: string;
 }
 
 export interface EngineParameter {
@@ -183,6 +189,8 @@ export interface EngineCommands {
   midiEnable: { args: { identifier?: string; enabled?: boolean }; result: EngineDevices };
   plugins: { args: {}; result: { formats: string; plugins: EnginePluginInfo[]; blacklisted?: string[] } };
   scan: { args: { paths?: string[]; rescan?: boolean }; result: EngineScanResult };
+  /** Carrega já os bundles LV2 das pastas no mundo do formato (boot do app). */
+  warmLv2: { args: { paths?: string[] }; result: { bundles: number } };
   /** Remove um plugin da blacklist para que o próximo scan o tente de novo. */
   unblacklist: { args: { path: string }; result: { removed: boolean } };
   load: {
@@ -222,6 +230,14 @@ export interface EngineCommands {
   /** Arpejador MIDI do layer (Fase 7.2). */
   setArp: { args: ArpSettings & { layerId: string }; result: EngineArpState };
   arp: { args: { layerId?: string }; result: EngineArpState };
+  /** Preseter Drums: liga/desliga e publica o padrão (D4/D5). */
+  setDrums: {
+    args: { layerId: string; enabled?: boolean; pattern?: EngineDrumPattern; gainDb?: number; soloPad?: number };
+    result: EngineDrumsState;
+  };
+  drums: { args: { layerId?: string }; result: EngineDrumsState };
+  /** Posição leve para o indicador da janela (D7). */
+  drumsPosition: { args: { layerId?: string }; result: { enabled: boolean; currentStep: number } };
   /** Transpose global em semitons (patch + set + concert), aplicado a todas as notas. */
   setTranspose: { args: { semitones: number }; result: null };
   /** Configura o strip de entrada de áudio (Fase 3.5). */
@@ -264,6 +280,10 @@ export interface EngineCommands {
   };
   /** Troca o programa interno de um layer carregado. */
   setProgram: { args: { layerId?: string; index: number }; result: EngineLoadedPlugin };
+  /** Preseter Synth2: aplica um patch .sy1 (texto) no layer. */
+  synth2LoadPatch: { args: { layerId?: string; data: string; name?: string }; result: EngineLoadedPlugin };
+  /** Preseter Synth2: exporta os valores atuais como .sy1 (texto). */
+  synth2SavePatch: { args: { layerId?: string; name: string }; result: { data: string } };
   /** Metadados do sampler nativo (regiões, presets, arquivo). */
   samplerInfo: {
     args: { layerId: string };

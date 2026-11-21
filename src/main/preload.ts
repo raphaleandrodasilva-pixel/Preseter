@@ -100,6 +100,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vstPresetUpdate: (presetId: string, patch: { category?: string; favorite?: boolean }) =>
     ipcRenderer.invoke('vst-presets-update', presetId, patch),
   vstPresetDelete: (presetId: string) => ipcRenderer.invoke('vst-presets-delete', presetId),
+  vstPresetsAddSynth2Folder: () => ipcRenderer.invoke('vst-presets-add-synth2-folder'),
   vstPresetExport: (payload: { layerId: string; name?: string }) =>
     ipcRenderer.invoke('vst-presets-export', payload),
   vstPresetImport: (payload: { layerId: string }) =>
@@ -117,6 +118,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('vst-set-layer-velocity', layerId, minVelocity, maxVelocity),
   vstSetArp: (layerId: string, settings: unknown) =>
     ipcRenderer.invoke('vst-set-arp', layerId, settings),
+  drumsSet: (layerId: string, options: unknown) =>
+    ipcRenderer.invoke('drums-set', layerId, options),
+  drumsInfo: (layerId: string) => ipcRenderer.invoke('drums-info', layerId),
+  drumsPosition: (layerId: string) => ipcRenderer.invoke('drums-position', layerId),
   audioInputSet: (settings: unknown) => ipcRenderer.invoke('audio-input-set', settings),
   audioInputState: () => ipcRenderer.invoke('audio-input-state'),
   midiThruSet: (blocked: unknown) => ipcRenderer.invoke('midi-thru-set', blocked),
@@ -220,8 +225,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('vst-scanned', (_event: Electron.IpcRendererEvent, plugins: unknown) => callback(plugins as any[])),
   onPresetLoadProgress: (callback: (progress: any) => void) =>
     ipcRenderer.on('preset-load-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
-  onVstPresetsUpdated: (callback: (result: any) => void) =>
-    ipcRenderer.on('vst-presets-updated', (_event: Electron.IpcRendererEvent, result: unknown) => callback(result)),
+  onVstPresetsUpdated: (callback: (result: any) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, result: unknown) => callback(result);
+    ipcRenderer.on('vst-presets-updated', listener);
+    return () => {
+      ipcRenderer.removeListener('vst-presets-updated', listener);
+    };
+  },
   onPluginLoaded: (callback: (plugin: any) => void) =>
     ipcRenderer.on('plugin-loaded', (_event: Electron.IpcRendererEvent, plugin: unknown) => callback(plugin as any)),
   onPluginUnloaded: (callback: (pluginId: string) => void) =>

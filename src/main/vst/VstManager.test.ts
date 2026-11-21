@@ -122,8 +122,41 @@ describe('VstManager scanning', () => {
     expect(progress).toHaveBeenCalledWith('Surge XT');
   });
 
-  it('maps engine plugins to VST info and emits scanned', async () => {
+  it('prepara os bundles LV2 no motor', async () => {
+    const calls: Array<{ command: string; args: Record<string, unknown> }> = [];
+    const { engine } = makeEngine((command, args) => {
+      calls.push({ command, args });
+      return command === 'warmLv2' ? { bundles: 5 } : undefined;
+    });
+    const manager = new VstManager(engine);
+
+    await expect(manager.warmLv2Bundles(['C:/gx'])).resolves.toBe(5);
+    expect(calls).toEqual([{ command: 'warmLv2', args: { paths: ['C:/gx'] } }]);
+  });
+
+  it('marca a arquitetura de um LV2 como desconhecida sem abrir a URI', async () => {
     const { engine } = makeEngine((command) =>
+      command === 'scan'
+        ? {
+            count: 1,
+            plugins: [scannedPlugin({
+              name: 'GxTubeScreamer',
+              format: 'LV2',
+              isInstrument: false,
+              path: 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim',
+            })],
+            failed: [],
+            blacklisted: [],
+          }
+        : undefined
+    );
+    const manager = new VstManager(engine);
+
+    const [plugin] = await manager.scanDefaultDirectories();
+    expect(plugin).toMatchObject({ name: 'GxTubeScreamer', arch: 'unknown' });
+  });
+
+  it('maps engine plugins to VST info and emits scanned', async () => {    const { engine } = makeEngine((command) =>
       command === 'scan'
         ? { count: 1, plugins: [scannedPlugin()], failed: [], blacklisted: [] }
         : undefined
@@ -331,8 +364,37 @@ describe('VstManager loading', () => {
     expect(loaded).toHaveBeenCalledWith(plugin);
   });
 
-  it('uses the scanned plugin id and starts audio when needed', async () => {
-    const { engine, request } = makeEngine((command, args) => {
+  it('injects the factory .sy1 folder when loading the Synth2', async () => {
+    const { engine, request } = makeEngine((command) => {
+      if (command === 'load') {
+        return enginePlugin({
+          id: 'preseter.synth2',
+          name: 'Preseter Synth2',
+          path: 'preseter.synth2',
+          format: 'Native',
+          programCount: 58,
+          programNames: ['INIT'],
+        });
+      }
+      if (command === 'params') return [];
+      return undefined;
+    });
+    const manager = new VstManager(engine);
+    manager.setSynth2FactoryDir('C:/presets/synth2');
+    await manager.loadPlugin('preseter.synth2', 'layer-1');
+
+    expect(request).toHaveBeenCalledWith(
+      'load',
+      expect.objectContaining({
+        path: 'preseter.synth2',
+        layerId: 'layer-1',
+        factoryPatches: 'C:/presets/synth2',
+      }),
+      60_000
+    );
+  });
+
+  it('uses the scanned plugin id and starts audio when needed', async () => {    const { engine, request } = makeEngine((command, args) => {
       if (command === 'scan') return { count: 1, plugins: [scannedPlugin()], failed: [], blacklisted: [] };
       if (command === 'load') return enginePlugin({ path: String(args.path ?? 'C:/plugins/scanned.vst3') });
       if (command === 'audioConfiguration') return devices(false);
@@ -595,6 +657,39 @@ describe('VstManager plugin operations', () => {
     expect(state).toMatchObject({ layerId: 'layer-1', enabled: true, mode: 'updown', octaves: 2 });
   });
 
+  it('sends the drums pattern and enable flag to the engine', async () => {
+    const drumsState = {
+      enabled: true,
+      currentStep: 0,
+      stepsPerBar: 16,
+      bars: 1,
+      swing: 0,
+      trackCount: 1,
+      totalSteps: 16,
+      kit: 'SF2',
+      tracks: [],
+      pads: [],
+    };
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'setDrums' || command === 'drums') return drumsState;
+      return undefined;
+    });
+
+    const pattern = {
+      stepsPerBar: 16 as const,
+      bars: 1 as const,
+      swing: 0,
+      tracks: [{ pad: 0, steps: [{ on: true, velocity: 120 }] }],
+    };
+    const state = await manager.setDrums('layer-1', { enabled: true, pattern });
+    expect(request).toHaveBeenCalledWith('setDrums', { layerId: 'layer-1', enabled: true, pattern });
+    expect(state).toMatchObject({ enabled: true, totalSteps: 16 });
+
+    const info = await manager.getDrumsInfo('layer-1');
+    expect(request).toHaveBeenCalledWith('drums', { layerId: 'layer-1' });
+    expect(info).toMatchObject({ totalSteps: 16 });
+  });
+
   it('gets and sets complete plugin state', async () => {    const { manager, request } = await loadedManager((command) => {
       if (command === 'getState') return { layerId: 'layer-1', data: 'chunk' };
       if (command === 'setState') return { layerId: 'layer-1', bytes: 5 };
@@ -807,12 +902,13 @@ describe('VstManager plugin operations', () => {
     }, 60_000);
   });
 
-  it('returns null when insert state cannot be read', async () => {
+  it('uses a parameter snapshot when insert state cannot be read (LV2)', async () => {
     const { manager } = await loadedManager((command) => {
       if (command === 'getState') throw new Error('not loaded');
       return undefined;
     });
-    expect(await manager.getInsertState('layer-1', 0)).toBeNull();
+    const state = await manager.getInsertState('layer-1', 0);
+    expect(state?.data.startsWith('params-base64:')).toBe(true);
   });
 
   it('reports scanned plugin programs', async () => {
@@ -842,5 +938,35 @@ describe('VstManager plugin operations', () => {
     emitter.emit('crashed', new Error('boom'));
     expect(crashed).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom' }));
     expect(manager.getLoadedPlugins()).toEqual([]);
+  });
+
+  it('salva e restaura snapshot de parâmetros quando o plugin não tem estado (LV2)', async () => {
+    const { engine, request } = makeEngine((command, args) => {
+      if (command === 'getState') throw new Error('Estado de plugins LV2 não é suportado.');
+      if (command === 'params') {
+        return [
+          engineParameter({ index: 0, value: 0.2 }),
+          engineParameter({ index: 1, value: 0.7 }),
+        ];
+      }
+      if (command === 'setParam') {
+        return engineParameter({ index: Number(args.index), value: Number(args.value) });
+      }
+      return undefined;
+    });
+    const manager = new VstManager(engine);
+
+    const state = await manager.getInsertState('layer-1', 0);
+    expect(state).not.toBeNull();
+    expect(state!.data.startsWith('params-base64:')).toBe(true);
+
+    const applied = await manager.setInsertState('layer-1', 0, state!.data);
+    expect(applied).toBe(true);
+    expect(request).toHaveBeenCalledWith('setParam', { layerId: 'layer-1', slot: 0, index: 0, value: 0.2 });
+    expect(request).toHaveBeenCalledWith('setParam', { layerId: 'layer-1', slot: 0, index: 1, value: 0.7 });
+
+    request.mockClear();
+    await manager.setInsertState('layer-1', 0, 'AAAA');
+    expect(request).toHaveBeenCalledWith('setState', { layerId: 'layer-1', slot: 0, data: 'AAAA' });
   });
 });

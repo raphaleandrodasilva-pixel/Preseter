@@ -17,6 +17,7 @@ import {
   DEFAULT_TEMPO,
 } from '../../shared/constants';
 import { createElement, createLayout, createPreset, createSet } from '../../test/fixtures';
+import { drumsStartOnLoad } from '../../shared/types';
 
 describe('default concert construction', () => {
   it('creates buses with the expected enabled flags', () => {
@@ -363,5 +364,22 @@ describe('migrateLegacyConcert', () => {
     expect(file.concert.name).toBe('Meu Concert');
     expect(file.concert.tempo).toBe(120);
     expect(file.layout).toEqual({ elements: [], background: null, tempo: 120 });
+  });
+
+  it('keeps old patches without drums settings compatible', () => {
+    const preset = createPreset({
+      plugins: [{
+        pluginId: 'preseter.tines',
+        name: 'Preseter Tines',
+        path: 'preseter.tines',
+        role: 'instrument',
+      }],
+    });
+    const file = migrateLegacyConcert({ presets: [preset] });
+
+    // Arquivo antigo: nem `drums` no layer nem estado do Drums em `vstStates`.
+    expect(file.patches[0].plugins?.[0].drums).toBeUndefined();
+    expect(drumsStartOnLoad(file.patches[0].plugins?.[0].drums)).toBe(false);
+    expect(file.patches[0].plugins?.[0].pluginId).toBe('preseter.tines');
   });
 });

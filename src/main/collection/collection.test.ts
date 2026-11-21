@@ -68,6 +68,24 @@ const plugins = [
     path: 'C:/plugins/calfnxt/calfNXTFilter.vst3',
     isInstrument: false,
   },
+  {
+    id: 'calf-stereo',
+    name: 'calfNXT Stereo',
+    path: 'C:/plugins/calfnxt/calfNXTStereo.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-harmonics',
+    name: 'calfNXT Harmonics',
+    path: 'C:/plugins/calfnxt/calfNXTHarmonics.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-transients',
+    name: 'calfNXT Transients',
+    path: 'C:/plugins/calfnxt/calfNXTTransients.vst3',
+    isInstrument: false,
+  },
 ];
 
 /** Cria a pasta de sons com as três bibliotecas usadas pela Factory 40. */
@@ -203,6 +221,28 @@ describe('efeitos nativos na coleção', () => {
     expect(findEffectPlugin(plugins, 'nao-existe')).toBeUndefined();
   });
 
+  it('resolve o LV2 do Guitarix pelo nome Preseter, pelo nome do scan e pela key do bundle', () => {
+    const guitarix = [
+      {
+        id: 'LV2-GxAmplifier-X-x',
+        name: 'GxAmplifier-X',
+        isInstrument: false,
+        path: 'http://guitarix.sourceforge.net/plugins/gx_amp#GUITARIX',
+      },
+      {
+        id: 'LV2-GxTubeScreamer-x',
+        name: 'GxTubeScreamer',
+        isInstrument: false,
+        path: 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim',
+      },
+    ];
+
+    expect(findEffectPlugin(guitarix, 'Preseter Amp')?.name).toBe('GxAmplifier-X');
+    expect(findEffectPlugin(guitarix, 'amp')?.name).toBe('GxAmplifier-X');
+    expect(findEffectPlugin(guitarix, 'GxTubeScreamer')?.name).toBe('GxTubeScreamer');
+    expect(findEffectPlugin(guitarix, 'gxts9')?.name).toBe('GxTubeScreamer');
+  });
+
   it('gera os inserts do strip e os sends do patch', () => {
     const sounds = makeSoundsFolder();
     try {
@@ -266,6 +306,33 @@ describe('efeitos nativos na coleção', () => {
       expect(aux[0].enabled).toBe(false);
       expect(aux[1].enabled).toBe(false);
       expect(missing).toEqual(expect.arrayContaining(['calfNXT Reverb', 'calfNXT Delay']));
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('grava presetId nos inserts e auxPresets no patch', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+
+      const rhodes = file.patches.find((patch) => patch.name === 'Rhodes Classic');
+      expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.presetId)).toEqual([
+        'subtle',
+        'slow',
+      ]);
+      expect(rhodes?.auxPresets).toEqual({ 1: 'plate', 2: 'echo' });
+
+      const modern = file.patches.find((patch) => patch.name === 'Modern Synth Lead');
+      expect(modern?.plugins?.[0]?.inserts?.[0]).toMatchObject({
+        name: 'calfNXT Stereo',
+        presetId: 'wide',
+      });
+      expect(modern?.auxPresets).toEqual({ 1: 'plate', 2: 'pingpong' });
+
+      const deep = file.patches.find((patch) => patch.name === 'Deep Synth Bass');
+      expect(deep?.plugins?.[0]?.inserts?.map((insert) => insert.name)).toEqual(['calfNXT Harmonics']);
+      expect(deep?.master?.sends).toBeUndefined();
     } finally {
       removeTempDir(sounds);
     }
@@ -385,6 +452,20 @@ describe('buildCollectionConcert', () => {
       expect(drum?.midiChannel).toBe(0);
       expect(drum?.plugins?.[0]).toMatchObject({ programIndex: 0, bank: 128 });
       expect(Object.keys(drum?.vstStates ?? {})).toHaveLength(0);
+
+      // D9: o kit eletrônico usa o instrumento nativo, com padrão e programa 24.
+      const electronic = file.patches.find((patch) => patch.name === 'Electronic Drum Kit');
+      expect(electronic?.plugins?.[0]).toMatchObject({
+        pluginId: 'preseter.drums',
+        programIndex: 0,
+        drums: {
+          enabled: true,
+          startWithPatch: true,
+          patternId: 'electro',
+          kitProgram: 24,
+        },
+      });
+      expect(Object.keys(electronic?.vstStates ?? {})).toHaveLength(0);
     } finally {
       removeTempDir(sounds);
     }

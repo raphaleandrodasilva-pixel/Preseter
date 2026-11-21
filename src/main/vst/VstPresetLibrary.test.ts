@@ -15,6 +15,8 @@ function fakeVst(overrides: Partial<Record<keyof VstManager, unknown>> = {}): Vs
     setPluginPresetFile: vi.fn(async () => true),
     setVst2FxpFile: vi.fn(async () => true),
     applyRawState: vi.fn(async () => true),
+    loadSynth2Patch: vi.fn(async () => true),
+    exportSynth2Patch: vi.fn(async () => 'NAME\nver=112\n0,1\n'),
     ...overrides,
   } as unknown as VstManager;
 }
@@ -531,5 +533,141 @@ describe('VstPresetLibrary snapshots and presets', () => {
     expect(lib.deletePreset(snapshot)).toBe(true);
     expect(fs.existsSync(statePath)).toBe(false);
     expect(lib.listResult().presets).toEqual([]);
+  });
+});
+
+describe('VstPresetLibrary — patches .sy1 do Synth2', () => {
+  let userData: string;
+  let documents: string;
+
+  beforeEach(() => {
+    userData = makeTempDir('preseter-sy1-library-');
+    documents = makeTempDir('preseter-sy1-documents-');
+  });
+
+  afterEach(() => {
+    removeTempDir(userData);
+    removeTempDir(documents);
+  });
+
+  const synth2 = () => instrument({
+    id: 'preseter.synth2',
+    name: 'Preseter Synth2',
+    path: 'preseter.synth2',
+    format: 'Native',
+  });
+
+  const writeSy1 = (filePath: string, name: string) =>
+    writeFile(filePath, `${name}\ncolor=default\nver=112\n0,1\n`);
+
+  it('indexa a pasta gerenciada e lê o nome da primeira linha', async () => {
+    writeSy1(path.join(documents, 'Preseter', 'Synth2', 'Meu Patch.sy1'), 'Meu Patch');
+
+    const lib = new VstPresetLibrary(userData, documents);
+    await lib.scan([], fakeVst());
+
+    const preset = lib.listResult().presets.find((item) => item.source === 'sy1');
+    expect(preset).toMatchObject({
+      name: 'Meu Patch',
+      source: 'sy1',
+      pluginId: 'preseter.synth2',
+      pluginName: 'Preseter Synth2',
+      pluginPath: 'preseter.synth2',
+      collection: 'Synth2',
+      readOnly: false,
+    });
+    expect(preset?.filePath).toContain('Meu Patch.sy1');
+  });
+
+  it('indexa o banco de fábrica como coleção Fábrica somente leitura', async () => {
+    const factory = makeTempDir('preseter-sy1-factory-');
+    try {
+      writeSy1(path.join(factory, '001.sy1'), 'INIT');
+      writeSy1(path.join(factory, '002.sy1'), 'PAD PWM Chorus');
+      const lib = new VstPresetLibrary(userData, documents, factory);
+      await lib.scan([], fakeVst());
+
+      const presets = lib.listResult().presets.filter((item) => item.source === 'sy1');
+      expect(presets.map((item) => item.name).sort()).toEqual(['INIT', 'PAD PWM Chorus']);
+      expect(presets.every((item) => item.collection === 'Fábrica' && item.readOnly === true)).toBe(true);
+      expect(presets.find((item) => item.name === 'INIT')?.programIndex).toBe(0);
+      expect(presets.find((item) => item.name === 'PAD PWM Chorus')?.programIndex).toBe(1);
+
+      const vst = fakeVst();
+      await lib.applyPreset(presets.find((item) => item.name === 'PAD PWM Chorus')!.id, 'layer-1', vst);
+      expect(vst.setPluginProgram).toHaveBeenCalledWith('layer-1', 1);
+    } finally {
+      removeTempDir(factory);
+    }
+  });
+
+  it('indexa a biblioteca do Oxo Synth2 e pastas extras como somente leitura', async () => {    writeSy1(path.join(documents, 'Oxo Music', 'Oxo Synth2', 'Banco A', 'Oxo.sy1'), 'Oxo Patch');
+    const extra = makeTempDir('preseter-sy1-extra-');
+    try {
+      writeSy1(path.join(extra, 'Extra.sy1'), 'Extra Patch');
+      const lib = new VstPresetLibrary(userData, documents);
+      lib.addSynth2Folder(extra);
+
+      const presets = lib.listResult().presets.filter((item) => item.source === 'sy1');
+      expect(presets.map((item) => item.name).sort()).toEqual(['Extra Patch', 'Oxo Patch']);
+      expect(presets.every((item) => item.readOnly === true)).toBe(true);
+      expect(lib.synth2Folders()).toEqual([path.resolve(extra)]);
+    } finally {
+      removeTempDir(extra);
+    }
+  });
+
+  it('aplica o arquivo .sy1 no motor e salva snapshot como .sy1', async () => {
+    const file = path.join(documents, 'Preseter', 'Synth2', 'Aplicado.sy1');
+    writeSy1(file, 'Aplicado');
+    const lib = new VstPresetLibrary(userData, documents);
+    await lib.scan([], fakeVst());
+    const preset = lib.listResult().presets.find((item) => item.name === 'Aplicado')!;
+
+    const vst = fakeVst({ exportSynth2Patch: vi.fn(async () => 'Salvo\nver=112\n0,2\n') });
+    await lib.applyPreset(preset.id, 'layer-1', vst);
+    expect(vst.loadSynth2Patch).toHaveBeenCalledWith('layer-1', expect.stringContaining('Aplicado'), 'Aplicado');
+
+    const saved = await lib.saveSnapshot({
+      layerId: 'layer-1',
+      plugin: synth2(),
+      name: 'Salvo',
+      vst,
+    });
+    expect(saved).toMatchObject({ name: 'Salvo', source: 'sy1', collection: 'Meus presets', favorite: true });
+    expect(saved?.filePath && fs.existsSync(saved.filePath)).toBe(true);
+    expect(fs.readFileSync(saved!.filePath!, 'utf8')).toContain('Salvo');
+  });
+
+  it('importa um .sy1 externo para a pasta gerenciada', () => {
+    const source = path.join(documents, 'fora.sy1');
+    writeSy1(source, 'Importado');
+    const lib = new VstPresetLibrary(userData, documents);
+    const preset = lib.importPresetFile(source, synth2());
+
+    expect(preset).toMatchObject({
+      name: 'Importado',
+      source: 'sy1',
+      collection: 'Importados',
+      readOnly: false,
+    });
+    expect(preset.filePath && fs.existsSync(preset.filePath)).toBe(true);
+    expect(fs.existsSync(source)).toBe(true);
+  });
+
+  it('remove da lista quando o arquivo .sy1 some e só apaga arquivos gerenciados', async () => {
+    const file = path.join(documents, 'Preseter', 'Synth2', 'Some.sy1');
+    writeSy1(file, 'Some');
+    const lib = new VstPresetLibrary(userData, documents);
+    await lib.scan([], fakeVst());
+    const preset = lib.listResult().presets.find((item) => item.name === 'Some')!;
+
+    expect(lib.deletePreset(preset.id)).toBe(true);
+    expect(fs.existsSync(file)).toBe(false);
+
+    writeSy1(file, 'Some');
+    await lib.scan([], fakeVst());
+    fs.rmSync(file);
+    expect(lib.listResult().presets.some((item) => item.name === 'Some')).toBe(false);
   });
 });

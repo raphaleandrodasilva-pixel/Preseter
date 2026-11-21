@@ -3,7 +3,7 @@
  * novo; cada template monta sets e patches prontos para receber instrumentos.
  */
 
-import { ConcertTemplateSummary, Preset, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import { ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetSet, PreseterConcertFile, SEND_OFF_DB, UiElement } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
@@ -32,6 +32,48 @@ interface PatchSpec {
   withKeyboard?: boolean;
   /** Estrutura sugerida de layers/splits (não carrega plugins: só documenta o patch). */
   layers?: PatchLayerSpec[];
+  /** Inserts do Master do Patch com a cadeia Guitarix embutida. */
+  masterInserts?: GuitarInsertSpec[];
+}
+
+/** Efeito de guitarra embutido (URI estável do bundle LV2). */
+interface GuitarInsertSpec {
+  name: string;
+  pluginId: string;
+  uri: string;
+  preset?: string;
+}
+
+const GX = {
+  overdrive: {
+    name: 'Preseter Overdrive',
+    pluginId: 'preseter.gx.overdrive',
+    uri: 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim',
+  },
+  preamp: {
+    name: 'Preseter Preamp',
+    pluginId: 'preseter.gx.preamp',
+    uri: 'http://guitarix.sourceforge.net/plugins/gx_studiopre#studiopre',
+  },
+  cab: {
+    name: 'Preseter Cab',
+    pluginId: 'preseter.gx.cab',
+    uri: 'http://guitarix.sourceforge.net/plugins/gx_cabinet#CABINET',
+  },
+  amp: {
+    name: 'Preseter Amp',
+    pluginId: 'preseter.gx.amp',
+    uri: 'http://guitarix.sourceforge.net/plugins/gx_amp#GUITARIX',
+  },
+  tremolo: {
+    name: 'Preseter Tremolo',
+    pluginId: 'preseter.gx.tremolo',
+    uri: 'http://guitarix.sourceforge.net/plugins/gx_tremolo#_tremolo',
+  },
+} as const;
+
+function gx(id: keyof typeof GX, preset?: string): GuitarInsertSpec {
+  return { ...GX[id], ...(preset ? { preset } : {}) };
 }
 
 /** Camada sugerida de um patch; só estrutura (instrumento, volume e faixa de teclas). */
@@ -110,6 +152,31 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       { name: 'Pad Brilhante', setName: 'Worship', withKeyboard: true, notes: 'Pad com brilho' },
       { name: 'Piano Worship', setName: 'Worship', withKeyboard: true, notes: 'Piano da banda' },
       { name: 'Ambiente', setName: 'Worship', withKeyboard: true, notes: 'Texturas e transições' },
+    ],
+  },
+  {
+    id: 'guitarra',
+    name: 'Guitarra',
+    description: 'Set "Guitarra" com Clean, Crunch e Lead: a cadeia Guitarix (Preseter Overdrive, Preamp, Cab, Amp e Tremolo) já vem no Master do Patch. Adicione seu VST/sampler de guitarra.',
+    concertName: 'Meu Concert de Guitarra',
+    tempo: 100,
+    sets: ['Guitarra'],
+    patches: [
+      {
+        name: 'Guitarra Clean', setName: 'Guitarra', withKeyboard: true,
+        notes: 'Preamp → Cab → Tremolo. Adicione um VST/sampler de guitarra.',
+        masterInserts: [gx('preamp', 'bright'), gx('cab', 'open'), gx('tremolo', 'subtle')],
+      },
+      {
+        name: 'Guitarra Crunch', setName: 'Guitarra', withKeyboard: true,
+        notes: 'Overdrive → Amp (Crunch). Adicione um VST/sampler de guitarra.',
+        masterInserts: [gx('overdrive', 'crunch'), gx('amp', 'crunch')],
+      },
+      {
+        name: 'Guitarra Lead', setName: 'Guitarra', withKeyboard: true,
+        notes: 'Overdrive → Amp (Lead). Adicione um VST/sampler de guitarra.',
+        masterInserts: [gx('overdrive', 'lead'), gx('amp', 'lead')],
+      },
     ],
   },
   {
@@ -265,6 +332,14 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     const setOrder = orderInSet.get(orderKey) ?? 0;
     orderInSet.set(orderKey, setOrder + 1);
     const notes = spec.notes ?? (spec.layers?.length ? layerNotes(spec.layers) : undefined);
+    const masterInserts: Insert[] = (spec.masterInserts ?? []).map((item, slot) => ({
+      slot,
+      pluginId: item.pluginId,
+      name: item.name,
+      path: item.uri,
+      bypass: false,
+      ...(item.preset ? { presetId: item.preset } : {}),
+    }));
     return {
       id: nextId('preset'),
       name: spec.name,
@@ -276,6 +351,17 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
       midiChannel: 0,
       plugins: [],
       vstStates: {},
+      ...(masterInserts.length > 0
+        ? {
+            master: {
+              volumeDb: 0,
+              pan: 0,
+              muted: false,
+              inserts: masterInserts,
+              sends: Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB),
+            },
+          }
+        : {}),
       layout: {
         elements: spec.withKeyboard ? keyboardRig(notes ?? spec.name, template.tempo) : [],
         background: null,

@@ -299,6 +299,28 @@ describe('ChannelStrips — aba Aux', () => {
     expect(screen.getByText(/Preseter Reverb/)).toBeInTheDocument();
   });
 
+  it('agrupa o LV2 do Guitarix em Preseter no seletor de inserts', () => {
+    renderStrips({
+      auxBuses,
+      scannedPlugins: [
+        createPluginInfo({
+          id: 'LV2-GxTubeScreamer-x',
+          name: 'GxTubeScreamer',
+          path: 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim',
+          isInstrument: false,
+          manufacturer: 'Guitarix team',
+        }),
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aux 1–4' }));
+    const aux1 = screen.getByTestId('bus-strip-aux1');
+    fireEvent.click(within(aux1).getByText('＋ Adicionar efeito'));
+
+    expect(screen.getByText('Preseter (1)')).toBeInTheDocument();
+    expect(screen.getByText(/Preseter Overdrive/)).toBeInTheDocument();
+  });
+
   it('opens the Aux tab when a send knob is selected', () => {
     renderStrips({ auxBuses, focusedSendAux: 2 });
     expect(screen.getByRole('button', { name: 'Aux 1–4' })).toHaveAttribute('aria-pressed', 'true');

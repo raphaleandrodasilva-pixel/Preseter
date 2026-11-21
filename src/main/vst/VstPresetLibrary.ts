@@ -11,7 +11,34 @@ import type {
 import type { VstManager } from './VstManager';
 
 /** Fontes de preset aceitas pela biblioteca. */
-const SUPPORTED_SOURCES = new Set(['program', 'vstpreset', 'snapshot', 'fxp']);
+const SUPPORTED_SOURCES = new Set(['program', 'vstpreset', 'snapshot', 'fxp', 'sy1']);
+
+/** O Synth2 é nativo, mas seus patches .sy1 entram na mesma biblioteca. */
+const SYNTH2_PLUGIN_ID = 'preseter.synth2';
+const SYNTH2_PLUGIN_NAME = 'Preseter Synth2';
+
+/** Primeira linha de um .sy1 (nome do patch), com fallback se não for UTF-8. */
+function readSy1Name(filePath: string): string | null {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(512);
+    const bytes = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const first = buffer.subarray(0, bytes).toString('utf8').split(/\r?\n/, 1)[0].trim().replace(/^\uFEFF/, '');
+    if (!first || first.includes('\uFFFD')) return null;
+    return first;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch { /* já fechado */ }
+    }
+  }
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim() || 'Preset';
+}
 
 interface CachedPlugin {
   id: string;
@@ -32,6 +59,8 @@ interface IndexFile {
   plugins: Record<string, CachedPlugin>;
   presets: VstPreset[];
   overrides: Record<string, PresetOverride>;
+  /** Pastas extras de patches .sy1 do Synth2 (além da pasta gerenciada). */
+  synth2Folders?: string[];
   lastScan?: number;
 }
 
@@ -137,15 +166,21 @@ export class VstPresetLibrary extends EventEmitter {
   private readonly indexPath: string;
   private readonly statesDir: string;
   private readonly documentsPath: string;
+  /** Patches .sy1 criados/importados pelo Preseter. */
+  private readonly synth2Dir: string;
+  /** Banco de fábrica do Synth2 (.sy1) copiado pelo instalador. */
+  private readonly factorySynth2Dir: string;
   private index: IndexFile = { ...EMPTY_INDEX, plugins: {}, presets: [], overrides: {} };
   private status: VstPresetLibraryStatus = { scanning: false, scanned: 0, total: 0 };
   private scanPromise: Promise<void> | null = null;
 
-  constructor(userDataPath: string, documentsPath: string) {
+  constructor(userDataPath: string, documentsPath: string, factorySynth2Dir = '') {
     super();
     this.indexPath = path.join(userDataPath, 'vst-presets.json');
     this.statesDir = path.join(userDataPath, 'vst-presets', 'states');
     this.documentsPath = documentsPath;
+    this.synth2Dir = path.join(documentsPath, 'Preseter', 'Synth2');
+    this.factorySynth2Dir = factorySynth2Dir;
     this.load();
   }
 
@@ -160,6 +195,7 @@ export class VstPresetLibrary extends EventEmitter {
         // Migração: descarta apenas fontes que não existem mais (vital, odin, midi-program).
         presets: presets.filter((preset) => SUPPORTED_SOURCES.has(preset.source)),
         overrides: raw.overrides ?? {},
+        synth2Folders: Array.isArray(raw.synth2Folders) ? raw.synth2Folders : [],
         lastScan: raw.lastScan,
       };
       if (this.index.presets.length !== presets.length) this.save();
@@ -197,7 +233,7 @@ export class VstPresetLibrary extends EventEmitter {
       presets: this.index.presets
         .filter((preset) => {
           if (preset.source === 'snapshot') return true;
-          if (preset.source === 'vstpreset' || preset.source === 'fxp') {
+          if (preset.source === 'vstpreset' || preset.source === 'fxp' || preset.source === 'sy1') {
             return fileExists(preset.filePath);
           }
           return true;
@@ -401,6 +437,105 @@ export class VstPresetLibrary extends EventEmitter {
         updatedAt: Date.now(),
       });
     }
+
+    this.replaceSynth2Entries();
+  }
+
+  /** Pastas varridas por patches .sy1: fábrica + gerenciada + Oxo Synth2 + extras. */
+  private synth2Roots(): Array<{ root: string; readOnly: boolean; collection?: string }> {
+    const roots: Array<{ root: string; readOnly: boolean; collection?: string }> = [];
+
+    if (this.factorySynth2Dir && fs.existsSync(this.factorySynth2Dir)) {
+      roots.push({ root: this.factorySynth2Dir, readOnly: true, collection: 'Fábrica' });
+    }
+    roots.push({ root: this.synth2Dir, readOnly: false });
+
+    const oxo = path.join(this.documentsPath, 'Oxo Music', 'Oxo Synth2');
+    if (fs.existsSync(oxo)) roots.push({ root: oxo, readOnly: true });
+    for (const folder of this.index.synth2Folders ?? []) {
+      const resolved = path.resolve(folder);
+      if (!roots.some((item) => path.resolve(item.root) === resolved)) {
+        roots.push({ root: resolved, readOnly: true });
+      }
+    }
+    return roots;
+  }
+
+  /** Recria só as entradas .sy1 (sem tocar nos presets de VST). */
+  private replaceSynth2Entries(): void {
+    this.index.presets = this.index.presets.filter((preset) => preset.source !== 'sy1');
+
+    const seen = new Set<string>();
+    for (const { root, readOnly, collection: collectionOverride } of this.synth2Roots()) {
+      const files = listFiles(root, '.sy1');
+      if (collectionOverride === 'Fábrica') {
+        // Mesma ordem do engine (nome do arquivo, comparação simples).
+        files.sort((a, b) => {
+          const left = path.basename(a);
+          const right = path.basename(b);
+          return left < right ? -1 : left > right ? 1 : 0;
+        });
+      }
+      files.forEach((filePath, factoryIndex) => {
+        const resolved = path.resolve(filePath);
+        if (seen.has(resolved)) return;
+        seen.add(resolved);
+        const relative = path.relative(root, filePath);
+        const parts = relative.split(path.sep);
+        const fileName = path.basename(filePath, path.extname(filePath));
+        const folder = parts.length > 1
+          ? parts.slice(0, -1).join(' / ')
+          : path.basename(path.resolve(root)) || 'Synth2';
+        const collection = collectionOverride ?? folder;
+        const name = readSy1Name(filePath) ?? fileName;
+        this.index.presets.push({
+          id: `sy1:${filePath}`,
+          name,
+          category: categoryFromText(`${collection} ${name}`, 'Synth'),
+          source: 'sy1',
+          pluginId: SYNTH2_PLUGIN_ID,
+          pluginName: SYNTH2_PLUGIN_NAME,
+          pluginPath: SYNTH2_PLUGIN_ID,
+          filePath,
+          // O banco de fábrica também é exposto como programas internos do
+          // Synth2 (getNumPrograms/setProgram); a ordem é a dos arquivos.
+          ...(collectionOverride === 'Fábrica' ? { programIndex: factoryIndex } : {}),
+          collection,
+          favorite: false,
+          readOnly,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      });
+    }
+  }
+
+  /** Adiciona uma pasta externa de .sy1 e reindexa só esses patches. */
+  addSynth2Folder(folder: string): VstPresetListResult {
+    const resolved = path.resolve(folder);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      throw new Error('A pasta escolhida não existe.');
+    }
+
+    const folders = new Set((this.index.synth2Folders ?? []).map((item) => path.resolve(item)));
+    folders.add(resolved);
+    this.index.synth2Folders = [...folders];
+    this.replaceSynth2Entries();
+    this.save();
+    this.emitChange();
+    return this.listResult();
+  }
+
+  synth2Folders(): string[] {
+    return [...(this.index.synth2Folders ?? [])];
+  }
+
+  /** Reindexa os patches .sy1 (chamado na abertura e ao adicionar pasta). */
+  scanSynth2(): VstPresetListResult {
+    this.replaceSynth2Entries();
+    this.save();
+    this.emitChange();
+    return this.listResult();
   }
 
   /** Captura o som atual do layer como um preset reutilizável. */
@@ -411,6 +546,53 @@ export class VstPresetLibrary extends EventEmitter {
     category?: string;
     vst: VstManager;
   }): Promise<VstPreset | null> {
+    if (input.plugin.id === SYNTH2_PLUGIN_ID || input.plugin.path === SYNTH2_PLUGIN_ID) {
+      const name = input.name.trim() || 'Novo preset';
+      let data = '';
+      try {
+        data = await input.vst.exportSynth2Patch(input.layerId, name);
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível exportar o patch do Synth2:', error);
+        return null;
+      }
+      if (!data) return null;
+
+      try {
+        fs.mkdirSync(this.synth2Dir, { recursive: true });
+        const base = safeFileName(name);
+        let destination = path.join(this.synth2Dir, `${base}.sy1`);
+        let suffix = 2;
+        while (fs.existsSync(destination)) {
+          destination = path.join(this.synth2Dir, `${base} (${suffix++}).sy1`);
+        }
+        fs.writeFileSync(destination, data, 'utf8');
+
+        const now = Date.now();
+        const preset: VstPreset = {
+          id: `sy1:${destination}`,
+          name,
+          category: input.category || 'Synth',
+          source: 'sy1',
+          pluginId: SYNTH2_PLUGIN_ID,
+          pluginName: SYNTH2_PLUGIN_NAME,
+          pluginPath: SYNTH2_PLUGIN_ID,
+          filePath: destination,
+          collection: 'Meus presets',
+          favorite: true,
+          readOnly: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.index.presets.push(preset);
+        this.save();
+        this.emitChange();
+        return this.applyOverride(preset);
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível gravar o patch .sy1:', error);
+        return null;
+      }
+    }
+
     const state = await input.vst.getPluginState(input.layerId);
     if (!state?.data) return null;
 
@@ -449,9 +631,57 @@ export class VstPresetLibrary extends EventEmitter {
    * adiciona ao índice, sem depender de um novo scan completo.
    */
   importPresetFile(sourcePath: string, plugin: VstPluginInfo): VstPreset {
-    if (!fs.existsSync(sourcePath)) throw new Error('Arquivo .vstpreset não encontrado.');
+    if (!fs.existsSync(sourcePath)) throw new Error('Arquivo de preset não encontrado.');
+
+    if (path.extname(sourcePath).toLowerCase() === '.sy1') {
+      if (plugin.id !== SYNTH2_PLUGIN_ID && plugin.path !== SYNTH2_PLUGIN_ID) {
+        throw new Error('Patches .sy1 só podem ser importados no Preseter Synth2.');
+      }
+
+      fs.mkdirSync(this.synth2Dir, { recursive: true });
+      const sourceName = readSy1Name(sourcePath) ?? path.basename(sourcePath, path.extname(sourcePath));
+      const base = safeFileName(sourceName);
+      let destination = path.join(this.synth2Dir, `${base}.sy1`);
+      let suffix = 2;
+      while (fs.existsSync(destination) && path.resolve(destination) !== path.resolve(sourcePath)) {
+        destination = path.join(this.synth2Dir, `${base} (${suffix++}).sy1`);
+      }
+      if (path.resolve(destination) !== path.resolve(sourcePath)) {
+        fs.copyFileSync(sourcePath, destination);
+      }
+
+      const now = Date.now();
+      const existing = this.index.presets.find(
+        (preset) => preset.source === 'sy1' && preset.filePath === destination
+      );
+      const preset: VstPreset = {
+        id: `sy1:${destination}`,
+        name: readSy1Name(destination) ?? base,
+        category: 'Synth',
+        source: 'sy1',
+        pluginId: SYNTH2_PLUGIN_ID,
+        pluginName: SYNTH2_PLUGIN_NAME,
+        pluginPath: SYNTH2_PLUGIN_ID,
+        filePath: destination,
+        collection: 'Importados',
+        favorite: false,
+        readOnly: false,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      if (existing) {
+        this.index.presets[this.index.presets.indexOf(existing)] = preset;
+      } else {
+        this.index.presets.push(preset);
+      }
+      this.save();
+      this.emitChange();
+      return this.applyOverride(preset);
+    }
+
     if (path.extname(sourcePath).toLowerCase() !== '.vstpreset') {
-      throw new Error('Escolha um arquivo .vstpreset.');
+      throw new Error('Escolha um arquivo .vstpreset ou .sy1.');
     }
 
     const folderName = plugin.name.replace(/[<>:"/\\|?*]/g, '_').trim() || 'Importados';
@@ -500,6 +730,18 @@ export class VstPresetLibrary extends EventEmitter {
   async applyPreset(presetId: string, layerId: string, vst: VstManager): Promise<boolean> {
     const preset = this.index.presets.find((item) => item.id === presetId);
     if (!preset) throw new Error('Preset não encontrado.');
+
+    if (preset.source === 'sy1') {
+      // Banco de fábrica: usa o programa interno do Synth2 (mantém o seletor
+      // de programas e o Program Change em sincronia).
+      if (preset.programIndex !== undefined) {
+        return vst.setPluginProgram(layerId, preset.programIndex);
+      }
+      if (!preset.filePath) throw new Error('Arquivo .sy1 não informado.');
+      if (!fs.existsSync(preset.filePath)) throw new Error('O arquivo .sy1 não existe mais.');
+      const text = fs.readFileSync(preset.filePath, 'latin1');
+      return vst.loadSynth2Patch(layerId, text, preset.name);
+    }
 
     if (preset.source === 'program') {
       if (preset.programIndex === undefined) throw new Error('Programa interno inválido.');
@@ -564,6 +806,13 @@ export class VstPresetLibrary extends EventEmitter {
       }
     }
     if (preset.source === 'fxp' && preset.filePath) {
+      try {
+        fs.rmSync(preset.filePath, { force: true });
+      } catch {
+        // Ignora: o arquivo pode ter sido removido manualmente.
+      }
+    }
+    if (preset.source === 'sy1' && preset.filePath && !preset.readOnly) {
       try {
         fs.rmSync(preset.filePath, { force: true });
       } catch {

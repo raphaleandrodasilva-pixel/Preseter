@@ -88,6 +88,7 @@ target_sources(PreseterEngine PRIVATE
     src/CommandRouter.cpp
     src/native/NativeProcessor.cpp
     src/native/SetBfreeOrganProcessor.cpp
+    src/native/Synth2Dsp.cpp
     src/native/WurliProcessor.cpp
     src/native/MdaPianoFactory.cpp
     src/native/MdaDxFactory.cpp
@@ -98,10 +99,12 @@ target_sources(PreseterEngine PRIVATE
     third_party/mda-epiano/MdaEPianoDsp.cpp
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
+    src/drums/DrumKitEngine.cpp
     ${PRESETER_SETBFREE_SOURCES})
 
 target_include_directories(PreseterEngine PRIVATE
     src
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/oxo-synth2"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-common"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-piano"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-dx10"
@@ -249,6 +252,27 @@ if(PRESETER_BUILD_TEST_PLUGIN)
     add_subdirectory(test-plugin)
 endif()
 
+option(PRESETER_BUILD_SYNTH2_SMOKE "Compila o teste offline do Preseter Synth2 (Oxo Synth2)" OFF)
+if(PRESETER_BUILD_SYNTH2_SMOKE)
+    add_executable(PreseterSynth2Smoke
+        test/synth2-smoke/main.cpp
+        src/native/Synth2Dsp.cpp)
+
+    target_include_directories(PreseterSynth2Smoke PRIVATE
+        src/native
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/oxo-synth2")
+
+    target_compile_definitions(PreseterSynth2Smoke PRIVATE _USE_MATH_DEFINES NOMINMAX)
+
+    if(MSVC)
+        target_compile_options(PreseterSynth2Smoke PRIVATE /utf-8)
+    endif()
+
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(PreseterSynth2Smoke PRIVATE m)
+    endif()
+endif()
+
 option(PRESETER_BUILD_TINES_NULLITY "Compila o teste de nulidade do Tines (MDA ePiano)" OFF)
 if(PRESETER_BUILD_TINES_NULLITY)
     juce_add_console_app(PreseterTinesNullity
@@ -324,6 +348,64 @@ if(PRESETER_BUILD_SETBFREE_NULLITY)
 
     if(UNIX AND NOT APPLE)
         target_link_libraries(PreseterSetBfreeNullity PRIVATE m)
+    endif()
+endif()
+
+# Teste de fase do relógio mestre (D1). Não usa JUCE: compila e roda em segundos.
+option(PRESETER_BUILD_CLOCK_TEST "Compila o teste de fase do relógio mestre (D1)" OFF)
+if(PRESETER_BUILD_CLOCK_TEST)
+    add_executable(PreseterClockTest test/clock-phase/main.cpp)
+    target_include_directories(PreseterClockTest PRIVATE src)
+    if(MSVC)
+        target_compile_options(PreseterClockTest PRIVATE /utf-8)
+    endif()
+endif()
+
+# Teste de tempo do sequenciador de bateria (D4). Não usa JUCE.
+option(PRESETER_BUILD_DRUM_TIMING_TEST "Compila o teste de tempo do sequenciador de bateria (D4)" OFF)
+if(PRESETER_BUILD_DRUM_TIMING_TEST)
+    add_executable(PreseterDrumTimingTest test/drum-timing/main.cpp)
+    target_include_directories(PreseterDrumTimingTest PRIVATE src)
+    if(MSVC)
+        target_compile_options(PreseterDrumTimingTest PRIVATE /utf-8)
+    endif()
+endif()
+
+# Teste de nulidade/áudio do Preseter Drums (D11). Precisa do kit SF2 instalado.
+option(PRESETER_BUILD_DRUMS_NULLITY "Compila o teste de nulidade do Preseter Drums (D11)" OFF)
+if(PRESETER_BUILD_DRUMS_NULLITY)
+    juce_add_console_app(PreseterDrumsNullity
+        PRODUCT_NAME "preseter-drums-nullity"
+        COMPANY_NAME "Preseter")
+    juce_generate_juce_header(PreseterDrumsNullity)
+
+    target_sources(PreseterDrumsNullity PRIVATE
+        test/drums/main.cpp
+        src/drums/DrumKitEngine.cpp
+        src/sampler/SamplerInstrument.cpp)
+
+    target_include_directories(PreseterDrumsNullity PRIVATE src)
+
+    target_compile_definitions(PreseterDrumsNullity PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_MODAL_LOOPS_PERMITTED=0
+        _USE_MATH_DEFINES
+        NOMINMAX)
+
+    if(MSVC)
+        target_compile_options(PreseterDrumsNullity PRIVATE /utf-8)
+    endif()
+
+    target_link_libraries(PreseterDrumsNullity PRIVATE
+        juce::juce_audio_formats
+        juce::juce_audio_basics
+        juce::juce_events
+        juce::juce_core
+        juce::juce_data_structures)
+
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(PreseterDrumsNullity PRIVATE pthread dl m)
     endif()
 endif()
 

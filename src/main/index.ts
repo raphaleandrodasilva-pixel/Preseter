@@ -15,10 +15,13 @@ import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
 import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
+import { SAMPLE_LIBRARY_FILES } from '../shared/collection-presets';
+import { findFactoryDrumPattern, toEngineDrumPattern } from '../shared/drum-patterns';
 import { PerformanceMode } from './performance/PerformanceMode';
 import {
   getPlatformPaths,
   bundledPluginFolder,
+  bundledGuitarixFolder,
   presetWatchFolders as platformPresetWatchFolders,
   type SupportedPlatform,
 } from './platform/paths';
@@ -51,6 +54,8 @@ import {
   AppPreferences,
   ArpSettings,
   DEFAULT_ARP,
+  drumsStartOnLoad,
+  EngineDrumPattern,
   RecordingBitrate,
   RecordingFormat,
   RecordingResult,
@@ -64,7 +69,9 @@ import {
 } from '../shared/types';
 import type { EngineInsertState } from '../shared/engine-protocol';
 import { resolveStrips } from '../shared/concert-strips';
+import { effectPresetValues } from '../shared/effects/catalog';
 import { normalizeAudioInput } from '../shared/audio-input';
+import { isNativeInstrumentId } from '../shared/native-instruments';
 import { validateProgramNumber, DEFAULT_MIDI_CHANNEL, CONCERT_FILE_EXTENSION } from '../shared/constants';
 
 /**
@@ -111,8 +118,11 @@ function standardVst3Folders(): string[] {
  * `resources/plugins/calfnxt` (extraResources). Pastas inexistentes são ignoradas.
  */
 function bundledPluginFolders(): string[] {
-  const folder = bundledPluginFolder(app.getAppPath(), process.resourcesPath, app.isPackaged);
-  return fs.existsSync(folder) ? [folder] : [];
+  const folders = [
+    bundledPluginFolder(app.getAppPath(), process.resourcesPath, app.isPackaged),
+    bundledGuitarixFolder(app.getAppPath(), process.resourcesPath, app.isPackaged),
+  ];
+  return folders.filter((folder) => folder.length > 0 && fs.existsSync(folder));
 }
 
 class MainWindow {
@@ -177,7 +187,16 @@ class MainWindow {
       bundledPluginFolders()[0] ?? null,
       () => this.ensureAudioForPlugins()
     );
-    this.vstPresetLibrary = new VstPresetLibrary(app.getPath('userData'), app.getPath('documents'));
+    const synth2FactoryDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'synth2-presets')
+      : path.join(app.getAppPath(), 'presets', 'synth2');
+    this.vstManager.setSynth2FactoryDir(synth2FactoryDir);
+    this.vstPresetLibrary = new VstPresetLibrary(
+      app.getPath('userData'),
+      app.getPath('documents'),
+      synth2FactoryDir
+    );
+    this.vstPresetLibrary.scanSynth2();
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
     this.concertManager = new ConcertManager();
@@ -587,18 +606,29 @@ class MainWindow {
     ipcMain.handle('midi-program-change', async (_event, program: number, channel: number) => {
       const validProgram = this.validateMidiProgramChange(program, channel);
       const activated = await this.activateProgramNumber(validProgram.program, validProgram.channel, 0, undefined, false);
+      if (!activated && this.concertManager.getState().settings.midi.sendUnusedProgramChangeToStrips) {
+        await this.vstManager
+          .sendMidi([0xc0 | (validProgram.channel & 0x0f), validProgram.program & 0x7f])
+          .catch(() => undefined);
+      }
       return { ...validProgram, activated };
     });
 
     ipcMain.handle('midi-input-program-change', async (_event, program: number, channel: number, bank?: number, deviceName?: string) => {
       const validProgram = this.validateMidiProgramChange(program, channel);
-      return this.activateProgramNumber(
+      const activated = await this.activateProgramNumber(
         validProgram.program,
         validProgram.channel,
         Number.isInteger(bank) ? bank : 0,
         typeof deviceName === 'string' ? deviceName : undefined,
         true
       );
+      if (!activated && this.concertManager.getState().settings.midi.sendUnusedProgramChangeToStrips) {
+        await this.vstManager
+          .sendMidi([0xc0 | (validProgram.channel & 0x0f), validProgram.program & 0x7f])
+          .catch(() => undefined);
+      }
+      return activated;
     });
 
     // === VST Handlers ===
@@ -702,6 +732,19 @@ class MainWindow {
       return this.vstPresetLibrary.deletePreset(presetId);
     });
 
+    ipcMain.handle('vst-presets-add-synth2-folder', async () => {
+      const result = await dialog.showOpenDialog(this.window!, {
+        title: 'Adicionar pasta de patches .sy1',
+        properties: ['openDirectory'],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { canceled: true, presets: null, folder: null };
+      }
+      const folder = result.filePaths[0];
+      const presets = this.vstPresetLibrary.addSynth2Folder(folder);
+      return { canceled: false, presets, folder };
+    });
+
     ipcMain.handle(
       'vst-presets-export',
       async (_event, payload: { layerId: string; name?: string }) => {
@@ -709,6 +752,29 @@ class MainWindow {
           .getLoadedPlugins()
           .find((item) => item.layerId === payload.layerId);
         if (!plugin) throw new Error('O timbre selecionado não está carregado.');
+
+        if (plugin.id === 'preseter.synth2' || plugin.path === 'preseter.synth2') {
+          const root = path.join(app.getPath('documents'), 'Preseter', 'Synth2');
+          fs.mkdirSync(root, { recursive: true });
+          const baseName =
+            (payload.name ?? 'Patch').replace(/[<>:"/\\|?*]/g, '_').trim() || 'Patch';
+          const result = await dialog.showSaveDialog(this.window!, {
+            title: 'Exportar patch do Synth2',
+            defaultPath: path.join(root, `${baseName}.sy1`),
+            filters: [{ name: 'Patch Synth1 (.sy1)', extensions: ['sy1'] }],
+            properties: ['createDirectory', 'showOverwriteConfirmation'],
+          });
+          if (result.canceled || !result.filePath) return { canceled: true, path: null };
+
+          const filePath = result.filePath.toLowerCase().endsWith('.sy1')
+            ? result.filePath
+            : `${result.filePath}.sy1`;
+          const data = await this.vstManager.exportSynth2Patch(payload.layerId, payload.name ?? baseName);
+          fs.writeFileSync(filePath, data, 'utf8');
+          this.vstPresetLibrary.scanSynth2();
+          return { canceled: false, path: filePath };
+        }
+
         if (plugin.format !== 'VST3') {
           throw new Error('Exportar .vstpreset só funciona em plugins VST3.');
         }
@@ -738,6 +804,20 @@ class MainWindow {
         .getLoadedPlugins()
         .find((item) => item.layerId === payload.layerId);
       if (!plugin) throw new Error('O timbre selecionado não está carregado.');
+
+      if (plugin.id === 'preseter.synth2' || plugin.path === 'preseter.synth2') {
+        const result = await dialog.showOpenDialog(this.window!, {
+          title: 'Importar patch do Synth2',
+          properties: ['openFile'],
+          filters: [{ name: 'Patch Synth1 (.sy1)', extensions: ['sy1'] }],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+          return { canceled: true, preset: null };
+        }
+        const preset = this.vstPresetLibrary.importPresetFile(result.filePaths[0], plugin);
+        return { canceled: false, preset };
+      }
+
       if (plugin.format !== 'VST3') {
         throw new Error('Importar .vstpreset só funciona em plugins VST3.');
       }
@@ -820,7 +900,17 @@ class MainWindow {
     });
 
     ipcMain.handle('vst-load', async (_event, pluginPath: string, layerId?: string, minNote?: number, maxNote?: number, pinned?: boolean, extra?: Record<string, unknown>) => {
-      const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true, extra ?? {});      // Todo layer novo entra direto no Master do Patch (Output 1 interno).
+      const options = { ...(extra ?? {}) };
+      // D3: o Drums usa o kit padrão (SF2 do MuseScore_General, MIT) enquanto a
+      // janela de kits da D7 não existe. O caminho é resolvido aqui, que é quem
+      // conhece a pasta de sons.
+      if (pluginPath === 'preseter.drums' && !options.samplePath) {
+        options.samplePath = path.join(this.soundsFolder(), SAMPLE_LIBRARY_FILES.musescore.path);
+        options.kitBank = 128;
+        options.kitProgram = 0;
+      }
+      // Todo layer novo entra direto no Master do Patch (Output 1 interno).
+      const loaded = await this.vstManager.loadPlugin(pluginPath, layerId, minNote, maxNote, pinned === true, options);
       if (loaded.layerId) {
         try {
           await this.vstManager.setLayerOutput(loaded.layerId, 1);
@@ -1077,6 +1167,21 @@ class MainWindow {
 
     ipcMain.handle('engine-panic', () => {
       return this.vstManager.panic();
+    });
+
+    ipcMain.handle('drums-set', (_event, layerId: string, options: {
+      enabled?: boolean;
+      pattern?: EngineDrumPattern;
+      gainDb?: number;
+      soloPad?: number;
+    }) => this.vstManager.setDrums(layerId, options ?? {}));
+
+    ipcMain.handle('drums-info', (_event, layerId: string) => {
+      return this.vstManager.getDrumsInfo(layerId);
+    });
+
+    ipcMain.handle('drums-position', (_event, layerId: string) => {
+      return this.vstManager.getDrumsPosition(layerId);
     });
 
     ipcMain.handle('vst-set-layer-range', (_event, layerId: string, minNote: number, maxNote: number) => {
@@ -1675,6 +1780,10 @@ class MainWindow {
     // Carrega o patch novo em modo encadeado, reaproveitando instâncias iguais, e só
     // depois troca o grafo de uma vez. O patch anterior segue soando até as caudas acabarem.
     const restoredStateKeys = new Set<string>();
+    /** Layers cujo estado do instrumento foi restaurado (não recebem o padrão de fábrica). */
+    const restoredLayers = new Set<string>();
+    /** Layers de Drums que caíram no sampler (motor antigo sem o nativo). */
+    const drumsFallback = new Set<string>();
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
       // Timbre MIDI externo: não carrega plugin nem entra no grafo de áudio.
@@ -1687,12 +1796,9 @@ class MainWindow {
         phase: 'loading',
       });
       const nativeSampler = isNativeSamplerAssignment(assignment);
-      const nativeInstrument = assignment.pluginId === 'preseter.organ'
-        || assignment.pluginId === 'preseter.tines'
-        || assignment.pluginId === 'preseter.reeds'
-        || assignment.pluginId === 'preseter.piano'
-        || assignment.pluginId === 'preseter.dx'
-        || assignment.pluginId === 'preseter.jx';
+      const nativeInstrument = isNativeInstrumentId(assignment.pluginId);
+      const nativeDrums = assignment.pluginId === 'preseter.drums';
+      const drumSettings = assignment.drums;
       const samplePath = assignment.samplePath
         ? (path.isAbsolute(assignment.samplePath)
             ? assignment.samplePath
@@ -1702,23 +1808,60 @@ class MainWindow {
         // Sampler criado vazio: a janela permite escolher o arquivo depois.
         continue;
       }
-      const plugin = await this.vstManager.stageLoad(
-        nativeSampler ? 'preseter.sampler' : assignment.path,
-        layerId,
-        assignment.minNote ?? 0,
-        assignment.maxNote ?? 127,
-        nativeSampler
-          ? {
-              samplePath,
-              programIndex: assignment.programIndex ?? 0,
-              bank: assignment.bank ?? 0,
-              loop: assignment.sampler?.loop ?? true,
-              ...(assignment.sampler ?? {}),
-            }
-          : nativeInstrument
-            ? { programIndex: assignment.programIndex ?? 0 }
-            : {}
-      );
+      const drumKitPath = nativeDrums
+        ? (samplePath || path.join(this.soundsFolder(), SAMPLE_LIBRARY_FILES.musescore.path))
+        : samplePath;
+
+      let plugin: VstPluginInfo;
+      try {
+        plugin = await this.vstManager.stageLoad(
+          nativeSampler ? 'preseter.sampler' : assignment.path,
+          layerId,
+          assignment.minNote ?? 0,
+          assignment.maxNote ?? 127,
+          nativeSampler
+            ? {
+                samplePath,
+                programIndex: assignment.programIndex ?? 0,
+                bank: assignment.bank ?? 0,
+                loop: assignment.sampler?.loop ?? true,
+                ...(assignment.sampler ?? {}),
+              }
+            : nativeInstrument
+              ? {
+                  programIndex: assignment.programIndex ?? 0,
+                  ...(nativeDrums
+                    ? {
+                        samplePath: drumKitPath,
+                        kitBank: 128,
+                        kitProgram: drumSettings?.kitProgram ?? 0,
+                      }
+                    : {}),
+                }
+              : {}
+        );
+      } catch (error) {
+        if (!nativeDrums) throw error;
+        // D9: motor antigo sem o instrumento nativo — cai no sampler com o
+        // mesmo SF2. O sequenciador não existe nesse caminho, mas o patch soa.
+        console.warn('[Preseter] Preseter Drums indisponível; usando o sampler:', error);
+        plugin = await this.vstManager.stageLoad(
+          'preseter.sampler',
+          layerId,
+          assignment.minNote ?? 0,
+          assignment.maxNote ?? 127,
+          {
+            samplePath: drumKitPath,
+            bank: 128,
+            programIndex: drumSettings?.kitProgram ?? 0,
+            loop: false,
+            release: 0.05,
+            velocity: 1,
+            polyphony: 32,
+          }
+        );
+        drumsFallback.add(layerId);
+      }
       activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
       const savedStateKeys = [
@@ -1730,10 +1873,11 @@ class MainWindow {
         assignment.pluginId,
       ];
       const savedStateKey = savedStateKeys.find((key) => preset.vstStates[key] !== undefined);
-      if (savedStateKey) {
+      if (savedStateKey && !drumsFallback.has(layerId)) {
         await this.vstManager.setPluginState(layerId, preset.vstStates[savedStateKey]);
         restoredStateKeys.add(savedStateKey);
-      } else {
+        restoredLayers.add(layerId);
+      } else if (!drumsFallback.has(layerId)) {
         // Sonoplastia inicial de layers antigos (juicysfplugin). O sampler
         // nativo já recebe o arquivo em `stageLoad`, então não repete aqui.
         const legacySample = !nativeSampler;
@@ -1798,6 +1942,9 @@ class MainWindow {
         const savedInsertState = preset.vstStates[`insert_${layerId}_${insert.slot}`];
         if (typeof savedInsertState?.data === 'string') {
           await this.vstManager.setInsertState(layerId, insert.slot, savedInsertState.data);
+        } else {
+          // Sem estado salvo: aplica o preset do catálogo (se o insert tiver um).
+          await this.applyInsertPreset(layerId, insert, insert.presetId);
         }
       }
     }
@@ -1812,6 +1959,18 @@ class MainWindow {
           await this.vstManager.setLayerOutput(layerId, 1);
           await this.vstManager.setLayerPatchSend(layerId, assignment.patchSendDb ?? 0);
           await this.vstManager.setArp(layerId, { ...DEFAULT_ARP, ...assignment.arp });
+          // D5/D9: liga o sequenciador e, quando o patch não tem estado salvo,
+          // aplica o padrão de fábrica (senão as edições do usuário vencem).
+          if (assignment.pluginId === 'preseter.drums' && !drumsFallback.has(layerId)) {
+            const factoryId = assignment.drums?.patternId;
+            const factory = factoryId && !restoredLayers.has(layerId)
+              ? findFactoryDrumPattern(factoryId)
+              : undefined;
+            await this.vstManager.setDrums(layerId, {
+              enabled: drumsStartOnLoad(assignment.drums),
+              ...(factory ? { pattern: toEngineDrumPattern(factory) } : {}),
+            });
+          }
           // Aux desativado: nenhum layer manda send.
           for (let aux = 1; aux <= MAX_AUX_BUSES; aux += 1) {
             await this.vstManager.setSend(layerId, aux, SEND_OFF_DB);
@@ -1845,12 +2004,21 @@ class MainWindow {
     for (const { id, bus } of this.concertBusList()) {
       for (const insert of bus.inserts ?? []) {
         const saved = preset.vstStates[`insert_${id}_${insert.slot}`];
-        if (typeof saved?.data !== 'string') continue;
-        try {
-          await this.vstManager.setInsertState(id, insert.slot, saved.data);
-        } catch (error) {
-          console.warn(`[Preseter] Não foi possível restaurar o efeito do barramento ${id}:`, error);
+        if (typeof saved?.data === 'string') {
+          try {
+            await this.vstManager.setInsertState(id, insert.slot, saved.data);
+          } catch (error) {
+            console.warn(`[Preseter] Não foi possível restaurar o efeito do barramento ${id}:`, error);
+          }
+          continue;
         }
+        // Aux: o preset é do patch (`auxPresets`), não do concert; assim o
+        // mesmo Reverb/Delay troca de caráter junto com o patch.
+        const auxNumber = /^aux([1-4])$/.exec(id)?.[1];
+        const auxPreset = auxNumber
+          ? preset.auxPresets?.[Number(auxNumber) as 1 | 2 | 3 | 4]
+          : undefined;
+        await this.applyInsertPreset(id, insert, auxPreset ?? insert.presetId);
       }
     }
 
@@ -1942,11 +2110,39 @@ class MainWindow {
       // Patches antigos guardavam o estado do Master como `insert_output1_*`.
       const saved = preset.vstStates[`insert_patch_${insert.slot}`]
         ?? preset.vstStates[`insert_output1_${insert.slot}`];
-      if (typeof saved?.data !== 'string') continue;
+      if (typeof saved?.data === 'string') {
+        try {
+          await this.vstManager.setInsertState('patch', insert.slot, saved.data);
+        } catch (error) {
+          console.warn(`[Preseter] Não foi possível restaurar o efeito do Master do Patch:`, error);
+        }
+        continue;
+      }
+      await this.applyInsertPreset('patch', insert, insert.presetId);
+    }
+  }
+
+  /**
+   * Aplica um preset do catálogo num insert (índice → valor 0..1). Só roda
+   * quando o patch não tem estado salvo para aquele slot, para não sobrescrever
+   * o ajuste do usuário.
+   */
+  private async applyInsertPreset (
+    ownerId: string,
+    insert: Insert,
+    presetId: string | undefined
+  ): Promise<void> {
+    const values = effectPresetValues(insert.path, presetId);
+    if (values.length === 0) return;
+    for (const { index, value } of values) {
       try {
-        await this.vstManager.setInsertState('patch', insert.slot, saved.data);
+        await this.vstManager.setParameter(ownerId, String(index), value, insert.slot);
       } catch (error) {
-        console.warn(`[Preseter] Não foi possível restaurar o efeito do Master do Patch:`, error);
+        console.warn(
+          `[Preseter] Não foi possível aplicar o preset "${presetId}" em "${insert.name}":`,
+          error
+        );
+        return;
       }
     }
   }
@@ -2524,6 +2720,26 @@ class MainWindow {
       }
     }
 
+    // Os bundles LV2 não vêm junto do cache de plugins: carrega já as pastas
+    // conhecidas para que um insert de LV2 funcione sem um scan no boot.
+    try {
+      let bundles = 0;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          bundles = await this.vstManager.warmLv2Bundles(this.pluginScanFolders());
+          break;
+        } catch (error) {
+          if (attempt === 1) throw error;
+          // O motor pode estar subindo junto com o áudio; uma nova tentativa
+          // evita perder o aquecimento por causa da primeira resposta.
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
+      }
+      if (bundles > 0) console.log(`[Preseter] ${bundles} bundle(s) LV2 prontos`);
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível preparar os bundles LV2:', error);
+    }
+
     const shouldScan = this.readPreferences().scanPluginsOnStartup;
     this.startupScanActive = shouldScan;
     this.startupScanDone = false;
@@ -2585,6 +2801,7 @@ class MainWindow {
     const candidates = [
       ...standardVst3Folders(),
       ...standardLv2Folders(),
+      ...bundledPluginFolders(),
       ...presetWatchFolders(),
       ...this.readPreferences().pluginFolders,
     ];

@@ -55,10 +55,12 @@ export interface VstPluginInfo {
   programCount?: number;
   /** Nomes dos programas (instrumentos nativos/MDA). */
   programNames?: string[];
+  /** Preseter Synth2: nome do patch .sy1 carregado. */
+  patchName?: string;
 }
 
 /** De onde veio um preset de VST exibido nos Timbres. */
-export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot' | 'fxp';
+export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot' | 'fxp' | 'sy1';
 
 /** Preset de um VST3 indexado pelo Preseter. */
 export interface VstPreset {
@@ -79,6 +81,8 @@ export interface VstPreset {
   /** Pasta/coleção original (ex.: Factory, Afro). */
   collection?: string;
   favorite?: boolean;
+  /** Preset de uma pasta do usuário/terceiro: não pode ser apagado pelo app. */
+  readOnly?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -139,6 +143,11 @@ export interface Preset {
   audioInput?: AudioInputSettings;
   /** Master do patch: volume, pan, mute e os 4 inserts que processam todos os layers. */
   master?: PatchMasterSettings;
+  /**
+   * Preset do Aux (1..4) para este patch. Aplicado ao carregar quando o patch
+   * não tem estado salvo daquele Aux; a intensidade vem de `master.sends`.
+   */
+  auxPresets?: Partial<Record<1 | 2 | 3 | 4, string>>;
   midiChannel: number;
   plugins?: PresetPluginAssignment[];
   /** Valores que este patch sobrepõe nos strips herdados do set/concert (Fase 3.3). */
@@ -440,6 +449,8 @@ export interface PresetPluginAssignment {
   patchSendDb?: number;
   /** Arpejador MIDI do layer (Fase 7.2). Ausente = desligado. */
   arp?: ArpSettings;
+  /** Sequenciador de bateria do layer (D5). Ausente = desligado. */
+  drums?: DrumSettings;
   /** Programa interno do plugin a aplicar ao carregar (ex.: GM/SF2). */
   programIndex?: number;
   /** Banco do preset (SF2). */
@@ -519,9 +530,86 @@ export const DEFAULT_ARP: ArpSettings = {
   hold: false,
 };
 
+/** Configuração do sequenciador de bateria por layer (D5). */
+export interface DrumSettings {
+  /** "Sequenciador ligado": o patch quer o sequenciador rodando. */
+  enabled: boolean;
+  /**
+   * "Iniciar com o patch": ao carregar o patch, liga o sequenciador
+   * automaticamente. Se falso, ele carrega pausado e a interface da D7 inicia.
+   */
+  startWithPatch: boolean;
+  /** Padrão de fábrica (D8) aplicado quando o patch não tem estado salvo. */
+  patternId?: string;
+  /** Programa do SF2 do kit (0 = acústico, 24 = eletrônico). */
+  kitProgram?: number;
+}
+
+export const DEFAULT_DRUMS: DrumSettings = {
+  enabled: false,
+  startWithPatch: true,
+};
+
+/** O sequenciador deve ligar sozinho quando o patch é carregado? (D5) */
+export function drumsStartOnLoad(settings: Partial<DrumSettings> | undefined): boolean {
+  const resolved = { ...DEFAULT_DRUMS, ...settings };
+  return resolved.enabled && resolved.startWithPatch;
+}
+
 /** Estado do arp retornado pelo motor. */
 export interface EngineArpState extends ArpSettings {
   layerId: string;
+}
+
+/** Passo do sequenciador de bateria no protocolo do motor (D4/D5). */
+export interface EngineDrumStep {
+  on: boolean;
+  velocity?: number;
+}
+
+/** Trilha do sequenciador: um pad (0..15) e os passos. */
+export interface EngineDrumTrack {
+  pad: number;
+  mute?: boolean;
+  /** Nível em dB (-60..12); vira o volume do pad. */
+  level?: number;
+  steps?: Array<EngineDrumStep | boolean | number>;
+}
+
+export interface EngineDrumPattern {
+  stepsPerBar?: 8 | 12 | 16 | 32;
+  bars?: 1 | 2 | 4;
+  /** 0 a 75 (%). */
+  swing?: number;
+  tracks?: EngineDrumTrack[];
+}
+
+/** `drums` do motor: padrão, passo atual e pads. */
+export interface EngineDrumsState {
+  enabled: boolean;
+  currentStep: number;
+  stepsPerBar: number;
+  bars: number;
+  swing: number;
+  trackCount: number;
+  totalSteps: number;
+  kit: string;
+  /** Volume geral do kit (dB). */
+  gainDb: number;
+  tracks: Array<{
+    pad: number;
+    mute: boolean;
+    level: number;
+    steps: Array<{ on: boolean; velocity: number }>;
+  }>;
+  pads: Array<{
+    index: number;
+    note: number;
+    name: string;
+    levelDb: number;
+    muted: boolean;
+    solo: boolean;
+  }>;
 }
 
 /** Quantidade de slots de insert por channel strip (Fase 3.1). */
@@ -543,6 +631,11 @@ export interface Insert {
   path: string;
   /** Quando true, o efeito fica carregado mas fora da cadeia de áudio. */
   bypass: boolean;
+  /**
+   * Preset do catálogo de efeitos (`src/shared/effects/catalog.json`) a aplicar
+   * ao carregar o patch, quando não há estado salvo em `vstStates` para o slot.
+   */
+  presetId?: string;
 }
 
 /**

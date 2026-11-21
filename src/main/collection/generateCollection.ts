@@ -8,8 +8,8 @@ import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../
 import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
-import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec } from '../../shared/collection-presets';
-import { effectKey } from '../../shared/effects/catalog';
+import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec, type EffectSpec } from '../../shared/collection-presets';
+import { effectKey, findEffect } from '../../shared/effects/catalog';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
 export interface CollectionPlugin {
@@ -30,21 +30,43 @@ export function findEffectPlugin (
 ): CollectionPlugin | undefined {
   const key = effectKey(ref);
   if (!key) return undefined;
-  return plugins.find((plugin) => effectKey(plugin.path ?? plugin.name) === key);
+
+  const direct = plugins.find((plugin) => effectKey(plugin.path ?? plugin.name) === key);
+  if (direct) return direct;
+
+  // LV2: a key do caminho é o bundle (`gxts9`), não o nome Preseter. Usa o
+  // catálogo para casar displayName/shortName/pluginNames com o plugin real.
+  const effect = findEffect(ref);
+  if (!effect) return undefined;
+  const wanted = new Set(
+    [
+      effect.match,
+      effectKey(effect.displayName),
+      effectKey(effect.shortName),
+      ...(effect.pluginNames ?? []).map(effectKey),
+    ].filter(Boolean)
+  );
+  return plugins.find((plugin) =>
+    [plugin.path, plugin.name, plugin.id]
+      .filter((value): value is string => Boolean(value))
+      .some((value) => wanted.has(effectKey(value)))
+  );
 }
 
 /** Resolve uma lista de efeitos em inserts (slots 0..3); ausente vai para `missing`. */
 export function resolveEffectInserts (
   plugins: CollectionPlugin[],
-  refs: string[] | undefined,
+  refs: EffectSpec[] | undefined,
   missing: Set<string>
 ): Insert[] {
   const inserts: Insert[] = [];
   for (const ref of refs ?? []) {
     if (inserts.length >= MAX_INSERTS) break;
-    const found = findEffectPlugin(plugins, ref);
+    const name = typeof ref === 'string' ? ref : ref.effect;
+    const presetId = typeof ref === 'string' ? undefined : ref.preset;
+    const found = findEffectPlugin(plugins, name);
     if (!found) {
-      missing.add(ref);
+      missing.add(name);
       continue;
     }
     inserts.push({
@@ -53,6 +75,7 @@ export function resolveEffectInserts (
       name: found.name,
       path: found.path ?? found.id,
       bypass: false,
+      ...(presetId ? { presetId } : {}),
     });
   }
   return inserts;
@@ -69,6 +92,8 @@ export const NATIVE_INSTRUMENT_NAMES: Record<
   piano: 'Preseter Piano',
   dx: 'Preseter DX10',
   jx: 'Preseter JX10',
+  synth2: 'Preseter Synth2',
+  drums: 'Preseter Drums',
 };
 
 /**
@@ -103,6 +128,7 @@ export function nativeAssignmentFor(
       solo: false,
     },
     ...(layer.arp ? { arp: layer.arp } : {}),
+    ...(layer.drums ? { drums: layer.drums } : {}),
   };
 }
 
@@ -350,6 +376,7 @@ export function buildCollectionConcert(
         plugins: assignments,
         vstStates,
         ...(master ? { master } : {}),
+        ...(meta?.auxPresets ? { auxPresets: meta.auxPresets } : {}),
         layout: { elements: keyboardRig(notes, tempo), background: null, tempo },
         createdAt: now,
         updatedAt: now,

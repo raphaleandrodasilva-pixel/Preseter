@@ -34,6 +34,13 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # Testes do motor sem JUCE: relógio mestre (D1) e tempo do sequenciador (D4).
+      - name: Relógio e sequenciador (C++ sem JUCE)
+        run: |
+          g++ -std=c++17 -O2 -Iengine/src engine/test/clock-phase/main.cpp -o clock-phase
+          ./clock-phase
+          g++ -std=c++17 -O2 -Iengine/src engine/test/drum-timing/main.cpp -o drum-timing
+          ./drum-timing
 
   windows:
     name: Windows (NSIS)

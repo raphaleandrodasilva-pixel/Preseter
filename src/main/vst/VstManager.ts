@@ -16,6 +16,8 @@ import type {
   BusMixUpdate,
   EngineArpState,
   EngineBusState,
+  EngineDrumPattern,
+  EngineDrumsState,
   EngineMixState,
   LayerMixUpdate,
   MasterMixUpdate,
@@ -27,12 +29,23 @@ import type {
 } from '../../shared/types';
 import { EngineProcess } from './EngineProcess';
 
+/**
+ * Plugins sem estado nativo (LV2) são salvos como snapshot de parâmetros.
+ * O prefixo distingue o snapshot de um chunk base64 do plugin.
+ */
+const PARAM_SNAPSHOT_PREFIX = 'params-base64:';
+
+const isParameterSnapshot = (data: string): boolean =>
+  typeof data === 'string' && data.startsWith(PARAM_SNAPSHOT_PREFIX);
+
 export class VstManager extends EventEmitter {
   private readonly engine: EngineProcess;
   private scannedPlugins: VstPluginInfo[] = [];
   private loadedPlugins = new Map<string, VstPluginInfo>();
   /** Fila para serializar cargas concorrentes de plugins. */
   private loadQueue: Promise<unknown> = Promise.resolve();
+  /** Pasta dos .sy1 de fábrica usados pelos programas internos do Synth2. */
+  private synth2FactoryDir = '';
   /** Serializa varreduras de VST3 (startup, watcher e botão manual). */
   private scanPromise: Promise<VstPluginInfo[]> | null = null;
   private scanReport: VstScanReport = {
@@ -65,6 +78,11 @@ export class VstManager extends EventEmitter {
     const run = this.loadQueue.then(task, task);
     this.loadQueue = run.then(() => undefined, () => undefined);
     return run;
+  }
+
+  /** Informa de onde o motor lê os programas de fábrica do Synth2. */
+  setSynth2FactoryDir(dir: string): void {
+    this.synth2FactoryDir = dir;
   }
 
   async scanDefaultDirectories(): Promise<VstPluginInfo[]> {
@@ -149,6 +167,16 @@ export class VstManager extends EventEmitter {
     return this.scannedPlugins;
   }
 
+  /**
+   * Carrega os bundles LV2 das pastas no mundo do motor. Ler o cache lista os
+   * `.lv2` só pela URI; sem o bundle carregado o insert falha com "Unable to
+   * locate plugin with the requested URI".
+   */
+  async warmLv2Bundles(paths: string[]): Promise<number> {
+    const result = await this.engine.request('warmLv2', { paths }, 60_000);
+    return result.bundles;
+  }
+
   async loadPlugin(
     pluginPathOrId: string,
     layerId = `layer_${randomUUID()}`,
@@ -208,9 +236,13 @@ export class VstManager extends EventEmitter {
         `O plugin "${scanned.name}" é 32-bit e não pode ser carregado pelo engine 64-bit.`
       );
     }
+    const isSynth2 = pluginPathOrId === 'preseter.synth2' || scanned?.id === 'preseter.synth2';
+    const factory = isSynth2 && this.synth2FactoryDir
+      ? { factoryPatches: this.synth2FactoryDir }
+      : {};
     const request = scanned
-      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...extra }
-      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...extra };
+      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...factory, ...extra }
+      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...factory, ...extra };
 
     const requestLoad = () => this.engine.request(command, request, 60_000);
     let enginePlugin: EngineLoadedPlugin;
@@ -337,6 +369,24 @@ export class VstManager extends EventEmitter {
   /** Arpejador MIDI do layer (Fase 7.2). */
   async setArp(layerId: string, settings: ArpSettings): Promise<EngineArpState> {
     return this.engine.request('setArp', { layerId, ...settings });
+  }
+
+  /** Preseter Drums: liga/desliga e publica o padrão (D5). */
+  async setDrums(
+    layerId: string,
+    options: { enabled?: boolean; pattern?: EngineDrumPattern; gainDb?: number; soloPad?: number }
+  ): Promise<EngineDrumsState> {
+    return this.engine.request('setDrums', { layerId, ...options });
+  }
+
+  /** Preseter Drums: passo atual, trilhas, pads e kit (D7). */
+  async getDrumsInfo(layerId: string): Promise<EngineDrumsState> {
+    return this.engine.request('drums', { layerId });
+  }
+
+  /** Preseter Drums: posição leve para o indicador (D7). */
+  async getDrumsPosition(layerId: string): Promise<{ enabled: boolean; currentStep: number }> {
+    return this.engine.request('drumsPosition', { layerId });
   }
 
   async setLayerRange(layerId: string, minNote: number, maxNote: number): Promise<VstPluginInfo> {
@@ -506,6 +556,27 @@ export class VstManager extends EventEmitter {
     const result = await this.engine.request('setProgram', { layerId: plugin.layerId, index: programIndex });
     await this.refreshLoadedPlugin(plugin.layerId, result);
     return true;
+  }
+
+  /** Preseter Synth2: aplica um patch .sy1 (texto) e recarrega os parâmetros. */
+  async loadSynth2Patch(layerOrPluginId: string, text: string, name = 'INIT'): Promise<boolean> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return false;
+    const result = await this.engine.request('synth2LoadPatch', {
+      layerId: plugin.layerId,
+      data: text,
+      name,
+    });
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return true;
+  }
+
+  /** Preseter Synth2: exporta o som atual como texto .sy1. */
+  async exportSynth2Patch(layerOrPluginId: string, name: string): Promise<string> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) throw new Error('O Synth2 não está carregado neste layer.');
+    const result = await this.engine.request('synth2SavePatch', { layerId: plugin.layerId, name });
+    return result?.data ?? '';
   }
 
   /** Carrega um SoundFont no juicysfplugin legado de um layer. */
@@ -713,13 +784,51 @@ export class VstManager extends EventEmitter {
       const chunk = await this.engine.request('getState', { layerId, slot });
       return { data: chunk.data };
     } catch {
-      return null;
+      // Plugins sem estado (LV2): guarda um snapshot dos parâmetros.
+      const snapshot = await this.parameterSnapshot({ layerId, slot });
+      return snapshot ? { data: snapshot } : null;
     }
   }
 
   async setInsertState(layerId: string, slot: number, data: string): Promise<boolean> {
+    if (isParameterSnapshot(data)) {
+      return this.applyParameterSnapshot(data, { layerId, slot });
+    }
     await this.engine.request('setState', { layerId, slot, data });
     return true;
+  }
+
+  /** Snapshot normalizado dos parâmetros (para plugins sem estado, como LV2). */
+  private async parameterSnapshot(
+    target: { layerId: string; slot?: number }
+  ): Promise<string | null> {
+    try {
+      const params = await this.engine.request('params', target);
+      if (params.length === 0) return null;
+      const values = params.map((parameter) => [parameter.index, parameter.value]);
+      return PARAM_SNAPSHOT_PREFIX + Buffer.from(JSON.stringify(values), 'utf8').toString('base64');
+    } catch {
+      return null;
+    }
+  }
+
+  /** Aplica um snapshot de parâmetros (restauração de plugins sem estado). */
+  private async applyParameterSnapshot(
+    data: string,
+    target: { layerId: string; slot?: number }
+  ): Promise<boolean> {
+    try {
+      const raw = Buffer.from(data.slice(PARAM_SNAPSHOT_PREFIX.length), 'base64').toString('utf8');
+      const values = JSON.parse(raw) as Array<[number, number]>;
+      if (!Array.isArray(values)) return false;
+      for (const [index, value] of values) {
+        if (!Number.isInteger(index) || typeof value !== 'number') continue;
+        await this.engine.request('setParam', { ...target, index, value });
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async openInsertEditor(layerId: string, slot: number): Promise<boolean> {
@@ -873,6 +982,9 @@ export class VstManager extends EventEmitter {
       programNames: 'programNames' in plugin && Array.isArray(plugin.programNames)
         ? plugin.programNames.map((name) => String(name))
         : undefined,
+      patchName: 'patchName' in plugin && typeof plugin.patchName === 'string'
+        ? plugin.patchName
+        : undefined,
     };
   }
 
@@ -884,6 +996,8 @@ export class VstManager extends EventEmitter {
   }
 
   private detectArch(filePath: string): 'x64' | 'x86' | 'unknown' {
+    // LV2 identifica o plugin por URI (http…), não por um arquivo local.
+    if (/^[a-z][a-z0-9+.-]+:\/\//i.test(filePath)) return 'unknown';
     try {
       const fd = fs.openSync(filePath, 'r');
       const buffer = Buffer.alloc(0x1000);

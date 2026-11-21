@@ -1,6 +1,14 @@
 #include "NativeProcessor.h"
+
+#include "drums/DrumKitEngine.h"
+#include "drums/DrumSequencer.h"
 #include "MdaFactories.h"
 
+#include "EngineCore/InitPatch.hpp"
+#include "EngineCore/ParamFormat.hpp"
+#include "EngineCore/Params.hpp"
+
+#include <algorithm>
 #include <cmath>
 
 namespace preseter
@@ -11,6 +19,103 @@ namespace
 {
 constexpr double kTwoPi = 6.283185307179586;
 constexpr double kOrganRatios[9] = { 0.5, 1.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0 };
+
+/**
+ * D6: padrão de bateria em texto compacto para o XML do estado.
+ * Formato: `v1;stepsPerBar;bars;swing*100;trackCount|pad,mute,level*100,steps...`
+ * onde cada passo é `..` (desligado) ou a velocity em hex (01..7f).
+ */
+juce::String serializeDrumPattern (const preseter::drums::DrumPattern& pattern)
+{
+    juce::String text;
+    text << "v1;" << pattern.stepsPerBar << ";" << pattern.bars << ";"
+         << juce::roundToInt (pattern.swing * 100.0f) << ";" << pattern.trackCount;
+
+    const int total = pattern.totalSteps();
+    for (int t = 0; t < pattern.trackCount; ++t)
+    {
+        const auto& track = pattern.tracks[(size_t) t];
+        text << "|" << track.pad << "," << (track.mute ? 1 : 0) << ","
+             << juce::roundToInt (track.levelDb * 100.0f) << ",";
+
+        for (int s = 0; s < total; ++s)
+        {
+            const auto& step = track.steps[(size_t) s];
+            if (! step.on)
+            {
+                text << "..";
+                continue;
+            }
+
+            text << juce::String::toHexString (juce::jlimit (1, 127, step.velocity))
+                        .paddedLeft ('0', 2)
+                        .toLowerCase();
+        }
+    }
+    return text;
+}
+
+bool parseDrumPattern (const juce::String& text, preseter::drums::DrumPattern& pattern)
+{
+    juce::StringArray parts;
+    parts.addTokens (text, "|", "");
+    if (parts.size() < 1)
+        return false;
+
+    juce::StringArray header;
+    header.addTokens (parts[0], ";", "");
+    if (header.size() < 5 || header[0] != "v1")
+        return false;
+
+    const int stepsPerBar = header[1].getIntValue();
+    const int bars = header[2].getIntValue();
+    if (! preseter::drums::isSupportedStepsPerBar (stepsPerBar)
+        || ! preseter::drums::isSupportedBars (bars))
+        return false;
+
+    pattern = preseter::drums::DrumPattern {};
+    pattern.stepsPerBar = stepsPerBar;
+    pattern.bars = bars;
+    pattern.swing = (float) header[3].getIntValue() / 100.0f;
+
+    const int requestedTracks = juce::jlimit (0, preseter::drums::kMaxTracks,
+                                              header[4].getIntValue());
+    const int total = pattern.totalSteps();
+
+    for (int t = 0; t < requestedTracks && t + 1 < parts.size(); ++t)
+    {
+        juce::StringArray fields;
+        fields.addTokens (parts[t + 1], ",", "");
+        if (fields.size() < 4)
+            continue;
+
+        auto& track = pattern.tracks[(size_t) pattern.trackCount];
+        track.pad = juce::jlimit (0, 15, fields[0].getIntValue());
+        track.mute = fields[1].getIntValue() != 0;
+        track.levelDb = (float) fields[2].getIntValue() / 100.0f;
+
+        const auto& encodedSteps = fields[3];
+        for (int s = 0; s < total; ++s)
+        {
+            const auto token = encodedSteps.substring (s * 2, s * 2 + 2);
+            auto& step = track.steps[(size_t) s];
+            if (token.isEmpty() || token == "..")
+            {
+                step.on = false;
+                step.velocity = 100;
+            }
+            else
+            {
+                step.on = true;
+                step.velocity = juce::jlimit (1, 127, (int) token.getHexValue32());
+            }
+        }
+
+        ++pattern.trackCount;
+    }
+
+    return true;
+}
 constexpr double kTineRatios[4] = { 1.0, 6.27, 17.55, 34.5 };
 constexpr double kTineAmps[4] = { 1.0, 0.45, 0.22, 0.10 };
 constexpr double kTineDecay[4] = { 0.99986, 0.99935, 0.9982, 0.9960 };
@@ -25,6 +130,8 @@ juce::String kindName (NativeKind kind)
     if (kind == NativeKind::mdaPiano) return "Preseter Piano";
     if (kind == NativeKind::mdaDx10) return "Preseter DX10";
     if (kind == NativeKind::mdaJx10) return "Preseter JX10";
+    if (kind == NativeKind::synth2) return "Preseter Synth2";
+    if (kind == NativeKind::drums) return "Preseter Drums";
     return "Preseter Wurly";
 }
 
@@ -35,6 +142,8 @@ juce::String kindId (NativeKind kind)
     if (kind == NativeKind::mdaPiano) return "preseter.piano";
     if (kind == NativeKind::mdaDx10) return "preseter.dx";
     if (kind == NativeKind::mdaJx10) return "preseter.jx";
+    if (kind == NativeKind::synth2) return "preseter.synth2";
+    if (kind == NativeKind::drums) return "preseter.drums";
     return "preseter.reeds";
 }
 } // namespace
@@ -47,16 +156,64 @@ std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id)
     if (id == "preseter.piano") return std::make_unique<NativeProcessor> (NativeKind::mdaPiano, id, kindName (NativeKind::mdaPiano));
     if (id == "preseter.dx") return std::make_unique<NativeProcessor> (NativeKind::mdaDx10, id, kindName (NativeKind::mdaDx10));
     if (id == "preseter.jx") return std::make_unique<NativeProcessor> (NativeKind::mdaJx10, id, kindName (NativeKind::mdaJx10));
+    if (id == "preseter.synth2") return std::make_unique<NativeProcessor> (NativeKind::synth2, id, kindName (NativeKind::synth2));
+    if (id == "preseter.drums") return std::make_unique<NativeProcessor> (NativeKind::drums, id, kindName (NativeKind::drums));
     return nullptr;
 }
+
+/** Parâmetro inteiro do Synth2 com o texto formatado pelo próprio motor (Hz,
+    semitons, divisões de tempo...), igual ao painel do Synth1/Synth2. */
+class Synth2Parameter final : public juce::AudioParameterInt
+{
+public:
+    Synth2Parameter (const juce::ParameterID& parameterID, const juce::String& name,
+                     int synth2Index, int minimum, int maximum, int defaultValue)
+        : AudioParameterInt (parameterID, name, minimum, maximum, defaultValue),
+          index (synth2Index), minValue (minimum), maxValue (maximum)
+    {
+    }
+
+    juce::String getText (float normalisedValue, int) const override
+    {
+        const auto value = minValue + (int) std::lround ((double) juce::jlimit (0.0f, 1.0f, normalisedValue)
+                                                       * (double) (maxValue - minValue));
+        return juce::String (oxo::s2::FormatParam (index, value));
+    }
+
+private:
+    int index;
+    int minValue;
+    int maxValue;
+};
 
 juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayout (NativeKind kind)
 {
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
 
+    if (kind == NativeKind::synth2)
+    {
+        for (int i = 0; i < oxo::s2::kParamCount; ++i)
+        {
+            const auto& info = oxo::s2::kParams[(size_t) i];
+            layout.add (std::make_unique<Synth2Parameter> (
+                ParameterID { info.key, 1 }, info.name, i, info.min, info.max,
+                oxo::s2::kInitPatchValues[(size_t) i]));
+        }
+
+        // Volume mestre (fora do patch .sy1, como no Synth1/Synth2).
+        layout.add (std::make_unique<Synth2Parameter> (
+            ParameterID { "volume", 1 }, "volume", oxo::s2::kVolumeParamId, 0, 127, 64));
+        return layout;
+    }
+
     if (kind == NativeKind::mdaPiano || kind == NativeKind::mdaDx10
         || kind == NativeKind::mdaJx10)
+        return layout;
+
+    // D2: o Preseter Drums ainda não tem parâmetros (o kit e o sequenciador
+    // entram nas próximas tarefas). Layout vazio, estado vazio serializável.
+    if (kind == NativeKind::drums)
         return layout;
 
     const auto add = [&layout] (const char* id, const char* name, float minimum, float maximum,
@@ -143,13 +300,39 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
         mdaProcessor = createMdaDx10();
     else if (kind == NativeKind::mdaJx10)
         mdaProcessor = createMdaJx10();
+    else if (kind == NativeKind::synth2)
+        synth2 = std::make_unique<Synth2Dsp>();
+    else if (kind == NativeKind::drums)
+    {
+        drumKit = std::make_unique<drums::DrumKitEngine>();
+        drumSequencer = std::make_unique<drums::DrumSequencer>();
+    }
 
     applyProgram (0);
 }
 
+NativeProcessor::~NativeProcessor() = default;
+
 void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
+
+    // D2/D3: Preseter Drums — prepara o motor de pads (o kit é carregado na
+    // thread de mensagem, em `loadDrumKit`).
+    if (kind == NativeKind::drums)
+    {
+        if (drumKit != nullptr)
+            drumKit->prepare (sampleRate, samplesPerBlock);
+        return;
+    }
+
+    if (kind == NativeKind::synth2)
+    {
+        if (synth2 != nullptr)
+            synth2->prepare (sampleRate);
+        synth2ForceParams.store (true);
+        return;
+    }
 
     if (mdaProcessor)
     {
@@ -221,11 +404,18 @@ bool NativeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 double NativeProcessor::getTailLengthSeconds() const
 {
+    if (kind == NativeKind::drums) return 2.5;
+    if (kind == NativeKind::synth2) return 4.5;
     return mdaProcessor ? mdaProcessor->getTailLengthSeconds() : 2.0;
 }
 
 int NativeProcessor::getActiveVoices() const noexcept
 {
+    if (kind == NativeKind::drums)
+        return drumKit != nullptr ? drumKit->getActiveVoices() : 0;
+    if (kind == NativeKind::synth2)
+        return synth2 != nullptr ? synth2->activeVoices() : 0;
+
     // Os portes do MDA inicializam o contador de vozes em prepareToPlay/reset
     // (o construtor do JX10 não o inicializa). Antes disso o valor é lixo.
     if (mdaProcessor == nullptr || !mdaPrepared)
@@ -307,6 +497,93 @@ void NativeProcessor::stopNote (int note)
 void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // D3/D4: pads + sequenciador. O MIDI do teclado e os passos do sequenciador
+    // são aplicados na amostra exata, com um array fixo (sem alocar).
+    if (kind == NativeKind::drums)
+    {
+        buffer.clear();
+        const int numSamples = buffer.getNumSamples();
+        if (drumKit == nullptr || numSamples <= 0)
+        {
+            midi.clear();
+            return;
+        }
+
+        drumKit->beginBlock();
+        int inputCount = 0;
+        for (const auto metadata : midi)
+        {
+            if (inputCount >= (int) drumInputEvents.size())
+                break;
+
+            const auto message = metadata.getMessage();
+            if (message.isSysEx())
+                continue; // sysex pode alocar ao copiar; o drums não o usa
+
+            auto& event = drumInputEvents[(size_t) inputCount];
+            event.position = juce::jlimit (0, numSamples, metadata.samplePosition);
+            event.message = message;
+            ++inputCount;
+        }
+        midi.clear();
+
+        const int sequenceCount = drumSequencer != nullptr
+            ? drumSequencer->process (numSamples)
+            : 0;
+        const auto* sequenceEvents = sequenceCount > 0 ? drumSequencer->getEvents() : nullptr;
+
+        int inputIndex = 0;
+        int sequenceIndex = 0;
+        int position = 0;
+
+        while (inputIndex < inputCount || sequenceIndex < sequenceCount)
+        {
+            const int nextInput = inputIndex < inputCount
+                ? drumInputEvents[(size_t) inputIndex].position
+                : numSamples;
+            const int nextSequence = sequenceIndex < sequenceCount
+                ? sequenceEvents[sequenceIndex].sampleOffset
+                : numSamples;
+            const int next = juce::jmin (nextInput, nextSequence);
+
+            if (next > position)
+            {
+                drumKit->render (buffer, position, next - position);
+                position = next;
+            }
+
+            while (inputIndex < inputCount
+                   && drumInputEvents[(size_t) inputIndex].position == next)
+            {
+                const auto& message = drumInputEvents[(size_t) inputIndex].message;
+                if (message.isNoteOn())
+                    drumKit->noteOn (message.getNoteNumber(),
+                                     (float) message.getVelocity() / 127.0f);
+                else if (message.isAllNotesOff() || message.isAllSoundOff())
+                    drumKit->allNotesOff();
+                ++inputIndex;
+            }
+
+            while (sequenceIndex < sequenceCount
+                   && sequenceEvents[sequenceIndex].sampleOffset == next)
+            {
+                const auto& event = sequenceEvents[sequenceIndex];
+                drumKit->noteOn (36 + event.pad, (float) event.velocity / 127.0f);
+                ++sequenceIndex;
+            }
+        }
+
+        if (position < numSamples)
+            drumKit->render (buffer, position, numSamples - position);
+        return;
+    }
+
+    if (kind == NativeKind::synth2)
+    {
+        processSynth2 (buffer, midi);
+        return;
+    }
 
     if (mdaProcessor)
     {
@@ -497,8 +774,114 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     renderModal (buffer, buffer.getNumSamples());
 }
 
+void NativeProcessor::processSynth2 (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    buffer.clear();
+
+    if (synth2 == nullptr)
+    {
+        midi.clear();
+        return;
+    }
+
+    const int numSamples = buffer.getNumSamples();
+    auto* left = buffer.getNumChannels() > 0 ? buffer.getWritePointer (0) : nullptr;
+    auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
+
+    if (left == nullptr)
+    {
+        midi.clear();
+        return;
+    }
+
+    if (auto* head = getPlayHead())
+        if (auto position = head->getPosition())
+            synth2->setTransport (position->getBpm().orFallback (120.0),
+                                  position->getPpqPosition().orFallback (0.0),
+                                  position->getIsPlaying());
+
+    const bool force = synth2ForceParams.exchange (false, std::memory_order_relaxed);
+    if (synth2PatchReload.exchange (false, std::memory_order_relaxed))
+        synth2->requestPatchReload();
+
+    synth2->beginPatchIfNeeded();
+
+    for (int i = 0; i < kSynth2ParamCount; ++i)
+    {
+        const auto& info = oxo::s2::kParams[(size_t) i];
+        const int value = juce::jlimit (info.min, info.max,
+                                        juce::roundToInt (parameter (info.key)));
+        if (force || value != synth2Values[(size_t) i])
+        {
+            synth2->setParam (i, value);
+            synth2Values[(size_t) i] = value;
+        }
+    }
+
+    const int volume = juce::jlimit (0, 127, juce::roundToInt (parameter ("volume")));
+    if (force || volume != synth2Volume)
+    {
+        synth2->setVolume (volume);
+        synth2Volume = volume;
+    }
+
+    synth2->beginBlock (numSamples);
+
+    int pos = 0;
+    for (const auto metadata : midi)
+    {
+        const auto message = metadata.getMessage();
+        int at = juce::jlimit (pos, numSamples, metadata.samplePosition);
+        if (message.isNoteOnOrOff())
+            at &= ~15; // o original inicia/encerra notas no começo do sub-bloco de 16 samples
+        at = juce::jlimit (pos, numSamples, at);
+
+        if (at > pos)
+        {
+            synth2->render (left + pos, right != nullptr ? right + pos : nullptr, at - pos);
+            pos = at;
+        }
+
+        if (message.isNoteOn())
+            synth2->noteOn (message.getNoteNumber(), juce::jlimit (1, 127, (int) message.getVelocity()));
+        else if (message.isNoteOff())
+            synth2->noteOff (message.getNoteNumber());
+        else if (message.isPitchWheel())
+            synth2->pitchBend (message.getPitchWheelValue());
+        else if (message.isController())
+            synth2->controlChange (message.getControllerNumber(), message.getControllerValue());
+        else if (message.isChannelPressure())
+            synth2->channelPressure (message.getChannelPressureValue());
+        else if (message.isProgramChange())
+        {
+            synth2PendingProgram.store (message.getProgramChangeNumber(), std::memory_order_relaxed);
+            triggerAsyncUpdate();
+        }
+        else if (message.isAllNotesOff())
+            synth2->allNotesOff (false);
+        else if (message.isAllSoundOff())
+            synth2->panic();
+    }
+
+    if (pos < numSamples)
+        synth2->render (left + pos, right != nullptr ? right + pos : nullptr, numSamples - pos);
+
+    midi.clear();
+}
+
 void NativeProcessor::handleAsyncUpdate()
 {
+    if (kind == NativeKind::synth2)
+    {
+        const int program = synth2PendingProgram.exchange (-1, std::memory_order_relaxed);
+        if (program >= 0)
+        {
+            applyProgram (program);
+            synth2PatchReload.store (true, std::memory_order_relaxed);
+        }
+        return;
+    }
+
     const int mode = pendingLeslieFromMidi.exchange (-1);
     if (mode < 0 || kind != NativeKind::organ)
         return;
@@ -653,6 +1036,9 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
 int NativeProcessor::getNumPrograms()
 {
     if (mdaProcessor) return mdaProcessor->getNumPrograms();
+    if (kind == NativeKind::synth2)
+        return synth2Programs.empty() ? 1 : (int) synth2Programs.size();
+    if (kind == NativeKind::drums) return 1; // D2: "Kit vazio"; os kits entram na D3/D8.
     if (kind == NativeKind::organ) return 4;
     if (kind == NativeKind::tines) return 4;
     return 4;
@@ -682,6 +1068,31 @@ void NativeProcessor::applyProgram (int index)
         const int count = juce::jmax (1, mdaProcessor->getNumPrograms());
         currentProgram = juce::jlimit (0, count - 1, index);
         mdaProcessor->setCurrentProgram (currentProgram);
+        return;
+    }
+
+    if (kind == NativeKind::synth2)
+    {
+        currentProgram = juce::jlimit (0, getNumPrograms() - 1, index);
+        const Synth2PatchValues& source = synth2Programs.empty()
+            ? oxo::s2::kInitPatchValues
+            : synth2Programs[(size_t) currentProgram].values;
+
+        for (int i = 0; i < oxo::s2::kParamCount; ++i)
+            setParameterValue (oxo::s2::kParams[(size_t) i].key, (float) source[(size_t) i]);
+
+        const auto name = synth2Programs.empty()
+            ? juce::String ("INIT")
+            : synth2Programs[(size_t) currentProgram].name;
+        apvts.state.setProperty ("synth2PatchName", name, nullptr);
+        synth2ForceParams.store (true, std::memory_order_relaxed);
+        return;
+    }
+
+    // D2: o Preseter Drums ainda não tem kits; mantém um programa vazio.
+    if (kind == NativeKind::drums)
+    {
+        currentProgram = 0;
         return;
     }
 
@@ -810,6 +1221,16 @@ const juce::String NativeProcessor::getProgramName (int index)
 {
     if (mdaProcessor)
         return mdaProcessor->getProgramName (index);
+    if (kind == NativeKind::synth2)
+    {
+        if (synth2Programs.empty())
+            return index == 0 ? juce::String ("INIT") : juce::String();
+        return juce::isPositiveAndBelow (index, (int) synth2Programs.size())
+            ? synth2Programs[(size_t) index].name
+            : juce::String();
+    }
+    if (kind == NativeKind::drums)
+        return index == 0 ? juce::String ("Kit vazio") : juce::String();
     if (kind == NativeKind::organ)
     {
         static const char* names[] = { "Jazz", "Gospel", "Rock", "Combo" };
@@ -841,6 +1262,20 @@ void NativeProcessor::getStateInformation (juce::MemoryBlock& destData)
         mdaProcessor->getStateInformation (destData);
         return;
     }
+
+    if (kind == NativeKind::drums)
+    {
+        auto state = apvts.copyState();
+        state.setProperty ("drumKitPath", drumKitPath, nullptr);
+        state.setProperty ("drumKitBank", drumKitBank, nullptr);
+        state.setProperty ("drumKitProgram", drumKitProgram, nullptr);
+        state.setProperty ("drumPattern", serializeDrumPattern (drumPattern), nullptr);
+        state.setProperty ("drumGainDb", juce::roundToInt (drumGainDb * 100.0f), nullptr);
+        if (auto xml = state.createXml())
+            copyXmlToBinary (*xml, destData);
+        return;
+    }
+
     if (auto xml = apvts.copyState().createXml())
         copyXmlToBinary (*xml, destData);
 }
@@ -853,7 +1288,368 @@ void NativeProcessor::setStateInformation (const void* data, int sizeInBytes)
         return;
     }
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    {
+        auto state = juce::ValueTree::fromXml (*xml);
+        if (kind == NativeKind::drums)
+        {
+            drumKitPath = state.getProperty ("drumKitPath").toString();
+
+            // Atributos de XML viram strings no ValueTree: converte sem perder
+            // o número (o `(int) var` de uma string daria 0).
+            const auto readInt = [&state] (const juce::Identifier& name, int fallback)
+            {
+                const auto value = state.getProperty (name);
+                if (value.isInt() || value.isDouble())
+                    return (int) value;
+                if (value.isString())
+                    return value.toString().getIntValue();
+                return fallback;
+            };
+            drumKitBank = readInt ("drumKitBank", 128);
+            drumKitProgram = readInt ("drumKitProgram", 0);
+            drumGainDb = juce::jlimit (-60.0f, 12.0f,
+                                       (float) readInt ("drumGainDb", 0) / 100.0f);
+            if (drumKit != nullptr)
+                drumKit->setOutputGainDb (drumGainDb);
+
+            // Recarrega o kit se o estado aponta para outro arquivo. A troca no
+            // DrumKitEngine é segura: as vozes em andamento continuam no kit
+            // antigo e as próximas usam o novo.
+            if (drumKit != nullptr && drumKitPath.isNotEmpty())
+            {
+                const juce::File kitFile (drumKitPath);
+                if (kitFile.existsAsFile()
+                    && (drumKit->getSourcePath() != drumKitPath
+                        || drumKit->getBank() != drumKitBank
+                        || drumKit->getProgram() != drumKitProgram))
+                {
+                    juce::String ignored;
+                    drumKit->load (kitFile, drumKitBank, drumKitProgram, ignored);
+                }
+            }
+
+            // Padrão (v1). Ausente = estado antigo: mantém o padrão atual (vazio
+            // no instrumento novo), sem erro.
+            const auto patternText = state.getProperty ("drumPattern").toString();
+            drums::DrumPattern restored;
+            if (patternText.isNotEmpty() && parseDrumPattern (patternText, restored))
+            {
+                drumPattern = drums::sanitizedPattern (restored);
+                applyDrumPatternPadSettings (drumPattern);
+                if (drumSequencer != nullptr)
+                    drumSequencer->publishPattern (drumPattern);
+            }
+        }
+        apvts.replaceState (state);
+        if (kind == NativeKind::synth2)
+        {
+            synth2ForceParams.store (true, std::memory_order_relaxed);
+            synth2PatchReload.store (true, std::memory_order_relaxed);
+        }
+    }
+}
+
+bool NativeProcessor::loadDrumKit (const juce::File& file, int bank, int program,
+                                   juce::String& error)
+{
+    if (kind != NativeKind::drums || drumKit == nullptr)
+        return false;
+
+    if (! drumKit->load (file, bank, program, error))
+        return false;
+
+    drumKitPath = file.getFullPathName();
+    drumKitBank = bank;
+    drumKitProgram = program;
+    drumKit->setOutputGainDb (drumGainDb);
+    return true;
+}
+
+juce::String NativeProcessor::describeDrumKit() const
+{
+    return drumKit != nullptr ? drumKit->describe() : juce::String();
+}
+
+void NativeProcessor::setMasterClock (const MasterClock* clockToUse)
+{
+    masterClock = clockToUse;
+    if (drumSequencer != nullptr)
+        drumSequencer->setMasterClock (clockToUse);
+}
+
+void NativeProcessor::setDrumSequencerEnabled (bool shouldBeEnabled)
+{
+    if (drumSequencer != nullptr)
+        drumSequencer->setEnabled (shouldBeEnabled);
+}
+
+bool NativeProcessor::isDrumSequencerEnabled() const
+{
+    return drumSequencer != nullptr && drumSequencer->isEnabled();
+}
+
+int NativeProcessor::getDrumCurrentStep() const
+{
+    return drumSequencer != nullptr ? drumSequencer->getCurrentStep() : -1;
+}
+
+void NativeProcessor::setDrumSolo (int pad)
+{
+    if (drumKit == nullptr)
+        return;
+    for (int index = 0; index < drums::DrumKitEngine::kPadCount; ++index)
+        drumKit->setPadSolo (index, index == pad);
+}
+
+void NativeProcessor::setDrumGainDb (float db)
+{
+    drumGainDb = juce::jlimit (-60.0f, 12.0f, db);
+    if (drumKit != nullptr)
+        drumKit->setOutputGainDb (drumGainDb);
+}
+
+bool NativeProcessor::setDrumPattern (const juce::var& options, juce::String& error)
+{
+    if (kind != NativeKind::drums || drumSequencer == nullptr)
+    {
+        error = "Este layer nao e um Preseter Drums.";
+        return false;
+    }
+
+    if (! options.isObject())
+    {
+        error = "Padrao invalido.";
+        return false;
+    }
+
+    const juce::var patternVar = options.hasProperty ("pattern") ? options["pattern"] : options;
+    if (! patternVar.isObject())
+    {
+        error = "Padrao invalido.";
+        return false;
+    }
+
+    const int stepsPerBar = (int) patternVar.getProperty ("stepsPerBar", 16);
+    const int bars = (int) patternVar.getProperty ("bars", 1);
+    if (! drums::isSupportedStepsPerBar (stepsPerBar))
+    {
+        error = "stepsPerBar deve ser 8, 12, 16 ou 32.";
+        return false;
+    }
+    if (! drums::isSupportedBars (bars))
+    {
+        error = "bars deve ser 1, 2 ou 4.";
+        return false;
+    }
+
+    drums::DrumPattern pattern;
+    pattern.stepsPerBar = stepsPerBar;
+    pattern.bars = bars;
+    pattern.swing = (float) (double) patternVar.getProperty ("swing", 0.0);
+
+    if (auto* tracks = patternVar["tracks"].getArray())
+    {
+        int trackCount = 0;
+        for (const auto& item : *tracks)
+        {
+            if (trackCount >= drums::kMaxTracks)
+                break;
+            if (! item.isObject())
+                continue;
+
+            auto& track = pattern.tracks[(size_t) trackCount];
+            track.pad = juce::jlimit (0, 15, (int) item.getProperty ("pad", trackCount));
+            track.mute = (bool) item.getProperty ("mute", false);
+            track.levelDb = (float) (double) item.getProperty ("level", 0.0);
+
+            if (auto* steps = item["steps"].getArray())
+            {
+                const int total = pattern.totalSteps();
+                int stepIndex = 0;
+                for (const auto& stepVar : *steps)
+                {
+                    if (stepIndex >= total)
+                        break;
+
+                    auto& step = track.steps[(size_t) stepIndex];
+                    if (stepVar.isObject())
+                    {
+                        step.on = (bool) stepVar.getProperty ("on", false);
+                        step.velocity = juce::jlimit (1, 127,
+                            (int) stepVar.getProperty ("velocity", 100));
+                    }
+                    else if (stepVar.isBool())
+                    {
+                        step.on = (bool) stepVar;
+                        step.velocity = 100;
+                    }
+                    else if (stepVar.isInt() || stepVar.isDouble())
+                    {
+                        const int value = (int) stepVar;
+                        step.on = value > 0;
+                        step.velocity = value > 0 ? juce::jlimit (1, 127, value) : 100;
+                    }
+                    ++stepIndex;
+                }
+            }
+
+            ++trackCount;
+        }
+        pattern.trackCount = trackCount;
+    }
+
+    drumPattern = drums::sanitizedPattern (pattern);
+    applyDrumPatternPadSettings (drumPattern);
+    drumSequencer->publishPattern (drumPattern);
+    return true;
+}
+
+void NativeProcessor::applyDrumPatternPadSettings (const drums::DrumPattern& pattern)
+{
+    if (drumKit == nullptr)
+        return;
+
+    for (int t = 0; t < pattern.trackCount; ++t)
+    {
+        const auto& track = pattern.tracks[(size_t) t];
+        drumKit->setPadLevelDb (track.pad, track.levelDb);
+        drumKit->setPadMuted (track.pad, track.mute);
+    }
+}
+
+juce::var NativeProcessor::describeDrums() const
+{
+    auto* object = new juce::DynamicObject();
+    object->setProperty ("enabled", isDrumSequencerEnabled());
+    object->setProperty ("currentStep",
+                         drumSequencer != nullptr ? drumSequencer->getCurrentStep() : -1);
+    object->setProperty ("stepsPerBar", drumPattern.stepsPerBar);
+    object->setProperty ("bars", drumPattern.bars);
+    object->setProperty ("swing", drumPattern.swing);
+    object->setProperty ("trackCount", drumPattern.trackCount);
+    object->setProperty ("totalSteps", drumPattern.totalSteps());
+    object->setProperty ("gainDb", drumGainDb);
+    object->setProperty ("kit", describeDrumKit());
+
+    juce::Array<juce::var> tracks;
+    for (int t = 0; t < drumPattern.trackCount; ++t)
+    {
+        const auto& track = drumPattern.tracks[(size_t) t];
+        auto* trackObject = new juce::DynamicObject();
+        trackObject->setProperty ("pad", track.pad);
+        trackObject->setProperty ("mute", track.mute);
+        trackObject->setProperty ("level", track.levelDb);
+
+        juce::Array<juce::var> steps;
+        for (int s = 0; s < drumPattern.totalSteps(); ++s)
+        {
+            auto* stepObject = new juce::DynamicObject();
+            stepObject->setProperty ("on", track.steps[(size_t) s].on);
+            stepObject->setProperty ("velocity", track.steps[(size_t) s].velocity);
+            steps.add (juce::var (stepObject));
+        }
+        trackObject->setProperty ("steps", steps);
+        tracks.add (juce::var (trackObject));
+    }
+    object->setProperty ("tracks", tracks);
+
+    juce::Array<juce::var> pads;
+    for (int p = 0; p < drums::DrumKitEngine::kPadCount; ++p)
+    {
+        auto* padObject = new juce::DynamicObject();
+        padObject->setProperty ("index", p);
+        padObject->setProperty ("note", drums::DrumKitEngine::kFirstPadNote + p);
+        padObject->setProperty ("name", drums::DrumKitEngine::padName (p));
+        padObject->setProperty ("levelDb", drumKit != nullptr ? drumKit->getPadLevelDb (p) : 0.0f);
+        padObject->setProperty ("muted", drumKit != nullptr && drumKit->getPadMuted (p));
+        padObject->setProperty ("solo", drumKit != nullptr && drumKit->getPadSolo (p));
+        pads.add (juce::var (padObject));
+    }
+    object->setProperty ("pads", pads);
+
+    return juce::var (object);
+}
+
+bool NativeProcessor::loadSynth2Patch (const juce::String& text, const juce::String& name)
+{
+    if (kind != NativeKind::synth2)
+        return false;
+
+    Synth2PatchValues values {};
+    if (! Synth2Dsp::parseSy1 (text.toStdString(), values))
+        return false;
+
+    for (int i = 0; i < oxo::s2::kParamCount; ++i)
+        setParameterValue (oxo::s2::kParams[(size_t) i].key, (float) values[(size_t) i]);
+
+    apvts.state.setProperty ("synth2PatchName", name.isNotEmpty() ? name : "INIT", nullptr);
+    currentProgram = -1; // patch avulso: não é um dos programas de fábrica
+    synth2ForceParams.store (true, std::memory_order_relaxed);
+    synth2PatchReload.store (true, std::memory_order_relaxed);
+    return true;
+}
+
+void NativeProcessor::loadSynth2FactoryPrograms (const juce::String& directory)
+{
+    if (kind != NativeKind::synth2)
+        return;
+
+    synth2Programs.clear();
+
+    juce::File root (directory);
+    if (! root.isDirectory())
+        return;
+
+    juce::Array<juce::File> found;
+    root.findChildFiles (found, juce::File::findFiles, false, "*.sy1");
+
+    std::vector<juce::File> files;
+    files.reserve ((size_t) found.size());
+    for (const auto& file : found)
+        files.push_back (file);
+
+    std::sort (files.begin(), files.end(), [] (const juce::File& a, const juce::File& b)
+    {
+        return a.getFileName() < b.getFileName();
+    });
+
+    for (const auto& file : files)
+    {
+        Synth2PatchValues values {};
+        std::string name;
+        if (! Synth2Dsp::parseSy1 (file.loadFileAsString().toStdString(), values, &name))
+            continue;
+
+        Synth2Program program;
+        program.name = juce::String::fromUTF8 (name.c_str(), (int) name.size());
+        if (program.name.isEmpty())
+            program.name = file.getFileNameWithoutExtension();
+        program.values = values;
+        synth2Programs.push_back (std::move (program));
+    }
+
+    currentProgram = juce::jlimit (0, getNumPrograms() - 1, currentProgram);
+}
+
+juce::String NativeProcessor::getSynth2PatchName() const
+{
+    if (kind != NativeKind::synth2)
+        return {};
+    const auto name = apvts.state.getProperty ("synth2PatchName").toString();
+    return name.isNotEmpty() ? name : "INIT";
+}
+
+juce::String NativeProcessor::exportSynth2Patch (const juce::String& name) const
+{
+    if (kind != NativeKind::synth2)
+        return {};
+
+    Synth2PatchValues values {};
+    for (int i = 0; i < oxo::s2::kParamCount; ++i)
+        values[(size_t) i] = juce::roundToInt (parameter (oxo::s2::kParams[(size_t) i].key));
+
+    const auto data = Synth2Dsp::writeSy1 (name.toStdString(), values);
+    return juce::String::fromUTF8 (data.data(), (int) data.size());
 }
 
 juce::AudioProcessorEditor* NativeProcessor::createEditor()

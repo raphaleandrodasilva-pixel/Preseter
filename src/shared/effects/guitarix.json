@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "effects": [
+    {
+      "id": "preseter.gx.overdrive",
+      "bundle": "gxts9.lv2",
+      "match": "gxts9",
+      "pluginNames": ["GxTubeScreamer"],
+      "displayName": "Preseter Overdrive",
+      "shortName": "Overdrive",
+      "category": "Distorção",
+      "source": "guitarix",
+      "nativePanel": true,
+      "originalEditor": false,
+      "paramCount": 4,
+      "subtitle": "Overdrive de guitarra · 4 parâmetros",
+      "params": [
+        { "index": 0, "id": "fslider0_", "name": "Level", "engineName": "Level", "label": "Nível", "unit": "dB", "min": -20, "max": 4, "default": -16, "scale": "linear", "precision": 1, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 1, "id": "fslider1_", "name": "Tone", "engineName": "Tone", "label": "Timbre", "unit": "Hz", "min": 100, "max": 1000, "default": 400, "scale": "linear", "precision": 0, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 2, "id": "fslider2_", "name": "Drive", "engineName": "Drive", "label": "Drive", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 3, "id": "BYPASS", "name": "BYPASS", "engineName": "Bypass", "label": "Bypass", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Avançado", "collapsed": true }
+      ],
+      "presets": [
+        { "id": "default", "label": "Padrão", "values": { "0": 0.166667, "1": 0.333333, "2": 0.5, "3": 0 } },
+        { "id": "boost", "label": "Boost", "values": { "0": 0.583333, "1": 0.555556, "2": 0.15, "3": 0 } },
+        { "id": "crunch", "label": "Crunch", "values": { "0": 0.416667, "1": 0.666667, "2": 0.45, "3": 0 } },
+        { "id": "lead", "label": "Lead", "values": { "0": 0.333333, "1": 0.777778, "2": 0.75, "3": 0 } }
+      ]
+    },
+    {
+      "id": "preseter.gx.preamp",
+      "bundle": "gx_studiopre.lv2",
+      "match": "gxstudiopre",
+      "pluginNames": ["GxStudio Preamp Mono", "Gx Studio Preamp Mono"],
+      "displayName": "Preseter Preamp",
+      "shortName": "Preamp",
+      "category": "Amp/pré",
+      "source": "guitarix",
+      "nativePanel": true,
+      "originalEditor": false,
+      "paramCount": 6,
+      "subtitle": "Pré valvulado · 6 parâmetros",
+      "params": [
+        { "index": 0, "id": "bright", "name": "Bright", "engineName": "Bright", "label": "Brilho", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Controles", "collapsed": false },
+        { "index": 1, "id": "volume", "name": "Volume", "engineName": "Volume", "label": "Volume", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 2, "id": "bass", "name": "Bass", "engineName": "Bass", "label": "Graves", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 3, "id": "middle", "name": "Middle", "engineName": "Middle", "label": "Médios", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 4, "id": "treble", "name": "Treble", "engineName": "Treble", "label": "Agudos", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 5, "id": "master", "name": "Master", "engineName": "Master", "label": "Master", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false }
+      ],
+      "presets": [
+        { "id": "default", "label": "Padrão", "values": { "0": 0, "1": 0.5, "2": 0.5, "3": 0.5, "4": 0.5, "5": 0.5 } },
+        { "id": "bright", "label": "Brilhante", "values": { "0": 1, "1": 0.5, "2": 0.45, "3": 0.55, "4": 0.6, "5": 0.5 } },
+        { "id": "warm", "label": "Quente", "values": { "0": 0, "1": 0.55, "2": 0.65, "3": 0.45, "4": 0.4, "5": 0.55 } },
+        { "id": "crunch", "label": "Crunch", "values": { "0": 0, "1": 0.8, "2": 0.5, "3": 0.6, "4": 0.55, "5": 0.45 } }
+      ]
+    },
+    {
+      "id": "preseter.gx.cab",
+      "bundle": "gx_cabinet.lv2",
+      "match": "gxcabinet",
+      "pluginNames": ["GxCabinet"],
+      "displayName": "Preseter Cab",
+      "shortName": "Cab",
+      "category": "Cabine",
+      "source": "guitarix",
+      "nativePanel": true,
+      "originalEditor": false,
+      "paramCount": 5,
+      "subtitle": "Cabine com IR · 5 parâmetros",
+      "params": [
+        { "index": 0, "id": "CLevel", "name": "Cabinet", "engineName": "Cabinet", "label": "Cabine", "unit": "", "min": 0.5, "max": 5, "default": 1, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 1, "id": "CBass", "name": "Bass", "engineName": "Bass", "label": "Graves", "unit": "dB", "min": -10, "max": 10, "default": 0, "scale": "linear", "precision": 1, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 2, "id": "CTreble", "name": "Treble", "engineName": "Treble", "label": "Agudos", "unit": "dB", "min": -10, "max": 10, "default": 0, "scale": "linear", "precision": 1, "toggle": false, "group": "Controles", "collapsed": false },
+        {
+          "index": 3, "id": "c_model", "name": "Cab Model", "engineName": "Cab Model", "label": "Modelo de cabine", "unit": "",
+          "min": 0, "max": 18, "default": 0, "scale": "linear", "precision": 0, "toggle": false,
+          "choices": ["4x12", "2x12", "1x12", "4x10", "2x10", "HighGain Style", "Twin Style", "Bassman Style", "Marshall Style", "AC30 Style", "Princeton Style", "A2 Style", "1x15", "Mesa Style", "Briliant", "Vitalize", "Charisma", "1x8", "Off"],
+          "group": "Modelo", "collapsed": false
+        },
+        { "index": 4, "id": "BYPASS", "name": "BYPASS", "engineName": "Bypass", "label": "Bypass", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Avançado", "collapsed": true }
+      ],
+      "presets": [
+        { "id": "default", "label": "Padrão", "values": { "0": 0.111111, "1": 0.5, "2": 0.5, "3": 0, "4": 0 } },
+        { "id": "open", "label": "Aberto", "values": { "0": 0.222222, "1": 0.45, "2": 0.55, "3": 0, "4": 0 } },
+        { "id": "closed", "label": "Fechado", "values": { "0": 0.555556, "1": 0.575, "2": 0.45, "3": 0, "4": 0 } },
+        { "id": "bright", "label": "Brilhante", "values": { "0": 0.333333, "1": 0.4, "2": 0.6, "3": 0, "4": 0 } }
+      ]
+    },
+    {
+      "id": "preseter.gx.amp",
+      "bundle": "gx_amp.lv2",
+      "match": "gxamp",
+      "pluginNames": ["GxAmplifier-X"],
+      "displayName": "Preseter Amp",
+      "shortName": "Amp",
+      "category": "Amp/pré",
+      "source": "guitarix",
+      "nativePanel": true,
+      "originalEditor": false,
+      "paramCount": 15,
+      "subtitle": "Amp com cabine · 15 parâmetros",
+      "params": [
+        { "index": 0, "id": "MasterGain", "name": "MasterGain", "engineName": "MasterGain", "label": "Volume mestre", "unit": "dB", "min": -20, "max": 20, "default": 0, "scale": "linear", "precision": 1, "toggle": false, "group": "Ganho", "collapsed": false },
+        { "index": 1, "id": "PreGain", "name": "PreGain", "engineName": "PreGain", "label": "Ganho de entrada", "unit": "dB", "min": -20, "max": 20, "default": 0, "scale": "linear", "precision": 1, "toggle": false, "group": "Ganho", "collapsed": false },
+        { "index": 2, "id": "Distortion", "name": "Distortion", "engineName": "Distortion", "label": "Distorção", "unit": "", "min": 1, "max": 100, "default": 20, "scale": "linear", "precision": 0, "toggle": false, "group": "Ganho", "collapsed": false },
+        { "index": 3, "id": "Drive", "name": "Drive", "engineName": "Drive", "label": "Drive", "unit": "", "min": 0.01, "max": 1, "default": 0.25, "scale": "linear", "precision": 2, "toggle": false, "group": "Ganho", "collapsed": false },
+        { "index": 13, "id": "HIGHGAIN", "name": "HIGHGAIN", "engineName": "HIGHGAIN", "label": "High gain", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Ganho", "collapsed": false },
+        { "index": 5, "id": "Bass", "name": "Bass", "engineName": "Bass", "label": "Graves", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Equalização", "collapsed": false },
+        { "index": 4, "id": "Middle", "name": "Middle", "engineName": "Middle", "label": "Médios", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Equalização", "collapsed": false },
+        { "index": 6, "id": "Treble", "name": "Treble", "engineName": "Treble", "label": "Agudos", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Equalização", "collapsed": false },
+        { "index": 8, "id": "Presence", "name": "Presence", "engineName": "Presence", "label": "Presença", "unit": "", "min": 0, "max": 10, "default": 5, "scale": "linear", "precision": 1, "toggle": false, "group": "Equalização", "collapsed": false },
+        {
+          "index": 9, "id": "model", "name": "Model", "engineName": "Model", "label": "Modelo do amp", "unit": "",
+          "min": 0, "max": 18, "default": 0, "scale": "linear", "precision": 0, "toggle": false,
+          "choices": ["12ax7", "12AU7", "12AT7", "6DJ8", "6C16", "6V6", "12ax7 feedback", "12AU7 feedback", "12AT7 feedback", "6DJ8 feedback", "pre 12ax7/ master 6V6", "pre 12AU7/ master 6V6", "pre 12AT7/ master 6V6", "pre 6DJ8/ master 6V6", "pre 12ax7/ push-pull 6V6", "pre 12AU7/ push-pull 6V6", "pre 12AT7/ push pull 6V6", "pre 6DJ8/ push-pull 6V6", "--"],
+          "group": "Amp e cabine", "collapsed": false
+        },
+        {
+          "index": 10, "id": "t_model", "name": "Tonestack Model", "engineName": "Tonestack Model", "label": "Modelo do tonestack", "unit": "",
+          "min": 0, "max": 27, "default": 1, "scale": "linear", "precision": 0, "toggle": false,
+          "choices": ["default", "Bassman Style", "Twin Reverb Style", "Princeton Style", "JCM-800 Style", "JCM-2000 Style", "M-Lead Style", "M2199 Style", "AC-30 Style", "SOL 100 Style", "Mesa Boogie Style", "JTM-45 Style", "AC-15 Style", "Peavey Style", "Ibanez Style", "Roland Style", "Ampeg Style", "Rev.Rocket Style", "MIG 100 H Style", "Triple Giant Style", "Trio Preamp Style", "Hughes&Kettner Style", "Fender Junior Style", "Fender Style", "Fender Deville Style", "Gibsen Style", "Off", "Engl Style"],
+          "group": "Amp e cabine", "collapsed": false
+        },
+        {
+          "index": 11, "id": "c_model", "name": "Cab Model", "engineName": "Cab Model", "label": "Modelo de cabine", "unit": "",
+          "min": 0, "max": 18, "default": 0, "scale": "linear", "precision": 0, "toggle": false,
+          "choices": ["4x12", "2x12", "1x12", "4x10", "2x10", "HighGain Style", "Twin Style", "Bassman Style", "Marshall Style", "AC30 Style", "Princeton Style", "A2 Style", "1x15", "Mesa Style", "Briliant", "Vitalize", "Charisma", "1x8", "Off"],
+          "group": "Amp e cabine", "collapsed": false
+        },
+        { "index": 7, "id": "Cabinet", "name": "Cabinet", "engineName": "Cabinet", "label": "Cabine", "unit": "", "min": 1, "max": 20, "default": 10, "scale": "linear", "precision": 1, "toggle": false, "group": "Amp e cabine", "collapsed": false },
+        { "index": 12, "id": "BYPASS", "name": "BYPASS", "engineName": "Bypass", "label": "Bypass", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Avançado", "collapsed": true },
+        { "index": 14, "id": "trim", "name": "Post trim", "engineName": "Post trim", "label": "Ajuste pós", "unit": "", "min": 0, "max": 2, "default": 1, "scale": "linear", "precision": 2, "toggle": false, "group": "Avançado", "collapsed": true }
+      ],
+      "presets": [
+        { "id": "default", "label": "Padrão", "values": { "0": 0.5, "1": 0.5, "2": 0.191919, "3": 0.242424, "5": 0.5, "4": 0.5, "6": 0.5, "8": 0.5, "9": 0, "10": 0.037037, "11": 0, "7": 0.473684, "12": 0, "13": 0, "14": 0.5 } },
+        { "id": "clean", "label": "Clean", "values": { "0": 0.5, "1": 0.5, "2": 0, "3": 0.141414, "5": 0.5, "4": 0.5, "6": 0.5, "8": 0.5, "9": 0, "10": 0.037037, "11": 0, "7": 0.473684, "12": 0, "13": 0, "14": 0.5 } },
+        { "id": "crunch", "label": "Crunch", "values": { "0": 0.5, "1": 0.5, "2": 0.292929, "3": 0.444444, "5": 0.55, "4": 0.6, "6": 0.55, "8": 0.6, "9": 0, "10": 0.037037, "11": 0, "7": 0.473684, "12": 0, "13": 0, "14": 0.5 } },
+        { "id": "lead", "label": "Lead", "values": { "0": 0.5, "1": 0.5, "2": 0.59596, "3": 0.747475, "5": 0.5, "4": 0.65, "6": 0.6, "8": 0.7, "9": 0, "10": 0.037037, "11": 0, "7": 0.473684, "12": 0, "13": 1, "14": 0.5 } },
+        { "id": "highgain", "label": "High gain", "values": { "0": 0.5, "1": 0.5, "2": 0.79798, "3": 0.89899, "5": 0.6, "4": 0.5, "6": 0.55, "8": 0.8, "9": 0, "10": 0.037037, "11": 0, "7": 0.473684, "12": 0, "13": 1, "14": 0.5 } }
+      ]
+    },
+    {
+      "id": "preseter.gx.tremolo",
+      "bundle": "gx_tremolo.lv2",
+      "match": "gxtremolo",
+      "pluginNames": ["GxTremolo"],
+      "displayName": "Preseter Tremolo",
+      "shortName": "Tremolo",
+      "category": "Modulação",
+      "source": "guitarix",
+      "nativePanel": true,
+      "originalEditor": false,
+      "paramCount": 5,
+      "subtitle": "Tremolo de guitarra · 5 parâmetros",
+      "params": [
+        { "index": 0, "id": "dry_wet", "name": "Dry/Wet", "engineName": "Dry/Wet", "label": "Dry/Wet", "unit": "%", "min": 0, "max": 100, "default": 50, "scale": "linear", "precision": 0, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 1, "id": "mode", "name": "Mode", "engineName": "Mode", "label": "Modo", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": false, "choices": ["triangle", "sine"], "group": "Controles", "collapsed": false },
+        { "index": 2, "id": "depth", "name": "Depth", "engineName": "Depth", "label": "Profundidade", "unit": "", "min": 0, "max": 1, "default": 0.5, "scale": "linear", "precision": 2, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 3, "id": "freq", "name": "Freq", "engineName": "Freq", "label": "Velocidade", "unit": "Hz", "min": 0.1, "max": 50, "default": 5, "scale": "linear", "precision": 1, "toggle": false, "group": "Controles", "collapsed": false },
+        { "index": 4, "id": "reset", "name": "Reset", "engineName": "Reset", "label": "Reset", "unit": "", "min": 0, "max": 1, "default": 0, "scale": "linear", "precision": 0, "toggle": true, "group": "Avançado", "collapsed": true }
+      ],
+      "presets": [
+        { "id": "default", "label": "Padrão", "values": { "0": 0.5, "1": 0, "2": 0.5, "3": 0.098196, "4": 0 } },
+        { "id": "subtle", "label": "Sutil", "values": { "0": 0.3, "1": 0, "2": 0.3, "3": 0.078156, "4": 0 } },
+        { "id": "classic", "label": "Clássico", "values": { "0": 0.5, "1": 0, "2": 0.5, "3": 0.098196, "4": 0 } },
+        { "id": "fast", "label": "Rápido", "values": { "0": 0.6, "1": 1, "2": 0.6, "3": 0.158317, "4": 0 } },
+        { "id": "deep", "label": "Profundo", "values": { "0": 0.7, "1": 0, "2": 0.8, "3": 0.048096, "4": 0 } }
+      ]
+    }
+  ]
+}

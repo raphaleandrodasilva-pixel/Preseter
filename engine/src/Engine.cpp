@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include "Output.h"
+#include "TransportGrid.h"
 
 #include <juce_audio_processors/format/juce_AudioPluginFormatManagerHelpers.h>
 
@@ -175,6 +176,13 @@ public:
         const int64_t blockStart = processedSamples;
         const int64_t blockEnd = blockStart + numSamples;
 
+        // D1: quando o transporte está tocando, o arp segue a grade do relógio
+        // mestre. Parado, mantém o comportamento livre de sempre.
+        const bool transportPlaying = masterClock != nullptr
+                                   && masterClock->isPlayingAtBlockStart();
+        const bool transportChanged = transportPlaying != transportWasPlaying;
+        transportWasPlaying = transportPlaying;
+
         if (! enabled.load())
         {
             if (currentNote >= 0)
@@ -187,12 +195,20 @@ public:
 
         juce::MidiBuffer output;
 
+        if (transportChanged)
+        {
+            if (currentNote >= 0)
+                output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote), 0);
+            resetPerformance();
+        }
+
         if (pendingAllOff.exchange (false))
         {
             stopCurrent (output, blockStart, numSamples);
             resetHeld();
             nextStepAbs = -1.0;
             gateAbs = -1.0;
+            gridGatePpq = -1.0;
             stepIndex = 0;
         }
 
@@ -215,13 +231,17 @@ public:
                 resetHeld();
                 nextStepAbs = -1.0;
                 gateAbs = -1.0;
+                gridGatePpq = -1.0;
                 output.addEvent (message, juce::jlimit (0, numSamples - 1, metadata.samplePosition));
                 continue;
             }
             output.addEvent (message, juce::jlimit (0, numSamples - 1, metadata.samplePosition));
         }
 
-        pump (blockStart, blockEnd, numSamples, output);
+        if (transportPlaying)
+            pumpTransport (numSamples, output);
+        else
+            pump (blockStart, blockEnd, numSamples, output);
         midi.swapWith (output);
         processedSamples = blockEnd;
     }
@@ -256,6 +276,9 @@ public:
     }
     void setTempo (double value) { bpm.store (juce::jlimit (20.0, 300.0, value)); }
 
+    /** D1: liga o arp ao relógio mestre. Sem ele, o arp livre continua como antes. */
+    void setMasterClock (const MasterClock* clockToUse) noexcept { masterClock = clockToUse; }
+
     bool isEnabled() const { return enabled.load(); }
     int getMode() const { return mode.load(); }
     int getRate() const { return rateIndex.load(); }
@@ -280,6 +303,8 @@ private:
         nextStepAbs = -1.0;
         gateAbs = -1.0;
         stepIndex = 0;
+        gridStep = -1;
+        gridGatePpq = -1.0;
         pendingAllOff.store (false);
     }
 
@@ -507,6 +532,75 @@ private:
         }
     }
 
+    /**
+     * D1: agenda os passos na grade do relógio mestre (ppq), em vez de contar
+     * amostras a partir da primeira nota. A posição de cada evento é convertida
+     * para a amostra do bloco com a mesma aritmética do metrônomo
+     * (`TransportGrid.h`), então os dois ficam em fase.
+     */
+    void pumpTransport (int numSamples, juce::MidiBuffer& output)
+    {
+        const double ppqStart = masterClock->ppqAtBlockStart();
+        const double ppqPerSample = masterClock->ppqPerSample();
+        if (ppqPerSample <= 0.0) return;
+
+        const double stepLen = transport::stepLengthPpq (rateToDivision (rateIndex.load()));
+        const double swingPercent = (double) swing.load();
+        const double gateLen = stepLen * (double) gate.load() / 100.0;
+
+        if (gridStep < 0)
+            gridStep = transport::firstIndexAtOrAfter (ppqStart, stepLen);
+
+        const auto emitOff = [&] (double ppq)
+        {
+            if (currentNote < 0)
+            {
+                gridGatePpq = -1.0;
+                return;
+            }
+            const int offset = transport::sampleOffsetForPpq (ppq, ppqStart, ppqPerSample,
+                                                              numSamples);
+            output.addEvent (juce::MidiMessage::noteOff (currentChannel, currentNote), offset);
+            currentNote = -1;
+            gridGatePpq = -1.0;
+        };
+
+        if (gridGatePpq >= 0.0
+            && transport::eventInBlock (gridGatePpq, ppqStart, ppqPerSample, numSamples))
+            emitOff (gridGatePpq);
+
+        while (true)
+        {
+            const double stepPpq = transport::gridPpq ((std::int64_t) gridStep, stepLen,
+                                                       swingPercent);
+            if (! transport::eventInBlock (stepPpq, ppqStart, ppqPerSample, numSamples))
+                break;
+
+            if (gridGatePpq >= 0.0 && gridGatePpq < stepPpq)
+                emitOff (gridGatePpq);
+
+            int sourceNote = -1;
+            int channel = 1;
+            int velocity = 100;
+            const int note = noteForStep (sourceNote, channel, velocity);
+            if (note >= 0)
+            {
+                const int offset = transport::sampleOffsetForPpq (stepPpq, ppqStart,
+                                                                  ppqPerSample, numSamples);
+                output.addEvent (juce::MidiMessage::noteOn (channel, note,
+                                                           (juce::uint8) juce::jlimit (1, 127, velocity)),
+                                 offset);
+                currentNote = note;
+                currentChannel = channel;
+                currentVelocity = velocity;
+                gridGatePpq = stepPpq + gateLen;
+            }
+
+            ++gridStep;
+            ++stepIndex;
+        }
+    }
+
     std::atomic<bool> enabled { false };
     std::atomic<int> mode { 0 };
     std::atomic<int> rateIndex { 3 };
@@ -515,6 +609,13 @@ private:
     std::atomic<float> swing { 0.0f };
     std::atomic<bool> hold { false };
     std::atomic<double> bpm { 120.0 };
+
+    /** D1: relógio mestre. Nulo = arp sem transporte (comportamento livre). */
+    const MasterClock* masterClock = nullptr;
+    bool transportWasPlaying = false;
+    /** Próximo passo da grade em ppq; -1 = alinhar no próximo bloco. */
+    int gridStep = -1;
+    double gridGatePpq = -1.0;
 
     double sampleRate = 44100.0;
     int64_t processedSamples = 0;
@@ -619,16 +720,51 @@ public:
         if (samples <= 0 || channels <= 0) return;
 
         const bool on = enabled.load();
-        const double bpm = tempo.load();
         const int beatsPerBar = juce::jmax (1, numerator.load());
         const int denominator = juce::jmax (1, denominatorValue.load());
         const double beatLengthPpq = 4.0 / (double) denominator;
         const float gain = juce::Decibels::decibelsToGain (volumeDb.load());
-        const double ppqPerSample = bpm / 60.0 / sampleRate;
+
+        // D1: com o transporte tocando, o clique segue a grade do relógio
+        // mestre (amostra exata). Parado, mantém a contagem livre de antes.
+        const bool transportPlaying = masterClock != nullptr
+                                   && masterClock->isPlayingAtBlockStart();
+        if (transportPlaying != transportWasPlaying)
+        {
+            transportWasPlaying = transportPlaying;
+            transportBeat = transportPlaying ? 0 : -1;
+            nextBeatOffset = -1;
+            lastBeat = -1;
+            ppqPosition = 0.0;
+            clickRemaining = 0;
+        }
+
+        double ppqStart = 0.0;
+        double ppqPerSample = tempo.load() / 60.0 / sampleRate;
+
+        if (transportPlaying)
+        {
+            ppqStart = masterClock->ppqAtBlockStart();
+            ppqPerSample = masterClock->ppqPerSample();
+            if (transportBeat < 0)
+                transportBeat = (int) transport::firstIndexAtOrAfter (ppqStart, beatLengthPpq);
+            nextBeatOffset = -1;
+            advanceBeatOffset (beatLengthPpq, ppqStart, ppqPerSample, samples);
+        }
 
         for (int sample = 0; sample < samples; ++sample)
         {
-            if (on)
+            if (transportPlaying)
+            {
+                if (nextBeatOffset == sample)
+                {
+                    if (on)
+                        triggerTransportClick (beatsPerBar);
+                    ++transportBeat;
+                    advanceBeatOffset (beatLengthPpq, ppqStart, ppqPerSample, samples);
+                }
+            }
+            else if (on)
             {
                 const double ppq = ppqPosition;
                 const int beat = (int) std::floor (ppq / beatLengthPpq);
@@ -675,6 +811,9 @@ public:
     void getStateInformation (juce::MemoryBlock&) override {}
     void setStateInformation (const void*, int) override {}
 
+    /** D1: liga o metrônomo ao relógio mestre. */
+    void setMasterClock (const MasterClock* clockToUse) noexcept { masterClock = clockToUse; }
+
     void configure (bool shouldBeEnabled, double volume, bool accent, double bpmIn,
                     int numeratorIn, int denominatorIn, bool playingIn)
     {
@@ -686,6 +825,10 @@ public:
         {
             ppqPosition = 0.0;
             lastBeat = -1;
+            clickRemaining = 0;
+            transportWasPlaying = false;
+            transportBeat = -1;
+            nextBeatOffset = -1;
         }
     }
 
@@ -702,6 +845,31 @@ public:
     bool isAccentFirstBeat() const { return accentFirstBeat.load(); }
 
 private:
+    /** D1: próximo clique da grade do transporte, em amostra do bloco (-1 = nenhum). */
+    void advanceBeatOffset (double beatLengthPpq, double ppqStart, double ppqPerSample,
+                            int samples)
+    {
+        nextBeatOffset = -1;
+        if (transportBeat < 0)
+            return;
+
+        const double beatPpq = transport::gridPpq ((std::int64_t) transportBeat,
+                                                   beatLengthPpq, 0.0);
+        if (! transport::eventInBlock (beatPpq, ppqStart, ppqPerSample, samples))
+            return;
+
+        nextBeatOffset = transport::sampleOffsetForPpq (beatPpq, ppqStart, ppqPerSample, samples);
+    }
+
+    void triggerTransportClick (int beatsPerBar)
+    {
+        const int beatInBar = ((transportBeat % beatsPerBar) + beatsPerBar) % beatsPerBar;
+        const bool accent = accentFirstBeat.load() && beatInBar == 0;
+        clickFrequency = accent ? 1760.0 : 1320.0;
+        clickRemaining = samplesForClick;
+        clickAccent = accent;
+    }
+
     std::atomic<bool> enabled { false };
     std::atomic<bool> playing { false };
     std::atomic<bool> accentFirstBeat { true };
@@ -709,6 +877,11 @@ private:
     std::atomic<double> tempo { 120.0 };
     std::atomic<int> numerator { 4 };
     std::atomic<int> denominatorValue { 4 };
+    /** D1: relógio mestre (nulo = sem transporte). */
+    const MasterClock* masterClock = nullptr;
+    bool transportWasPlaying = false;
+    int transportBeat = -1;
+    int nextBeatOffset = -1;
     double sampleRate = 44100.0;
     int samplesForClick = 2048;
     double ppqPosition = 0.0;
@@ -1348,9 +1521,21 @@ Engine::Engine()
     dataDirectory.createDirectory();
     knownPluginsFile = dataDirectory.getChildFile ("known-plugins.xml");
     deadMansFile     = dataDirectory.getChildFile ("scan-deadman.txt");
+    lv2BundlesFile   = dataDirectory.getChildFile ("lv2-bundles.txt");
 
     if (auto xml = juce::XmlDocument::parse (knownPluginsFile))
         knownPlugins.recreateFromXml (*xml);
+
+    // O cache de plugins não carrega os bundles LV2 no lilv. Recarrega as
+    // pastas vistas em scans anteriores para que um insert funcione já no boot.
+    if (lv2BundlesFile.existsAsFile())
+        lv2BundleFolders.addLines (lv2BundlesFile.loadFileAsString());
+    lv2BundleFolders.removeEmptyStrings();
+    lv2BundleFolders.removeDuplicates (false);
+    warmLv2World();
+
+    // D1: relógio mestre único. O playhead dos plugins e o metrônomo leem dele.
+    playHead.setMasterClock (&masterClock);
 
     using IO = Graph::AudioGraphIOProcessor;
     audioInNode  = addGraphNode (std::make_unique<IO> (IO::audioInputNode));
@@ -1359,6 +1544,8 @@ Engine::Engine()
     midiThruNode = addGraphNode (std::make_unique<MidiThruFilter>());
     audioInputNode = addGraphNode (std::make_unique<AudioInputProcessor>());
     metronomeNode = addGraphNode (std::make_unique<MetronomeProcessor>());
+    if (auto* metronome = dynamic_cast<MetronomeProcessor*> (metronomeNode->getProcessor()))
+        metronome->setMasterClock (&masterClock);
     recorderNode = addGraphNode (std::make_unique<RecorderProcessor>());
     playbackNode = addGraphNode (std::make_unique<PlaybackProcessor>());
     masterNode   = addGraphNode (std::make_unique<ChannelStripProcessor>());
@@ -1481,6 +1668,11 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 
     const double sampleRate = device->getCurrentSampleRate();
     const int blockSize = device->getCurrentBufferSizeSamples();
+
+    // D1: o relógio mestre passa a contar com a taxa do dispositivo e volta ao
+    // compasso 1 quando o áudio (re)inicia.
+    masterClock.setSampleRate (sampleRate);
+    masterClock.reset();
     const int numIn = device->getActiveInputChannels().countNumberOfSetBits();
     const int numOut = device->getActiveOutputChannels().countNumberOfSetBits();
 
@@ -1573,6 +1765,11 @@ void Engine::audioDeviceIOCallbackWithContext (
     juce::AudioBuffer<float> buffer (channelPointers.data(), totalChannels, numSamples);
     juce::MidiBuffer midi;
     midiCollector.removeNextBlockOfMessages (midi, numSamples);
+
+    // D1: publica a posição deste bloco antes de processar o grafo. Arp,
+    // metrônomo, sequenciador (D4) e os plugins leem a mesma posição.
+    masterClock.beginBlock (numSamples);
+
     graph.processBlock (buffer, midi);
 }
 
@@ -2264,6 +2461,83 @@ static bool looksLikeLv2Bundle (const juce::File& folder)
     return false;
 }
 
+/** Acrescenta as pastas de bundle (ou as filhas delas) que existirem. */
+static void collectLv2Bundles (const juce::File& folder, juce::StringArray& out)
+{
+    if (! folder.isDirectory())
+        return;
+
+    if (folder.getChildFile ("manifest.ttl").existsAsFile())
+    {
+        out.addIfNotAlreadyThere (folder.getFullPathName());
+        return;
+    }
+
+    for (const auto& child : folder.findChildFiles (juce::File::findDirectories, false, "*"))
+        if (child.getChildFile ("manifest.ttl").existsAsFile())
+            out.addIfNotAlreadyThere (child.getFullPathName());
+}
+
+void Engine::rememberLv2Folders (const juce::StringArray& paths)
+{
+    // Descarta pastas que não existem mais (ex.: caminho do build dev depois
+    // de instalar o app empacotado).
+    for (int i = lv2BundleFolders.size(); --i >= 0;)
+        if (! juce::File (lv2BundleFolders[i]).isDirectory())
+            lv2BundleFolders.remove (i);
+
+    juce::StringArray next (lv2BundleFolders);
+    for (const auto& path : paths)
+        collectLv2Bundles (juce::File (path), next);
+
+    if (next.size() == lv2BundleFolders.size())
+        return;
+
+    lv2BundleFolders = next;
+    lv2WorldWarm = false;
+    lv2BundlesFile.replaceWithText (lv2BundleFolders.joinIntoString ("\n") + "\n");
+}
+
+void Engine::warmLv2World()
+{
+    if (lv2WorldWarm || lv2BundleFolders.isEmpty())
+        return;
+
+    juce::AudioPluginFormat* lv2 = nullptr;
+    for (int i = 0; i < formatManager.getNumFormats(); ++i)
+    {
+        auto* format = formatManager.getFormat (i);
+        if (format->getName().containsIgnoreCase ("LV2"))
+        {
+            lv2 = format;
+            break;
+        }
+    }
+
+    if (lv2 == nullptr)
+        return;
+
+    for (const auto& path : lv2BundleFolders)
+    {
+        if (! juce::File (path).isDirectory())
+            continue;
+
+        // O formato LV2 carrega o bundle no lilv ao listar os tipos da pasta;
+        // não precisamos das descrições, só do efeito colateral.
+        juce::OwnedArray<juce::PluginDescription> found;
+        lv2->findAllTypesForFile (found, path);
+    }
+
+    lv2WorldWarm = true;
+}
+
+int Engine::warmLv2Bundles (const juce::StringArray& paths)
+{
+    rememberLv2Folders (paths);
+    warmLv2World();
+    return lv2BundleFolders.size();
+}
+
 bool Engine::beginNextScanFormat()
 {
     while (scanState.nextFormatIndex < formatManager.getNumFormats())
@@ -2321,6 +2595,11 @@ void Engine::scan (const juce::StringArray& extraPaths, bool rescan, Progress pr
     scanState.extraPaths = extraPaths;
     scanState.progress   = std::move (progress);
     scanState.done       = std::move (done);
+
+    // Guarda os bundles e carrega no mundo já: o scanner pula arquivos que já
+    // estão no cache e o mundo precisa estar quente para carregar o insert.
+    rememberLv2Folders (extraPaths);
+    warmLv2World();
 
     if (beginNextScanFormat())
         startTimer (1);
@@ -2590,6 +2869,7 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
         done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
         return;
     }
+    warmLv2World();
     if (minNote < 0 || maxNote > 127 || minNote > maxNote)
     {
         done ({}, utf8 ("A região do layer deve estar entre as notas 0 e 127, com início menor ou igual ao fim."));
@@ -2845,11 +3125,30 @@ void Engine::loadNative (const juce::String& nativeId, const juce::String& reque
 
     if (options.isObject())
     {
+        if (nativeId == "preseter.synth2")
+            processor->loadSynth2FactoryPrograms (options.getProperty ("factoryPatches", "").toString());
+
         const int program = (int) options.getProperty ("programIndex", 0);
         processor->setCurrentProgram (program);
     }
 
+    // D3: Preseter Drums — o main resolve o caminho do kit e o motor o carrega
+    // aqui, antes de o processador entrar no grafo. Sem kit, fica silencioso.
+    if (nativeId == "preseter.drums" && options.isObject())
+    {
+        const auto kitPath = options["samplePath"].toString();
+        if (kitPath.isNotEmpty())
+        {
+            const int kitBank = (int) options.getProperty ("kitBank", 128);
+            const int kitProgram = (int) options.getProperty ("kitProgram", 0);
+            juce::String kitError;
+            processor->loadDrumKit (juce::File (kitPath), kitBank, kitProgram, kitError);
+        }
+    }
+
     auto* nativeProcessor = processor.get();
+    processor->setPlayHead (&playHead);
+    processor->setMasterClock (&masterClock);
 
     Layer layer;
     layer.id = layerId;
@@ -3124,6 +3423,73 @@ juce::var Engine::describeArp (const juce::String& layerId) const
         .set ("hold", arp->getHold());
 }
 
+juce::String Engine::setDrums (const juce::String& layerId, const juce::var& options,
+                               juce::var& result)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento não encontrado.");
+
+    auto* nativeProcessor = layers[(size_t) index].native;
+    if (nativeProcessor == nullptr || nativeProcessor->getNativeKind() != native::NativeKind::drums)
+        return utf8 ("Este layer não é um Preseter Drums.");
+
+    // `setDrums` também serve só para ligar/desligar: sem padrão no comando,
+    // mantém o padrão atual.
+    const bool hasPattern = options.isObject()
+        && (options.hasProperty ("pattern") || options.hasProperty ("tracks")
+            || options.hasProperty ("stepsPerBar"));
+
+    if (hasPattern)
+    {
+        juce::String error;
+        if (! nativeProcessor->setDrumPattern (options, error))
+            return error;
+    }
+
+    if (options.isObject() && options.hasProperty ("enabled"))
+        nativeProcessor->setDrumSequencerEnabled ((bool) options["enabled"]);
+
+    if (options.isObject())
+    {
+        if (options.hasProperty ("gainDb"))
+            nativeProcessor->setDrumGainDb ((float) (double) options["gainDb"]);
+        if (options.hasProperty ("soloPad"))
+            nativeProcessor->setDrumSolo ((int) options["soloPad"]);
+    }
+
+    result = nativeProcessor->describeDrums();
+    return {};
+}
+
+juce::var Engine::describeDrums (const juce::String& layerId) const
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return {};
+
+    const auto* nativeProcessor = layers[(size_t) index].native;
+    if (nativeProcessor == nullptr || nativeProcessor->getNativeKind() != native::NativeKind::drums)
+        return {};
+
+    return nativeProcessor->describeDrums();
+}
+
+juce::var Engine::describeDrumsPosition (const juce::String& layerId) const
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return {};
+
+    const auto* nativeProcessor = layers[(size_t) index].native;
+    if (nativeProcessor == nullptr || nativeProcessor->getNativeKind() != native::NativeKind::drums)
+        return {};
+
+    return Obj()
+        .set ("enabled", nativeProcessor->isDrumSequencerEnabled())
+        .set ("currentStep", nativeProcessor->getDrumCurrentStep());
+}
+
 juce::String Engine::setTranspose (int semitones)
 {
     if (semitones < -72 || semitones > 72)
@@ -3173,6 +3539,12 @@ juce::String Engine::setMidiThru (const juce::var& options)
 
 juce::String Engine::setHostClock (double bpm, int numerator, int denominator, bool playing)
 {
+    // D1: o relógio mestre é a fonte da verdade interna. O playhead legado
+    // continua recebendo os valores para compatibilidade.
+    masterClock.setTempo (bpm);
+    masterClock.setTimeSignature (numerator, denominator);
+    masterClock.setPlaying (playing);
+
     playHead.setTempo (bpm);
     playHead.setTimeSignature (numerator, denominator);
     playHead.setPlaying (playing);
@@ -3185,6 +3557,24 @@ juce::String Engine::setHostClock (double bpm, int numerator, int denominator, b
             : nullptr)
         metronome->setClock (bpm, numerator, denominator, playing);
     return {};
+}
+
+juce::var Engine::describeTransport() const
+{
+    const double ppq = masterClock.ppqAtBlockStart();
+    const double barLength = juce::jmax (1.0e-6, masterClock.barLengthPpq());
+    const double beatLength = juce::jmax (1.0e-6, masterClock.beatLengthPpq());
+    const int barIndex = (int) std::floor (ppq / barLength);
+    const int beatIndex = (int) std::floor ((ppq - (double) barIndex * barLength) / beatLength);
+
+    return Obj()
+        .set ("ppq", ppq)
+        .set ("bar", barIndex + 1)
+        .set ("beat", beatIndex + 1)
+        .set ("tempo", masterClock.tempoAtBlockStart())
+        .set ("playing", masterClock.isPlayingAtBlockStart())
+        .set ("numerator", masterClock.getNumerator())
+        .set ("denominator", masterClock.getDenominator());
 }
 
 juce::String Engine::setMetronome (bool enabled, double volumeDb, bool accentFirstBeat)
@@ -3356,6 +3746,7 @@ void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
         done ({}, utf8 ("Plugin não encontrado: ") + idOrPath);
         return;
     }
+    warmLv2World();
 
     const auto key = ownerId + "#" + juce::String (slot);
     if (loadingInsertKeys.contains (key))
@@ -3726,7 +4117,8 @@ juce::var Engine::describeLoadedPlugin (const juce::String& requestedLayerId) co
             .set ("parameterCountTotal", nativeParameters.size())
             .set ("program", layer.native->getCurrentProgram())
             .set ("programCount", nativeProgramCount)
-            .set ("programNames", juce::var (programNames));
+            .set ("programNames", juce::var (programNames))
+            .set ("patchName", layer.native->getSynth2PatchName());
     }
 
     auto* plugin = getPlugin (layerId);
@@ -4057,10 +4449,42 @@ void Engine::scanPluginPrograms (const juce::String& idOrPath, Done done)
         });
 }
 
-juce::String Engine::setPluginProgram (const juce::String& layerId, int programIndex,
-                                       juce::var& result)
+juce::String Engine::loadSynth2Patch (const juce::String& layerId, const juce::String& text,
+                                      const juce::String& name, juce::var& result)
 {
     const int layerIndex = findLayer (resolveLayerId (layerId));
+    if (layerIndex < 0)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    auto* native = layers[(size_t) layerIndex].native;
+    if (native == nullptr || native->getStableId() != "preseter.synth2")
+        return utf8 ("Este layer não é um Preseter Synth2.");
+
+    if (! native->loadSynth2Patch (text, name))
+        return utf8 ("Arquivo .sy1 inválido.");
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+}
+
+juce::String Engine::exportSynth2Patch (const juce::String& layerId, const juce::String& name,
+                                        juce::var& result) const
+{
+    const int layerIndex = findLayer (resolveLayerId (layerId));
+    if (layerIndex < 0)
+        return utf8 ("Nenhum instrumento carregado neste layer.");
+
+    const auto* native = layers[(size_t) layerIndex].native;
+    if (native == nullptr || native->getStableId() != "preseter.synth2")
+        return utf8 ("Este layer não é um Preseter Synth2.");
+
+    result = Obj().set ("data", native->exportSynth2Patch (name));
+    return {};
+}
+
+juce::String Engine::setPluginProgram (const juce::String& layerId, int programIndex,
+                                       juce::var& result)
+{    const int layerIndex = findLayer (resolveLayerId (layerId));
     if (layerIndex >= 0 && layers[(size_t) layerIndex].native != nullptr)
     {
         auto* native = layers[(size_t) layerIndex].native;
@@ -4293,6 +4717,18 @@ void Engine::changeListenerCallback (juce::ChangeBroadcaster*)
 void Engine::rebuildConnections()
 {
     const juce::ScopedLock lock (audioGraphLock);
+
+    // D1: todo MIDI FX (arpejador) segue o mesmo relógio mestre.
+    for (auto& layer : layers)
+    {
+        if (layer.midiFxNode != nullptr)
+            if (auto* arp = dynamic_cast<ArpeggiatorProcessor*> (layer.midiFxNode->getProcessor()))
+                arp->setMasterClock (&masterClock);
+
+        // D4: o sequenciador de bateria também.
+        if (layer.native != nullptr)
+            layer.native->setMasterClock (&masterClock);
+    }
 
     for (const auto& connection : graph.getConnections())
         graph.removeConnection (connection, Graph::UpdateKind::none);

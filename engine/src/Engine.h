@@ -2,6 +2,7 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include "MasterClock.h"
 #include "sampler/SamplerProcessor.h"
 #include "native/NativeProcessor.h"
 
@@ -21,10 +22,14 @@ public:
     void createAudioDeviceTypes (juce::OwnedArray<juce::AudioIODeviceType>& types) override;
 };
 
-/** Playhead do host: entrega tempo, compasso e posição aos plugins (Fase 6.2). */
+/** Playhead do host: entrega tempo, compasso e posição aos plugins (Fase 6.2).
+    Desde a D1 a posição vem do `MasterClock` (por bloco), não do relógio de parede. */
 class HostPlayHead final : public juce::AudioPlayHead
 {
 public:
+    /** Liga o playhead ao relógio mestre. */
+    void setMasterClock (const MasterClock* clockToUse) noexcept { clock = clockToUse; }
+
     void setTempo (double bpm) { tempo.store (juce::jlimit (20.0, 300.0, bpm)); }
     void setTimeSignature (int numerator, int denominator)
     {
@@ -45,6 +50,31 @@ public:
     juce::Optional<PositionInfo> getPosition() const override
     {
         PositionInfo info;
+
+        if (clock != nullptr)
+        {
+            // Posição do bloco de áudio atual: a mesma que arp, metrônomo e
+            // sequenciador leem, então plugins e instrumentos internos
+            // compartilham a fase.
+            const double bpm = clock->tempoAtBlockStart();
+            const bool masterPlaying = clock->isPlayingAtBlockStart();
+            info.setBpm (bpm);
+            info.setTimeSignature (TimeSignature { clock->getNumerator(), clock->getDenominator() });
+            info.setIsPlaying (masterPlaying);
+            if (masterPlaying)
+            {
+                const double ppq = clock->ppqAtBlockStart();
+                const double barLength = juce::jmax (1.0e-6, clock->barLengthPpq());
+                info.setPpqPosition (ppq);
+                info.setPpqPositionOfLastBarStart (std::floor (ppq / barLength) * barLength);
+            }
+            else
+            {
+                info.setPpqPosition (0.0);
+            }
+            return info;
+        }
+
         const double bpm = tempo.load();
         info.setBpm (bpm);
         info.setTimeSignature (TimeSignature { timeNumerator.load(), timeDenominator.load() });
@@ -65,6 +95,7 @@ public:
     }
 
 private:
+    const MasterClock* clock = nullptr;
     std::atomic<double> tempo { 120.0 };
     std::atomic<int> timeNumerator { 4 };
     std::atomic<int> timeDenominator { 4 };
@@ -159,12 +190,19 @@ public:
     /** Arpejador MIDI do layer (Fase 7.2). */
     juce::String setArp (const juce::String& layerId, const juce::var& options, juce::var& result);
     juce::var describeArp (const juce::String& layerId) const;
+    /** Preseter Drums: padrão e sequenciador do layer (D4). */
+    juce::String setDrums (const juce::String& layerId, const juce::var& options, juce::var& result);
+    juce::var describeDrums (const juce::String& layerId) const;
+    /** Posição leve (passo atual) para o indicador da interface (D7). */
+    juce::var describeDrumsPosition (const juce::String& layerId) const;
     /** Transpose global em semitons aplicado a todas as notas (patch + set + concert). */
     juce::String setTranspose (int semitones);
     /** Bloqueia no motor as mensagens de hardware marcadas como "Don't pass thru" (Fase 4.5). */
     juce::String setMidiThru (const juce::var& options);
     /** Relógio do host: tempo, compasso e play/stop para os plugins (Fase 6.2). */
     juce::String setHostClock (double bpm, int numerator, int denominator, bool playing);
+    /** Posição do relógio mestre (ppq, compasso, tempo e play/stop), para a interface. */
+    juce::var describeTransport() const;
     /** Metrônomo do motor (Fase 6.2). */
     juce::String setMetronome (bool enabled, double volumeDb, bool accentFirstBeat);
     /** Gravação da saída em WAV (Fase 6.4). */
@@ -203,6 +241,11 @@ public:
     void scanPluginPrograms (const juce::String& idOrPath, Done done);
     /** Troca o programa interno de um layer já carregado. */
     juce::String setPluginProgram (const juce::String& layerId, int programIndex, juce::var& result);
+    /** Preseter Synth2: aplica um patch .sy1 (texto) no layer. */
+    juce::String loadSynth2Patch (const juce::String& layerId, const juce::String& text,
+                                  const juce::String& name, juce::var& result);
+    /** Preseter Synth2: exporta os valores atuais como .sy1 (texto). */
+    juce::String exportSynth2Patch (const juce::String& layerId, const juce::String& name, juce::var& result) const;
     /** Carrega um SoundFont num player juicysfplugin já carregado (e opcionalmente o programa). */
     juce::String loadSoundFont (const juce::String& layerId, const juce::String& filePath,
                                 int programIndex, juce::var& result);
@@ -290,6 +333,20 @@ private:
     void rebuildConnections();
     void updateSoloState();
     bool findDescription (const juce::String& idOrPath, juce::PluginDescription& out);
+    /**
+     * Carrega no mundo do formato LV2 os bundles já vistos num scan. O cache
+     * de plugins (known-plugins.xml) guarda só a URI dos .lv2; sem carregar o
+     * bundle o insert falha com "Unable to locate plugin with the requested URI".
+     */
+    void warmLv2World();
+    /** Guarda as pastas .lv2 de um scan para o mundo no próximo boot. */
+    void rememberLv2Folders (const juce::StringArray& paths);
+
+public:
+    /** Carrega já os bundles das pastas dadas (o app chama isto no boot). */
+    int warmLv2Bundles (const juce::StringArray& paths);
+
+private:
     juce::AudioPluginInstance* getPlugin (const juce::String& layerId = {},
                                           int insertSlot = -1) const;
     /** Processador do layer: plugin VST3 ou instrumento nativo (sampler). */
@@ -356,7 +413,9 @@ private:
     juce::AudioBuffer<float> inputScratch;
 
     Graph::Node::Ptr audioInNode, audioOutNode, midiInNode, midiThruNode, audioInputNode, metronomeNode, recorderNode, playbackNode, masterNode, limiterNode;
-    /** Relógio do host entregue aos plugins (Fase 6.2). */
+    /** Relógio mestre único: arp, metrônomo, sequenciador e plugins (D1). */
+    MasterClock masterClock;
+    /** Relógio do host entregue aos plugins (Fase 6.2); lê o MasterClock. */
     HostPlayHead playHead;
     std::atomic<int> soloLayerCount { 0 };
     /** Transpose aplicado no filtro MIDI de cada layer (Fase 3.4). */
@@ -560,6 +619,10 @@ private:
     TailTimer tailTimer { *this };
 
     juce::File dataDirectory, knownPluginsFile, deadMansFile;
+    /** Bundles LV2 vistos em scans (persistidos em lv2-bundles.txt). */
+    juce::File lv2BundlesFile;
+    juce::StringArray lv2BundleFolders;
+    bool lv2WorldWarm = false;
 
     bool audioCallbackAttached = false;
     bool midiCallbackAttached = false;
