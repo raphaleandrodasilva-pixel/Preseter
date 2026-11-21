@@ -2,7 +2,7 @@
   "format": "preseter.concert",
   "version": 2,
   "concert": {
-    "id": "concert_mwph7gan_98",
+    "id": "concert_mwpms6ln_147",
     "name": "Coleção Preseter",
     "tempo": 100,
     "settings": {
@@ -37,16 +37,32 @@
             "pan": 0,
             "muted": false,
             "output": 1,
-            "inserts": [],
-            "enabled": false
+            "inserts": [
+              {
+                "slot": 0,
+                "pluginId": "VST3-calfNXT Reverb-8551cce-542b2b5f",
+                "name": "calfNXT Reverb",
+                "path": "C:\\Users\\rapha\\Documents\\My_apps\\preseter\\release\\win-unpacked\\resources\\plugins\\calfnxt\\calfNXTReverb.vst3",
+                "bypass": false
+              }
+            ],
+            "enabled": true
           },
           {
             "volumeDb": 0,
             "pan": 0,
             "muted": false,
             "output": 1,
-            "inserts": [],
-            "enabled": false
+            "inserts": [
+              {
+                "slot": 0,
+                "pluginId": "VST3-calfNXT Delay-15645c11-53af738b",
+                "name": "calfNXT Delay",
+                "path": "C:\\Users\\rapha\\Documents\\My_apps\\preseter\\release\\win-unpacked\\resources\\plugins\\calfnxt\\calfNXTDelay.vst3",
+                "bypass": false
+              }
+            ],
+            "enabled": true
           },
           {
             "volumeDb": 0,
@@ -104,82 +120,82 @@
       "masterVolumeDb": 0
     },
     "strips": [],
-    "createdAt": 1795209200433,
-    "updatedAt": 1795209200433
+    "createdAt": 1795218565725,
+    "updatedAt": 1795218565725
   },
   "sets": [
     {
-      "id": "set_mwph7ga9_50",
+      "id": "set_mwpms6l9_99",
       "name": "Pianos & Keys",
       "order": 0,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gac_59",
+      "id": "set_mwpms6lc_108",
       "name": "Organs",
       "order": 1,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gac_64",
+      "id": "set_mwpms6lc_113",
       "name": "Strings",
       "order": 2,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gaf_70",
+      "id": "set_mwpms6le_119",
       "name": "Brass",
       "order": 3,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gag_75",
+      "id": "set_mwpms6lg_124",
       "name": "Woodwinds",
       "order": 4,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gah_79",
+      "id": "set_mwpms6lh_128",
       "name": "Guitars & Bass",
       "order": 5,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gaj_85",
+      "id": "set_mwpms6lj_134",
       "name": "Drums & Percussion",
       "order": 6,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     },
     {
-      "id": "set_mwph7gak_89",
+      "id": "set_mwpms6lk_138",
       "name": "Synthesizers",
       "order": 7,
       "expanded": true,
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725
     }
   ],
   "patches": [
     {
-      "id": "preset_mwph7ga9_51",
+      "id": "preset_mwpms6l9_100",
       "name": "Concert Grand",
       "icon": "generic",
       "notes": "Piano de cauda",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 0,
       "programNumber": 0,
       "midiChannel": 0,
@@ -224,7 +240,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7ga9_2wiye",
+            "id": "element_default_volume_mwpms6l9_1o1nv",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -240,7 +256,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7ga9_dmxyv",
+            "id": "element_default_modulation_mwpms6l9_8pjfd",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -260,7 +276,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7ga9_8dve4",
+            "id": "element_default_midi_mwpms6l9_5kgsu",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -274,7 +290,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7ga9_z9pk3",
+            "id": "element_default_title_mwpms6l9_klq43",
             "type": "label",
             "label": "Piano de cauda",
             "labelBinding": "patch-name",
@@ -289,7 +305,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7ga9_ob2ee",
+            "id": "element_default_send1_mwpms6l9_1ummj",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -305,7 +321,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7ga9_2spwh",
+            "id": "element_default_send2_mwpms6l9_n78c4",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -321,7 +337,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7ga9_70x7m",
+            "id": "element_default_send3_mwpms6l9_j6zm2",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -337,7 +353,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7ga9_edej5",
+            "id": "element_default_send4_mwpms6l9_qlpff",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -353,7 +369,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7ga9_uwur7",
+            "id": "element_default_keyboard_mwpms6l9_essb9",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -371,7 +387,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7ga9_aq3t6",
+            "id": "element_default_expression_mwpms6l9_hjoro",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -392,7 +408,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7ga9_ft4eh",
+            "id": "element_default_sustain_mwpms6l9_0ebbc",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -416,24 +432,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7ga9_dmxyv": {
+        "element_default_modulation_mwpms6l9_8pjfd": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7ga9_aq3t6": {
+        "element_default_expression_mwpms6l9_hjoro": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7ga9_ft4eh": {
+        "element_default_sustain_mwpms6l9_0ebbc": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -443,11 +459,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaa_52",
+      "id": "preset_mwpms6l9_101",
       "name": "Soft Grand",
       "icon": "generic",
       "notes": "Piano macio",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 1,
       "programNumber": 1,
       "midiChannel": 0,
@@ -492,7 +508,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaa_yq8q9",
+            "id": "element_default_volume_mwpms6l9_m6kmo",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -508,7 +524,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaa_nvd3s",
+            "id": "element_default_modulation_mwpms6l9_dt09h",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -528,7 +544,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaa_jatu0",
+            "id": "element_default_midi_mwpms6l9_aaegd",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -542,7 +558,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaa_r33x4",
+            "id": "element_default_title_mwpms6l9_5eg0m",
             "type": "label",
             "label": "Piano macio",
             "labelBinding": "patch-name",
@@ -557,7 +573,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaa_r4xlb",
+            "id": "element_default_send1_mwpms6l9_wephp",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -573,7 +589,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaa_st8jb",
+            "id": "element_default_send2_mwpms6l9_fvvbg",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -589,7 +605,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaa_xc7ky",
+            "id": "element_default_send3_mwpms6l9_6z6xp",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -605,7 +621,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaa_17p9b",
+            "id": "element_default_send4_mwpms6l9_g4vsc",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -621,7 +637,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaa_yahhw",
+            "id": "element_default_keyboard_mwpms6l9_husgf",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -639,7 +655,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaa_x7fy1",
+            "id": "element_default_expression_mwpms6l9_2fwcb",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -660,7 +676,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaa_jpzsx",
+            "id": "element_default_sustain_mwpms6l9_cgesw",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -684,24 +700,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaa_nvd3s": {
+        "element_default_modulation_mwpms6l9_dt09h": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaa_x7fy1": {
+        "element_default_expression_mwpms6l9_2fwcb": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaa_jpzsx": {
+        "element_default_sustain_mwpms6l9_cgesw": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -711,11 +727,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaa_53",
+      "id": "preset_mwpms6la_102",
       "name": "Pop Piano",
       "icon": "piano",
       "notes": "Piano pop",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 2,
       "programNumber": 2,
       "midiChannel": 0,
@@ -760,7 +776,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaa_0drnl",
+            "id": "element_default_volume_mwpms6la_8z8fd",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -776,7 +792,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaa_ucnbf",
+            "id": "element_default_modulation_mwpms6la_gsonh",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -796,7 +812,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaa_phl0x",
+            "id": "element_default_midi_mwpms6la_bvbd1",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -810,7 +826,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaa_jnfdg",
+            "id": "element_default_title_mwpms6la_hc5y8",
             "type": "label",
             "label": "Piano pop",
             "labelBinding": "patch-name",
@@ -825,7 +841,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaa_7hkgn",
+            "id": "element_default_send1_mwpms6la_2k5vy",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -841,7 +857,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaa_o3h2t",
+            "id": "element_default_send2_mwpms6la_29hj7",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -857,7 +873,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaa_7n4ow",
+            "id": "element_default_send3_mwpms6la_dp2yf",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -873,7 +889,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaa_v9093",
+            "id": "element_default_send4_mwpms6la_ow0g2",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -889,7 +905,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaa_9ee7d",
+            "id": "element_default_keyboard_mwpms6la_uwqh4",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -907,7 +923,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaa_c2mgu",
+            "id": "element_default_expression_mwpms6la_74x4m",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -928,7 +944,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaa_0trlx",
+            "id": "element_default_sustain_mwpms6la_j0z3x",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -952,24 +968,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaa_ucnbf": {
+        "element_default_modulation_mwpms6la_gsonh": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaa_c2mgu": {
+        "element_default_expression_mwpms6la_74x4m": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaa_0trlx": {
+        "element_default_sustain_mwpms6la_j0z3x": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -979,11 +995,11 @@
       }
     },
     {
-      "id": "preset_mwph7gab_54",
+      "id": "preset_mwpms6la_103",
       "name": "Upright Piano",
       "icon": "piano",
       "notes": "Piano vertical",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 3,
       "programNumber": 3,
       "midiChannel": 0,
@@ -1028,7 +1044,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gab_9j9tl",
+            "id": "element_default_volume_mwpms6la_2ceoi",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -1044,7 +1060,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gab_hwp98",
+            "id": "element_default_modulation_mwpms6la_alk84",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -1064,7 +1080,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gab_5j70z",
+            "id": "element_default_midi_mwpms6la_pmxa9",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -1078,7 +1094,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gab_gq6sh",
+            "id": "element_default_title_mwpms6la_bsaxr",
             "type": "label",
             "label": "Piano vertical",
             "labelBinding": "patch-name",
@@ -1093,7 +1109,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gab_ybgf1",
+            "id": "element_default_send1_mwpms6la_p6a47",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -1109,7 +1125,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gab_jp47i",
+            "id": "element_default_send2_mwpms6la_w3pfj",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -1125,7 +1141,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gab_3j4tn",
+            "id": "element_default_send3_mwpms6la_hmp0s",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -1141,7 +1157,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gab_mri1q",
+            "id": "element_default_send4_mwpms6la_ku57x",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -1157,7 +1173,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gab_slvnh",
+            "id": "element_default_keyboard_mwpms6la_7f22c",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -1175,7 +1191,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gab_g8l8j",
+            "id": "element_default_expression_mwpms6la_plif7",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -1196,7 +1212,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gab_ydqy4",
+            "id": "element_default_sustain_mwpms6la_127ky",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -1220,24 +1236,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gab_hwp98": {
+        "element_default_modulation_mwpms6la_alk84": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gab_g8l8j": {
+        "element_default_expression_mwpms6la_plif7": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gab_ydqy4": {
+        "element_default_sustain_mwpms6la_127ky": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -1247,11 +1263,11 @@
       }
     },
     {
-      "id": "preset_mwph7gab_55",
+      "id": "preset_mwpms6lb_104",
       "name": "Rhodes Classic",
       "icon": "epiano",
       "notes": "Rhodes",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 4,
       "programNumber": 4,
       "midiChannel": 0,
@@ -1272,14 +1288,42 @@
             "pan": 0,
             "muted": false,
             "solo": false
-          }
+          },
+          "inserts": [
+            {
+              "slot": 0,
+              "pluginId": "VST3-calfNXT Chorus-2010497a-7c4f1009",
+              "name": "calfNXT Chorus",
+              "path": "C:\\Users\\rapha\\Documents\\My_apps\\preseter\\release\\win-unpacked\\resources\\plugins\\calfnxt\\calfNXTChorus.vst3",
+              "bypass": false
+            },
+            {
+              "slot": 1,
+              "pluginId": "VST3-calfNXT Phaser-abb7eb69-35315268",
+              "name": "calfNXT Phaser",
+              "path": "C:\\Users\\rapha\\Documents\\My_apps\\preseter\\release\\win-unpacked\\resources\\plugins\\calfnxt\\calfNXTPhaser.vst3",
+              "bypass": false
+            }
+          ]
         }
       ],
       "vstStates": {},
+      "master": {
+        "volumeDb": 0,
+        "pan": 0,
+        "muted": false,
+        "inserts": [],
+        "sends": [
+          -16,
+          -22,
+          -60,
+          -60
+        ]
+      },
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gab_zxqm6",
+            "id": "element_default_volume_mwpms6lb_mbfdf",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -1295,7 +1339,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gab_3ab1r",
+            "id": "element_default_modulation_mwpms6lb_60v4c",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -1315,7 +1359,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gab_iwjcg",
+            "id": "element_default_midi_mwpms6lb_xe42g",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -1329,7 +1373,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gab_ajw3v",
+            "id": "element_default_title_mwpms6lb_i76xq",
             "type": "label",
             "label": "Rhodes",
             "labelBinding": "patch-name",
@@ -1344,7 +1388,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gab_pjk28",
+            "id": "element_default_send1_mwpms6lb_tj9cy",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -1360,7 +1404,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gab_7px8s",
+            "id": "element_default_send2_mwpms6lb_nzmpd",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -1376,7 +1420,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gab_113ax",
+            "id": "element_default_send3_mwpms6lb_8e9c9",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -1392,7 +1436,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gab_4vtv8",
+            "id": "element_default_send4_mwpms6lb_mbl4u",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -1408,7 +1452,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gab_4wf9o",
+            "id": "element_default_keyboard_mwpms6lb_8489a",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -1426,7 +1470,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gab_k3lm7",
+            "id": "element_default_expression_mwpms6lb_gcb3p",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -1447,7 +1491,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gab_e30ta",
+            "id": "element_default_sustain_mwpms6lb_qwt24",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -1471,24 +1515,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gab_3ab1r": {
+        "element_default_modulation_mwpms6lb_60v4c": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gab_k3lm7": {
+        "element_default_expression_mwpms6lb_gcb3p": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gab_e30ta": {
+        "element_default_sustain_mwpms6lb_qwt24": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -1498,11 +1542,11 @@
       }
     },
     {
-      "id": "preset_mwph7gab_56",
+      "id": "preset_mwpms6lb_105",
       "name": "Wurlitzer EP",
       "icon": "epiano",
       "notes": "Wurly",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 5,
       "programNumber": 5,
       "midiChannel": 0,
@@ -1530,7 +1574,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gab_t66gi",
+            "id": "element_default_volume_mwpms6lb_zdmax",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -1546,7 +1590,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gab_m9eav",
+            "id": "element_default_modulation_mwpms6lb_3ht6d",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -1566,7 +1610,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gab_fufrn",
+            "id": "element_default_midi_mwpms6lb_lq6xn",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -1580,7 +1624,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gab_51usl",
+            "id": "element_default_title_mwpms6lb_4a5xo",
             "type": "label",
             "label": "Wurly",
             "labelBinding": "patch-name",
@@ -1595,7 +1639,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gab_yt215",
+            "id": "element_default_send1_mwpms6lb_qe9ko",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -1611,7 +1655,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gab_xueg0",
+            "id": "element_default_send2_mwpms6lb_k1t4i",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -1627,7 +1671,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gab_486sv",
+            "id": "element_default_send3_mwpms6lb_x6wj6",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -1643,7 +1687,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gab_oz4hy",
+            "id": "element_default_send4_mwpms6lb_t65md",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -1659,7 +1703,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gab_14loo",
+            "id": "element_default_keyboard_mwpms6lb_r3wua",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -1677,7 +1721,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gab_pyc4j",
+            "id": "element_default_expression_mwpms6lb_ken7d",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -1698,7 +1742,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gab_5y0bc",
+            "id": "element_default_sustain_mwpms6lb_jhgpb",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -1722,24 +1766,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gab_m9eav": {
+        "element_default_modulation_mwpms6lb_3ht6d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gab_pyc4j": {
+        "element_default_expression_mwpms6lb_ken7d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gab_5y0bc": {
+        "element_default_sustain_mwpms6lb_jhgpb": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -1749,11 +1793,11 @@
       }
     },
     {
-      "id": "preset_mwph7gab_57",
+      "id": "preset_mwpms6lb_106",
       "name": "FM Electric Piano",
       "icon": "piano",
       "notes": "Piano elétrico FM",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 6,
       "programNumber": 6,
       "midiChannel": 0,
@@ -1798,7 +1842,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gab_p47y5",
+            "id": "element_default_volume_mwpms6lb_p3cts",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -1814,7 +1858,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gab_dwlt5",
+            "id": "element_default_modulation_mwpms6lb_5m70s",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -1834,7 +1878,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gab_95zzh",
+            "id": "element_default_midi_mwpms6lb_v7dlj",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -1848,7 +1892,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gab_pcaq1",
+            "id": "element_default_title_mwpms6lb_2kzn3",
             "type": "label",
             "label": "Piano elétrico FM",
             "labelBinding": "patch-name",
@@ -1863,7 +1907,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gab_lxeys",
+            "id": "element_default_send1_mwpms6lb_tt7pk",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -1879,7 +1923,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gab_mtjql",
+            "id": "element_default_send2_mwpms6lb_nrjgn",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -1895,7 +1939,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gab_ux8u1",
+            "id": "element_default_send3_mwpms6lb_5dw1h",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -1911,7 +1955,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gab_0zznb",
+            "id": "element_default_send4_mwpms6lb_v8jtu",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -1927,7 +1971,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gab_l89vt",
+            "id": "element_default_keyboard_mwpms6lb_e5n7h",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -1945,7 +1989,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gab_75tll",
+            "id": "element_default_expression_mwpms6lb_qd8vq",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -1966,7 +2010,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gab_cpfb8",
+            "id": "element_default_sustain_mwpms6lb_s6xps",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -1990,24 +2034,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gab_dwlt5": {
+        "element_default_modulation_mwpms6lb_5m70s": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gab_75tll": {
+        "element_default_expression_mwpms6lb_qd8vq": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gab_cpfb8": {
+        "element_default_sustain_mwpms6lb_s6xps": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -2017,11 +2061,11 @@
       }
     },
     {
-      "id": "preset_mwph7gac_58",
+      "id": "preset_mwpms6lc_107",
       "name": "Clavinet Funk",
       "icon": "generic",
       "notes": "Clavinet",
-      "setId": "set_mwph7ga9_50",
+      "setId": "set_mwpms6l9_99",
       "setOrder": 7,
       "programNumber": 7,
       "midiChannel": 0,
@@ -2066,7 +2110,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gac_jr3qm",
+            "id": "element_default_volume_mwpms6lc_nm33r",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -2082,7 +2126,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gac_nkeae",
+            "id": "element_default_modulation_mwpms6lc_z7zrk",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -2102,7 +2146,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gac_3wlcy",
+            "id": "element_default_midi_mwpms6lc_twvt0",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -2116,7 +2160,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gac_sfro5",
+            "id": "element_default_title_mwpms6lc_t5277",
             "type": "label",
             "label": "Clavinet",
             "labelBinding": "patch-name",
@@ -2131,7 +2175,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gac_u99om",
+            "id": "element_default_send1_mwpms6lc_sbikt",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -2147,7 +2191,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gac_dcqcr",
+            "id": "element_default_send2_mwpms6lc_3i0it",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -2163,7 +2207,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gac_gki6q",
+            "id": "element_default_send3_mwpms6lc_ij930",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -2179,7 +2223,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gac_j7qvh",
+            "id": "element_default_send4_mwpms6lc_4vc7f",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -2195,7 +2239,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gac_wm7fz",
+            "id": "element_default_keyboard_mwpms6lc_mpkto",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -2213,7 +2257,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gac_50wx3",
+            "id": "element_default_expression_mwpms6lc_bd027",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -2234,7 +2278,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gac_jsbma",
+            "id": "element_default_sustain_mwpms6lc_tua8j",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -2258,24 +2302,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gac_nkeae": {
+        "element_default_modulation_mwpms6lc_z7zrk": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gac_50wx3": {
+        "element_default_expression_mwpms6lc_bd027": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gac_jsbma": {
+        "element_default_sustain_mwpms6lc_tua8j": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -2285,11 +2329,11 @@
       }
     },
     {
-      "id": "preset_mwph7gac_60",
+      "id": "preset_mwpms6lc_109",
       "name": "Hammond Jazz",
       "icon": "organ",
       "notes": "Hammond jazz",
-      "setId": "set_mwph7gac_59",
+      "setId": "set_mwpms6lc_108",
       "setOrder": 0,
       "programNumber": 8,
       "midiChannel": 0,
@@ -2317,7 +2361,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gac_1vzni",
+            "id": "element_default_volume_mwpms6lc_ahzq3",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -2333,7 +2377,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gac_2vh8z",
+            "id": "element_default_modulation_mwpms6lc_exdoa",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -2353,7 +2397,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gac_8ml8m",
+            "id": "element_default_midi_mwpms6lc_1ksnn",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -2367,7 +2411,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gac_ny6rl",
+            "id": "element_default_title_mwpms6lc_wq56u",
             "type": "label",
             "label": "Hammond jazz",
             "labelBinding": "patch-name",
@@ -2382,7 +2426,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gac_nt7d8",
+            "id": "element_default_send1_mwpms6lc_4j2fw",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -2398,7 +2442,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gac_8wyce",
+            "id": "element_default_send2_mwpms6lc_je5rr",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -2414,7 +2458,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gac_m0rft",
+            "id": "element_default_send3_mwpms6lc_uypxp",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -2430,7 +2474,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gac_12a4h",
+            "id": "element_default_send4_mwpms6lc_rztoo",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -2446,7 +2490,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gac_6klvs",
+            "id": "element_default_keyboard_mwpms6lc_m3hsa",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -2464,7 +2508,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gac_u0jjn",
+            "id": "element_default_expression_mwpms6lc_3y7fb",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -2485,7 +2529,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gac_nn85i",
+            "id": "element_default_sustain_mwpms6lc_vin87",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -2509,24 +2553,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gac_2vh8z": {
+        "element_default_modulation_mwpms6lc_exdoa": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gac_u0jjn": {
+        "element_default_expression_mwpms6lc_3y7fb": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gac_nn85i": {
+        "element_default_sustain_mwpms6lc_vin87": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -2536,11 +2580,11 @@
       }
     },
     {
-      "id": "preset_mwph7gac_61",
+      "id": "preset_mwpms6lc_110",
       "name": "Hammond Gospel",
       "icon": "organ",
       "notes": "Hammond gospel",
-      "setId": "set_mwph7gac_59",
+      "setId": "set_mwpms6lc_108",
       "setOrder": 1,
       "programNumber": 9,
       "midiChannel": 0,
@@ -2568,7 +2612,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gac_vmsfb",
+            "id": "element_default_volume_mwpms6lc_byghq",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -2584,7 +2628,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gac_w0ovu",
+            "id": "element_default_modulation_mwpms6lc_927n0",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -2604,7 +2648,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gac_k309r",
+            "id": "element_default_midi_mwpms6lc_ozaju",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -2618,7 +2662,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gac_wc1c4",
+            "id": "element_default_title_mwpms6lc_whtjz",
             "type": "label",
             "label": "Hammond gospel",
             "labelBinding": "patch-name",
@@ -2633,7 +2677,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gac_7ygmd",
+            "id": "element_default_send1_mwpms6lc_4x35q",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -2649,7 +2693,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gac_6gts4",
+            "id": "element_default_send2_mwpms6lc_xjrv2",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -2665,7 +2709,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gac_njfqg",
+            "id": "element_default_send3_mwpms6lc_eqlpb",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -2681,7 +2725,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gac_0xx4h",
+            "id": "element_default_send4_mwpms6lc_nkxnx",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -2697,7 +2741,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gac_70bp5",
+            "id": "element_default_keyboard_mwpms6lc_8pyui",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -2715,7 +2759,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gac_5nctv",
+            "id": "element_default_expression_mwpms6lc_0550t",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -2736,7 +2780,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gac_c4h72",
+            "id": "element_default_sustain_mwpms6lc_c5356",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -2760,24 +2804,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gac_w0ovu": {
+        "element_default_modulation_mwpms6lc_927n0": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gac_5nctv": {
+        "element_default_expression_mwpms6lc_0550t": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gac_c4h72": {
+        "element_default_sustain_mwpms6lc_c5356": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -2787,11 +2831,11 @@
       }
     },
     {
-      "id": "preset_mwph7gac_62",
+      "id": "preset_mwpms6lc_111",
       "name": "Hammond Rock",
       "icon": "organ",
       "notes": "Hammond rock",
-      "setId": "set_mwph7gac_59",
+      "setId": "set_mwpms6lc_108",
       "setOrder": 2,
       "programNumber": 10,
       "midiChannel": 0,
@@ -2819,7 +2863,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gac_pv8ps",
+            "id": "element_default_volume_mwpms6lc_gxk2o",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -2835,7 +2879,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gac_l3832",
+            "id": "element_default_modulation_mwpms6lc_4ewfm",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -2855,7 +2899,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gac_p8a16",
+            "id": "element_default_midi_mwpms6lc_eck29",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -2869,7 +2913,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gac_h8va0",
+            "id": "element_default_title_mwpms6lc_22utw",
             "type": "label",
             "label": "Hammond rock",
             "labelBinding": "patch-name",
@@ -2884,7 +2928,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gac_3k569",
+            "id": "element_default_send1_mwpms6lc_81eiw",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -2900,7 +2944,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gac_hmoh5",
+            "id": "element_default_send2_mwpms6lc_2hkr5",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -2916,7 +2960,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gac_7jbag",
+            "id": "element_default_send3_mwpms6lc_em7km",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -2932,7 +2976,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gac_4a4bc",
+            "id": "element_default_send4_mwpms6lc_pgj39",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -2948,7 +2992,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gac_hhfhx",
+            "id": "element_default_keyboard_mwpms6lc_wimr6",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -2966,7 +3010,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gac_8i1dm",
+            "id": "element_default_expression_mwpms6lc_ha9y1",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -2987,7 +3031,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gac_p7l58",
+            "id": "element_default_sustain_mwpms6lc_05njl",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -3011,24 +3055,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gac_l3832": {
+        "element_default_modulation_mwpms6lc_4ewfm": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gac_8i1dm": {
+        "element_default_expression_mwpms6lc_ha9y1": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gac_p7l58": {
+        "element_default_sustain_mwpms6lc_05njl": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -3038,11 +3082,11 @@
       }
     },
     {
-      "id": "preset_mwph7gac_63",
+      "id": "preset_mwpms6lc_112",
       "name": "Vintage Transistor Organ",
       "icon": "organ",
       "notes": "Órgão combo",
-      "setId": "set_mwph7gac_59",
+      "setId": "set_mwpms6lc_108",
       "setOrder": 3,
       "programNumber": 11,
       "midiChannel": 0,
@@ -3070,7 +3114,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gac_t1515",
+            "id": "element_default_volume_mwpms6lc_go2n5",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -3086,7 +3130,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gac_jvpmd",
+            "id": "element_default_modulation_mwpms6lc_fupaf",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -3106,7 +3150,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gac_m7dyg",
+            "id": "element_default_midi_mwpms6lc_745vv",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -3120,7 +3164,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gac_5se42",
+            "id": "element_default_title_mwpms6lc_0ykil",
             "type": "label",
             "label": "Órgão combo",
             "labelBinding": "patch-name",
@@ -3135,7 +3179,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gac_ocftx",
+            "id": "element_default_send1_mwpms6lc_vwwvd",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -3151,7 +3195,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gac_rsls9",
+            "id": "element_default_send2_mwpms6lc_7egx2",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -3167,7 +3211,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gac_2l7jj",
+            "id": "element_default_send3_mwpms6lc_qbuve",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -3183,7 +3227,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gac_9na7j",
+            "id": "element_default_send4_mwpms6lc_z4kjj",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -3199,7 +3243,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gac_g8mll",
+            "id": "element_default_keyboard_mwpms6lc_sur7a",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -3217,7 +3261,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gac_8wjwk",
+            "id": "element_default_expression_mwpms6lc_o21zv",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -3238,7 +3282,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gac_9z5s0",
+            "id": "element_default_sustain_mwpms6lc_oedmw",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -3262,24 +3306,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gac_jvpmd": {
+        "element_default_modulation_mwpms6lc_fupaf": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gac_8wjwk": {
+        "element_default_expression_mwpms6lc_o21zv": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gac_9z5s0": {
+        "element_default_sustain_mwpms6lc_oedmw": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -3289,11 +3333,11 @@
       }
     },
     {
-      "id": "preset_mwph7gad_65",
+      "id": "preset_mwpms6lc_114",
       "name": "Solo Violin",
       "icon": "strings",
       "notes": "Violino solo",
-      "setId": "set_mwph7gac_64",
+      "setId": "set_mwpms6lc_113",
       "setOrder": 0,
       "programNumber": 12,
       "midiChannel": 0,
@@ -3338,7 +3382,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gad_75qst",
+            "id": "element_default_volume_mwpms6lc_ypwy0",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -3354,7 +3398,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gad_sdenr",
+            "id": "element_default_modulation_mwpms6lc_oqz7r",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -3374,7 +3418,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gad_xi0ah",
+            "id": "element_default_midi_mwpms6lc_qj65d",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -3388,7 +3432,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gad_klm26",
+            "id": "element_default_title_mwpms6lc_a6mm6",
             "type": "label",
             "label": "Violino solo",
             "labelBinding": "patch-name",
@@ -3403,7 +3447,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gad_85tqq",
+            "id": "element_default_send1_mwpms6lc_79rfk",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -3419,7 +3463,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gad_skoh4",
+            "id": "element_default_send2_mwpms6lc_qzuqj",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -3435,7 +3479,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gad_lz45v",
+            "id": "element_default_send3_mwpms6lc_6u4fb",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -3451,7 +3495,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gad_y744v",
+            "id": "element_default_send4_mwpms6lc_em7dy",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -3467,7 +3511,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gad_4mhv1",
+            "id": "element_default_keyboard_mwpms6lc_qr2uj",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -3485,7 +3529,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gad_231fn",
+            "id": "element_default_expression_mwpms6lc_zl3ug",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -3506,7 +3550,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gad_s15j3",
+            "id": "element_default_sustain_mwpms6lc_zjupq",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -3530,24 +3574,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gad_sdenr": {
+        "element_default_modulation_mwpms6lc_oqz7r": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gad_231fn": {
+        "element_default_expression_mwpms6lc_zl3ug": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gad_s15j3": {
+        "element_default_sustain_mwpms6lc_zjupq": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -3557,11 +3601,11 @@
       }
     },
     {
-      "id": "preset_mwph7gae_66",
+      "id": "preset_mwpms6ld_115",
       "name": "String Ensemble",
       "icon": "strings",
       "notes": "Violinos + Violas + Cellos + Contrabaixos",
-      "setId": "set_mwph7gac_64",
+      "setId": "set_mwpms6lc_113",
       "setOrder": 1,
       "programNumber": 13,
       "midiChannel": 0,
@@ -3711,7 +3755,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gae_nw2n2",
+            "id": "element_default_volume_mwpms6ld_y1iic",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -3727,7 +3771,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gae_1dssh",
+            "id": "element_default_modulation_mwpms6ld_rs70d",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -3747,7 +3791,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gae_76dwt",
+            "id": "element_default_midi_mwpms6ld_1rabc",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -3761,7 +3805,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gae_1dzyx",
+            "id": "element_default_title_mwpms6ld_i1i7u",
             "type": "label",
             "label": "Violinos + Violas + Cellos + Contrabaixos",
             "labelBinding": "patch-name",
@@ -3776,7 +3820,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gae_ib5vv",
+            "id": "element_default_send1_mwpms6ld_0o6hg",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -3792,7 +3836,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gae_nm9zb",
+            "id": "element_default_send2_mwpms6ld_axo4e",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -3808,7 +3852,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gae_y7yky",
+            "id": "element_default_send3_mwpms6ld_srvh9",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -3824,7 +3868,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gae_icybw",
+            "id": "element_default_send4_mwpms6ld_fnmj9",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -3840,7 +3884,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gae_vu8u0",
+            "id": "element_default_keyboard_mwpms6ld_cdyyh",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -3858,7 +3902,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gae_adcrd",
+            "id": "element_default_expression_mwpms6ld_z5nbl",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -3879,7 +3923,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gae_wvqiy",
+            "id": "element_default_sustain_mwpms6ld_0vi3k",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -3903,24 +3947,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gae_1dssh": {
+        "element_default_modulation_mwpms6ld_rs70d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gae_adcrd": {
+        "element_default_expression_mwpms6ld_z5nbl": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gae_wvqiy": {
+        "element_default_sustain_mwpms6ld_0vi3k": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -3930,11 +3974,11 @@
       }
     },
     {
-      "id": "preset_mwph7gae_67",
+      "id": "preset_mwpms6le_116",
       "name": "Cinematic Strings",
       "icon": "strings",
       "notes": "Violinos + Cellos",
-      "setId": "set_mwph7gac_64",
+      "setId": "set_mwpms6lc_113",
       "setOrder": 2,
       "programNumber": 14,
       "midiChannel": 0,
@@ -4014,7 +4058,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gae_q5e8v",
+            "id": "element_default_volume_mwpms6le_1l6ez",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -4030,7 +4074,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gae_qciq9",
+            "id": "element_default_modulation_mwpms6le_6l6eb",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -4050,7 +4094,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gae_n66ro",
+            "id": "element_default_midi_mwpms6le_10089",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -4064,7 +4108,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gae_18ig2",
+            "id": "element_default_title_mwpms6le_iesnk",
             "type": "label",
             "label": "Violinos + Cellos",
             "labelBinding": "patch-name",
@@ -4079,7 +4123,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gae_x9kby",
+            "id": "element_default_send1_mwpms6le_f7dub",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -4095,7 +4139,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gae_b9ums",
+            "id": "element_default_send2_mwpms6le_ibmro",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -4111,7 +4155,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gae_x6occ",
+            "id": "element_default_send3_mwpms6le_bn7x4",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -4127,7 +4171,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gae_gqe1w",
+            "id": "element_default_send4_mwpms6le_l01ps",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -4143,7 +4187,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gae_w44h1",
+            "id": "element_default_keyboard_mwpms6le_bwpyz",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -4161,7 +4205,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gae_le69s",
+            "id": "element_default_expression_mwpms6le_eplmv",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -4182,7 +4226,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gae_v4wws",
+            "id": "element_default_sustain_mwpms6le_iel7v",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -4206,24 +4250,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gae_qciq9": {
+        "element_default_modulation_mwpms6le_6l6eb": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gae_le69s": {
+        "element_default_expression_mwpms6le_eplmv": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gae_v4wws": {
+        "element_default_sustain_mwpms6le_iel7v": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -4233,11 +4277,11 @@
       }
     },
     {
-      "id": "preset_mwph7gae_68",
+      "id": "preset_mwpms6le_117",
       "name": "Pizzicato Strings",
       "icon": "strings",
       "notes": "Cordas em pizzicato",
-      "setId": "set_mwph7gac_64",
+      "setId": "set_mwpms6lc_113",
       "setOrder": 3,
       "programNumber": 15,
       "midiChannel": 0,
@@ -4282,7 +4326,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gae_k0vio",
+            "id": "element_default_volume_mwpms6le_rwjbe",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -4298,7 +4342,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gae_v2u1t",
+            "id": "element_default_modulation_mwpms6le_fveko",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -4318,7 +4362,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gae_smxdm",
+            "id": "element_default_midi_mwpms6le_foulm",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -4332,7 +4376,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gae_3p5bf",
+            "id": "element_default_title_mwpms6le_c4dsb",
             "type": "label",
             "label": "Cordas em pizzicato",
             "labelBinding": "patch-name",
@@ -4347,7 +4391,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gae_hxopc",
+            "id": "element_default_send1_mwpms6le_wip8t",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -4363,7 +4407,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gae_w83wg",
+            "id": "element_default_send2_mwpms6le_98jsa",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -4379,7 +4423,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gae_ofbqz",
+            "id": "element_default_send3_mwpms6le_2mrb9",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -4395,7 +4439,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gae_79mbb",
+            "id": "element_default_send4_mwpms6le_vyi99",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -4411,7 +4455,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gae_d2gff",
+            "id": "element_default_keyboard_mwpms6le_gob1e",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -4429,7 +4473,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gae_pn2pu",
+            "id": "element_default_expression_mwpms6le_zzukp",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -4450,7 +4494,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gae_x0cgu",
+            "id": "element_default_sustain_mwpms6le_nhbl4",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -4474,24 +4518,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gae_v2u1t": {
+        "element_default_modulation_mwpms6le_fveko": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gae_pn2pu": {
+        "element_default_expression_mwpms6le_zzukp": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gae_x0cgu": {
+        "element_default_sustain_mwpms6le_nhbl4": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -4501,11 +4545,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaf_69",
+      "id": "preset_mwpms6le_118",
       "name": "Warm String Pad",
       "icon": "strings",
       "notes": "Pad de cordas",
-      "setId": "set_mwph7gac_64",
+      "setId": "set_mwpms6lc_113",
       "setOrder": 4,
       "programNumber": 16,
       "midiChannel": 0,
@@ -4538,7 +4582,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaf_ty9gf",
+            "id": "element_default_volume_mwpms6le_axc6k",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -4554,7 +4598,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaf_xquzy",
+            "id": "element_default_modulation_mwpms6le_lhu20",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -4574,7 +4618,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaf_spsj4",
+            "id": "element_default_midi_mwpms6le_awi79",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -4588,7 +4632,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaf_7m7d8",
+            "id": "element_default_title_mwpms6le_gqt2v",
             "type": "label",
             "label": "Pad de cordas",
             "labelBinding": "patch-name",
@@ -4603,7 +4647,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaf_nk1v3",
+            "id": "element_default_send1_mwpms6le_5h12f",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -4619,7 +4663,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaf_kesk2",
+            "id": "element_default_send2_mwpms6le_5og7c",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -4635,7 +4679,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaf_cicm6",
+            "id": "element_default_send3_mwpms6le_l6xv4",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -4651,7 +4695,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaf_eeig9",
+            "id": "element_default_send4_mwpms6le_cfqsu",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -4667,7 +4711,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaf_sj1w2",
+            "id": "element_default_keyboard_mwpms6le_8hpx2",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -4685,7 +4729,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaf_b57i8",
+            "id": "element_default_expression_mwpms6le_yhijo",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -4706,7 +4750,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaf_uwtsi",
+            "id": "element_default_sustain_mwpms6le_yz9qr",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -4730,24 +4774,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaf_xquzy": {
+        "element_default_modulation_mwpms6le_lhu20": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaf_b57i8": {
+        "element_default_expression_mwpms6le_yhijo": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaf_uwtsi": {
+        "element_default_sustain_mwpms6le_yz9qr": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -4757,11 +4801,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaf_71",
+      "id": "preset_mwpms6lf_120",
       "name": "Solo Trumpet",
       "icon": "brass",
       "notes": "Trompete",
-      "setId": "set_mwph7gaf_70",
+      "setId": "set_mwpms6le_119",
       "setOrder": 0,
       "programNumber": 17,
       "midiChannel": 0,
@@ -4806,7 +4850,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaf_p6nep",
+            "id": "element_default_volume_mwpms6lf_ceus1",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -4822,7 +4866,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaf_csg1o",
+            "id": "element_default_modulation_mwpms6lf_9uine",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -4842,7 +4886,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaf_uabas",
+            "id": "element_default_midi_mwpms6lf_fyzsd",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -4856,7 +4900,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaf_ocfh4",
+            "id": "element_default_title_mwpms6lf_qop8s",
             "type": "label",
             "label": "Trompete",
             "labelBinding": "patch-name",
@@ -4871,7 +4915,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaf_l37wc",
+            "id": "element_default_send1_mwpms6lf_cbn17",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -4887,7 +4931,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaf_yl9cz",
+            "id": "element_default_send2_mwpms6lf_j5eie",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -4903,7 +4947,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaf_v3za1",
+            "id": "element_default_send3_mwpms6lf_16z8z",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -4919,7 +4963,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaf_qxy8i",
+            "id": "element_default_send4_mwpms6lf_vltpg",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -4935,7 +4979,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaf_ukfih",
+            "id": "element_default_keyboard_mwpms6lf_iyp90",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -4953,7 +4997,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaf_7fbd0",
+            "id": "element_default_expression_mwpms6lf_jn2jx",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -4974,7 +5018,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaf_2w966",
+            "id": "element_default_sustain_mwpms6lf_kx6kv",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -4998,24 +5042,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaf_csg1o": {
+        "element_default_modulation_mwpms6lf_9uine": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaf_7fbd0": {
+        "element_default_expression_mwpms6lf_jn2jx": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaf_2w966": {
+        "element_default_sustain_mwpms6lf_kx6kv": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -5025,11 +5069,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaf_72",
+      "id": "preset_mwpms6lf_121",
       "name": "Trombone",
       "icon": "brass",
       "notes": "Trombone",
-      "setId": "set_mwph7gaf_70",
+      "setId": "set_mwpms6le_119",
       "setOrder": 1,
       "programNumber": 18,
       "midiChannel": 0,
@@ -5074,7 +5118,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaf_wg9kn",
+            "id": "element_default_volume_mwpms6lf_14rzf",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -5090,7 +5134,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaf_p17rk",
+            "id": "element_default_modulation_mwpms6lf_radr8",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -5110,7 +5154,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaf_7twkq",
+            "id": "element_default_midi_mwpms6lf_36g72",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -5124,7 +5168,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaf_cma2t",
+            "id": "element_default_title_mwpms6lf_0vzfx",
             "type": "label",
             "label": "Trombone",
             "labelBinding": "patch-name",
@@ -5139,7 +5183,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaf_xot3w",
+            "id": "element_default_send1_mwpms6lf_eqwz5",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -5155,7 +5199,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaf_483vg",
+            "id": "element_default_send2_mwpms6lf_nbnrw",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -5171,7 +5215,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaf_ez151",
+            "id": "element_default_send3_mwpms6lf_s4uwq",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -5187,7 +5231,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaf_c95e9",
+            "id": "element_default_send4_mwpms6lf_j65b6",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -5203,7 +5247,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaf_55f1n",
+            "id": "element_default_keyboard_mwpms6lf_jjxnx",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -5221,7 +5265,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaf_qll5h",
+            "id": "element_default_expression_mwpms6lf_sb0uh",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -5242,7 +5286,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaf_ivsav",
+            "id": "element_default_sustain_mwpms6lf_kjaa7",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -5266,24 +5310,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaf_p17rk": {
+        "element_default_modulation_mwpms6lf_radr8": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaf_qll5h": {
+        "element_default_expression_mwpms6lf_sb0uh": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaf_ivsav": {
+        "element_default_sustain_mwpms6lf_kjaa7": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -5293,11 +5337,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaf_73",
+      "id": "preset_mwpms6lf_122",
       "name": "French Horn",
       "icon": "brass",
       "notes": "Trompa",
-      "setId": "set_mwph7gaf_70",
+      "setId": "set_mwpms6le_119",
       "setOrder": 2,
       "programNumber": 19,
       "midiChannel": 0,
@@ -5342,7 +5386,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gag_50kzz",
+            "id": "element_default_volume_mwpms6lf_3mbdc",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -5358,7 +5402,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gag_yl7dm",
+            "id": "element_default_modulation_mwpms6lf_rkzr5",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -5378,7 +5422,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gag_0obe3",
+            "id": "element_default_midi_mwpms6lf_pramq",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -5392,7 +5436,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gag_78bko",
+            "id": "element_default_title_mwpms6lf_q2bgx",
             "type": "label",
             "label": "Trompa",
             "labelBinding": "patch-name",
@@ -5407,7 +5451,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gag_ii8z0",
+            "id": "element_default_send1_mwpms6lf_358jx",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -5423,7 +5467,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gag_162yn",
+            "id": "element_default_send2_mwpms6lf_y3slr",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -5439,7 +5483,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gag_5fq78",
+            "id": "element_default_send3_mwpms6lf_euql5",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -5455,7 +5499,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gag_ch3eq",
+            "id": "element_default_send4_mwpms6lf_ih6u5",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -5471,7 +5515,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gag_0ta9w",
+            "id": "element_default_keyboard_mwpms6lf_49t57",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -5489,7 +5533,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gag_1uwdn",
+            "id": "element_default_expression_mwpms6lf_9vb2j",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -5510,7 +5554,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gag_7p4j4",
+            "id": "element_default_sustain_mwpms6lf_m4tyi",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -5534,24 +5578,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gag_yl7dm": {
+        "element_default_modulation_mwpms6lf_rkzr5": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gag_1uwdn": {
+        "element_default_expression_mwpms6lf_9vb2j": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gag_7p4j4": {
+        "element_default_sustain_mwpms6lf_m4tyi": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -5561,11 +5605,11 @@
       }
     },
     {
-      "id": "preset_mwph7gag_74",
+      "id": "preset_mwpms6lg_123",
       "name": "Brass Section",
       "icon": "brass",
       "notes": "Trompetes + Trombones + Trompas",
-      "setId": "set_mwph7gaf_70",
+      "setId": "set_mwpms6le_119",
       "setOrder": 3,
       "programNumber": 20,
       "midiChannel": 0,
@@ -5680,7 +5724,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gag_uy7vv",
+            "id": "element_default_volume_mwpms6lg_easq8",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -5696,7 +5740,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gag_jbsfx",
+            "id": "element_default_modulation_mwpms6lg_ipmkk",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -5716,7 +5760,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gag_lqwtd",
+            "id": "element_default_midi_mwpms6lg_6t8tg",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -5730,7 +5774,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gag_y4ppf",
+            "id": "element_default_title_mwpms6lg_6eka5",
             "type": "label",
             "label": "Trompetes + Trombones + Trompas",
             "labelBinding": "patch-name",
@@ -5745,7 +5789,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gag_4ubg2",
+            "id": "element_default_send1_mwpms6lg_368me",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -5761,7 +5805,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gag_qqg1p",
+            "id": "element_default_send2_mwpms6lg_gsw7u",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -5777,7 +5821,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gag_20qmn",
+            "id": "element_default_send3_mwpms6lg_jkyz2",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -5793,7 +5837,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gag_ra4ev",
+            "id": "element_default_send4_mwpms6lg_hyrjh",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -5809,7 +5853,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gag_0ogkw",
+            "id": "element_default_keyboard_mwpms6lg_8amnv",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -5827,7 +5871,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gag_wyulo",
+            "id": "element_default_expression_mwpms6lg_l6o96",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -5848,7 +5892,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gag_b7ehr",
+            "id": "element_default_sustain_mwpms6lg_e85z0",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -5872,24 +5916,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gag_jbsfx": {
+        "element_default_modulation_mwpms6lg_ipmkk": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gag_wyulo": {
+        "element_default_expression_mwpms6lg_l6o96": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gag_b7ehr": {
+        "element_default_sustain_mwpms6lg_e85z0": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -5899,11 +5943,11 @@
       }
     },
     {
-      "id": "preset_mwph7gah_76",
+      "id": "preset_mwpms6lg_125",
       "name": "Concert Flute",
       "icon": "flute",
       "notes": "Flauta",
-      "setId": "set_mwph7gag_75",
+      "setId": "set_mwpms6lg_124",
       "setOrder": 0,
       "programNumber": 21,
       "midiChannel": 0,
@@ -5948,7 +5992,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gah_zgl8q",
+            "id": "element_default_volume_mwpms6lg_79qeq",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -5964,7 +6008,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gah_qcmvg",
+            "id": "element_default_modulation_mwpms6lg_adpfh",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -5984,7 +6028,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gah_wrfvc",
+            "id": "element_default_midi_mwpms6lg_sb2tk",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -5998,7 +6042,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gah_d6cbk",
+            "id": "element_default_title_mwpms6lg_nyl8w",
             "type": "label",
             "label": "Flauta",
             "labelBinding": "patch-name",
@@ -6013,7 +6057,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gah_8b4y6",
+            "id": "element_default_send1_mwpms6lh_qh18u",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -6029,7 +6073,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gah_xrf34",
+            "id": "element_default_send2_mwpms6lh_pxymj",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -6045,7 +6089,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gah_boc4x",
+            "id": "element_default_send3_mwpms6lh_my7gm",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -6061,7 +6105,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gah_jsfuf",
+            "id": "element_default_send4_mwpms6lh_7judx",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -6077,7 +6121,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gah_upkm1",
+            "id": "element_default_keyboard_mwpms6lh_mn2jv",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -6095,7 +6139,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gah_fr6da",
+            "id": "element_default_expression_mwpms6lh_j6vmw",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -6116,7 +6160,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gah_87bpe",
+            "id": "element_default_sustain_mwpms6lh_c5r5z",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -6140,24 +6184,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gah_qcmvg": {
+        "element_default_modulation_mwpms6lg_adpfh": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gah_fr6da": {
+        "element_default_expression_mwpms6lh_j6vmw": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gah_87bpe": {
+        "element_default_sustain_mwpms6lh_c5r5z": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -6167,11 +6211,11 @@
       }
     },
     {
-      "id": "preset_mwph7gah_77",
+      "id": "preset_mwpms6lh_126",
       "name": "Clarinet",
       "icon": "generic",
       "notes": "Clarinete",
-      "setId": "set_mwph7gag_75",
+      "setId": "set_mwpms6lg_124",
       "setOrder": 1,
       "programNumber": 22,
       "midiChannel": 0,
@@ -6216,7 +6260,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gah_rh85v",
+            "id": "element_default_volume_mwpms6lh_zodm8",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -6232,7 +6276,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gah_qrpkc",
+            "id": "element_default_modulation_mwpms6lh_qs9tx",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -6252,7 +6296,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gah_dciot",
+            "id": "element_default_midi_mwpms6lh_3ym5c",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -6266,7 +6310,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gah_5gx1z",
+            "id": "element_default_title_mwpms6lh_0p4en",
             "type": "label",
             "label": "Clarinete",
             "labelBinding": "patch-name",
@@ -6281,7 +6325,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gah_tasqy",
+            "id": "element_default_send1_mwpms6lh_q4hl2",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -6297,7 +6341,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gah_5cpe8",
+            "id": "element_default_send2_mwpms6lh_o514w",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -6313,7 +6357,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gah_ojkh0",
+            "id": "element_default_send3_mwpms6lh_wpntt",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -6329,7 +6373,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gah_0vpfu",
+            "id": "element_default_send4_mwpms6lh_z826w",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -6345,7 +6389,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gah_q0vfo",
+            "id": "element_default_keyboard_mwpms6lh_36p5g",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -6363,7 +6407,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gah_idspm",
+            "id": "element_default_expression_mwpms6lh_vw5bo",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -6384,7 +6428,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gah_efjlw",
+            "id": "element_default_sustain_mwpms6lh_stq4p",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -6408,24 +6452,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gah_qrpkc": {
+        "element_default_modulation_mwpms6lh_qs9tx": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gah_idspm": {
+        "element_default_expression_mwpms6lh_vw5bo": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gah_efjlw": {
+        "element_default_sustain_mwpms6lh_stq4p": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -6435,11 +6479,11 @@
       }
     },
     {
-      "id": "preset_mwph7gah_78",
+      "id": "preset_mwpms6lh_127",
       "name": "Oboe",
       "icon": "generic",
       "notes": "Oboé",
-      "setId": "set_mwph7gag_75",
+      "setId": "set_mwpms6lg_124",
       "setOrder": 2,
       "programNumber": 23,
       "midiChannel": 0,
@@ -6484,7 +6528,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gah_ha5aq",
+            "id": "element_default_volume_mwpms6lh_2cyq1",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -6500,7 +6544,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gah_19scy",
+            "id": "element_default_modulation_mwpms6lh_zqh83",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -6520,7 +6564,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gah_5l5z4",
+            "id": "element_default_midi_mwpms6lh_0vtio",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -6534,7 +6578,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gah_in5er",
+            "id": "element_default_title_mwpms6lh_ohse0",
             "type": "label",
             "label": "Oboé",
             "labelBinding": "patch-name",
@@ -6549,7 +6593,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gah_5xda7",
+            "id": "element_default_send1_mwpms6lh_cdvai",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -6565,7 +6609,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gah_u88kl",
+            "id": "element_default_send2_mwpms6lh_6apaq",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -6581,7 +6625,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gah_7nzak",
+            "id": "element_default_send3_mwpms6lh_d334f",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -6597,7 +6641,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gah_0lma6",
+            "id": "element_default_send4_mwpms6lh_c02ue",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -6613,7 +6657,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gah_q6xxf",
+            "id": "element_default_keyboard_mwpms6lh_gaavi",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -6631,7 +6675,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gah_fqkdb",
+            "id": "element_default_expression_mwpms6lh_toq2d",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -6652,7 +6696,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gah_s3lha",
+            "id": "element_default_sustain_mwpms6lh_uzb26",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -6676,24 +6720,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gah_19scy": {
+        "element_default_modulation_mwpms6lh_zqh83": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gah_fqkdb": {
+        "element_default_expression_mwpms6lh_toq2d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gah_s3lha": {
+        "element_default_sustain_mwpms6lh_uzb26": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -6703,11 +6747,11 @@
       }
     },
     {
-      "id": "preset_mwph7gai_80",
+      "id": "preset_mwpms6li_129",
       "name": "Acoustic Guitar Nylon",
       "icon": "guitar",
       "notes": "Violão de nylon",
-      "setId": "set_mwph7gah_79",
+      "setId": "set_mwpms6lh_128",
       "setOrder": 0,
       "programNumber": 24,
       "midiChannel": 0,
@@ -6752,7 +6796,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gai_0iwjy",
+            "id": "element_default_volume_mwpms6li_isn1k",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -6768,7 +6812,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gai_zwx45",
+            "id": "element_default_modulation_mwpms6li_dc927",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -6788,7 +6832,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gai_eg159",
+            "id": "element_default_midi_mwpms6li_58l3g",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -6802,7 +6846,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gai_xb9vw",
+            "id": "element_default_title_mwpms6li_q8ee7",
             "type": "label",
             "label": "Violão de nylon",
             "labelBinding": "patch-name",
@@ -6817,7 +6861,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gai_uquqd",
+            "id": "element_default_send1_mwpms6li_yzl2u",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -6833,7 +6877,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gai_kv1vc",
+            "id": "element_default_send2_mwpms6li_x9mnc",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -6849,7 +6893,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gai_97hpk",
+            "id": "element_default_send3_mwpms6li_h4bwe",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -6865,7 +6909,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gai_p788l",
+            "id": "element_default_send4_mwpms6li_duke5",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -6881,7 +6925,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gai_buar9",
+            "id": "element_default_keyboard_mwpms6li_46z43",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -6899,7 +6943,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gai_4g20r",
+            "id": "element_default_expression_mwpms6li_gcbmz",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -6920,7 +6964,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gai_prrhx",
+            "id": "element_default_sustain_mwpms6li_jryo9",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -6944,24 +6988,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gai_zwx45": {
+        "element_default_modulation_mwpms6li_dc927": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gai_4g20r": {
+        "element_default_expression_mwpms6li_gcbmz": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gai_prrhx": {
+        "element_default_sustain_mwpms6li_jryo9": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -6971,11 +7015,11 @@
       }
     },
     {
-      "id": "preset_mwph7gai_81",
+      "id": "preset_mwpms6li_130",
       "name": "Acoustic Guitar Steel",
       "icon": "guitar",
       "notes": "Violão de aço",
-      "setId": "set_mwph7gah_79",
+      "setId": "set_mwpms6lh_128",
       "setOrder": 1,
       "programNumber": 25,
       "midiChannel": 0,
@@ -7020,7 +7064,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gai_dyfcy",
+            "id": "element_default_volume_mwpms6li_iqqsl",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -7036,7 +7080,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gai_sfdkb",
+            "id": "element_default_modulation_mwpms6li_073xl",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -7056,7 +7100,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gai_0odky",
+            "id": "element_default_midi_mwpms6li_0fhny",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -7070,7 +7114,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gai_5l4yl",
+            "id": "element_default_title_mwpms6li_88pa5",
             "type": "label",
             "label": "Violão de aço",
             "labelBinding": "patch-name",
@@ -7085,7 +7129,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gai_0ffik",
+            "id": "element_default_send1_mwpms6li_ls7z8",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -7101,7 +7145,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gai_qr21u",
+            "id": "element_default_send2_mwpms6li_hig24",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -7117,7 +7161,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gai_zpin4",
+            "id": "element_default_send3_mwpms6li_dxt3m",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -7133,7 +7177,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gai_qqycr",
+            "id": "element_default_send4_mwpms6li_tbvgd",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -7149,7 +7193,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gai_9z5lz",
+            "id": "element_default_keyboard_mwpms6li_yudlt",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -7167,7 +7211,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gai_za3j5",
+            "id": "element_default_expression_mwpms6li_shqh4",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -7188,7 +7232,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gai_7bdsa",
+            "id": "element_default_sustain_mwpms6li_jdxp4",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -7212,24 +7256,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gai_sfdkb": {
+        "element_default_modulation_mwpms6li_073xl": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gai_za3j5": {
+        "element_default_expression_mwpms6li_shqh4": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gai_7bdsa": {
+        "element_default_sustain_mwpms6li_jdxp4": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -7239,11 +7283,11 @@
       }
     },
     {
-      "id": "preset_mwph7gai_82",
+      "id": "preset_mwpms6li_131",
       "name": "Electric Guitar Clean",
       "icon": "guitar",
       "notes": "Guitarra limpa",
-      "setId": "set_mwph7gah_79",
+      "setId": "set_mwpms6lh_128",
       "setOrder": 2,
       "programNumber": 26,
       "midiChannel": 0,
@@ -7288,7 +7332,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gai_dgyx0",
+            "id": "element_default_volume_mwpms6li_o47f9",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -7304,7 +7348,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gai_b3vlj",
+            "id": "element_default_modulation_mwpms6li_fq10u",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -7324,7 +7368,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gai_54a97",
+            "id": "element_default_midi_mwpms6li_968im",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -7338,7 +7382,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gai_5cqpl",
+            "id": "element_default_title_mwpms6li_ekvzw",
             "type": "label",
             "label": "Guitarra limpa",
             "labelBinding": "patch-name",
@@ -7353,7 +7397,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gai_6r1tw",
+            "id": "element_default_send1_mwpms6li_ajlx6",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -7369,7 +7413,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gai_vbotx",
+            "id": "element_default_send2_mwpms6li_7v6ej",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -7385,7 +7429,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gai_dh63b",
+            "id": "element_default_send3_mwpms6li_g865p",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -7401,7 +7445,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gai_fijft",
+            "id": "element_default_send4_mwpms6li_tihul",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -7417,7 +7461,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gai_qy6nm",
+            "id": "element_default_keyboard_mwpms6li_x9i02",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -7435,7 +7479,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gai_1tea6",
+            "id": "element_default_expression_mwpms6li_e70tg",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -7456,7 +7500,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gai_51vu6",
+            "id": "element_default_sustain_mwpms6li_t5pmu",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -7480,24 +7524,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gai_b3vlj": {
+        "element_default_modulation_mwpms6li_fq10u": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gai_1tea6": {
+        "element_default_expression_mwpms6li_e70tg": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gai_51vu6": {
+        "element_default_sustain_mwpms6li_t5pmu": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -7507,11 +7551,11 @@
       }
     },
     {
-      "id": "preset_mwph7gai_83",
+      "id": "preset_mwpms6lj_132",
       "name": "Precision Bass",
       "icon": "bass",
       "notes": "Baixo precision",
-      "setId": "set_mwph7gah_79",
+      "setId": "set_mwpms6lh_128",
       "setOrder": 3,
       "programNumber": 27,
       "midiChannel": 0,
@@ -7556,7 +7600,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gai_75di8",
+            "id": "element_default_volume_mwpms6lj_c6gpw",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -7572,7 +7616,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gai_03k6f",
+            "id": "element_default_modulation_mwpms6lj_yy3oh",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -7592,7 +7636,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gai_6l001",
+            "id": "element_default_midi_mwpms6lj_bf6qn",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -7606,7 +7650,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gai_2j1ix",
+            "id": "element_default_title_mwpms6lj_cclfv",
             "type": "label",
             "label": "Baixo precision",
             "labelBinding": "patch-name",
@@ -7621,7 +7665,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gai_56apc",
+            "id": "element_default_send1_mwpms6lj_79b7e",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -7637,7 +7681,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gai_x3rmt",
+            "id": "element_default_send2_mwpms6lj_wmuj4",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -7653,7 +7697,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gai_6ehb2",
+            "id": "element_default_send3_mwpms6lj_wbuom",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -7669,7 +7713,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gai_fwepg",
+            "id": "element_default_send4_mwpms6lj_f1rrs",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -7685,7 +7729,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaj_ply50",
+            "id": "element_default_keyboard_mwpms6lj_vob5b",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -7703,7 +7747,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaj_01bza",
+            "id": "element_default_expression_mwpms6lj_ctczy",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -7724,7 +7768,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaj_0423h",
+            "id": "element_default_sustain_mwpms6lj_s0c5t",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -7748,24 +7792,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gai_03k6f": {
+        "element_default_modulation_mwpms6lj_yy3oh": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaj_01bza": {
+        "element_default_expression_mwpms6lj_ctczy": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaj_0423h": {
+        "element_default_sustain_mwpms6lj_s0c5t": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -7775,11 +7819,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaj_84",
+      "id": "preset_mwpms6lj_133",
       "name": "Synth Bass",
       "icon": "bass",
       "notes": "Baixo sintetizado",
-      "setId": "set_mwph7gah_79",
+      "setId": "set_mwpms6lh_128",
       "setOrder": 4,
       "programNumber": 28,
       "midiChannel": 0,
@@ -7812,7 +7856,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaj_y8oef",
+            "id": "element_default_volume_mwpms6lj_k3m7q",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -7828,7 +7872,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaj_zs2dt",
+            "id": "element_default_modulation_mwpms6lj_sibja",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -7848,7 +7892,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaj_3gaq3",
+            "id": "element_default_midi_mwpms6lj_dozqu",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -7862,7 +7906,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaj_ebcie",
+            "id": "element_default_title_mwpms6lj_27re4",
             "type": "label",
             "label": "Baixo sintetizado",
             "labelBinding": "patch-name",
@@ -7877,7 +7921,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaj_09dme",
+            "id": "element_default_send1_mwpms6lj_a7gwr",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -7893,7 +7937,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaj_e3mh7",
+            "id": "element_default_send2_mwpms6lj_ke7v7",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -7909,7 +7953,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaj_u5rhf",
+            "id": "element_default_send3_mwpms6lj_ep698",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -7925,7 +7969,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaj_78inb",
+            "id": "element_default_send4_mwpms6lj_iquix",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -7941,7 +7985,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaj_whpml",
+            "id": "element_default_keyboard_mwpms6lj_qum9e",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -7959,7 +8003,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaj_wn9id",
+            "id": "element_default_expression_mwpms6lj_i0k4d",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -7980,7 +8024,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaj_1nl8p",
+            "id": "element_default_sustain_mwpms6lj_rl5db",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -8004,24 +8048,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaj_zs2dt": {
+        "element_default_modulation_mwpms6lj_sibja": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaj_wn9id": {
+        "element_default_expression_mwpms6lj_i0k4d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaj_1nl8p": {
+        "element_default_sustain_mwpms6lj_rl5db": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -8031,11 +8075,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaj_86",
+      "id": "preset_mwpms6lj_135",
       "name": "Acoustic Rock Kit",
       "icon": "drums",
       "notes": "Kit acústico",
-      "setId": "set_mwph7gaj_85",
+      "setId": "set_mwpms6lj_134",
       "setOrder": 0,
       "programNumber": 29,
       "midiChannel": 0,
@@ -8080,7 +8124,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaj_pw1c9",
+            "id": "element_default_volume_mwpms6lj_tpoia",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -8096,7 +8140,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaj_7rvb7",
+            "id": "element_default_modulation_mwpms6lj_f2rcv",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -8116,7 +8160,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaj_mvez1",
+            "id": "element_default_midi_mwpms6lj_p7gph",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -8130,7 +8174,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaj_9mg2d",
+            "id": "element_default_title_mwpms6lj_abmcx",
             "type": "label",
             "label": "Kit acústico",
             "labelBinding": "patch-name",
@@ -8145,7 +8189,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaj_re3em",
+            "id": "element_default_send1_mwpms6lj_503su",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -8161,7 +8205,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaj_habj2",
+            "id": "element_default_send2_mwpms6lj_r5lc3",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -8177,7 +8221,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaj_zs873",
+            "id": "element_default_send3_mwpms6lj_ao1dw",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -8193,7 +8237,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaj_ek3ya",
+            "id": "element_default_send4_mwpms6lj_rvmdo",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -8209,7 +8253,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaj_vc2bd",
+            "id": "element_default_keyboard_mwpms6lj_cfsu4",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -8227,7 +8271,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaj_lrv2m",
+            "id": "element_default_expression_mwpms6lj_o1qpp",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -8248,7 +8292,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaj_sbgva",
+            "id": "element_default_sustain_mwpms6lj_lm8en",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -8272,24 +8316,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaj_7rvb7": {
+        "element_default_modulation_mwpms6lj_f2rcv": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaj_lrv2m": {
+        "element_default_expression_mwpms6lj_o1qpp": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaj_sbgva": {
+        "element_default_sustain_mwpms6lj_lm8en": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -8299,11 +8343,11 @@
       }
     },
     {
-      "id": "preset_mwph7gaj_87",
+      "id": "preset_mwpms6lj_136",
       "name": "Electronic Drum Kit",
       "icon": "drums",
       "notes": "Kit eletrônico",
-      "setId": "set_mwph7gaj_85",
+      "setId": "set_mwpms6lj_134",
       "setOrder": 1,
       "programNumber": 30,
       "midiChannel": 0,
@@ -8348,7 +8392,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gaj_llaij",
+            "id": "element_default_volume_mwpms6lj_2fvua",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -8364,7 +8408,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gaj_kk9x8",
+            "id": "element_default_modulation_mwpms6lj_r550d",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -8384,7 +8428,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gaj_ke2di",
+            "id": "element_default_midi_mwpms6lj_7d02x",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -8398,7 +8442,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gaj_n60df",
+            "id": "element_default_title_mwpms6lj_e5vsm",
             "type": "label",
             "label": "Kit eletrônico",
             "labelBinding": "patch-name",
@@ -8413,7 +8457,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gaj_r94fb",
+            "id": "element_default_send1_mwpms6lj_raghe",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -8429,7 +8473,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gaj_3obyb",
+            "id": "element_default_send2_mwpms6lj_d6ss0",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -8445,7 +8489,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gaj_jnm87",
+            "id": "element_default_send3_mwpms6lj_7sktn",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -8461,7 +8505,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gaj_w3hia",
+            "id": "element_default_send4_mwpms6lj_rsax3",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -8477,7 +8521,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gaj_60gmv",
+            "id": "element_default_keyboard_mwpms6lj_kv6v4",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -8495,7 +8539,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gaj_v1ufl",
+            "id": "element_default_expression_mwpms6lj_u28mf",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -8516,7 +8560,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gaj_bs01w",
+            "id": "element_default_sustain_mwpms6lj_5qf60",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -8540,24 +8584,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gaj_kk9x8": {
+        "element_default_modulation_mwpms6lj_r550d": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gaj_v1ufl": {
+        "element_default_expression_mwpms6lj_u28mf": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gaj_bs01w": {
+        "element_default_sustain_mwpms6lj_5qf60": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -8567,11 +8611,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_88",
+      "id": "preset_mwpms6lk_137",
       "name": "Orchestral Percussion",
       "icon": "drums",
       "notes": "Percussão orquestral",
-      "setId": "set_mwph7gaj_85",
+      "setId": "set_mwpms6lj_134",
       "setOrder": 2,
       "programNumber": 31,
       "midiChannel": 0,
@@ -8616,7 +8660,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_b3acs",
+            "id": "element_default_volume_mwpms6lk_86r37",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -8632,7 +8676,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_btpsj",
+            "id": "element_default_modulation_mwpms6lk_3hjab",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -8652,7 +8696,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_iahdf",
+            "id": "element_default_midi_mwpms6lk_pvak0",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -8666,7 +8710,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_7f3al",
+            "id": "element_default_title_mwpms6lk_b5p4c",
             "type": "label",
             "label": "Percussão orquestral",
             "labelBinding": "patch-name",
@@ -8681,7 +8725,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_aacnr",
+            "id": "element_default_send1_mwpms6lk_8v3ls",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -8697,7 +8741,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gak_nfd8c",
+            "id": "element_default_send2_mwpms6lk_y39a0",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -8713,7 +8757,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gak_k90zq",
+            "id": "element_default_send3_mwpms6lk_pfp4e",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -8729,7 +8773,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gak_oghwd",
+            "id": "element_default_send4_mwpms6lk_kndtl",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -8745,7 +8789,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gak_aku5k",
+            "id": "element_default_keyboard_mwpms6lk_pfuhu",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -8763,7 +8807,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gak_2y6e6",
+            "id": "element_default_expression_mwpms6lk_9mvpb",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -8784,7 +8828,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gak_0j62h",
+            "id": "element_default_sustain_mwpms6lk_k70s0",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -8808,24 +8852,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_btpsj": {
+        "element_default_modulation_mwpms6lk_3hjab": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gak_2y6e6": {
+        "element_default_expression_mwpms6lk_9mvpb": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gak_0j62h": {
+        "element_default_sustain_mwpms6lk_k70s0": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -8835,11 +8879,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_90",
+      "id": "preset_mwpms6lk_139",
       "name": "Analog Poly Synth",
       "icon": "synth",
       "notes": "Analógico polifônico",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 0,
       "programNumber": 32,
       "midiChannel": 0,
@@ -8872,7 +8916,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_eiq1d",
+            "id": "element_default_volume_mwpms6lk_nnwrj",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -8888,7 +8932,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_p23ls",
+            "id": "element_default_modulation_mwpms6lk_mtswr",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -8908,7 +8952,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_55hi4",
+            "id": "element_default_midi_mwpms6lk_i1rfo",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -8922,7 +8966,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_bpfl6",
+            "id": "element_default_title_mwpms6lk_nkue3",
             "type": "label",
             "label": "Analógico polifônico",
             "labelBinding": "patch-name",
@@ -8937,7 +8981,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_3loef",
+            "id": "element_default_send1_mwpms6lk_wj9d0",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -8953,7 +8997,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gak_4j0cr",
+            "id": "element_default_send2_mwpms6lk_zuv41",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -8969,7 +9013,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gak_v9lay",
+            "id": "element_default_send3_mwpms6lk_0bgqd",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -8985,7 +9029,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gak_7gnku",
+            "id": "element_default_send4_mwpms6lk_5xxxo",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -9001,7 +9045,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gak_e9c62",
+            "id": "element_default_keyboard_mwpms6lk_plfge",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -9019,7 +9063,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gak_tt85g",
+            "id": "element_default_expression_mwpms6lk_mqu1k",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -9040,7 +9084,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gak_iwemt",
+            "id": "element_default_sustain_mwpms6lk_quxzj",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -9064,24 +9108,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_p23ls": {
+        "element_default_modulation_mwpms6lk_mtswr": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gak_tt85g": {
+        "element_default_expression_mwpms6lk_mqu1k": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gak_iwemt": {
+        "element_default_sustain_mwpms6lk_quxzj": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -9091,11 +9135,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_91",
+      "id": "preset_mwpms6lk_140",
       "name": "Vintage Analog Lead",
       "icon": "lead",
       "notes": "Lead analógico",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 1,
       "programNumber": 33,
       "midiChannel": 0,
@@ -9128,7 +9172,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_fbfv3",
+            "id": "element_default_volume_mwpms6lk_n24ec",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -9144,7 +9188,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_obktb",
+            "id": "element_default_modulation_mwpms6lk_5py3a",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -9164,7 +9208,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_wwywx",
+            "id": "element_default_midi_mwpms6lk_u6nqo",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -9178,7 +9222,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_7u7gl",
+            "id": "element_default_title_mwpms6lk_6h03c",
             "type": "label",
             "label": "Lead analógico",
             "labelBinding": "patch-name",
@@ -9193,7 +9237,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_j8tn6",
+            "id": "element_default_send1_mwpms6lk_zwrju",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -9209,7 +9253,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gak_jm7bb",
+            "id": "element_default_send2_mwpms6lk_whg39",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -9225,7 +9269,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gak_49i30",
+            "id": "element_default_send3_mwpms6lk_f1t39",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -9241,7 +9285,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gak_bgmfh",
+            "id": "element_default_send4_mwpms6lk_rqtx9",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -9257,7 +9301,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gak_3optg",
+            "id": "element_default_keyboard_mwpms6lk_h5l6w",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -9275,7 +9319,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gak_obrwq",
+            "id": "element_default_expression_mwpms6lk_nm8u8",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -9296,7 +9340,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gak_t3wf1",
+            "id": "element_default_sustain_mwpms6lk_p70ww",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -9320,24 +9364,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_obktb": {
+        "element_default_modulation_mwpms6lk_5py3a": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gak_obrwq": {
+        "element_default_expression_mwpms6lk_nm8u8": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gak_t3wf1": {
+        "element_default_sustain_mwpms6lk_p70ww": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -9347,11 +9391,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_92",
+      "id": "preset_mwpms6lk_141",
       "name": "Modern Synth Lead",
       "icon": "lead",
       "notes": "Lead moderno",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 2,
       "programNumber": 34,
       "midiChannel": 0,
@@ -9384,7 +9428,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_7pogy",
+            "id": "element_default_volume_mwpms6lk_nr3o2",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -9400,7 +9444,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_zfsw2",
+            "id": "element_default_modulation_mwpms6lk_j6qhz",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -9420,7 +9464,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_oocdz",
+            "id": "element_default_midi_mwpms6lk_hv2bu",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -9434,7 +9478,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_s2ij0",
+            "id": "element_default_title_mwpms6lk_dqhvq",
             "type": "label",
             "label": "Lead moderno",
             "labelBinding": "patch-name",
@@ -9449,7 +9493,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_w55gy",
+            "id": "element_default_send1_mwpms6lk_stb9m",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -9465,7 +9509,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gak_w2cy4",
+            "id": "element_default_send2_mwpms6lk_qbe1n",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -9481,7 +9525,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gak_3oej5",
+            "id": "element_default_send3_mwpms6lk_yan5m",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -9497,7 +9541,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gak_c1ho6",
+            "id": "element_default_send4_mwpms6lk_gyr6s",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -9513,7 +9557,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gak_jmv06",
+            "id": "element_default_keyboard_mwpms6lk_i2xl3",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -9531,7 +9575,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gak_5854e",
+            "id": "element_default_expression_mwpms6lk_tgqkx",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -9552,7 +9596,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gak_invlc",
+            "id": "element_default_sustain_mwpms6lk_djrq8",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -9576,24 +9620,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_zfsw2": {
+        "element_default_modulation_mwpms6lk_j6qhz": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gak_5854e": {
+        "element_default_expression_mwpms6lk_tgqkx": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gak_invlc": {
+        "element_default_sustain_mwpms6lk_djrq8": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -9603,11 +9647,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_93",
+      "id": "preset_mwpms6lk_142",
       "name": "Warm Analog Pad",
       "icon": "pad",
       "notes": "Pad analógico",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 3,
       "programNumber": 35,
       "midiChannel": 0,
@@ -9640,7 +9684,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_84nia",
+            "id": "element_default_volume_mwpms6lk_0amh9",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -9656,7 +9700,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_iclh2",
+            "id": "element_default_modulation_mwpms6lk_a1bvs",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -9676,7 +9720,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_asvnf",
+            "id": "element_default_midi_mwpms6lk_s86g3",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -9690,7 +9734,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_pvlkf",
+            "id": "element_default_title_mwpms6lk_4rz5x",
             "type": "label",
             "label": "Pad analógico",
             "labelBinding": "patch-name",
@@ -9705,7 +9749,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_4knbm",
+            "id": "element_default_send1_mwpms6lk_yrzev",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -9721,7 +9765,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gak_mg3pt",
+            "id": "element_default_send2_mwpms6lk_jh5kd",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -9737,7 +9781,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gak_cwi65",
+            "id": "element_default_send3_mwpms6lk_0hgk0",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -9753,7 +9797,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gak_41o4p",
+            "id": "element_default_send4_mwpms6lk_7c9jt",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -9769,7 +9813,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gak_4ieyo",
+            "id": "element_default_keyboard_mwpms6lk_jsvi6",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -9787,7 +9831,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gak_kgswj",
+            "id": "element_default_expression_mwpms6lk_ixlcj",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -9808,7 +9852,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gak_dwh8q",
+            "id": "element_default_sustain_mwpms6lk_gzq32",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -9832,24 +9876,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_iclh2": {
+        "element_default_modulation_mwpms6lk_a1bvs": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gak_kgswj": {
+        "element_default_expression_mwpms6lk_ixlcj": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gak_dwh8q": {
+        "element_default_sustain_mwpms6lk_gzq32": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -9859,11 +9903,11 @@
       }
     },
     {
-      "id": "preset_mwph7gak_94",
+      "id": "preset_mwpms6ll_143",
       "name": "Digital Bell",
       "icon": "bell",
       "notes": "Sino digital",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 4,
       "programNumber": 36,
       "midiChannel": 0,
@@ -9908,7 +9952,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gak_cz393",
+            "id": "element_default_volume_mwpms6ll_sy9nj",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -9924,7 +9968,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gak_yv50f",
+            "id": "element_default_modulation_mwpms6ll_cmalu",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -9944,7 +9988,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gak_y9l31",
+            "id": "element_default_midi_mwpms6ll_2094c",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -9958,7 +10002,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gak_icjf1",
+            "id": "element_default_title_mwpms6ll_1e0ar",
             "type": "label",
             "label": "Sino digital",
             "labelBinding": "patch-name",
@@ -9973,7 +10017,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gak_wzbro",
+            "id": "element_default_send1_mwpms6ll_pr8mb",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -9989,7 +10033,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gal_cwv0j",
+            "id": "element_default_send2_mwpms6ll_yh0a9",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -10005,7 +10049,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gal_727th",
+            "id": "element_default_send3_mwpms6ll_un29p",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -10021,7 +10065,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gal_o9osu",
+            "id": "element_default_send4_mwpms6ll_qjb84",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -10037,7 +10081,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gal_41ibs",
+            "id": "element_default_keyboard_mwpms6ll_2a3bh",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -10055,7 +10099,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gal_fkg0z",
+            "id": "element_default_expression_mwpms6ll_dqe18",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -10076,7 +10120,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gal_6a5fn",
+            "id": "element_default_sustain_mwpms6ll_eeayn",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -10100,24 +10144,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gak_yv50f": {
+        "element_default_modulation_mwpms6ll_cmalu": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gal_fkg0z": {
+        "element_default_expression_mwpms6ll_dqe18": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gal_6a5fn": {
+        "element_default_sustain_mwpms6ll_eeayn": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -10127,11 +10171,11 @@
       }
     },
     {
-      "id": "preset_mwph7gal_95",
+      "id": "preset_mwpms6ll_144",
       "name": "Arpeggiator",
       "icon": "synth",
       "notes": "Arpejo",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 5,
       "programNumber": 37,
       "midiChannel": 0,
@@ -10173,7 +10217,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gal_eu7xx",
+            "id": "element_default_volume_mwpms6ll_twdvy",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -10189,7 +10233,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gal_ojnj8",
+            "id": "element_default_modulation_mwpms6ll_i60ct",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -10209,7 +10253,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gal_t32bb",
+            "id": "element_default_midi_mwpms6ll_ub6xq",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -10223,7 +10267,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gal_u0j6d",
+            "id": "element_default_title_mwpms6ll_nlrib",
             "type": "label",
             "label": "Arpejo",
             "labelBinding": "patch-name",
@@ -10238,7 +10282,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gal_x3t43",
+            "id": "element_default_send1_mwpms6ll_itbo2",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -10254,7 +10298,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gal_ny9op",
+            "id": "element_default_send2_mwpms6ll_fl9uw",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -10270,7 +10314,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gal_b2nix",
+            "id": "element_default_send3_mwpms6ll_nl0vp",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -10286,7 +10330,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gal_bv1by",
+            "id": "element_default_send4_mwpms6ll_v7vzu",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -10302,7 +10346,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gal_tpzd6",
+            "id": "element_default_keyboard_mwpms6ll_b054a",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -10320,7 +10364,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gal_2xx7y",
+            "id": "element_default_expression_mwpms6ll_yqrpk",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -10341,7 +10385,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gal_ent49",
+            "id": "element_default_sustain_mwpms6ll_p5det",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -10365,24 +10409,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gal_ojnj8": {
+        "element_default_modulation_mwpms6ll_i60ct": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gal_2xx7y": {
+        "element_default_expression_mwpms6ll_yqrpk": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gal_ent49": {
+        "element_default_sustain_mwpms6ll_p5det": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -10392,11 +10436,11 @@
       }
     },
     {
-      "id": "preset_mwph7gal_96",
+      "id": "preset_mwpms6ll_145",
       "name": "Deep Synth Bass",
       "icon": "bass",
       "notes": "Baixo profundo",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 6,
       "programNumber": 38,
       "midiChannel": 0,
@@ -10429,7 +10473,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gal_3ey5e",
+            "id": "element_default_volume_mwpms6ll_dn3wp",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -10445,7 +10489,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gal_dpjff",
+            "id": "element_default_modulation_mwpms6ll_wqpxe",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -10465,7 +10509,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gal_iw709",
+            "id": "element_default_midi_mwpms6ll_hd1tu",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -10479,7 +10523,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gal_ce0cp",
+            "id": "element_default_title_mwpms6ll_bly7v",
             "type": "label",
             "label": "Baixo profundo",
             "labelBinding": "patch-name",
@@ -10494,7 +10538,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gal_u1s9w",
+            "id": "element_default_send1_mwpms6ll_zj217",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -10510,7 +10554,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gal_eskfo",
+            "id": "element_default_send2_mwpms6ll_1bxs7",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -10526,7 +10570,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gal_2yhv7",
+            "id": "element_default_send3_mwpms6ll_6n6gl",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -10542,7 +10586,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gal_mxuzk",
+            "id": "element_default_send4_mwpms6ll_l5oi3",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -10558,7 +10602,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gal_04sjc",
+            "id": "element_default_keyboard_mwpms6ll_rq07b",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -10576,7 +10620,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gal_uqdri",
+            "id": "element_default_expression_mwpms6ll_u3i3h",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -10597,7 +10641,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gal_e79ag",
+            "id": "element_default_sustain_mwpms6ll_2m5pf",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -10621,24 +10665,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gal_dpjff": {
+        "element_default_modulation_mwpms6ll_wqpxe": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gal_uqdri": {
+        "element_default_expression_mwpms6ll_u3i3h": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gal_e79ag": {
+        "element_default_sustain_mwpms6ll_2m5pf": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -10648,11 +10692,11 @@
       }
     },
     {
-      "id": "preset_mwph7gal_97",
+      "id": "preset_mwpms6ll_146",
       "name": "Ambient Texture",
       "icon": "synth",
       "notes": "Textura ambiente",
-      "setId": "set_mwph7gak_89",
+      "setId": "set_mwpms6lk_138",
       "setOrder": 7,
       "programNumber": 39,
       "midiChannel": 0,
@@ -10685,7 +10729,7 @@
       "layout": {
         "elements": [
           {
-            "id": "element_default_volume_mwph7gal_qvkk4",
+            "id": "element_default_volume_mwpms6ll_y2arc",
             "type": "fader",
             "label": "Volume",
             "x": 40,
@@ -10701,7 +10745,7 @@
             "target": "master-volume"
           },
           {
-            "id": "element_default_modulation_mwph7gal_dd9jz",
+            "id": "element_default_modulation_mwpms6ll_eb6q3",
             "type": "knob",
             "label": "Modulação",
             "x": 120,
@@ -10721,7 +10765,7 @@
             }
           },
           {
-            "id": "element_default_midi_mwph7gal_6ikc8",
+            "id": "element_default_midi_mwpms6ll_7ywkn",
             "type": "midi-activity",
             "label": "MIDI",
             "x": 224,
@@ -10735,7 +10779,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_title_mwph7gal_53313",
+            "id": "element_default_title_mwpms6ll_myqv2",
             "type": "label",
             "label": "Textura ambiente",
             "labelBinding": "patch-name",
@@ -10750,7 +10794,7 @@
             "isMomentary": false
           },
           {
-            "id": "element_default_send1_mwph7gal_y12cb",
+            "id": "element_default_send1_mwpms6ll_qdk7t",
             "type": "knob",
             "label": "Aux 1",
             "x": 744,
@@ -10766,7 +10810,7 @@
             "patchSendAux": 1
           },
           {
-            "id": "element_default_send2_mwph7gal_i3i1z",
+            "id": "element_default_send2_mwpms6ll_lcru8",
             "type": "knob",
             "label": "Aux 2",
             "x": 842,
@@ -10782,7 +10826,7 @@
             "patchSendAux": 2
           },
           {
-            "id": "element_default_send3_mwph7gal_m1vm7",
+            "id": "element_default_send3_mwpms6ll_ghza3",
             "type": "knob",
             "label": "Aux 3",
             "x": 744,
@@ -10798,7 +10842,7 @@
             "patchSendAux": 3
           },
           {
-            "id": "element_default_send4_mwph7gal_whyjc",
+            "id": "element_default_send4_mwpms6ll_xn3sb",
             "type": "knob",
             "label": "Aux 4",
             "x": 842,
@@ -10814,7 +10858,7 @@
             "patchSendAux": 4
           },
           {
-            "id": "element_default_keyboard_mwph7gal_v2n22",
+            "id": "element_default_keyboard_mwpms6ll_o6idw",
             "type": "keyboard",
             "label": "Teclado",
             "x": 208,
@@ -10832,7 +10876,7 @@
             "keyboardChannel": 0
           },
           {
-            "id": "element_default_expression_mwph7gal_dpiag",
+            "id": "element_default_expression_mwpms6ll_gigl6",
             "type": "pedal",
             "label": "Expression",
             "x": 40,
@@ -10853,7 +10897,7 @@
             "pedalKind": "expression"
           },
           {
-            "id": "element_default_sustain_mwph7gal_laqwl",
+            "id": "element_default_sustain_mwpms6ll_t86f7",
             "type": "pedal",
             "label": "Sustain",
             "x": 118,
@@ -10877,24 +10921,24 @@
         "background": null,
         "tempo": 100
       },
-      "createdAt": 1795209200433,
-      "updatedAt": 1795209200433,
+      "createdAt": 1795218565725,
+      "updatedAt": 1795218565725,
       "mappings": {
-        "element_default_modulation_mwph7gal_dd9jz": {
+        "element_default_modulation_mwpms6ll_eb6q3": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 1
           }
         },
-        "element_default_expression_mwph7gal_dpiag": {
+        "element_default_expression_mwpms6ll_gigl6": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
             "controllerNumber": 11
           }
         },
-        "element_default_sustain_mwph7gal_laqwl": {
+        "element_default_sustain_mwpms6ll_t86f7": {
           "midiCommand": {
             "type": "cc",
             "channel": 0,
@@ -10907,7 +10951,7 @@
   "layout": {
     "elements": [
       {
-        "id": "element_default_volume_mwph7ga9_2wiye",
+        "id": "element_default_volume_mwpms6l9_1o1nv",
         "type": "fader",
         "label": "Volume",
         "x": 40,
@@ -10923,7 +10967,7 @@
         "target": "master-volume"
       },
       {
-        "id": "element_default_modulation_mwph7ga9_dmxyv",
+        "id": "element_default_modulation_mwpms6l9_8pjfd",
         "type": "knob",
         "label": "Modulação",
         "x": 120,
@@ -10943,7 +10987,7 @@
         }
       },
       {
-        "id": "element_default_midi_mwph7ga9_8dve4",
+        "id": "element_default_midi_mwpms6l9_5kgsu",
         "type": "midi-activity",
         "label": "MIDI",
         "x": 224,
@@ -10957,7 +11001,7 @@
         "isMomentary": false
       },
       {
-        "id": "element_default_title_mwph7ga9_z9pk3",
+        "id": "element_default_title_mwpms6l9_klq43",
         "type": "label",
         "label": "Piano de cauda",
         "labelBinding": "patch-name",
@@ -10972,7 +11016,7 @@
         "isMomentary": false
       },
       {
-        "id": "element_default_send1_mwph7ga9_ob2ee",
+        "id": "element_default_send1_mwpms6l9_1ummj",
         "type": "knob",
         "label": "Aux 1",
         "x": 744,
@@ -10988,7 +11032,7 @@
         "patchSendAux": 1
       },
       {
-        "id": "element_default_send2_mwph7ga9_2spwh",
+        "id": "element_default_send2_mwpms6l9_n78c4",
         "type": "knob",
         "label": "Aux 2",
         "x": 842,
@@ -11004,7 +11048,7 @@
         "patchSendAux": 2
       },
       {
-        "id": "element_default_send3_mwph7ga9_70x7m",
+        "id": "element_default_send3_mwpms6l9_j6zm2",
         "type": "knob",
         "label": "Aux 3",
         "x": 744,
@@ -11020,7 +11064,7 @@
         "patchSendAux": 3
       },
       {
-        "id": "element_default_send4_mwph7ga9_edej5",
+        "id": "element_default_send4_mwpms6l9_qlpff",
         "type": "knob",
         "label": "Aux 4",
         "x": 842,
@@ -11036,7 +11080,7 @@
         "patchSendAux": 4
       },
       {
-        "id": "element_default_keyboard_mwph7ga9_uwur7",
+        "id": "element_default_keyboard_mwpms6l9_essb9",
         "type": "keyboard",
         "label": "Teclado",
         "x": 208,
@@ -11054,7 +11098,7 @@
         "keyboardChannel": 0
       },
       {
-        "id": "element_default_expression_mwph7ga9_aq3t6",
+        "id": "element_default_expression_mwpms6l9_hjoro",
         "type": "pedal",
         "label": "Expression",
         "x": 40,
@@ -11075,7 +11119,7 @@
         "pedalKind": "expression"
       },
       {
-        "id": "element_default_sustain_mwph7ga9_ft4eh",
+        "id": "element_default_sustain_mwpms6l9_0ebbc",
         "type": "pedal",
         "label": "Sustain",
         "x": 118,
