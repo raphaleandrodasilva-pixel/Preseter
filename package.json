@@ -1,6 +1,6 @@
 {
   "name": "preseter",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
   "main": "dist/main/index.js",
   "scripts": {
@@ -111,6 +111,18 @@
           "to": "licenses/openwurli-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/oxo-synth2/LICENSE",
+          "to": "licenses/oxo-synth2-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/oxo-synth2/UPSTREAM.md",
+          "to": "licenses/oxo-synth2-UPSTREAM.md"
+        },
+        {
+          "from": "presets/synth2",
+          "to": "synth2-presets"
+        },
+        {
           "from": "build/icon.png",
           "to": "icon.png"
         },
@@ -129,6 +141,18 @@
         {
           "from": "vendor/calfnxt/UPSTREAM.md",
           "to": "licenses/calfnxt-UPSTREAM.md"
+        },
+        {
+          "from": "vendor/guitarix/plugins-win",
+          "to": "plugins/guitarix"
+        },
+        {
+          "from": "vendor/guitarix/COPYING.txt",
+          "to": "licenses/guitarix-COPYING.txt"
+        },
+        {
+          "from": "vendor/guitarix/UPSTREAM.md",
+          "to": "licenses/guitarix-UPSTREAM.md"
         }
       ]
     },
@@ -171,6 +195,18 @@
           "to": "licenses/openwurli-UPSTREAM.md"
         },
         {
+          "from": "engine/third_party/oxo-synth2/LICENSE",
+          "to": "licenses/oxo-synth2-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/oxo-synth2/UPSTREAM.md",
+          "to": "licenses/oxo-synth2-UPSTREAM.md"
+        },
+        {
+          "from": "presets/synth2",
+          "to": "synth2-presets"
+        },
+        {
           "from": "node_modules/ffmpeg-static/ffmpeg",
           "to": "ffmpeg/ffmpeg"
         },
@@ -185,6 +221,18 @@
         {
           "from": "vendor/calfnxt/UPSTREAM.md",
           "to": "licenses/calfnxt-UPSTREAM.md"
+        },
+        {
+          "from": "vendor/guitarix/plugins-linux",
+          "to": "plugins/guitarix"
+        },
+        {
+          "from": "vendor/guitarix/COPYING.txt",
+          "to": "licenses/guitarix-COPYING.txt"
+        },
+        {
+          "from": "vendor/guitarix/UPSTREAM.md",
+          "to": "licenses/guitarix-UPSTREAM.md"
         }
       ]
     },
@@ -217,6 +265,18 @@
         {
           "from": "engine/third_party/openwurli/UPSTREAM.md",
           "to": "licenses/openwurli-UPSTREAM.md"
+        },
+        {
+          "from": "engine/third_party/oxo-synth2/LICENSE",
+          "to": "licenses/oxo-synth2-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/oxo-synth2/UPSTREAM.md",
+          "to": "licenses/oxo-synth2-UPSTREAM.md"
+        },
+        {
+          "from": "presets/synth2",
+          "to": "synth2-presets"
         },
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",
