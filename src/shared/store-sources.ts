@@ -63,6 +63,35 @@ export interface StoreSourcesState {
   addressCount: number;
 }
 
+/**
+ * Cabeçalho explicativo gravado no `store-sources.list`. Fica no arquivo para
+ * quem editar entender o formato sem precisar do código.
+ */
+export const STORE_CONFIG_HEADER: string[] = [
+  '# Fontes e endereços da Loja do Preseter',
+  '#',
+  '# COMO FUNCIONA',
+  '# O catálogo define QUAIS itens a Loja mostra (nome, licença, tipo).',
+  '# Este arquivo define OS LINKS desses itens: página oficial e download.',
+  '# Ele não cria itens: para criar um item novo, edite o catálogo.',
+  '# O id precisa ser igual ao do catálogo (diferencia maiúsculas).',
+  '#',
+  '# COMANDOS',
+  '# source  <id>   <url do catálogo>',
+  '#     De onde vem a lista de itens. Pode haver mais de uma fonte.',
+  '# page    <item> <url oficial>',
+  '#     Define o botão "Página do autor". Não baixa nada. Aceita http e https.',
+  '# address <item> <windows|linux|mac> <url de download>',
+  '#     Define o botão "Baixar e instalar". Precisa ser https.',
+  '#     Sem address para um sistema, o item fica sem download nele.',
+  '#',
+  '# REGRAS',
+  '# - Linha começando com # está desativada (não é só comentário).',
+  '# - Itens "manual" (Kontakt, Komplete, Spitfire...) exigem conta e app do',
+  '#   fabricante: use só "page", nunca "address".',
+  '# - Endereços locais de catálogo são relativos à pasta do aplicativo.',
+];
+
 export const DEFAULT_STORE_SOURCES: StoreSourceEntry[] = [
   { id: 'main', url: STORE_CATALOG_URL, enabled: true },
 ];
@@ -227,12 +256,7 @@ export function parseStoreSources(text: string): StoreSourceParseResult {
 /** Serializa a configuração inteira em texto editável. */
 export function formatStoreConfig(config: StoreConfig): string {
   const lines = [
-    '# Fontes e endereços da Loja do Preseter',
-    '# source  <id>   <url do catálogo>',
-    '# page    <item> <página oficial>',
-    '# address <item> <windows|linux|mac> <url de download>',
-    '# Use # no começo da linha para desativar uma entrada.',
-    '# Endereços locais de catálogo são relativos à pasta do aplicativo.',
+    ...STORE_CONFIG_HEADER,
     '',
     '# Catálogos',
     ...config.sources.map((source) => `${source.enabled ? '' : '# '}source ${source.id} ${source.url}`),
