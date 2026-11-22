@@ -25,7 +25,6 @@ export type StoreSource =
   | 'archive'
   | 'musical-artifacts'
   | 'polyphone'
-  | 'bedroomproducersblog'
   | 'manual';
 export type StoreLicenseKind =
   | 'open-source'
@@ -132,7 +131,7 @@ export interface StoreItemView extends StoreItem {
   totalBytes?: number;
   percent?: number;
   message?: string;
-  /** Id da fonte do `sources.list` de onde o item veio (main, bpb…). */
+  /** Id da fonte do `sources.list` de onde o item veio (main, etc.). */
   catalogSource?: string;
 }
 
@@ -204,7 +203,6 @@ const STORE_SOURCES: StoreSource[] = [
   'archive',
   'musical-artifacts',
   'polyphone',
-  'bedroomproducersblog',
   'manual',
 ];
 const STORE_LICENSE_KINDS: StoreLicenseKind[] = [

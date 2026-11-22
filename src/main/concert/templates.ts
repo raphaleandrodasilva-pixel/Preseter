@@ -3,11 +3,14 @@
  * novo; cada template monta sets e patches prontos para receber instrumentos.
  */
 
-import { ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetSet, PreseterConcertFile, SEND_OFF_DB, UiElement } from '../../shared/types';
+import { ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, SEND_OFF_DB } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { createDefaultKeyboardLayout, ensureDefaultPedals } from '../../shared/default-layout';
+import type { CollectionLayerSpec } from '../../shared/collection-presets';
+import { buildPatchLayout } from '../../shared/collection-layouts';
+import { nativeInstrumentInfo } from '../../shared/native-instruments';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
 interface PatchLayerSpec {
@@ -32,6 +35,12 @@ interface PatchSpec {
   withKeyboard?: boolean;
   /** Estrutura sugerida de layers/splits (não carrega plugins: só documenta o patch). */
   layers?: PatchLayerSpec[];
+  /** Instrumento nativo que o template carrega no patch (tocável). */
+  native?: {
+    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'synth2';
+    programIndex?: number;
+    label?: string;
+  };
   /** Inserts do Master do Patch com a cadeia Guitarix embutida. */
   masterInserts?: GuitarInsertSpec[];
 }
@@ -76,6 +85,60 @@ function gx(id: keyof typeof GX, preset?: string): GuitarInsertSpec {
   return { ...GX[id], ...(preset ? { preset } : {}) };
 }
 
+function slugify (text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+/** Layers que o construtor de layout recebe (nativos/sampler têm parâmetros). */
+function templateLayerSpecs(spec: PatchSpec): CollectionLayerSpec[] {
+  if (spec.native) {
+    return [{
+      inst: 'NATIVE',
+      db: 0,
+      min: 0,
+      max: 127,
+      label: spec.native.label ?? spec.name,
+      nativeInstrument: spec.native.id,
+      programIndex: spec.native.programIndex ?? 0,
+    }];
+  }
+  return (spec.layers ?? []).map((item) => ({
+    inst: 'MDA' as const,
+    db: item.db ?? 0,
+    min: item.minNote ?? 0,
+    max: item.maxNote ?? 127,
+    label: item.label,
+  }));
+}
+
+/** Instrumento nativo pronto para tocar (o template deixa de ser só estrutura). */
+function templateAssignment(spec: PatchSpec, slug: string): PresetPluginAssignment | null {
+  if (!spec.native) return null;
+  const id = `preseter.${spec.native.id}`;
+  const info = nativeInstrumentInfo(id);
+  return {
+    pluginId: id,
+    layerId: `${slug}:layer:0`,
+    name: info?.name ?? spec.name,
+    path: id,
+    role: 'instrument',
+    programIndex: spec.native.programIndex ?? 0,
+    minNote: 0,
+    maxNote: 127,
+    mix: {
+      volumeDb: 0,
+      pan: 0,
+      muted: false,
+      solo: false,
+    },
+  };
+}
+
 /** Camada sugerida de um patch; só estrutura (instrumento, volume e faixa de teclas). */
 function layer(
   instrument: string,
@@ -97,11 +160,6 @@ let elementCounter = 0;
 function nextId(prefix: string): string {
   elementCounter += 1;
   return `${prefix}_${Date.now().toString(36)}_${elementCounter}`;
-}
-
-/** Rig padrão de um patch de teclado; usa o mesmo layout de todo o app. */
-function keyboardRig(notes: string, tempo: number): UiElement[] {
-  return createDefaultKeyboardLayout(tempo, { title: notes }).elements;
 }
 
 /** Monta as notas do patch a partir das camadas sugeridas (instrumento, faixa e volume). */
@@ -135,9 +193,9 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
     tempo: DEFAULT_TEMPO,
     sets: ['Teclado'],
     patches: [
-      { name: 'Piano', setName: 'Teclado', withKeyboard: true, notes: 'Piano acústico' },
-      { name: 'Piano Elétrico', setName: 'Teclado', withKeyboard: true, notes: 'Rhodes / Wurli' },
-      { name: 'Pads', setName: 'Teclado', withKeyboard: true, notes: 'Camadas de pad' },
+      { name: 'Piano', setName: 'Teclado', withKeyboard: true, notes: 'Piano acústico', native: { id: 'piano' } },
+      { name: 'Piano Elétrico', setName: 'Teclado', withKeyboard: true, notes: 'Rhodes / Wurli', native: { id: 'tines' } },
+      { name: 'Pads', setName: 'Teclado', withKeyboard: true, notes: 'Camadas de pad', native: { id: 'jx', programIndex: 0 } },
     ],
   },
   {
@@ -148,10 +206,10 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
     tempo: 72,
     sets: ['Worship'],
     patches: [
-      { name: 'Pad Suave', setName: 'Worship', withKeyboard: true, notes: 'Pad de fundo' },
-      { name: 'Pad Brilhante', setName: 'Worship', withKeyboard: true, notes: 'Pad com brilho' },
-      { name: 'Piano Worship', setName: 'Worship', withKeyboard: true, notes: 'Piano da banda' },
-      { name: 'Ambiente', setName: 'Worship', withKeyboard: true, notes: 'Texturas e transições' },
+      { name: 'Pad Suave', setName: 'Worship', withKeyboard: true, notes: 'Pad de fundo', native: { id: 'jx', programIndex: 0 } },
+      { name: 'Pad Brilhante', setName: 'Worship', withKeyboard: true, notes: 'Pad com brilho', native: { id: 'jx', programIndex: 1 } },
+      { name: 'Piano Worship', setName: 'Worship', withKeyboard: true, notes: 'Piano da banda', native: { id: 'piano' } },
+      { name: 'Ambiente', setName: 'Worship', withKeyboard: true, notes: 'Texturas e transições', native: { id: 'jx', programIndex: 2 } },
     ],
   },
   {
@@ -332,6 +390,8 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     const setOrder = orderInSet.get(orderKey) ?? 0;
     orderInSet.set(orderKey, setOrder + 1);
     const notes = spec.notes ?? (spec.layers?.length ? layerNotes(spec.layers) : undefined);
+    const slug = slugify(spec.name);
+    const assignment = templateAssignment(spec, slug);
     const masterInserts: Insert[] = (spec.masterInserts ?? []).map((item, slot) => ({
       slot,
       pluginId: item.pluginId,
@@ -349,7 +409,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
       setOrder,
       programNumber: index,
       midiChannel: 0,
-      plugins: [],
+      plugins: assignment ? [assignment] : [],
       vstStates: {},
       ...(masterInserts.length > 0
         ? {
@@ -362,11 +422,18 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
             },
           }
         : {}),
-      layout: {
-        elements: spec.withKeyboard ? keyboardRig(notes ?? spec.name, template.tempo) : [],
-        background: null,
-        tempo: template.tempo,
-      },
+      layout: spec.withKeyboard === false
+        ? { elements: [], background: null, tempo: template.tempo }
+        : buildPatchLayout({
+            slug,
+            title: notes ?? spec.name,
+            tempo: template.tempo,
+            setName: spec.setName ?? '',
+            patchName: spec.name,
+            layers: templateLayerSpecs(spec),
+            layerId: assignment?.layerId,
+            masterInserts,
+          }),
       createdAt: now,
       updatedAt: now,
     };

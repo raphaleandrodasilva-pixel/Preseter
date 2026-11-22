@@ -39,6 +39,7 @@ import {
 } from '@shared/strip-levels';
 import { defaultSends } from '@shared/concert-strips';
 import { suggestPatchIcon } from '@shared/patch-icons';
+import { buildPresetLayout } from '@shared/collection-layouts';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -547,6 +548,33 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
 
   const deletePatches = async (ids: string[]): Promise<void> => {
     for (const id of ids) await deletePreset(id);
+  };
+
+  /**
+   * P5.2: troca só o layout dos patches escolhidos pelo layout por instrumento.
+   * Nome, plugins, inserts, valores e áudio continuam iguais; exige confirmação
+   * porque substitui qualquer personalização feita no compositor.
+   */
+  const regenerateLayouts = async (ids: string[]): Promise<void> => {
+    const selected = presets.filter((preset) => ids.includes(preset.id));
+    if (selected.length === 0) return;
+    const confirmed = window.confirm(
+      `Regenerar o layout por instrumento de ${selected.length === 1 ? '1 patch' : `${selected.length} patches`}?\n\n`
+      + 'Os controles personalizados no compositor serão substituídos. '
+      + 'Nome, plugins, efeitos e valores salvos não mudam.'
+    );
+    if (!confirmed) return;
+    for (const preset of selected) {
+      const next = buildPresetLayout(preset, {
+        setName: sets.find((set) => set.id === preset.setId)?.name,
+        tempo: preset.layout?.tempo,
+      });
+      await savePreset({
+        ...preset,
+        layout: { ...next, background: preset.layout?.background ?? null },
+        updatedAt: Date.now(),
+      });
+    }
   };
 
   /** 5.2: combina os patches selecionados num patch novo. */
@@ -3255,6 +3283,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onDeletePatches={deletePatches}
           onNewPatchFromSelection={newPatchFromSelection}
           onNewSetFromSelection={newSetFromSelection}
+          onRegenerateLayouts={regenerateLayouts}
           onExportPatch={(id) => void exportPatch(id)}
           onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
           onExportSet={(id) => void exportSet(id)}
@@ -3366,6 +3395,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onDeletePatches={deletePatches}
                     onNewPatchFromSelection={newPatchFromSelection}
                     onNewSetFromSelection={newSetFromSelection}
+                    onRegenerateLayouts={regenerateLayouts}
                     onExportPatch={(id) => void exportPatch(id)}
                     onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
                     onExportSet={(id) => void exportSet(id)}

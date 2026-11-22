@@ -1,14 +1,14 @@
-import type { Insert, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, UiElement } from '../../shared/types';
+import type { Insert, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile } from '../../shared/types';
 import { MAX_INSERTS } from '../../shared/types';
 import type { CollectionReadiness } from '../../shared/collection';
 import { existsSync, readFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
-import { createDefaultKeyboardLayout } from '../../shared/default-layout';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec, type EffectSpec } from '../../shared/collection-presets';
+import { buildPatchLayout } from '../../shared/collection-layouts';
 import { effectKey, findEffect } from '../../shared/effects/catalog';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
@@ -207,10 +207,6 @@ function loadSurgePresetState(
   return null;
 }
 
-function keyboardRig(notes: string, tempo: number): UiElement[] {
-  return createDefaultKeyboardLayout(tempo, { title: notes }).elements;
-}
-
 function resolvePlugin(
   inst: CollectionLayerSpec['inst'],
   plugins: CollectionPlugin[],
@@ -377,7 +373,18 @@ export function buildCollectionConcert(
         vstStates,
         ...(master ? { master } : {}),
         ...(meta?.auxPresets ? { auxPresets: meta.auxPresets } : {}),
-        layout: { elements: keyboardRig(notes, tempo), background: null, tempo },
+        layout: buildPatchLayout({
+          slug: name.replace(/\W+/g, '-').toLowerCase(),
+          title: notes,
+          tempo,
+          setName,
+          patchName: name,
+          layers,
+          layerId: assignments[0]?.layerId,
+          layerInserts: stripInserts,
+          masterInserts,
+          meta,
+        }),
         createdAt: now,
         updatedAt: now,
       });

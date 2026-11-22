@@ -35,6 +35,30 @@ Synthesizers.
 - Se o motor não tiver o `preseter.drums` (versão antiga), a carga cai no sampler com o mesmo SF2 e
   o patch continua soando (sem sequenciador).
 
+## Layout no palco (por instrumento)
+
+Cada patch gerado usa `buildPatchLayout` (`src/shared/collection-layouts.ts`): a base é a mesma
+(Volume, Modulação, MIDI, nome, Aux 1–4, teclado e pedais) e a zona do instrumento muda conforme
+a família. São no máximo 12 controles extras, todos ligados a parâmetros reais do motor/plugin.
+
+| Família / patch | Controles da zona do instrumento | Teclado |
+|---|---|---|
+| Pianos acústicos (Concert Grand, Soft Grand, Pop Piano, Upright) | sampler: Brilho (4), Release (3), Dinâmica (6), Volume (10) + inserts | 21–108 |
+| Rhodes Classic | Tines: Volume, Decay, Release, Hardness, Tremolo, Rate + Chorus/Phaser | 28–103 |
+| Wurlitzer EP | Wurly: Volume, Tremolo, Speaker, Hammer, Damper + Pulsator | 28–103 |
+| FM Electric Piano | DX10: Attack, Decay, Release, Coarse, Vibrato, LFO Rate + Chorus | 36–96 |
+| Clavinet Funk | sampler: Ataque, Release, Brilho, Dinâmica + Phaser | 36–96 |
+| Órgãos | 9 drawbars (0–8) + Percussão, Vibrato/Chorus (0–6), Leslie (0–3) | 36–96 |
+| Cordas / metais / sopros | sampler: Ataque, Release, Brilho, Dinâmica (+ inserts) | 36–96 |
+| Guitarras / baixos de sampler | sampler: Ataque, Release, Brilho (+ Compressor/Harmonics) | 40–88 / 28–67 |
+| JX10 (leads, pads, Synth Bass) | OSC Mix, Cutoff, Resonance, Attack, Release, Vibrato + inserts | 36–96 |
+| JX10 com arpejador | os 6 acima + Modo, Oitavas, Taxa e Gate do arp | 36–96 |
+| Baterias | sampler: Release, Brilho, Volume; Drums nativo só com os efeitos do patch | 36–96 |
+
+Os patches **já salvos** pelo usuário não são alterados: o novo layout só é aplicado quando a
+Coleção é gerada de novo. A tabela completa de índices confirmados está em
+`docs/LAYOUT-POR-INSTRUMENTO.md` (§8).
+
 ## Padrões de fábrica disponíveis
 
 `src/shared/drum-patterns.ts`: Rock 4/4, Pop, Funk, Shuffle, Balada, Bossa, Samba e Eletrônico.

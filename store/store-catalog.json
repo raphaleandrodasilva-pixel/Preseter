@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-14T14:35:14.176Z",
+  "updatedAt": "2026-11-22T17:35:39.473Z",
   "source": "https://github.com/raphaleandrodasilva-pixel/Preseter",
   "items": [
     {
@@ -898,7 +898,7 @@
         "player"
       ],
       "essential": true,
-      "defaultSelected": true,
+      "defaultSelected": false,
       "thumbnail": {
         "kind": "generated"
       },
@@ -3632,7 +3632,7 @@
       "description": "Orquestra sampleada gratuita com 44 instrumentos, 74 técnicas e 11 solos.",
       "version": "atual",
       "tier": "verified",
-      "source": "bedroomproducersblog",
+      "source": "official",
       "license": "Freeware (conta Spitfire + Kontakt Player)",
       "licenseKind": "freeware",
       "page": "https://www.spitfireaudio.com/en-eu/products/spitfire-symphony-orchestra-discover",
@@ -3641,15 +3641,14 @@
         "orquestra",
         "cordas",
         "metais",
-        "madeiras",
-        "BPB"
+        "madeiras"
       ],
       "essential": false,
       "defaultSelected": false,
       "thumbnail": {
         "kind": "generated"
       },
-      "notes": "Fonte: BPB. Requer conta Spitfire, app Spitfire Audio e Kontakt Player. Aproximadamente 5,68 GB.",
+      "notes": "Requer conta Spitfire, app Spitfire Audio e Kontakt Player. Aproximadamente 5,68 GB.",
       "format": "VST3",
       "approxBytes": 6069990000,
       "variants": [
@@ -3691,7 +3690,7 @@
       "description": "Biblioteca gratuita de instrumentos para Kontakt Player, com baterias, corais, banda e sintetizadores.",
       "version": "2",
       "tier": "verified",
-      "source": "bedroomproducersblog",
+      "source": "official",
       "license": "Freeware (conta Native Instruments)",
       "licenseKind": "freeware",
       "page": "https://www.native-instruments.com/products/komplete-start",
@@ -3699,15 +3698,14 @@
         "Kontakt",
         "samples",
         "bateria",
-        "coral",
-        "BPB"
+        "coral"
       ],
       "essential": false,
       "defaultSelected": false,
       "thumbnail": {
         "kind": "generated"
       },
-      "notes": "Fonte: BPB. Requer conta Native Instruments e Native Access. Roda no Kontakt Player.",
+      "notes": "Requer conta Native Instruments e Native Access. Roda no Kontakt Player.",
       "format": "VST3",
       "approxBytes": 0,
       "variants": [
@@ -3749,7 +3747,7 @@
       "description": "Emulação open source do Oberheim OB-X, para pads, brass, strings e leads analógicos.",
       "version": "atual",
       "tier": "verified",
-      "source": "bedroomproducersblog",
+      "source": "official",
       "license": "GPL-3.0",
       "licenseKind": "open-source",
       "licenseUrl": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -3758,15 +3756,14 @@
         "VST3",
         "analógico",
         "Oberheim",
-        "open source",
-        "BPB"
+        "open source"
       ],
       "essential": false,
       "defaultSelected": false,
       "thumbnail": {
         "kind": "generated"
       },
-      "notes": "Fonte: BPB. Projeto open source; baixe o release no GitHub e instale o VST3.",
+      "notes": "Projeto open source; baixe o release no GitHub e instale o VST3.",
       "format": "VST3",
       "approxBytes": 0,
       "variants": [
@@ -3818,7 +3815,7 @@
       "description": "Bateria acústica gratuita com grooves MIDI, para rock e pop.",
       "version": "2",
       "tier": "verified",
-      "source": "bedroomproducersblog",
+      "source": "official",
       "license": "Freeware",
       "licenseKind": "freeware",
       "page": "https://www.powerdrumkit.com/",
@@ -3826,15 +3823,14 @@
         "VST3",
         "bateria",
         "acústico",
-        "grooves",
-        "BPB"
+        "grooves"
       ],
       "essential": false,
       "defaultSelected": false,
       "thumbnail": {
         "kind": "generated"
       },
-      "notes": "Fonte: BPB. Baixe o instalador oficial e confira a versão VST3 para o seu sistema.",
+      "notes": "Baixe o instalador oficial e confira a versão VST3 para o seu sistema.",
       "format": "VST3",
       "approxBytes": 0,
       "variants": [
@@ -3932,6 +3928,642 @@
           "approxBytes": 0,
           "manualReason": "Gerado pelo próprio Preseter no modo Factory 40.",
           "notes": "Abra Factory 40 na Loja para baixar as dependências e gerar o concert."
+        }
+      ]
+    },
+    {
+      "id": "free-orchestra-2",
+      "type": "library",
+      "name": "The Free Orchestra 2",
+      "category": "Samplers e bibliotecas",
+      "author": "ProjectSAM",
+      "description": "Biblioteca orquestral gratuita para Kontakt, com patches curtos e cinemáticos.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://projectsam.com/libraries/the-free-orchestra-2/",
+      "tags": [
+        "orquestral",
+        "Kontakt",
+        "cinemático"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://projectsam.com/libraries/the-free-orchestra-2/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://projectsam.com/libraries/the-free-orchestra-2/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "lux-orchestral-strings",
+      "type": "library",
+      "name": "LUX Orchestral Strings Elements",
+      "category": "Samplers e bibliotecas",
+      "author": "Sonuscore",
+      "description": "Elementos de cordas orquestrais com foco em texturas e arranjos modernos.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.sonuscore.com/shop/",
+      "tags": [
+        "cordas",
+        "orquestral",
+        "texturas"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://www.sonuscore.com/shop/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://www.sonuscore.com/shop/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "creative-toolbox-piano",
+      "type": "library",
+      "name": "Creative Toolbox Piano",
+      "category": "Pianos",
+      "author": "Strezov Sampling",
+      "description": "Piano preparado e processado para trilhas, com camadas e articulações criativas.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.strezov-sampling.com/",
+      "tags": [
+        "piano",
+        "trilha",
+        "preparado"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://www.strezov-sampling.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://www.strezov-sampling.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "1928-vintage-grand-steinway",
+      "type": "library",
+      "name": "1928 Vintage Grand Steinway",
+      "category": "Pianos",
+      "author": "Soundpaint",
+      "description": "Piano de cauda Steinway de 1928 amostrado para o player Soundpaint.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://soundpaint.com/products/1928-vintage-grand-steinway",
+      "tags": [
+        "piano",
+        "Steinway",
+        "vintage"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://soundpaint.com/products/1928-vintage-grand-steinway",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://soundpaint.com/products/1928-vintage-grand-steinway",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "sweetcase",
+      "type": "plugin",
+      "name": "Sweetcase Vintage Electric Piano",
+      "category": "Pianos",
+      "author": "NoiseAsh",
+      "description": "Piano elétrico vintage com simulação de amplificador, alto-falante e efeitos.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://noiseash.com/sweetcase-vintage-electric-piano/",
+      "tags": [
+        "piano elétrico",
+        "vintage",
+        "Rhodes"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://noiseash.com/sweetcase-vintage-electric-piano/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://noiseash.com/sweetcase-vintage-electric-piano/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "labs-soft-piano",
+      "type": "plugin",
+      "name": "LABS Soft Piano",
+      "category": "Pianos",
+      "author": "Spitfire Audio",
+      "description": "Piano suave e íntimo da plataforma LABS, com pedal e textura características.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://labs.spitfireaudio.com/",
+      "tags": [
+        "piano",
+        "suave",
+        "cinemático"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://labs.spitfireaudio.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://labs.spitfireaudio.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "monastery-grand",
+      "type": "plugin",
+      "name": "Monastery Grand",
+      "category": "Pianos",
+      "author": "MeldaProduction",
+      "description": "Piano acústico com controles de timbre e mixagem no ecossistema Melda.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.meldaproduction.com/MonasteryGrand",
+      "tags": [
+        "piano",
+        "acústico",
+        "Melda"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.meldaproduction.com/MonasteryGrand",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.meldaproduction.com/MonasteryGrand",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "piano-one",
+      "type": "plugin",
+      "name": "Piano One",
+      "category": "Pianos",
+      "author": "Sound Magic",
+      "description": "Piano acústico leve e direto, útil para estudo e camadas rápidas.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.supremepiano.com/",
+      "tags": [
+        "piano",
+        "acústico",
+        "leve"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.supremepiano.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.supremepiano.com/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "bfd-player",
+      "type": "plugin",
+      "name": "BFD Player",
+      "category": "Baterias",
+      "author": "BFD Drums",
+      "description": "Player gratuito para kits BFD, com foco em baterias acústicas detalhadas.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.bfddrums.com/bfd-player/",
+      "tags": [
+        "bateria",
+        "acústica",
+        "BFD"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.bfddrums.com/bfd-player/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.bfddrums.com/bfd-player/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "triaz-player",
+      "type": "plugin",
+      "name": "Triaz Player",
+      "category": "Baterias",
+      "author": "Wave Alchemy",
+      "description": "Player de bateria eletrônica com kits modernos e sequenciador.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://www.wavealchemy.co.uk/product/triaz-player/",
+      "tags": [
+        "bateria",
+        "eletrônica",
+        "sequenciador"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "VST3",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.wavealchemy.co.uk/product/triaz-player/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "VST3",
+          "kind": "manual",
+          "page": "https://www.wavealchemy.co.uk/product/triaz-player/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "shreddage-3-stratus-free",
+      "type": "plugin",
+      "name": "Shreddage 3 Stratus FREE",
+      "category": "Guitarras e violões",
+      "author": "Impact Soundworks",
+      "description": "Guitarra elétrica gratuita para Kontakt Player, com foco em rock e metal.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://impactsoundworks.com/product/shreddage-3-stratus-free-kp/",
+      "tags": [
+        "guitarra",
+        "elétrica",
+        "Kontakt"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://impactsoundworks.com/product/shreddage-3-stratus-free-kp/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://impactsoundworks.com/product/shreddage-3-stratus-free-kp/",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "foundations-nylon-guitar",
+      "type": "library",
+      "name": "FOUNDATIONS Nylon Guitar",
+      "category": "Guitarras e violões",
+      "author": "Heavyocity",
+      "description": "Violão de nylon gratuito para Kontakt, com frases e articulações modernas.",
+      "tier": "indexed",
+      "source": "official",
+      "license": "Verificar na página oficial",
+      "licenseKind": "unknown",
+      "page": "https://heavyocity.com/products/foundations-nylon-guitar",
+      "tags": [
+        "violão",
+        "nylon",
+        "Kontakt"
+      ],
+      "essential": false,
+      "defaultSelected": false,
+      "thumbnail": {
+        "kind": "generated"
+      },
+      "notes": "Item indexado: confirme versão gratuita, formatos, sistemas e licença na página oficial antes de instalar.",
+      "format": "Instalador",
+      "approxBytes": 0,
+      "variants": [
+        {
+          "os": "windows",
+          "arch": [
+            "x64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://heavyocity.com/products/foundations-nylon-guitar",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
+        },
+        {
+          "os": "mac",
+          "arch": [
+            "x64",
+            "arm64"
+          ],
+          "format": "Instalador",
+          "kind": "manual",
+          "page": "https://heavyocity.com/products/foundations-nylon-guitar",
+          "approxBytes": 0,
+          "manualReason": "Item indexado: o download e a instalação são feitos na página oficial do desenvolvedor.",
+          "linkStatus": "unknown"
         }
       ]
     }

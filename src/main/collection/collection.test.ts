@@ -9,6 +9,7 @@ import {
   resolveEffectInserts,
 } from './generateCollection';
 import { N } from '../../shared/collection-presets';
+import { findEffect } from '../../shared/effects/catalog';
 import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 
@@ -241,6 +242,110 @@ describe('efeitos nativos na coleção', () => {
     expect(findEffectPlugin(guitarix, 'amp')?.name).toBe('GxAmplifier-X');
     expect(findEffectPlugin(guitarix, 'GxTubeScreamer')?.name).toBe('GxTubeScreamer');
     expect(findEffectPlugin(guitarix, 'gxts9')?.name).toBe('GxTubeScreamer');
+  });
+
+  it('gera layouts por instrumento nos patches', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+
+      const organ = file.patches.find((patch) => patch.name === 'Hammond Jazz');
+      const drawbars = organ?.layout.elements.filter((element) => element.type === 'drawbar') ?? [];
+      expect(drawbars).toHaveLength(9);
+      expect(drawbars.map((element) => element.parameterId)).toEqual(
+        Array.from({ length: 9 }, (_, index) => String(index))
+      );
+      expect(organ?.layout.elements.find((element) => element.type === 'keyboard'))
+        .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
+
+      const grand = file.patches.find((patch) => patch.name === 'Concert Grand');
+      expect(grand?.layout.elements.find((element) => element.type === 'keyboard'))
+        .toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+
+      // P6: os 40 patches com ids únicos, sem sobreposição e com parâmetros reais.
+      expect(file.patches).toHaveLength(40);
+      for (const patch of file.patches) {
+        const elements = patch.layout.elements;
+        const ids = elements.map((element) => element.id);
+        expect(new Set(ids).size, `${patch.name}: ids repetidos`).toBe(ids.length);
+
+        for (let i = 0; i < elements.length; i += 1) {
+          for (let j = i + 1; j < elements.length; j += 1) {
+            const a = elements[i];
+            const b = elements[j];
+            const overlap = a.x < b.x + b.width && b.x < a.x + a.width
+              && a.y < b.y + b.height && b.y < a.y + a.height;
+            expect(overlap, `${patch.name}: ${a.id} sobrepõe ${b.id}`).toBe(false);
+          }
+        }
+
+        for (const element of elements) {
+          if (!element.paramOwner) continue;
+          expect(element.parameterId, `${patch.name}: ${element.label} sem parameterId`)
+            .toBeTruthy();
+        }
+
+        if (patch.setId === organ?.setId) {
+          expect(elements.filter((element) => element.type === 'drawbar')).toHaveLength(9);
+        }
+        expect(elements.some((element) => element.type === 'midi-activity')).toBe(true);
+      }
+
+      // Controles de efeito apontam para índices que existem no catálogo.
+      const ambient = file.patches.find((patch) => patch.name === 'Ambient Texture');
+      const stereo = ambient?.plugins?.[0]?.inserts?.find((insert) => insert.slot === 1);
+      const stereoControls = ambient?.layout.elements.filter(
+        (element) => element.paramSlot === 1 && element.paramOwner === ambient.plugins?.[0]?.layerId
+      ) ?? [];
+      expect(stereo).toBeDefined();
+      expect(stereoControls.length).toBeGreaterThan(0);
+      const stereoDefinition = findEffect(stereo?.path ?? '');
+      expect(stereoDefinition).toBeDefined();
+      const indexes = new Set(stereoDefinition?.params.map((param) => String(param.index)));
+      expect(stereoControls.every((element) => indexes.has(element.parameterId ?? ''))).toBe(true);
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('reconhece a família de cada patch e escolhe a zona certa', () => {
+    const sounds = makeSoundsFolder();
+    try {
+      const { file } = buildCollectionConcert(plugins, { soundsFolder: sounds });
+      const keyboardOf = (name: string) => file.patches
+        .find((patch) => patch.name === name)
+        ?.layout.elements.find((element) => element.type === 'keyboard');
+      const paramsOf = (name: string) => {
+        const patch = file.patches.find((item) => item.name === name);
+        const layerId = patch?.plugins?.[0]?.layerId;
+        return patch?.layout.elements
+          .filter((element) => element.paramOwner === layerId && element.paramSlot === undefined)
+          .map((element) => element.parameterId) ?? [];
+      };
+
+      // Clavinet é sampler, não piano de 88 teclas.
+      expect(keyboardOf('Clavinet Funk')).toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
+      expect(paramsOf('Clavinet Funk')).toEqual(['0', '3', '4', '6']);
+      expect(paramsOf('String Ensemble')).toEqual(['0', '3', '4', '6']);
+      expect(paramsOf('Precision Bass')).toEqual(['0', '3', '4']);
+      expect(keyboardOf('Precision Bass')).toMatchObject({ keyboardLow: 28, keyboardHigh: 67 });
+      expect(keyboardOf('Acoustic Guitar Nylon')).toMatchObject({ keyboardLow: 40, keyboardHigh: 88 });
+
+      // JX10: controles do sintetizador; Synth Bass também é JX, com teclado de baixo.
+      expect(paramsOf('Analog Poly Synth')).toEqual(['0', '6', '7', '11', '14', '20']);
+      expect(paramsOf('Synth Bass')).toEqual(['0', '6', '7', '11', '14', '20']);
+      expect(keyboardOf('Synth Bass')).toMatchObject({ keyboardLow: 28, keyboardHigh: 67 });
+      expect(paramsOf('Arpeggiator')).toEqual([
+        '0', '6', '7', '11', '14', '20', '31', '32', '33', '34',
+      ]);
+
+      // Drums nativo não expõe parâmetros: sobra só o efeito do insert.
+      expect(paramsOf('Electronic Drum Kit')).toEqual([]);
+      expect(file.patches.find((patch) => patch.name === 'Electronic Drum Kit')
+        ?.layout.elements.filter((element) => element.paramOwner).length).toBeGreaterThan(0);
+    } finally {
+      removeTempDir(sounds);
+    }
   });
 
   it('gera os inserts do strip e os sends do patch', () => {

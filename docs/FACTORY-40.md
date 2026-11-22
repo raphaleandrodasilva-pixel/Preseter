@@ -137,9 +137,11 @@ Como funciona (`NativeProcessor.h` 47 e `Engine.cpp` 2517, 3697):
 
 - Órgão, Tines e Wurly usam a lista própria do `NativeProcessor` (`organ_*`,
   `tines_*`, `wurly_*`), criada em `createLayout` (`NativeProcessor.cpp` 69–122).
-- **Piano, DX10 e JX10 retornam um layout vazio** (`NativeProcessor.cpp` 58–60).
-  O comando `params` do motor delega para o processador MDA
-  (`getParameterProcessor()`), então **os ids são os do MDA**, com espaço no nome.
+- **Piano, DX10 e JX10 não têm lista própria** (`NativeProcessor.cpp` 58–60) e delegam ao
+  processador MDA (`getParameterProcessor()`); o comando `params` do motor devolve os
+  parâmetros reais do MDA, com espaço no nome (confirmado na P0 do layout por instrumento:
+  12/16/24 parâmetros). Os índices usados no palco estão em
+  `docs/LAYOUT-POR-INSTRUMENTO.md` §8.
 
 ### Ids reais por instrumento
 

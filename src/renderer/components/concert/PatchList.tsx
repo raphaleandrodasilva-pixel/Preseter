@@ -28,6 +28,8 @@ interface PatchListProps {
   onDeletePatches: (ids: string[]) => Promise<void>;
   onNewPatchFromSelection: (ids: string[]) => Promise<void>;
   onNewSetFromSelection: (ids: string[]) => Promise<void>;
+  /** Regera o layout por instrumento dos patches selecionados (com confirmação). */
+  onRegenerateLayouts?: (ids: string[]) => Promise<void>;
   onExportPatch: (presetId: string) => void;
   onImportPatch: () => void;
   onExportSet: (setId: string) => void;
@@ -88,6 +90,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   onDeletePatches,
   onNewPatchFromSelection,
   onNewSetFromSelection,
+  onRegenerateLayouts,
   onExportPatch,
   onImportPatch,
   onExportSet,
@@ -515,6 +518,16 @@ export const PatchList: React.FC<PatchListProps> = ({
               >
                 Mover novamente <span style={{ color: '#8E8E93' }}>Shift+Alt+M</span>
               </button>
+              {onRegenerateLayouts && (
+                <button
+                  className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
+                  style={{ color: '#EDEDEF' }}
+                  disabled={selectedIds.length === 0}
+                  onClick={() => { void onRegenerateLayouts(selectedIds); setActionOpen(false); }}
+                >
+                  Regenerar layout por instrumento…
+                </button>
+              )}
               <button
                 className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
                 style={{ color: '#EDEDEF' }}

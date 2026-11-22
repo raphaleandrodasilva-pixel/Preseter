@@ -36,7 +36,6 @@ import {
   readStoreCatalog,
   resolveStoreSourcePath,
   seedStoreConfig,
-  STORE_BPB_CATALOG_PATH,
   STORE_SOURCES_FILE,
   type StoreAddressEntry,
   type StoreConfig,
@@ -140,7 +139,6 @@ export class StoreService {
   private readonly legacyAddressesPath: string;
   private baseCatalog: StoreCatalog = { version: 1, items: [] };
   private catalog: StoreCatalog = { version: 1, items: [] };
-  private bpbCatalog: StoreCatalog | null = null;
   private sources: StoreSourceEntry[] = [...DEFAULT_STORE_SOURCES];
   private configText = DEFAULT_STORE_SOURCES_TEXT;
   private pages = new Map<string, string>();
@@ -213,28 +211,12 @@ export class StoreService {
     this.lastCheckedAt = cached.checkedAt;
     this.etag = cached.etag;
     await this.loadImages();
-    await this.loadBpbCatalog();
     await this.loadSourceConfig();
     await this.loadLocalSources();
     await this.loadLegacyAddresses();
     this.mergeCatalogs();
     if (this.catalog.items.length === 0) {
       this.catalogError = embedded.error ?? cached.error ?? 'Catálogo da Loja vazio.';
-    }
-  }
-
-  /** Catálogo BPB embutido: metadados, sem links fixos no programa. */
-  private async loadBpbCatalog(): Promise<void> {
-    const filePath = resolveStoreSourcePath(STORE_BPB_CATALOG_PATH, this.options.appPath);
-    try {
-      const raw = await fs.readFile(filePath, 'utf8');
-      this.bpbCatalog = readStoreCatalog(raw);
-      if (!this.bpbCatalog) {
-        this.sourceErrors.set('bpb', `Catálogo BPB inválido: ${filePath}`);
-      }
-    } catch (error) {
-      this.bpbCatalog = null;
-      this.sourceErrors.set('bpb', `Não foi possível ler ${filePath}: ${errorMessage(error)}`);
     }
   }
 
@@ -261,12 +243,12 @@ export class StoreService {
 
     if (needsSeed) {
       const seeded = seedStoreConfig({
+        // Config antiga pode citar a fonte interna 'bpb' (catálogo descontinuado).
         sources: (parsed?.sources.length ? parsed.sources : DEFAULT_STORE_SOURCES).filter(
           (source) => source.id !== 'bpb'
         ),
         catalogs: [
           { sourceId: 'main', catalog: this.baseCatalog },
-          ...(this.bpbCatalog ? [{ sourceId: 'bpb', catalog: this.bpbCatalog }] : []),
           ...[...this.sourceCatalogs].map(([sourceId, catalog]) => ({ sourceId, catalog })),
         ],
       });
@@ -280,7 +262,7 @@ export class StoreService {
   }
 
   private applyConfig(config: StoreConfig): void {
-    // O BPB é metadado interno; não volta como fonte listada.
+    // Compatibilidade: config antiga pode citar a fonte interna descontinuada.
     this.sources = config.sources.filter((source) => source.id !== 'bpb');
     this.pages = new Map(
       config.pages.filter((page) => page.enabled).map((page) => [page.itemId, page.url])
@@ -334,10 +316,9 @@ export class StoreService {
     }
   }
 
-  /** Mescla catálogo principal + BPB embutido + fontes extras. */
+  /** Mescla catálogo principal + fontes extras. */
   private mergeCatalogs(): void {
     const extras: Array<{ sourceId: string; catalog: StoreCatalog }> = [];
-    if (this.bpbCatalog) extras.push({ sourceId: 'bpb', catalog: this.bpbCatalog });
     for (const source of this.sources) {
       if (!source.enabled) continue;
       const catalog = this.sourceCatalogs.get(source.id);
@@ -629,7 +610,6 @@ export class StoreService {
       sources: this.sources,
       catalogs: [
         { sourceId: 'main', catalog: this.baseCatalog },
-        ...(this.bpbCatalog ? [{ sourceId: 'bpb', catalog: this.bpbCatalog }] : []),
         ...[...this.sourceCatalogs].map(([sourceId, catalog]) => ({ sourceId, catalog })),
       ],
     });

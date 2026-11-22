@@ -9,9 +9,6 @@ import {
 /** Nome do arquivo de configuração, no estilo `sources.list` do apt. */
 export const STORE_SOURCES_FILE = 'store-sources.list';
 
-/** Catálogo BPB embutido no app (apenas metadados; links ficam no config). */
-export const STORE_BPB_CATALOG_PATH = 'store/store-catalog-bpb.json';
-
 export interface StoreSourceEntry {
   id: string;
   url: string;

@@ -404,53 +404,6 @@ describe('StoreService', () => {
     );
   });
 
-  it('merges the local BPB catalog as internal metadata', async () => {
-    await fs.writeFile(
-      path.join(appPath, 'store', 'store-catalog-bpb.json'),
-      JSON.stringify(
-        catalog(
-          item({
-            id: 'bpb-local',
-            name: 'Instrumento BPB',
-            source: 'bedroomproducersblog',
-            tier: 'indexed',
-            page: 'https://example.com/bpb-local',
-          })
-        )
-      ),
-      'utf8'
-    );
-    const store = service(createInstaller());
-    const snapshot = await store.snapshot();
-    expect(snapshot.items.map((entry) => entry.id)).toEqual(['plugin', 'bpb-local']);
-    expect(snapshot.items[1].catalogSource).toBe('bpb');
-    expect(snapshot.sources?.map((source) => source.id)).toEqual(['main']);
-
-    const state = await store.getSources();
-    expect(state.path.endsWith('store-sources.list')).toBe(true);
-    expect(state.text).toContain('page bpb-local https://example.com/bpb-local');
-    expect(state.sources.find((source) => source.id === 'bpb')).toBeUndefined();
-  });
-
-  it('saves the config and keeps BPB metadata available', async () => {
-    await fs.writeFile(
-      path.join(appPath, 'store', 'store-catalog-bpb.json'),
-      JSON.stringify(catalog(item({ id: 'bpb-local', source: 'bedroomproducersblog' }))),
-      'utf8'
-    );
-    const store = service(createInstaller());
-    await store.snapshot();
-
-    const result = await store.saveSources('source main https://example.com/main.json\n');
-    expect(result.ok).toBe(true);
-    expect(result.snapshot.items.map((entry) => entry.id)).toEqual(['plugin', 'bpb-local']);
-    expect(result.state.sources).toHaveLength(1);
-    expect(result.state.sources[0].enabled).toBe(true);
-    await expect(fs.readFile(path.join(userData, 'store-sources.list'), 'utf8')).resolves.toContain(
-      'source main https://example.com/main.json'
-    );
-  });
-
   it('edits item addresses and persists them in the config file', async () => {
     const store = service(createInstaller());
     const before = await store.snapshot();
@@ -488,7 +441,25 @@ describe('StoreService', () => {
     expect(result.snapshot.items[0].variant?.url).toBeUndefined();
   });
 
-  it('seeds the real catalog with all downloads and BPB pages', async () => {
+  it('ignora a fonte interna bpb de configurações antigas', async () => {
+    await fs.writeFile(
+      path.join(userData, 'store-sources.list'),
+      [
+        'source main https://example.com/main.json',
+        'source bpb store/store-catalog-bpb.json',
+        'page plugin https://example.com/plugin',
+        '',
+      ].join('\n'),
+      'utf8'
+    );
+    const store = service(createInstaller());
+    const state = await store.getSources();
+
+    expect(state.sources.map((source) => source.id)).toEqual(['main']);
+    expect(state.sources.some((source) => source.id === 'bpb')).toBe(false);
+  });
+
+  it('seeds the real catalog with all downloads and official pages', async () => {
     const store = new StoreService({
       appPath: process.cwd(),
       userData,
@@ -503,6 +474,7 @@ describe('StoreService', () => {
     expect(state.addressCount).toBeGreaterThanOrEqual(60);
     expect(state.pageCount).toBeGreaterThanOrEqual(20);
     expect(state.text).not.toContain('source bpb');
-    expect(state.text).toContain('page bpb-surge-xt');
+    expect(state.text).toContain('page free-orchestra-2');
+    expect(state.text).not.toMatch(/bedroom|bpb/i);
   });
 });

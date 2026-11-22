@@ -4,6 +4,12 @@ O catálogo da Loja fica em `store/store-catalog.json` (gerado por
 `scripts/generate-store-catalog.mjs`) e é lido pelo app; os pacotes grandes não entram no
 instalador — são baixados para a pasta de sons do usuário.
 
+A Loja lista **só plugins e bibliotecas**, sempre com a **página oficial do autor** e, quando
+houver um link verificado, o **download oficial**. Não há catálogo de terceiros embutido: as
+entradas vêm de `src/shared/collection-catalog.json` (links oficiais da coleção) e de
+`store/store-extras.json` (metadados extras), ambos consumidos pelo gerador. Não edite
+`store/store-catalog.json` à mão.
+
 > Regra do projeto: **nenhum kit de bateria ou biblioteca de samples entra na Loja sem a licença
 > verificada na fonte e registrada em `docs/LICENCAS.md`**. O que não tiver licença clara fica
 > `a confirmar` e não entra.

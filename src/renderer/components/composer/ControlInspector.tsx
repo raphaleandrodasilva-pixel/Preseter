@@ -285,30 +285,40 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
 
       {showLayout && (
       <section className="space-y-2">
-        <h3 className={classTitle}>Hardware Input</h3>
-        <button
-          onClick={() => setLearning((v) => !v)}
-          className={`w-full rounded border px-2 py-1.5 text-xs font-semibold ${
-            learning
-              ? 'animate-pulse border-amber-300 bg-amber-300/15 text-amber-200'
-              : 'border-slate-600 bg-slate-800 text-slate-200 hover:border-amber-300'
-          }`}
-          title="Toque um controle físico para vincular"
-        >
-          {learning ? 'Ouvindo… toque um controle' : 'Assign (MIDI Learn)'}
-        </button>
-        <label className={classLabel}>MIDI Port
-          <select
-            className={`${classInput} mt-1`}
-            value={element.midiPort ?? ''}
-            onChange={(event) => onUpdate(element.id, { midiPort: event.target.value || undefined })}
-          >
-            <option value="">Qualquer entrada</option>
-            {inputs.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </label>
+        <h3 className={classTitle}>{element.type === 'midi-activity' ? 'Monitor MIDI' : 'Hardware Input'}</h3>
+        {element.type === 'midi-activity' && (
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            Pisca com qualquer mensagem de <strong>entrada</strong>. Com <strong>Type: Unassigned</strong> mostra
+            todas; escolha Type/Channel/Number para filtrar uma mensagem específica.
+          </p>
+        )}
+        {element.type !== 'midi-activity' && (
+          <>
+            <button
+              onClick={() => setLearning((v) => !v)}
+              className={`w-full rounded border px-2 py-1.5 text-xs font-semibold ${
+                learning
+                  ? 'animate-pulse border-amber-300 bg-amber-300/15 text-amber-200'
+                  : 'border-slate-600 bg-slate-800 text-slate-200 hover:border-amber-300'
+              }`}
+              title="Toque um controle físico para vincular"
+            >
+              {learning ? 'Ouvindo… toque um controle' : 'Assign (MIDI Learn)'}
+            </button>
+            <label className={classLabel}>MIDI Port
+              <select
+                className={`${classInput} mt-1`}
+                value={element.midiPort ?? ''}
+                onChange={(event) => onUpdate(element.id, { midiPort: event.target.value || undefined })}
+              >
+                <option value="">Qualquer entrada</option>
+                {inputs.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <label className={classLabel}>Channel
             <select
@@ -351,28 +361,32 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
         {bindingType === 'note' && typeof bindingNumber === 'number' && (
           <p className="text-[11px] text-slate-500">Nota: {noteName(bindingNumber)} · velocity {element.velocity ?? 100}</p>
         )}
-        <label className="flex items-center gap-2 text-[11px] text-slate-400">
-          <input
-            type="checkbox"
-            className="accent-amber-300"
-            checked={element.midiThru !== false}
-            onChange={(event) => onUpdate(element.id, { midiThru: event.target.checked })}
-          />
-          Pass thru (MIDI Thru) — desmarque para Don’t pass thru
-        </label>
-        <label className={classLabel}>Respond to Hardware Move
-          <select
-            className={`${classInput} mt-1`}
-            value={element.respondToHardwareMove ?? 'jump'}
-            onChange={(event) => onUpdate(element.id, {
-              respondToHardwareMove: event.target.value as UiElement['respondToHardwareMove'],
-            })}
-          >
-            <option value="jump">Jump</option>
-            <option value="pickup">Pickup</option>
-            <option value="relative">Relative</option>
-          </select>
-        </label>
+        {element.type !== 'midi-activity' && (
+          <>
+            <label className="flex items-center gap-2 text-[11px] text-slate-400">
+              <input
+                type="checkbox"
+                className="accent-amber-300"
+                checked={element.midiThru !== false}
+                onChange={(event) => onUpdate(element.id, { midiThru: event.target.checked })}
+              />
+              Pass thru (MIDI Thru) — desmarque para Don’t pass thru
+            </label>
+            <label className={classLabel}>Respond to Hardware Move
+              <select
+                className={`${classInput} mt-1`}
+                value={element.respondToHardwareMove ?? 'jump'}
+                onChange={(event) => onUpdate(element.id, {
+                  respondToHardwareMove: event.target.value as UiElement['respondToHardwareMove'],
+                })}
+              >
+                <option value="jump">Jump</option>
+                <option value="pickup">Pickup</option>
+                <option value="relative">Relative</option>
+              </select>
+            </label>
+          </>
+        )}
       </section>
       )}
 

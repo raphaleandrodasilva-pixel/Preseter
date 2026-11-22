@@ -126,3 +126,16 @@ describe('ControlInspector — parâmetros de plugins', () => {
     expect(onUpdate).toHaveBeenCalledWith('k2', { parameterId: '2' });
   });
 });
+
+describe('ControlInspector — monitor MIDI', () => {
+  it('trata o elemento MIDI como monitor, sem Assign de hardware', () => {
+    renderInspector(
+      createElement({ id: 'm1', type: 'midi-activity', label: 'MIDI' }),
+      vi.fn(),
+      { mode: 'layout' }
+    );
+
+    expect(screen.getByText('Monitor MIDI')).toBeInTheDocument();
+    expect(screen.queryByText('Assign (MIDI Learn)')).not.toBeInTheDocument();
+  });
+});

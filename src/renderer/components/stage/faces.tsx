@@ -1,5 +1,6 @@
-import React from 'react';
-import type { PlaybackState } from '@shared/types';
+import React, { useEffect, useRef, useState } from 'react';
+import type { MidiBinding, PlaybackState } from '@shared/types';
+import { subscribeMidiActivity } from '../../services/midi-activity';
 
 /**
  * Faces — fonte única do desenho dos controles de hardware.
@@ -323,12 +324,57 @@ export const MeterFace: React.FC<{ label: string; norm: number; horizontal?: boo
   );
 };
 
-export const ActivityFace: React.FC<{ label: string }> = ({ label }) => (
-  <>
-    <div className="hw-activity-led mb-1 h-4 w-4 rounded-full" />
-    <span className="hw-label">{label}</span>
-  </>
-);
+export const ActivityFace: React.FC<{ label: string; binding?: MidiBinding }> = ({ label, binding }) => {
+  const [active, setActive] = useState(false);
+  const [last, setLast] = useState('');
+  const timer = useRef<number | null>(null);
+
+  useEffect(() => subscribeMidiActivity((event) => {
+    if (event.direction !== 'in') return;
+    if (!matchesActivityBinding(binding, event.bytes)) return;
+    setActive(true);
+    setLast(event.summary);
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setActive(false), 160);
+  }), [binding]);
+
+  useEffect(() => () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+  }, []);
+
+  return (
+    <>
+      <div
+        className={`hw-activity-led mb-1 h-4 w-4 rounded-full${active ? ' is-active' : ''}`}
+        data-active={active ? 'true' : 'false'}
+      />
+      <span className="hw-label">{active && last ? last.slice(0, 12) : label}</span>
+    </>
+  );
+};
+
+/** Uma atividade sem binding (Unassigned) mostra qualquer mensagem de entrada. */
+function matchesActivityBinding (binding: MidiBinding | undefined, bytes: number[]): boolean {
+  if (!binding) return true;
+  const status = bytes[0] ?? 0;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (binding.channel !== channel) return false;
+  switch (binding.type) {
+    case 'cc':
+      return type === 0xb0 && binding.controllerNumber === bytes[1];
+    case 'note':
+      return (type === 0x90 || type === 0x80) && binding.controllerNumber === bytes[1];
+    case 'pc':
+      return type === 0xc0 && binding.programNumber === bytes[1];
+    case 'pitch':
+      return type === 0xe0;
+    case 'aftertouch':
+      return type === 0xd0;
+    default:
+      return true;
+  }
+}
 
 export const LabelFace: React.FC<{ label: string }> = ({ label }) => (
   <span style={{ color: '#F2F2F2', fontSize: 14 }}>{label}</span>

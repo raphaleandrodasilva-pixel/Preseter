@@ -52,7 +52,6 @@ const sourceLabels: Record<StoreSource, string> = {
   archive: 'Archive.org',
   'musical-artifacts': 'Musical Artifacts',
   polyphone: 'Polyphone',
-  bedroomproducersblog: 'Bedroom Producers Blog',
   manual: 'Manual',
 };
 
@@ -62,7 +61,6 @@ const sourceColors: Record<StoreSource, string> = {
   archive: '#FFB74D',
   'musical-artifacts': '#C6A0FF',
   polyphone: '#FF9F0A',
-  bedroomproducersblog: '#FF6482',
   manual: '#9A9AA0',
 };
 

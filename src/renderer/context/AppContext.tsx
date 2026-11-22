@@ -42,6 +42,7 @@ import type {
 } from '@shared/collection';
 import type { ElectronAPI } from '../types/electron-api';
 import { MidiDeviceInfo, RawMidiEvent, WebMidiService } from '../services/WebMidiService';
+import { emitMidiActivity } from '../services/midi-activity';
 import { ConcertHistory } from '@shared/concert-history';
 import { materializeLayout, withoutLayoutGeometry } from '@shared/concert-layout';
 import { suggestPatchIcon } from '@shared/patch-icons';
@@ -379,6 +380,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setMidiMonitor((previous) => [...previous.slice(-49), event]);
     setMidiLastMessage(event.summary);
+    emitMidiActivity({
+      direction: event.direction,
+      portName: event.portName,
+      summary: event.summary,
+      bytes: event.bytes,
+      at: event.at,
+    });
     if (event.direction === 'out') {
       setMidiOutPulse((value) => value + 1);
     }

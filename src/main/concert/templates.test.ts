@@ -66,6 +66,28 @@ describe('concert templates', () => {
     expect(file.layout.elements.filter((element) => element.type === 'pedal').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('carrega instrumentos nativos e layouts próprios nos templates', () => {
+    const file = buildTemplateConcert('teclado');
+    expect(file.patches.map((patch) => patch.plugins?.[0]?.pluginId)).toEqual([
+      'preseter.piano',
+      'preseter.tines',
+      'preseter.jx',
+    ]);
+    expect(file.patches[0].layout.elements.find((element) => element.type === 'keyboard'))
+      .toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+
+    const electric = file.patches[1];
+    expect(electric.layout.elements.some(
+      (element) => element.paramOwner === 'piano-eletrico:layer:0'
+    )).toBe(true);
+
+    const guitar = buildTemplateConcert('guitarra').patches[0];
+    expect(guitar.plugins).toEqual([]);
+    expect(guitar.layout.elements.some(
+      (element) => element.paramOwner === 'patch' && element.paramSlot !== undefined
+    )).toBe(true);
+  });
+
   it('builds the worship template at 72 BPM', () => {
     const file = buildTemplateConcert('worship');
     expect(file.concert.name).toBe('Meu Concert Worship');

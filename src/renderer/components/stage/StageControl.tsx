@@ -358,7 +358,7 @@ export const StageControl: React.FC<StageControlProps> = ({
       {element.type === 'meter-vertical' && (
         <MeterFace label={element.label} norm={norm} horizontal={element.orientation === 'horizontal'} />
       )}
-      {element.type === 'midi-activity' && <ActivityFace label={element.label} />}
+      {element.type === 'midi-activity' && <ActivityFace label={element.label} binding={element.midiCommand} />}
       {element.type === 'label' && <LabelFace label={element.label} />}
       {element.type === 'keyboard' && (
         <KeyboardControl

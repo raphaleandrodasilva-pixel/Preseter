@@ -1,8 +1,9 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UiElement } from '@shared/types';
 import { StageControl } from './StageControl';
+import { emitMidiActivity } from '../../services/midi-activity';
 import { createElement } from '../../../test/fixtures';
 
 function renderControl(
@@ -256,6 +257,46 @@ describe('StageControl static faces', () => {
 
     const activity = renderControl({ type: 'midi-activity', label: 'MIDI' });
     expect(activity.container).toHaveTextContent('MIDI');
+  });
+
+  it('pisca o monitor MIDI com mensagens de entrada', () => {
+    const { container } = renderControl({ type: 'midi-activity', label: 'MIDI' });
+    const led = () => container.querySelector('.hw-activity-led')!;
+    expect(led().getAttribute('data-active')).toBe('false');
+
+    act(() => emitMidiActivity({
+      direction: 'in',
+      summary: '90 3C 64',
+      bytes: [0x90, 0x3c, 0x64],
+      at: Date.now(),
+    }));
+    expect(led().getAttribute('data-active')).toBe('true');
+    expect(container).toHaveTextContent('90 3C 64');
+  });
+
+  it('filtra a atividade pelo binding do monitor', () => {
+    const { container } = renderControl({
+      type: 'midi-activity',
+      label: 'MIDI',
+      midiCommand: { type: 'cc', channel: 0, controllerNumber: 1 },
+    });
+    const led = () => container.querySelector('.hw-activity-led')!;
+
+    act(() => emitMidiActivity({
+      direction: 'in',
+      summary: 'B0 07 64',
+      bytes: [0xb0, 0x07, 0x64],
+      at: Date.now(),
+    }));
+    expect(led().getAttribute('data-active')).toBe('false');
+
+    act(() => emitMidiActivity({
+      direction: 'in',
+      summary: 'B0 01 64',
+      bytes: [0xb0, 0x01, 0x64],
+      at: Date.now(),
+    }));
+    expect(led().getAttribute('data-active')).toBe('true');
   });
 
   it('renders a non-momentary pedal and updates it by drag', () => {
