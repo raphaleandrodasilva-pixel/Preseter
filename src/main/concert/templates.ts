@@ -175,6 +175,22 @@ function layerNotes(layers: PatchLayerSpec[]): string {
     .join(' + ');
 }
 
+/** Show de 10 músicas: cada set é uma música, com Intro/Verso/Refrão. */
+const SHOW_SONG_COUNT = 10;
+const SHOW_PARTS = ['Intro', 'Verso', 'Refrão'] as const;
+const SHOW_SET_NAMES = Array.from(
+  { length: SHOW_SONG_COUNT },
+  (_, index) => `${String(index + 1).padStart(2, '0')} — Música ${index + 1}`
+);
+const SHOW_PATCHES: PatchSpec[] = SHOW_SET_NAMES.flatMap((setName, index) =>
+  SHOW_PARTS.map((part) => ({
+    name: part,
+    setName,
+    withKeyboard: true,
+    notes: `${part} — Música ${index + 1}`,
+  }))
+);
+
 export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'vazio',
@@ -211,6 +227,15 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       { name: 'Piano Worship', setName: 'Worship', withKeyboard: true, notes: 'Piano da banda', native: { id: 'piano' } },
       { name: 'Ambiente', setName: 'Worship', withKeyboard: true, notes: 'Texturas e transições', native: { id: 'jx', programIndex: 2 } },
     ],
+  },
+  {
+    id: 'show-10',
+    name: 'Show — 10 músicas',
+    description: '10 sets, um por música, com Intro, Verso e Refrão em cada um. Adicione os instrumentos e efeitos de cada parte.',
+    concertName: 'Meu Show — 10 Músicas',
+    tempo: DEFAULT_TEMPO,
+    sets: SHOW_SET_NAMES,
+    patches: SHOW_PATCHES,
   },
   {
     id: 'guitarra',
@@ -384,13 +409,21 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
   });
 
   const orderInSet = new Map<string, number>();
+  const usedSlugs = new Set<string>();
   const rawPatches: Preset[] = template.patches.map((spec, index) => {
     const setId = spec.setName ? setIds.get(spec.setName) : undefined;
     const orderKey = spec.setName ?? '';
     const setOrder = orderInSet.get(orderKey) ?? 0;
     orderInSet.set(orderKey, setOrder + 1);
     const notes = spec.notes ?? (spec.layers?.length ? layerNotes(spec.layers) : undefined);
-    const slug = slugify(spec.name);
+    const baseSlug = slugify(spec.name) || 'patch';
+    let slug = baseSlug;
+    if (usedSlugs.has(slug)) {
+      slug = slugify(`${spec.setName ?? ''}-${spec.name}`) || baseSlug;
+      let suffix = 2;
+      while (usedSlugs.has(slug)) slug = `${baseSlug}-${suffix++}`;
+    }
+    usedSlugs.add(slug);
     const assignment = templateAssignment(spec, slug);
     const masterInserts: Insert[] = (spec.masterInserts ?? []).map((item, slot) => ({
       slot,

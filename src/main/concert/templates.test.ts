@@ -5,11 +5,12 @@ import { buildTemplateConcert, CONCERT_TEMPLATES, listTemplates } from './templa
 describe('concert templates', () => {
   it('lists template summaries without implementation fields', () => {
     const templates = listTemplates();
-    expect(templates).toHaveLength(6);
+    expect(templates).toHaveLength(7);
     expect(templates.map((template) => template.id)).toEqual([
       'vazio',
       'teclado',
       'worship',
+      'show-10',
       'guitarra',
       'fullset',
       'midi-externo',
@@ -20,7 +21,35 @@ describe('concert templates', () => {
       description: expect.any(String),
     });
     expect(templates[0]).not.toHaveProperty('sets');
-    expect(CONCERT_TEMPLATES).toHaveLength(6);
+    expect(CONCERT_TEMPLATES).toHaveLength(7);
+  });
+
+  it('builds the 10-song show template with one set per song', () => {
+    const file = buildTemplateConcert('show-10');
+    expect(file.concert.name).toBe('Meu Show — 10 Músicas');
+    expect(file.sets).toHaveLength(10);
+    expect(file.sets.map((set) => set.name)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `${String(index + 1).padStart(2, '0')} — Música ${index + 1}`)
+    );
+    expect(file.sets.map((set) => set.order)).toEqual(Array.from({ length: 10 }, (_, index) => index));
+    expect(file.patches).toHaveLength(30);
+    expect(file.patches.map((patch) => patch.programNumber)).toEqual(
+      Array.from({ length: 30 }, (_, index) => index)
+    );
+
+    for (const set of file.sets) {
+      const patches = file.patches.filter((patch) => patch.setId === set.id);
+      expect(patches.map((patch) => patch.name)).toEqual(['Intro', 'Verso', 'Refrão']);
+      expect(patches.map((patch) => patch.setOrder)).toEqual([0, 1, 2]);
+      for (const patch of patches) {
+        const types = patch.layout.elements.map((element) => element.type);
+        expect(types).toContain('keyboard');
+        expect(types).toContain('midi-activity');
+        const ids = patch.layout.elements.map((element) => element.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(patch.plugins).toEqual([]);
+      }
+    }
   });
 
   it('builds an empty concert with the default keyboard layout', () => {

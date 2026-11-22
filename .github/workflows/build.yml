@@ -232,3 +232,17 @@ jobs:
             dist-release/*.exe.blockmap
             dist-release/*.AppImage
             dist-release/*.deb
+
+      # Mantém no GitHub somente o release recém-publicado.
+      - name: Remover releases antigos
+        if: steps.tag.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
+            if [ -n "$tag" ] && [ "$tag" != "$KEEP_TAG" ]; then
+              echo "Removendo release antigo: $tag"
+              gh release delete "$tag" --yes --cleanup-tag
+            fi
+          done
