@@ -53,8 +53,10 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
       'Na grade, clique liga/desliga o passo; arraste na vertical para a velocity; clique direito/duplo cria acento.',
       'Barra de topo: liga/desliga o sequenciador, resolução (8/12/16/32), compassos (1/2/4), swing, volume e Limpar padrão.',
       'O seletor de padrão de fábrica traz rock, pop, funk, shuffle, balada, bossa, samba e eletrônico (dados do projeto).',
-      'O sequenciador segue o Play/Stop do concert e o tempo do patch; Stop volta ao compasso 1.',
-      'Padrões e kit ficam salvos no patch; M/S fazem mudo/solo do pad.',
+      'O botão ▶ Tocar / ■ Parar usa o transporte do concert (e liga o sequenciador ao tocar); Stop volta ao compasso 1.',
+      'Kit: “Trocar kit (SF2/SFZ)…” escolhe o arquivo, e Banco/Programa aplicam outro kit do mesmo arquivo.',
+      'O botão … de cada linha escolhe um SF2/SFZ, banco, programa e nota só para aquele pad; “Usar kit” volta ao kit do layer.',
+      'Padrões, kit, samples por pad e volumes ficam salvos no patch; M/S fazem mudo/solo do pad.',
     ],
   },
   {

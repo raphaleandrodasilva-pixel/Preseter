@@ -222,6 +222,34 @@ async function shutdown() {
         if (strong.maxDb < soft.maxDb) fail('velocity 127 ficou mais baixa que 40');
       }
 
+      // v1.1: troca de kit em tempo real.
+      const kitDirect = await request('loadDrumKit', {
+        layerId, path: kitPath, bank: 128, program: 24,
+      });
+      console.log('kit direto:', `programa ${kitDirect.kitProgram}`, '|', kitDirect.kit);
+      if (kitDirect.kitProgram !== 24) fail('loadDrumKit não trocou o programa');
+      await request('loadDrumKit', { layerId, path: kitPath, bank: 128, program: 0 });
+
+      // v1.1: SF2/SFZ próprio por pad.
+      const padSource = await request('setDrumPadSource', {
+        layerId, pad: 0, path: kitPath, bank: 128, program: 24, note: 36,
+      });
+      console.log('sample do pad 0:', padSource.pads?.[0]?.source?.program,
+                  '| nota', padSource.pads?.[0]?.source?.note);
+      if (padSource.pads?.[0]?.source?.program !== 24)
+        fail('setDrumPadSource não aplicou o sample do pad');
+      const padSourceSound = await record(
+        path.join(tempDir, `drums-padsample-${process.pid}.wav`), 800,
+        async () => { await hit(36, 110); });
+      if (!padSourceSound.ok) fail(padSourceSound.message);
+      else if (padSourceSound.maxDb < -60)
+        fail(`o sample do pad não tocou (max ${padSourceSound.maxDb} dB)`);
+      const padCleared = await request('setDrumPadSource', {
+        layerId, pad: 0, path: '', bank: 128, program: 0, note: 36,
+      });
+      if (padCleared.pads?.[0]?.source)
+        fail('setDrumPadSource vazio não voltou ao kit');
+
       // Chimbal: o aberto (46) é calado quando o fechado (42) toca. Mede as
       // vozes do fechado sozinho e confere que, na sequência, elas não somam.
       await request('noteOn', { note: 42, velocity: 127 });
@@ -329,7 +357,10 @@ async function shutdown() {
       if (!playInfo.enabled || playInfo.currentStep < 0)
         fail('o sequenciador não voltou a andar no Play');
 
-      // D6: estado do instrumento (padrão + kit).
+      // D6: estado do instrumento (padrão + kit + sample por pad).
+      await request('setDrumPadSource', {
+        layerId, pad: 0, path: kitPath, bank: 128, program: 24, note: 36,
+      });
       const saved = await request('getState', { layerId });
       if (!saved?.data) fail('getState não devolveu o estado do Drums');
 
@@ -364,6 +395,9 @@ async function shutdown() {
         fail('a velocity do passo 0 não voltou');
       if (restored.tracks[0].steps[1]?.on)
         fail('o passo 1 deveria estar desligado');
+      console.log('estado: sample do pad 0 =', restored.pads?.[0]?.source?.program ?? 'kit');
+      if (restored.pads?.[0]?.source?.program !== 24)
+        fail('o sample do pad não voltou com o estado');
 
       // Desliga e deixa as caudas morrerem: precisa voltar ao silêncio.
       await request('setDrums', { layerId, enabled: false });
@@ -393,6 +427,8 @@ async function shutdown() {
       if (reopened.stepsPerBar !== 16 || reopened.trackCount !== 3)
         fail('o padrão não voltou no instrumento novo');
       if (!reopened.kit) fail('o kit não voltou no instrumento novo');
+      if (reopened.pads?.[0]?.source?.program !== 24)
+        fail('o sample do pad não voltou no instrumento novo');
 
       // D6: troca de kit pelo estado (blob válido de outro instrumento).
       const electronicId = `${layerId}-electronic`;

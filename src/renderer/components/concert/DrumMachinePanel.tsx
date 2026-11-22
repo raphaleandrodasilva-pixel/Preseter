@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  DrumPadSource,
   EngineDrumPattern,
   EngineDrumStep,
   EngineDrumsState,
@@ -13,6 +14,9 @@ import {
 
 interface DrumMachinePanelProps {
   layerId: string;
+  /** Play/Stop do concert, para o botão de transporte da janela. */
+  isPlaying?: boolean;
+  onToggleTransport?: () => void;
 }
 
 type StepsPerBar = 8 | 12 | 16 | 32;
@@ -139,7 +143,21 @@ const toEnginePattern = (pattern: UiPattern): EngineDrumPattern => {
 
 const dbLabel = (value: number) => (value > -60 ? `${value > 0 ? '+' : ''}${Math.round(value)} dB` : '−∞');
 
-export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) => {
+const fileName = (path: string) => path.split(/[\\/]/).pop() || path;
+
+interface PadEditorState {
+  pad: number;
+  path: string;
+  bank: number;
+  program: number;
+  note: number;
+}
+
+export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({
+  layerId,
+  isPlaying = false,
+  onToggleTransport,
+}) => {
   const [pattern, setPattern] = useState<UiPattern>(() => patternFromInfo(null));
   const [enabled, setEnabled] = useState(false);
   const [gainDb, setGainDb] = useState(0);
@@ -147,7 +165,13 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
   const [selectedFactory, setSelectedFactory] = useState('');
   const [currentStep, setCurrentStep] = useState(-1);
   const [loaded, setLoaded] = useState(false);
+  const [info, setInfo] = useState<EngineDrumsState | null>(null);
   const [kit, setKit] = useState('');
+  const [kitPath, setKitPath] = useState('');
+  const [kitBank, setKitBank] = useState(128);
+  const [kitProgram, setKitProgram] = useState(0);
+  const [padEditor, setPadEditor] = useState<PadEditorState | null>(null);
+  const [sampleBusy, setSampleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [activeCell, setActiveCell] = useState({ pad: 0, step: 0 });
@@ -166,6 +190,18 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
     moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
+
+  const applyInfo = useCallback((next: EngineDrumsState | null) => {
+    setInfo(next);
+    if (!next) return;
+    setEnabled(Boolean(next.enabled));
+    setGainDb(next.gainDb ?? 0);
+    setSoloPad(next.pads?.find((pad) => pad.solo)?.index ?? -1);
+    setKit(next.kit ?? '');
+    setKitPath(next.kitPath ?? '');
+    setKitBank(next.kitBank ?? 128);
+    setKitProgram(next.kitProgram ?? 0);
+  }, []);
 
   const send = useCallback(async (payload: {
     enabled?: boolean;
@@ -247,10 +283,7 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
         const info = await window.electronAPI.drumsInfo(layerId);
         if (cancelled) return;
         setPattern(patternFromInfo(info));
-        setEnabled(Boolean(info?.enabled));
-        setGainDb(info?.gainDb ?? 0);
-        setSoloPad(info?.pads?.find((pad) => pad.solo)?.index ?? -1);
-        setKit(info?.kit ?? '');
+        applyInfo(info);
         setLoaded(true);
         setError(info?.kit ? null : 'Nenhum kit carregado neste instrumento.');
       } catch (cause) {
@@ -261,7 +294,7 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
     })();
 
     return () => { cancelled = true; };
-  }, [layerId]);
+  }, [applyInfo, layerId]);
 
   // Indicador do passo atual: consulta leve (~16 Hz), sem trazer o padrão inteiro.
   useEffect(() => {
@@ -383,6 +416,99 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
     void send({ enabled: next });
   };
 
+  const toggleTransport = () => {
+    if (!onToggleTransport) return;
+    // Tocar na janela do Drums já liga o sequenciador: o Play é o gesto de
+    // ouvir o padrão, como numa drum machine.
+    if (!isPlaying && !enabled) {
+      setEnabled(true);
+      void send({ enabled: true });
+    }
+    onToggleTransport();
+  };
+
+  const pickKit = async () => {
+    try {
+      const path = await window.electronAPI.drumsPickFile();
+      if (!path) return;
+      setSampleBusy(true);
+      const next = await window.electronAPI.drumsLoadKit(layerId, path, kitBank, kitProgram);
+      applyInfo(next);
+      setNotice(`Kit carregado: ${fileName(path)}`);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao carregar o kit.');
+    } finally {
+      setSampleBusy(false);
+    }
+  };
+
+  const applyKitProgram = async () => {
+    if (!kitPath) {
+      setError('Escolha um arquivo de kit antes de aplicar banco/programa.');
+      return;
+    }
+    try {
+      setSampleBusy(true);
+      const next = await window.electronAPI.drumsLoadKit(layerId, kitPath, kitBank, kitProgram);
+      applyInfo(next);
+      setNotice(`Kit: banco ${kitBank} / programa ${kitProgram}`);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao aplicar o kit.');
+    } finally {
+      setSampleBusy(false);
+    }
+  };
+
+  const openPadEditor = (pad: number) => {
+    const source = info?.pads?.find((item) => item.index === pad)?.source ?? null;
+    setPadEditor({
+      pad,
+      path: source?.path ?? '',
+      bank: source?.bank ?? 128,
+      program: source?.program ?? 0,
+      note: source?.note ?? FIRST_PAD_NOTE + pad,
+    });
+  };
+
+  const pickPadFile = async () => {
+    if (!padEditor) return;
+    try {
+      const path = await window.electronAPI.drumsPickFile();
+      if (!path) return;
+      setPadEditor({ ...padEditor, path });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao escolher o sample.');
+    }
+  };
+
+  const applyPadSource = async (useKit: boolean) => {
+    if (!padEditor) return;
+    try {
+      setSampleBusy(true);
+      const result = useKit || !padEditor.path
+        ? await window.electronAPI.drumsSetPadSource(layerId, padEditor.pad, null)
+        : await window.electronAPI.drumsSetPadSource(layerId, padEditor.pad, {
+            path: padEditor.path,
+            bank: padEditor.bank,
+            program: padEditor.program,
+            note: padEditor.note,
+          } satisfies DrumPadSource);
+      applyInfo(result);
+      setNotice(useKit || !padEditor.path
+        ? `${PAD_NAMES[padEditor.pad]} voltou ao kit`
+        : `${PAD_NAMES[padEditor.pad]}: ${fileName(padEditor.path)}`);
+      setPadEditor(null);
+      setError(null);
+      if (!useKit) void window.electronAPI.engineMidi([0x90, FIRST_PAD_NOTE + padEditor.pad, 100]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao carregar o sample do pad.');
+    } finally {
+      setSampleBusy(false);
+    }
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent, pad: number, step: number) => {
     if (event.key === 'ArrowUp') { event.preventDefault(); focusCell(pad - 1, step); return; }
     if (event.key === 'ArrowDown') { event.preventDefault(); focusCell(pad + 1, step); return; }
@@ -395,6 +521,9 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
       toggleStep(pad, step);
     }
   };
+
+  const padSourceFor = (pad: number): DrumPadSource | null =>
+    info?.pads?.find((item) => item.index === pad)?.source ?? null;
 
   const stepGroups = useMemo(() => Math.max(1, Math.round(pattern.stepsPerBar / 4)), [pattern.stepsPerBar]);
   const factoryPattern = useMemo(() => findFactoryDrumPattern(selectedFactory), [selectedFactory]);
@@ -412,6 +541,23 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
       <section className="hw-inset p-3">
         <div className="hw-label mb-2">Sequenciador</div>
         <div className="flex flex-wrap items-end gap-4">
+          <button
+            type="button"
+            className="px-3 py-1 text-[11px]"
+            aria-label={isPlaying ? 'Parar' : 'Tocar'}
+            disabled={!onToggleTransport}
+            onClick={toggleTransport}
+            style={{
+              background: isPlaying ? '#FF453A' : '#30D158',
+              color: '#FFFFFF',
+              border: '1px solid #3A3A3C',
+              borderRadius: 6,
+              opacity: onToggleTransport ? 1 : 0.5,
+            }}
+          >
+            {isPlaying ? '■ Parar' : '▶ Tocar'}
+          </button>
+
           <button
             type="button"
             className="hw-button px-3 py-1 text-[11px]"
@@ -519,6 +665,57 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
             {error ?? notice ?? (kit || `${pattern.stepsPerBar} passos × ${pattern.bars} compasso(s)`)}
           </span>
         </div>
+
+        <div className="mt-3 flex flex-wrap items-end gap-3 border-t pt-3" style={{ borderColor: '#2C2C2E' }}>
+          <span className="min-w-0 flex-1 truncate text-[10px]" title={kitPath || kit} style={{ color: '#9A9AA0' }}>
+            <span className="hw-label mr-2">Kit</span>
+            {kit || 'Nenhum kit carregado'}
+          </span>
+          <label className="flex flex-col gap-1 text-[10px]" style={{ color: '#9A9AA0' }}>
+            Banco
+            <input
+              aria-label="Banco do kit"
+              type="number"
+              min={0}
+              max={128}
+              value={kitBank}
+              onChange={(event) => setKitBank(Math.max(0, Math.min(128, Number(event.target.value))))}
+              className="w-[64px] rounded px-2 py-1 text-[11px]"
+              style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C' }}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[10px]" style={{ color: '#9A9AA0' }}>
+            Programa
+            <input
+              aria-label="Programa do kit"
+              type="number"
+              min={0}
+              max={127}
+              value={kitProgram}
+              onChange={(event) => setKitProgram(Math.max(0, Math.min(127, Number(event.target.value))))}
+              className="w-[64px] rounded px-2 py-1 text-[11px]"
+              style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C' }}
+            />
+          </label>
+          <button
+            type="button"
+            className="px-3 py-1 text-[11px]"
+            onClick={() => void applyKitProgram()}
+            disabled={sampleBusy || !kitPath}
+            style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C', borderRadius: 6, opacity: kitPath ? 1 : 0.5 }}
+          >
+            Aplicar
+          </button>
+          <button
+            type="button"
+            className="hw-button px-3 py-1 text-[11px]"
+            onClick={() => void pickKit()}
+            disabled={sampleBusy}
+          >
+            Trocar kit (SF2/SFZ)…
+          </button>
+        </div>
+
         {factoryPattern && (
           <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
             {factoryPattern.description}
@@ -596,6 +793,22 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
                     }}
                   >
                     S
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Sample de ${PAD_NAMES[track.pad]}`}
+                    title={padSourceFor(track.pad)
+                      ? `Sample: ${fileName(padSourceFor(track.pad)!.path)} · nota ${padSourceFor(track.pad)!.note}`
+                      : 'Escolher SF2/SFZ só para este pad'}
+                    onClick={() => openPadEditor(track.pad)}
+                    className="h-4 w-5 rounded text-[9px]"
+                    style={{
+                      background: padSourceFor(track.pad) ? '#0A84FF' : '#2C2C2E',
+                      color: padSourceFor(track.pad) ? '#FFFFFF' : '#9A9AA0',
+                      border: '1px solid #3A3A3C',
+                    }}
+                  >
+                    …
                   </button>
                 </div>
 
@@ -678,9 +891,141 @@ export const DrumMachinePanel: React.FC<DrumMachinePanelProps> = ({ layerId }) =
 
         <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
           Clique liga/desliga. Arraste na vertical para a velocity, clique direito (ou duplo) para
-          acento. Setas movem, espaço/Enter alterna.
+          acento. Setas movem, espaço/Enter alterna. O botão … de cada linha escolhe um SF2/SFZ só
+          para aquele pad; sem sample próprio, ele toca o kit do layer.
         </p>
       </section>
+
+      {padEditor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.65)' }}
+          role="dialog"
+          aria-label={`Sample de ${PAD_NAMES[padEditor.pad]}`}
+        >
+          <div
+            className="w-[440px] space-y-3 rounded-lg p-4"
+            style={{ background: '#1C1C1E', border: '1px solid #3A3A3C' }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="hw-label">Sample do pad</span>
+              <span className="text-[11px]" style={{ color: '#EDEDEF' }}>
+                {PAD_NAMES[padEditor.pad]} · nota do kit {FIRST_PAD_NOTE + padEditor.pad}
+              </span>
+            </div>
+
+            <p className="text-[10px]" style={{ color: '#9A9AA0' }}>
+              Escolha um arquivo SF2/SFZ e a nota que ele deve tocar neste pad. Sem arquivo
+              próprio, o pad usa o kit do layer.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <span
+                className="min-w-0 flex-1 truncate text-[10px]"
+                title={padEditor.path || 'Kit do layer'}
+                style={{ color: padEditor.path ? '#64D2FF' : '#8E8E93' }}
+              >
+                {padEditor.path ? fileName(padEditor.path) : 'Kit do layer'}
+              </span>
+              <button
+                type="button"
+                className="hw-button px-3 py-1 text-[11px]"
+                onClick={() => void pickPadFile()}
+                disabled={sampleBusy}
+              >
+                Escolher SF2/SFZ…
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-[10px]" style={{ color: '#9A9AA0' }}>
+                Nota
+                <input
+                  aria-label="Nota do sample"
+                  type="number"
+                  min={0}
+                  max={127}
+                  value={padEditor.note}
+                  onChange={(event) => setPadEditor({
+                    ...padEditor,
+                    note: Math.max(0, Math.min(127, Number(event.target.value))),
+                  })}
+                  className="w-[64px] rounded px-2 py-1 text-[11px]"
+                  style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C' }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[10px]" style={{ color: '#9A9AA0' }}>
+                Banco
+                <input
+                  aria-label="Banco do sample"
+                  type="number"
+                  min={0}
+                  max={128}
+                  value={padEditor.bank}
+                  onChange={(event) => setPadEditor({
+                    ...padEditor,
+                    bank: Math.max(0, Math.min(128, Number(event.target.value))),
+                  })}
+                  className="w-[64px] rounded px-2 py-1 text-[11px]"
+                  style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C' }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[10px]" style={{ color: '#9A9AA0' }}>
+                Programa
+                <input
+                  aria-label="Programa do sample"
+                  type="number"
+                  min={0}
+                  max={127}
+                  value={padEditor.program}
+                  onChange={(event) => setPadEditor({
+                    ...padEditor,
+                    program: Math.max(0, Math.min(127, Number(event.target.value))),
+                  })}
+                  className="w-[64px] rounded px-2 py-1 text-[11px]"
+                  style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C' }}
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                className="px-3 py-1 text-[11px]"
+                onClick={() => void applyPadSource(true)}
+                disabled={sampleBusy}
+                style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C', borderRadius: 6 }}
+              >
+                Usar kit
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1 text-[11px]"
+                onClick={() => setPadEditor(null)}
+                disabled={sampleBusy}
+                style={{ background: '#2C2C2E', color: '#EDEDEF', border: '1px solid #3A3A3C', borderRadius: 6 }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1 text-[11px]"
+                onClick={() => void applyPadSource(false)}
+                disabled={sampleBusy || !padEditor.path}
+                style={{
+                  background: padEditor.path ? '#0A84FF' : '#2C2C2E',
+                  color: '#FFFFFF',
+                  border: '1px solid #3A3A3C',
+                  borderRadius: 6,
+                  opacity: padEditor.path ? 1 : 0.5,
+                }}
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -389,6 +389,32 @@ export class VstManager extends EventEmitter {
     return this.engine.request('drumsPosition', { layerId });
   }
 
+  /** Preseter Drums: troca o kit (SF2/SFZ) do layer (v1.1). */
+  async loadDrumKit(
+    layerId: string,
+    path: string,
+    bank: number,
+    program: number
+  ): Promise<EngineDrumsState> {
+    return this.engine.request('loadDrumKit', { layerId, path, bank, program });
+  }
+
+  /** Preseter Drums: SF2/SFZ próprio de um pad; null volta ao kit (v1.1). */
+  async setDrumPadSource(
+    layerId: string,
+    pad: number,
+    source: { path: string; bank: number; program: number; note: number } | null
+  ): Promise<EngineDrumsState> {
+    return this.engine.request('setDrumPadSource', {
+      layerId,
+      pad,
+      path: source?.path ?? '',
+      bank: source?.bank ?? 128,
+      program: source?.program ?? 0,
+      note: source?.note ?? 60,
+    });
+  }
+
   async setLayerRange(layerId: string, minNote: number, maxNote: number): Promise<VstPluginInfo> {
     const plugin = this.loadedPlugins.get(layerId);
     if (!plugin) throw new Error('O layer selecionado não está carregado.');

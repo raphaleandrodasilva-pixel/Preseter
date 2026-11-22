@@ -18,6 +18,9 @@ interface NativeInstrumentWindowProps {
   mappings?: ConcertMapping[];
   onLearnMapping?: (source: MidiBinding, parameterId: string) => void;
   onClearMapping?: (parameterId: string) => void;
+  /** Play/Stop do concert (usado pelo Preseter Drums). */
+  transportPlaying?: boolean;
+  onToggleTransport?: () => void;
 }
 
 const DRAW_BARS: Array<[string, string]> = [
@@ -40,7 +43,7 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
   dx: { name: 'Preseter DX10', badge: 'MDA DX10', subtitle: 'FM de 2 operadores · 16 parâmetros' },
   jx: { name: 'Preseter JX10', badge: 'MDA JX10', subtitle: 'Sintetizador analógico · 24 parâmetros' },
   synth2: { name: 'Preseter Synth2', badge: 'OXO SYNTH2', subtitle: 'Recriação do Synth1 · motor Oxo Synth2 (MIT)' },
-  drums: { name: 'Preseter Drums', badge: 'EM CONSTRUÇÃO', subtitle: 'Pads e sequenciador de passos em implementação' },
+  drums: { name: 'Preseter Drums', badge: 'PADS E SEQUENCIADOR', subtitle: 'Bateria nativa · até 16 pads, sequenciador e sample por pad' },
 };
 
 const CREDITS: Partial<Record<NativeInstrumentKind, string>> = {
@@ -407,6 +410,8 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   mappings = [],
   onLearnMapping,
   onClearMapping,
+  transportPlaying = false,
+  onToggleTransport,
 }) => {
   const { getVstParameters, setVstParameter, loadedPlugins } = useAppContext();
   const [params, setParams] = useState<EngineParameter[]>([]);
@@ -783,7 +788,11 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               initialName={plugin?.patchName}
             />
           ) : kind === 'drums' ? (
-            <DrumMachinePanel layerId={layerId} />
+            <DrumMachinePanel
+              layerId={layerId}
+              isPlaying={transportPlaying}
+              onToggleTransport={onToggleTransport}
+            />
           ) : (
             <MdaPanel
               kind={kind as MdaKind}

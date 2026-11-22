@@ -55,6 +55,7 @@ import {
   ArpSettings,
   DEFAULT_ARP,
   drumsStartOnLoad,
+  DrumPadSource,
   EngineDrumPattern,
   RecordingBitrate,
   RecordingFormat,
@@ -1182,6 +1183,33 @@ class MainWindow {
 
     ipcMain.handle('drums-position', (_event, layerId: string) => {
       return this.vstManager.getDrumsPosition(layerId);
+    });
+
+    ipcMain.handle('drums-pick-file', async () => {
+      const result = await dialog.showOpenDialog({
+        title: 'Escolher SF2/SFZ (kit ou sample de pad)',
+        defaultPath: this.soundsFolder(),
+        properties: ['openFile'],
+        filters: [
+          { name: 'SoundFont / SFZ', extensions: ['sf2', 'sfz'] },
+          { name: 'Todos os arquivos', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return result.filePaths[0];
+    });
+
+    ipcMain.handle('drums-load-kit', (_event, layerId: string, path: string, bank: number, program: number) => {
+      return this.vstManager.loadDrumKit(layerId, path, bank, program);
+    });
+
+    ipcMain.handle('drums-set-pad-source', (
+      _event,
+      layerId: string,
+      pad: number,
+      source: DrumPadSource | null
+    ) => {
+      return this.vstManager.setDrumPadSource(layerId, pad, source);
     });
 
     ipcMain.handle('vst-set-layer-range', (_event, layerId: string, minNote: number, maxNote: number) => {

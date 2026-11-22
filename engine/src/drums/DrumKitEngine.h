@@ -37,6 +37,26 @@ public:
     /** Carrega o kit (SF2/SFZ) pelo cache do sampler. Thread de mensagem. */
     bool load (const juce::File& file, int bank, int program, juce::String& error);
 
+    /** Fonte própria de um pad: arquivo SF2/SFZ, programa e nota tocada. */
+    struct PadSourceInfo
+    {
+        bool active = false;
+        juce::String path;
+        int bank = 128;
+        int program = 0;
+        int note = 60;
+    };
+
+    /**
+     * Carrega um SF2/SFZ só para um pad (thread de mensagem). O pad passa a usar
+     * `note` desse arquivo; os demais continuam no kit do layer. Vazio = kit.
+     */
+    bool loadPadSource (int pad, const juce::File& file, int bank, int program, int note,
+                        juce::String& error);
+    void clearPadSource (int pad);
+    bool hasPadSource (int pad) const noexcept;
+    PadSourceInfo getPadSourceInfo (int pad) const;
+
     void prepare (double sampleRate, int samplesPerBlock);
     void reset() noexcept;
 
@@ -109,6 +129,7 @@ private:
         /** Kit usado nesta voz (mantém a amostra/região válidas mesmo após uma troca). */
         const sampler::Instrument* source = nullptr;
         int regionIndex = -1;
+        int pad = -1;
         int note = 60;
         double position = 0.0;
         double ratio = 1.0;
@@ -130,7 +151,7 @@ private:
 
     Voice* allocateVoice() noexcept;
     void startVoice (const sampler::Instrument* source, const sampler::Region& region,
-                     int regionIndex, int note, float velocity) noexcept;
+                     int regionIndex, int pad, int note, float velocity) noexcept;
     void chokeHats() noexcept;
     void chokeOffBy (int group) noexcept;
 
@@ -141,6 +162,10 @@ private:
      */
     std::atomic<sampler::Instrument*> activeInstrument { nullptr };
     std::vector<std::shared_ptr<sampler::Instrument>> instrumentKeepAlive;
+    /** Fonte própria por pad (nullptr = kit do layer). */
+    std::array<std::atomic<sampler::Instrument*>, kPadCount> padInstruments {};
+    std::array<std::atomic<int>, kPadCount> padSourceNotes {};
+    std::array<PadSourceInfo, kPadCount> padSourceInfo;
     juce::String sourcePath;
     int bank = 0;
     int program = 0;

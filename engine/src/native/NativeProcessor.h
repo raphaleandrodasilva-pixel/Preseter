@@ -92,6 +92,10 @@ public:
 
     /** Preseter Drums: carrega o kit (SF2/SFZ). Chamar na thread de mensagem. */
     bool loadDrumKit (const juce::File& file, int bank, int program, juce::String& error);
+    /** Preseter Drums: SF2/SFZ próprio de um pad; caminho vazio volta ao kit. */
+    bool setDrumPadSource (int pad, const juce::File& file, int bank, int program, int note,
+                           juce::String& error);
+    void clearDrumPadSource (int pad);
     /** Preseter Drums: descrição do kit carregado (para logs/interface). */
     juce::String describeDrumKit() const;
 

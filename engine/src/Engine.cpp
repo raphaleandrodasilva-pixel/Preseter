@@ -3462,6 +3462,65 @@ juce::String Engine::setDrums (const juce::String& layerId, const juce::var& opt
     return {};
 }
 
+juce::String Engine::loadDrumKit (const juce::String& layerId, const juce::String& path,
+                                  int bank, int program, juce::var& result)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento nao encontrado.");
+
+    auto* nativeProcessor = layers[(size_t) index].native;
+    if (nativeProcessor == nullptr || nativeProcessor->getNativeKind() != native::NativeKind::drums)
+        return utf8 ("Este layer nao e um Preseter Drums.");
+
+    const juce::File file (path);
+    if (! file.existsAsFile())
+        return utf8 ("Arquivo de kit nao encontrado.");
+
+    juce::String error;
+    if (! nativeProcessor->loadDrumKit (file, bank, program, error))
+        return error.isNotEmpty() ? error : juce::String (utf8 ("Nao foi possivel carregar o kit."));
+
+    result = nativeProcessor->describeDrums();
+    return {};
+}
+
+juce::String Engine::setDrumPadSource (const juce::String& layerId, int pad,
+                                       const juce::String& path, int bank, int program, int note,
+                                       juce::var& result)
+{
+    const int index = findLayer (layerId);
+    if (index < 0)
+        return utf8 ("Layer de instrumento nao encontrado.");
+
+    auto* nativeProcessor = layers[(size_t) index].native;
+    if (nativeProcessor == nullptr || nativeProcessor->getNativeKind() != native::NativeKind::drums)
+        return utf8 ("Este layer nao e um Preseter Drums.");
+
+    if (pad < 0 || pad >= 16)
+        return utf8 ("Pad invalido.");
+    if (note < 0 || note > 127)
+        return utf8 ("A nota do pad deve estar entre 0 e 127.");
+
+    if (path.isEmpty())
+    {
+        nativeProcessor->clearDrumPadSource (pad);
+    }
+    else
+    {
+        const juce::File file (path);
+        if (! file.existsAsFile())
+            return utf8 ("Arquivo do sample nao encontrado.");
+
+        juce::String error;
+        if (! nativeProcessor->setDrumPadSource (pad, file, bank, program, note, error))
+            return error.isNotEmpty() ? error : juce::String (utf8 ("Nao foi possivel carregar o sample do pad."));
+    }
+
+    result = nativeProcessor->describeDrums();
+    return {};
+}
+
 juce::var Engine::describeDrums (const juce::String& layerId) const
 {
     const int index = findLayer (layerId);

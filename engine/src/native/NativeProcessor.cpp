@@ -1271,6 +1271,23 @@ void NativeProcessor::getStateInformation (juce::MemoryBlock& destData)
         state.setProperty ("drumKitProgram", drumKitProgram, nullptr);
         state.setProperty ("drumPattern", serializeDrumPattern (drumPattern), nullptr);
         state.setProperty ("drumGainDb", juce::roundToInt (drumGainDb * 100.0f), nullptr);
+
+        // Sample próprio por pad (v1.1). Ausente nos estados antigos.
+        if (drumKit != nullptr)
+        {
+            for (int pad = 0; pad < drums::DrumKitEngine::kPadCount; ++pad)
+            {
+                const auto info = drumKit->getPadSourceInfo (pad);
+                if (! info.active)
+                    continue;
+                const auto suffix = juce::String (pad);
+                state.setProperty ("drumPadPath" + suffix, info.path, nullptr);
+                state.setProperty ("drumPadBank" + suffix, info.bank, nullptr);
+                state.setProperty ("drumPadProgram" + suffix, info.program, nullptr);
+                state.setProperty ("drumPadNote" + suffix, info.note, nullptr);
+            }
+        }
+
         if (auto xml = state.createXml())
             copyXmlToBinary (*xml, destData);
         return;
@@ -1328,6 +1345,32 @@ void NativeProcessor::setStateInformation (const void* data, int sizeInBytes)
                 }
             }
 
+            // Sample próprio por pad (v1.1). O estado antigo não traz as
+            // propriedades: nesse caso os pads continuam usando o kit.
+            if (drumKit != nullptr)
+            {
+                for (int pad = 0; pad < drums::DrumKitEngine::kPadCount; ++pad)
+                {
+                    drumKit->clearPadSource (pad);
+                    const auto suffix = juce::String (pad);
+                    const auto padPath = state.getProperty ("drumPadPath" + suffix).toString();
+                    if (padPath.isEmpty())
+                        continue;
+
+                    const juce::File padFile (padPath);
+                    if (! padFile.existsAsFile())
+                        continue;
+
+                    const int padBank = readInt ("drumPadBank" + suffix, 128);
+                    const int padProgram = readInt ("drumPadProgram" + suffix, 0);
+                    const int padNote = juce::jlimit (
+                        0, 127, readInt ("drumPadNote" + suffix,
+                                         drums::DrumKitEngine::kFirstPadNote + pad));
+                    juce::String ignored;
+                    drumKit->loadPadSource (pad, padFile, padBank, padProgram, padNote, ignored);
+                }
+            }
+
             // Padrão (v1). Ausente = estado antigo: mantém o padrão atual (vazio
             // no instrumento novo), sem erro.
             const auto patternText = state.getProperty ("drumPattern").toString();
@@ -1363,6 +1406,28 @@ bool NativeProcessor::loadDrumKit (const juce::File& file, int bank, int program
     drumKitProgram = program;
     drumKit->setOutputGainDb (drumGainDb);
     return true;
+}
+
+bool NativeProcessor::setDrumPadSource (int pad, const juce::File& file, int bank, int program,
+                                        int note, juce::String& error)
+{
+    if (kind != NativeKind::drums || drumKit == nullptr)
+    {
+        error = "Este layer nao e um Preseter Drums.";
+        return false;
+    }
+    if (pad < 0 || pad >= drums::DrumKitEngine::kPadCount)
+    {
+        error = "Pad invalido.";
+        return false;
+    }
+    return drumKit->loadPadSource (pad, file, bank, program, note, error);
+}
+
+void NativeProcessor::clearDrumPadSource (int pad)
+{
+    if (drumKit != nullptr)
+        drumKit->clearPadSource (pad);
 }
 
 juce::String NativeProcessor::describeDrumKit() const
@@ -1530,6 +1595,9 @@ juce::var NativeProcessor::describeDrums() const
     object->setProperty ("totalSteps", drumPattern.totalSteps());
     object->setProperty ("gainDb", drumGainDb);
     object->setProperty ("kit", describeDrumKit());
+    object->setProperty ("kitPath", drumKitPath);
+    object->setProperty ("kitBank", drumKitBank);
+    object->setProperty ("kitProgram", drumKitProgram);
 
     juce::Array<juce::var> tracks;
     for (int t = 0; t < drumPattern.trackCount; ++t)
@@ -1563,6 +1631,21 @@ juce::var NativeProcessor::describeDrums() const
         padObject->setProperty ("levelDb", drumKit != nullptr ? drumKit->getPadLevelDb (p) : 0.0f);
         padObject->setProperty ("muted", drumKit != nullptr && drumKit->getPadMuted (p));
         padObject->setProperty ("solo", drumKit != nullptr && drumKit->getPadSolo (p));
+
+        if (drumKit != nullptr && drumKit->hasPadSource (p))
+        {
+            const auto source = drumKit->getPadSourceInfo (p);
+            auto* sourceObject = new juce::DynamicObject();
+            sourceObject->setProperty ("path", source.path);
+            sourceObject->setProperty ("bank", source.bank);
+            sourceObject->setProperty ("program", source.program);
+            sourceObject->setProperty ("note", source.note);
+            padObject->setProperty ("source", juce::var (sourceObject));
+        }
+        else
+        {
+            padObject->setProperty ("source", juce::var());
+        }
         pads.add (juce::var (padObject));
     }
     object->setProperty ("pads", pads);

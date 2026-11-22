@@ -439,6 +439,36 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "loadDrumKit")
+    {
+        juce::var result;
+        const auto error = engine.loadDrumKit (
+            message["layerId"].toString(),
+            message["path"].toString(),
+            intArg (message, "bank", 128),
+            intArg (message, "program", 0),
+            result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "setDrumPadSource")
+    {
+        juce::var result;
+        const auto error = engine.setDrumPadSource (
+            message["layerId"].toString(),
+            intArg (message, "pad", -1),
+            message["path"].toString(),
+            intArg (message, "bank", 128),
+            intArg (message, "program", 0),
+            intArg (message, "note", 60),
+            result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
     if (cmd == "drums")
     {
         ok (id, engine.describeDrums (message["layerId"].toString()));

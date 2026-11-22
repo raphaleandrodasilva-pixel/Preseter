@@ -37,7 +37,13 @@ import type {
   CollectionReadiness,
 } from '@shared/collection';
 import type { StoreSnapshot, StoreUpdateResult, StoreImageRefreshResult } from '@shared/store';
-import type { ArpSettings, EngineArpState, EngineDrumPattern, EngineDrumsState } from '@shared/types';
+import type {
+  ArpSettings,
+  DrumPadSource,
+  EngineArpState,
+  EngineDrumPattern,
+  EngineDrumsState,
+} from '@shared/types';
 import type { EngineInsertState } from '@shared/engine-protocol';
 
 export interface ElectronAPI {
@@ -173,6 +179,18 @@ export interface ElectronAPI {
   }) => Promise<EngineDrumsState>;
   drumsInfo: (layerId: string) => Promise<EngineDrumsState>;
   drumsPosition: (layerId: string) => Promise<{ enabled: boolean; currentStep: number }>;
+  drumsPickFile: () => Promise<string | null>;
+  drumsLoadKit: (
+    layerId: string,
+    path: string,
+    bank: number,
+    program: number
+  ) => Promise<EngineDrumsState>;
+  drumsSetPadSource: (
+    layerId: string,
+    pad: number,
+    source: DrumPadSource | null
+  ) => Promise<EngineDrumsState>;
   audioInputSet: (settings: Partial<AudioInputSettings> & { resetFeedback?: boolean }) => Promise<AudioInputState>;
   audioInputState: () => Promise<AudioInputState>;
   midiThruSet: (blocked: MidiThruBlock[]) => Promise<boolean>;

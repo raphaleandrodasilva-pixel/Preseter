@@ -3620,6 +3620,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     || (!mapping.paramOwner && mapping.pluginPath === 'preseter.synth2')))
               ));
             }}
+            transportPlaying={appStatus.isPlaying}
+            onToggleTransport={() => {
+              void setAppStatus({ isPlaying: !appStatus.isPlaying });
+              setActionNotice(appStatus.isPlaying ? 'Stop' : 'Play');
+            }}
             onClose={() => setNativeWindow(null)}
             onSave={async () => {
               const next = { ...targetPreset, updatedAt: Date.now() };

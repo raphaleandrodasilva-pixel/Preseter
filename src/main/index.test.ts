@@ -28,7 +28,7 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(132);
+    expect(handlers.size).toBe(135);
     for (const channel of [
       'get-app-version',
       'midi-program-change',
@@ -48,6 +48,9 @@ describe('main process IPC wiring', () => {
       'drums-set',
       'drums-info',
       'drums-position',
+      'drums-pick-file',
+      'drums-load-kit',
+      'drums-set-pad-source',
       'audio-settings-get',
       'audio-restart',
       'audio-open-log',

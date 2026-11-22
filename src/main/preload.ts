@@ -122,6 +122,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('drums-set', layerId, options),
   drumsInfo: (layerId: string) => ipcRenderer.invoke('drums-info', layerId),
   drumsPosition: (layerId: string) => ipcRenderer.invoke('drums-position', layerId),
+  drumsPickFile: () => ipcRenderer.invoke('drums-pick-file'),
+  drumsLoadKit: (layerId: string, path: string, bank: number, program: number) =>
+    ipcRenderer.invoke('drums-load-kit', layerId, path, bank, program),
+  drumsSetPadSource: (layerId: string, pad: number, source: unknown) =>
+    ipcRenderer.invoke('drums-set-pad-source', layerId, pad, source),
   audioInputSet: (settings: unknown) => ipcRenderer.invoke('audio-input-set', settings),
   audioInputState: () => ipcRenderer.invoke('audio-input-state'),
   midiThruSet: (blocked: unknown) => ipcRenderer.invoke('midi-thru-set', blocked),

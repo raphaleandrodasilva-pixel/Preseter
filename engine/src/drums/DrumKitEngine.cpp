@@ -20,6 +20,12 @@ bool isHatNote (int note) noexcept
 {
     return note == 42 || note == 44 || note == 46;
 }
+
+/** Pads 6 (chimbal fechado), 8 (com pedal) e 10 (aberto) se calam entre si. */
+bool isHatPad (int pad) noexcept
+{
+    return pad == 6 || pad == 8 || pad == 10;
+}
 } // namespace
 
 DrumKitEngine::DrumKitEngine()
@@ -29,6 +35,9 @@ DrumKitEngine::DrumKitEngine()
         padGain[(size_t) pad].store (1.0f, std::memory_order_relaxed);
         padMuted[(size_t) pad].store (false, std::memory_order_relaxed);
         padSolo[(size_t) pad].store (false, std::memory_order_relaxed);
+        padInstruments[(size_t) pad].store (nullptr, std::memory_order_relaxed);
+        padSourceNotes[(size_t) pad].store (kFirstPadNote + pad, std::memory_order_relaxed);
+        padSourceInfo[(size_t) pad].note = kFirstPadNote + pad;
     }
 }
 
@@ -140,6 +149,64 @@ bool DrumKitEngine::load (const juce::File& file, int bankToUse, int programToUs
     return true;
 }
 
+bool DrumKitEngine::loadPadSource (int pad, const juce::File& file, int bankToUse,
+                                   int programToUse, int note, juce::String& error)
+{
+    if (pad < 0 || pad >= kPadCount)
+    {
+        error = "Pad invalido.";
+        return false;
+    }
+    if (note < 0 || note > 127)
+    {
+        error = "A nota do pad deve estar entre 0 e 127.";
+        return false;
+    }
+
+    juce::String cacheError;
+    auto loaded = sampler::InstrumentCache::get().load (file, bankToUse, programToUse, cacheError);
+    if (loaded == nullptr)
+    {
+        error = cacheError.isNotEmpty() ? cacheError
+                                        : juce::String ("Nao foi possivel carregar o sample do pad.");
+        return false;
+    }
+
+    instrumentKeepAlive.push_back (loaded);
+    padSourceNotes[(size_t) pad].store (note, std::memory_order_relaxed);
+    padInstruments[(size_t) pad].store (loaded.get(), std::memory_order_release);
+
+    auto& info = padSourceInfo[(size_t) pad];
+    info.active = true;
+    info.path = file.getFullPathName();
+    info.bank = bankToUse;
+    info.program = programToUse;
+    info.note = note;
+    return true;
+}
+
+void DrumKitEngine::clearPadSource (int pad)
+{
+    if (pad < 0 || pad >= kPadCount)
+        return;
+
+    padInstruments[(size_t) pad].store (nullptr, std::memory_order_release);
+    padSourceNotes[(size_t) pad].store (kFirstPadNote + pad, std::memory_order_relaxed);
+    padSourceInfo[(size_t) pad] = PadSourceInfo {};
+    padSourceInfo[(size_t) pad].note = kFirstPadNote + pad;
+}
+
+bool DrumKitEngine::hasPadSource (int pad) const noexcept
+{
+    return pad >= 0 && pad < kPadCount
+        && padInstruments[(size_t) pad].load (std::memory_order_acquire) != nullptr;
+}
+
+DrumKitEngine::PadSourceInfo DrumKitEngine::getPadSourceInfo (int pad) const
+{
+    return pad >= 0 && pad < kPadCount ? padSourceInfo[(size_t) pad] : PadSourceInfo {};
+}
+
 void DrumKitEngine::prepare (double newSampleRate, int)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 44100.0;
@@ -199,7 +266,7 @@ DrumKitEngine::Voice* DrumKitEngine::allocateVoice() noexcept
 void DrumKitEngine::chokeHats() noexcept
 {
     for (auto& voice : voices)
-        if (voice.active && isHatNote (voice.note))
+        if (voice.active && (isHatPad (voice.pad) || isHatNote (voice.note)))
             voice.active = false;
 }
 
@@ -223,10 +290,6 @@ void DrumKitEngine::chokeOffBy (int group) noexcept
 
 void DrumKitEngine::noteOn (int note, float velocity) noexcept
 {
-    const auto* source = currentInstrument();
-    if (source == nullptr || ! source->isLoaded())
-        return;
-
     const int pad = padForNote (note);
 
     bool anySolo = false;
@@ -249,8 +312,26 @@ void DrumKitEngine::noteOn (int note, float velocity) noexcept
         return; // solo nos pads silencia notas fora deles
     }
 
-    if (isHatNote (note))
+    if (isHatPad (pad) || isHatNote (note))
         chokeHats();
+
+    // Fonte própria do pad (SF2/SFZ escolhido na interface) ou o kit do layer.
+    const sampler::Instrument* source = nullptr;
+    int playedNote = note;
+    if (pad >= 0)
+    {
+        const auto* custom = padInstruments[(size_t) pad].load (std::memory_order_acquire);
+        if (custom != nullptr && custom->isLoaded())
+        {
+            source = custom;
+            playedNote = padSourceNotes[(size_t) pad].load (std::memory_order_relaxed);
+        }
+    }
+    if (source == nullptr)
+        source = currentInstrument();
+
+    if (source == nullptr || ! source->isLoaded())
+        return;
 
     const auto& regions = source->getRegions();
     const int velocityValue = juce::jlimit (1, 127, juce::roundToInt (velocity * 127.0f));
@@ -260,7 +341,7 @@ void DrumKitEngine::noteOn (int note, float velocity) noexcept
         const auto& region = regions[(size_t) index];
         if (region.releaseTrigger)
             continue;
-        if (note < region.keyLow || note > region.keyHigh)
+        if (playedNote < region.keyLow || playedNote > region.keyHigh)
             continue;
         if (velocityValue < region.velLow || velocityValue > region.velHigh)
             continue;
@@ -270,13 +351,13 @@ void DrumKitEngine::noteOn (int note, float velocity) noexcept
         if (region.group != 0)
             chokeOffBy (region.group);
 
-        startVoice (source, region, index, note, velocity);
+        startVoice (source, region, index, pad, playedNote, velocity);
     }
 }
 
 void DrumKitEngine::startVoice (const sampler::Instrument* source,
-                                const sampler::Region& region, int regionIndex, int note,
-                                float velocity) noexcept
+                                const sampler::Region& region, int regionIndex, int pad,
+                                int note, float velocity) noexcept
 {
     auto* voice = allocateVoice();
     if (voice == nullptr)
@@ -286,6 +367,7 @@ void DrumKitEngine::startVoice (const sampler::Instrument* source,
     voice->active = true;
     voice->source = source;
     voice->regionIndex = regionIndex;
+    voice->pad = pad;
     voice->note = note;
     voice->position = (double) region.start;
     voice->order = ++voiceOrder;
@@ -295,7 +377,6 @@ void DrumKitEngine::startVoice (const sampler::Instrument* source,
     voice->ratio = std::pow (2.0, semitones / 12.0)
                  * (region.sampleRate > 0.0 ? region.sampleRate / sampleRate : 1.0);
 
-    const int pad = padForNote (note);
     const float padLinear = pad >= 0 ? padGain[(size_t) pad].load (std::memory_order_relaxed) : 1.0f;
     const float velocityCurve = std::pow (juce::jlimit (0.0f, 1.0f, velocity), 1.6f);
     const float velTrack = juce::jlimit (0.0f, 1.0f, region.velTrack);

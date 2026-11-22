@@ -1256,17 +1256,27 @@ núcleo no pior caso em WASAPI; ASIO dominado pelo driver); **0 xruns** em todos
    cria acento; setas movem, espaço/Enter alternam.
 5. **Barra**: liga/desliga, resolução 8/12/16/32, compassos 1/2/4, swing, volume geral, Limpar.
    O seletor de fábrica carrega Rock, Pop, Funk, Shuffle, Balada, Bossa, Samba e Eletrônico.
-6. **Transporte**: o sequenciador segue o Play/Stop e o tempo do patch (e o tap tempo); Stop volta
-   ao compasso 1. M/S nos pads fazem mudo/solo.
-7. **Salvar**: padrão, kit, volume geral e mudo/volume dos pads vão no estado do instrumento e no
-   `.preseter`. O liga/desliga da janela vale na sessão; no patch, quem manda é
+6. **Play/Stop**: **▶ Tocar** usa o transporte do concert e já liga o sequenciador se ele estiver
+   desligado; **■ Parar** para tudo e volta ao compasso 1. O tempo é o do patch (e o tap tempo).
+   M/S nos pads fazem mudo/solo.
+7. **Kit**: abaixo da barra, **Trocar kit (SF2/SFZ)…** escolhe o arquivo; **Banco/Programa** e
+   **Aplicar** trocam o kit dentro do mesmo arquivo (ex.: MuseScore banco 128, programa 0 acústico
+   ou 24 eletrônico).
+8. **Sample por pad (v1.1)**: o botão **…** de cada linha abre o editor do pad: escolha um
+   SF2/SFZ, o banco, o programa e a nota que aquele pad deve tocar. **Usar kit** volta ao kit do
+   layer. O padrão continua valendo mesmo com samples próprios.
+9. **Salvar**: padrão, kit, samples por pad, volume geral e mudo/volume dos pads vão no estado do
+   instrumento e no `.preseter`. O liga/desliga da janela vale na sessão; no patch, quem manda é
    `assignment.drums` (D5).
 
 ### 22.2 Limites da v1 (resumo)
 
 - Um padrão por patch, um compasso por padrão de fábrica; sem encadear padrões/fills.
-- Um kit distribuído (MuseScore_General); sem seletor de kit na janela.
-- Sem contagem de entrada e sem botão de transporte visível (Play/Stop é ação mapeável).
+- Sample por pad usa **SF2/SFZ** (o mesmo leitor do sampler); WAV/FLAC avulso ainda não entra
+  como sample de pad. Cada pad tem um arquivo/banco/programa/nota; não há camadas por velocity.
+- O estado guarda o caminho absoluto do kit/sample: se o arquivo mudar de lugar, o pad volta ao kit
+  (sem erro) até ser escolhido de novo.
+- Sem contagem de entrada; o Play é o transporte global do concert (não há play local isolado).
 - Solo é transitório (não salvo); mudar volume/mudo de pad reenvia o padrão e aplica no próximo
   compasso (pode reiniciar a fase).
 - Sem round-robin; hats usam a exclusão do motor.
@@ -1288,8 +1298,10 @@ núcleo no pior caso em WASAPI; ASIO dominado pelo driver); **0 xruns** em todos
 - [ ] Tocar notas 36..51 no teclado MIDI, com velocity variada.
 - [ ] Na janela: clique, arrasto de velocity, acento com clique direito/duplo, setas e espaço.
 - [ ] Experimentar os padrões de fábrica (rock, pop, funk, shuffle, balada, bossa, samba, eletrônico).
-- [ ] Testar Play/Stop, troca de patch com tempo próprio e tap tempo.
-- [ ] Salvar o patch, fechar o app, reabrir e conferir padrão/kit/volume.
+- [ ] Testar o botão ▶ Tocar / ■ Parar da janela, a troca de patch com tempo próprio e o tap tempo.
+- [ ] Trocar o kit em SF2/SFZ e testar Banco/Programa (0 acústico, 24 eletrônico).
+- [ ] Escolher um SF2/SFZ próprio para um pad, ouvir e voltar com **Usar kit**.
+- [ ] Salvar o patch, fechar o app, reabrir e conferir padrão/kit/sample por pad/volume.
 - [ ] Mudo/solo e volume por pad; volume geral.
 - [ ] Abrir Ajuda (F1) e Ajuda → Sobre; conferir a seção do Drums e o crédito do kit.
 - [ ] Conferir `docs/LICENCAS.md` e `docs/LOJA.md`.
@@ -1305,6 +1317,47 @@ Assinatura do Rafael: ______________________  Data: ____/____/______
   badge Guitarix) que não pertence a esta entrega.
 - `PreseterEngine` compila; `PreseterClockTest` e `PreseterDrumTimingTest` passam; o teste de
   nulidade do Drums passa com o kit; o smoke e o bench do motor passam com 0 xruns.
+
+---
+
+## 23. v1.1 — Play, seletor de kit e sample por pad
+
+Pedido depois da D12: botão de Play na janela, troca de kit e **um sample diferente por parte do
+sequenciador**. O sample por pad usa SF2/SFZ (decisão do Rafael); o Play controla o transporte do
+concert.
+
+### 23.1 Motor
+
+- `DrumKitEngine::loadPadSource(pad, file, bank, program, note)` carrega o SF2/SFZ pelo
+  `sampler::InstrumentCache` e guarda um `Instrument` por pad (`padInstruments`, atômico), com a
+  nota própria do pad. `clearPadSource` volta ao kit. As vozes em andamento mantêm o instrumento
+  antigo vivo (a lista `instrumentKeepAlive` já existia).
+- `noteOn`: o pad 0..15 usa a fonte própria quando existe; senão usa o kit do layer. O choke de
+  chimbal passou a ser por **pad** (6/8/10), então funciona também com sample próprio.
+- `describeDrums` ganhou `kitPath`, `kitBank`, `kitProgram` e `pads[i].source`
+  (`path`, `bank`, `program`, `note`).
+- Estado do instrumento: `drumPadPathN`, `drumPadBankN`, `drumPadProgramN`, `drumPadNoteN`
+  (N = 0..15). Estado antigo não tem as propriedades: os pads continuam no kit, sem migração.
+- Comandos do motor: `loadDrumKit` (path, bank, program) e `setDrumPadSource` (pad, path vazio =
+  limpar, bank, program, note). `setDrums` continua só com padrão/liga/volume/solo.
+
+### 23.2 App
+
+- `DrumMachinePanel` recebe `isPlaying`/`onToggleTransport` do `ConcertShell`;
+  **▶ Tocar / ■ Parar** usa `setAppStatus` (o mesmo Play/Stop do concert) e liga o sequenciador ao
+  tocar. O selo da janela deixou de dizer “EM CONSTRUÇÃO”.
+- Linha do kit: `Trocar kit (SF2/SFZ)…`, campos **Banco** e **Programa** (com **Aplicar**).
+- Botão **…** em cada linha abre o editor do pad: arquivo, nota, banco, programa, **Usar kit**.
+- IPC novos: `drums-pick-file`, `drums-load-kit`, `drums-set-pad-source` (preload, tipos e mock).
+- Documentação dentro do app (Ajuda → Preseter Drums) e esta seção.
+
+### 23.3 Verificação
+
+- `npm run typecheck` ✓.
+- `DrumMachinePanel.test.tsx`: 12 testes (inclui Play/transporte, troca de kit e sample por pad) ✓.
+- `src/main/index.test.ts`: contrato de IPC com 135 handlers ✓.
+- Smoke do motor: troca de kit direto, sample por pad com áudio, volta ao kit, estado com
+  `pads[0].source.program = 24` restaurado no mesmo instrumento e num instrumento novo ✓.
 
 
 

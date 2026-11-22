@@ -238,6 +238,23 @@ export interface EngineCommands {
   drums: { args: { layerId?: string }; result: EngineDrumsState };
   /** Posição leve para o indicador da janela (D7). */
   drumsPosition: { args: { layerId?: string }; result: { enabled: boolean; currentStep: number } };
+  /** Preseter Drums: troca o kit (SF2/SFZ) do layer (v1.1). */
+  loadDrumKit: {
+    args: { layerId: string; path: string; bank?: number; program?: number };
+    result: EngineDrumsState;
+  };
+  /** Preseter Drums: SF2/SFZ próprio de um pad; caminho vazio volta ao kit (v1.1). */
+  setDrumPadSource: {
+    args: {
+      layerId: string;
+      pad: number;
+      path: string;
+      bank?: number;
+      program?: number;
+      note?: number;
+    };
+    result: EngineDrumsState;
+  };
   /** Transpose global em semitons (patch + set + concert), aplicado a todas as notas. */
   setTranspose: { args: { semitones: number }; result: null };
   /** Configura o strip de entrada de áudio (Fase 3.5). */

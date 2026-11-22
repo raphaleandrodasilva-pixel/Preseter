@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { EngineDrumsState } from '@shared/types';
 import { DrumMachinePanel } from './DrumMachinePanel';
@@ -20,6 +20,9 @@ const makeInfo = (overrides: Partial<EngineDrumsState> = {}): EngineDrumsState =
     trackCount: 1,
     totalSteps: 16,
     kit: 'SF2 · MuseScore_General',
+    kitPath: 'C:\\Sons\\MuseScore_General.sf2',
+    kitBank: 128,
+    kitProgram: 0,
     gainDb: 0,
     tracks: [{ pad: 0, mute: false, level: 0, steps }],
     pads: Array.from({ length: 16 }, (_, index) => ({
@@ -150,6 +153,76 @@ describe('DrumMachinePanel', () => {
 
     fireEvent.keyDown(step2, { key: ' ' });
     await waitFor(() => expect(lastSetPayload()?.pattern?.tracks[0].steps[1].on).toBe(true));
+  }, TEST_TIMEOUT);
+
+  it('toca pelo transporte do concert e liga o sequenciador', async () => {
+    vi.mocked(window.electronAPI.drumsInfo).mockResolvedValue(makeInfo({ enabled: false }));
+    const onToggleTransport = vi.fn();
+    render(
+      <DrumMachinePanel
+        layerId="drums-1"
+        isPlaying={false}
+        onToggleTransport={onToggleTransport}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tocar' }));
+
+    expect(onToggleTransport).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(lastSetPayload()?.enabled).toBe(true));
+  }, TEST_TIMEOUT);
+
+  it('troca o kit pelo arquivo e programa escolhidos', async () => {
+    vi.mocked(window.electronAPI.drumsInfo).mockResolvedValue(makeInfo());
+    vi.mocked(window.electronAPI.drumsPickFile).mockResolvedValue('C:\\Sons\\OutroKit.sf2');
+    vi.mocked(window.electronAPI.drumsLoadKit).mockResolvedValue(
+      makeInfo({ kit: 'SF2 · OutroKit', kitPath: 'C:\\Sons\\OutroKit.sf2' })
+    );
+    render(<DrumMachinePanel layerId="drums-1" />);
+
+    await screen.findByTestId('step-0-1');
+    fireEvent.click(screen.getByRole('button', { name: /Trocar kit/ }));
+
+    await waitFor(() =>
+      expect(window.electronAPI.drumsLoadKit).toHaveBeenCalledWith(
+        'drums-1',
+        'C:\\Sons\\OutroKit.sf2',
+        128,
+        0
+      )
+    );
+  }, TEST_TIMEOUT);
+
+  it('escolhe um SF2/SFZ próprio para um pad', async () => {
+    const info = makeInfo();
+    vi.mocked(window.electronAPI.drumsInfo).mockResolvedValue(info);
+    vi.mocked(window.electronAPI.drumsPickFile).mockResolvedValue('C:\\Sons\\Bumbo.sfz');
+    vi.mocked(window.electronAPI.drumsSetPadSource).mockResolvedValue(
+      makeInfo({
+        pads: info.pads.map((pad) => pad.index === 0
+          ? { ...pad, source: { path: 'C:\\Sons\\Bumbo.sfz', bank: 128, program: 0, note: 36 } }
+          : pad),
+      })
+    );
+    render(<DrumMachinePanel layerId="drums-1" />);
+
+    await screen.findByTestId('step-0-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Sample de Bumbo' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Sample de Bumbo' });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Escolher SF2\/SFZ/ }));
+    await waitFor(() => expect(within(dialog).getByText('Bumbo.sfz')).toBeInTheDocument());
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Aplicar' }));
+
+    await waitFor(() =>
+      expect(window.electronAPI.drumsSetPadSource).toHaveBeenCalledWith('drums-1', 0, {
+        path: 'C:\\Sons\\Bumbo.sfz',
+        bank: 128,
+        program: 0,
+        note: 36,
+      })
+    );
   }, TEST_TIMEOUT);
 
   it('carrega um padrão de fábrica', async () => {

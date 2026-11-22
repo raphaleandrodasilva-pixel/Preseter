@@ -584,6 +584,14 @@ export interface EngineDrumPattern {
   tracks?: EngineDrumTrack[];
 }
 
+/** SF2/SFZ próprio de um pad do Preseter Drums. */
+export interface DrumPadSource {
+  path: string;
+  bank: number;
+  program: number;
+  note: number;
+}
+
 /** `drums` do motor: padrão, passo atual e pads. */
 export interface EngineDrumsState {
   enabled: boolean;
@@ -594,6 +602,10 @@ export interface EngineDrumsState {
   trackCount: number;
   totalSteps: number;
   kit: string;
+  /** Arquivo do kit atual (vazio se o layer não tem kit). */
+  kitPath?: string;
+  kitBank?: number;
+  kitProgram?: number;
   /** Volume geral do kit (dB). */
   gainDb: number;
   tracks: Array<{
@@ -609,6 +621,8 @@ export interface EngineDrumsState {
     levelDb: number;
     muted: boolean;
     solo: boolean;
+    /** Sample próprio do pad; ausente = usa o kit do layer. */
+    source?: DrumPadSource | null;
   }>;
 }
 

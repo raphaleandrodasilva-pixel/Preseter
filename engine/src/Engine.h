@@ -192,6 +192,12 @@ public:
     juce::var describeArp (const juce::String& layerId) const;
     /** Preseter Drums: padrão e sequenciador do layer (D4). */
     juce::String setDrums (const juce::String& layerId, const juce::var& options, juce::var& result);
+    /** Preseter Drums: troca o kit (SF2/SFZ) do layer (v1.1). */
+    juce::String loadDrumKit (const juce::String& layerId, const juce::String& path, int bank,
+                              int program, juce::var& result);
+    /** Preseter Drums: SF2/SFZ próprio de um pad; caminho vazio volta ao kit (v1.1). */
+    juce::String setDrumPadSource (const juce::String& layerId, int pad, const juce::String& path,
+                                   int bank, int program, int note, juce::var& result);
     juce::var describeDrums (const juce::String& layerId) const;
     /** Posição leve (passo atual) para o indicador da interface (D7). */
     juce::var describeDrumsPosition (const juce::String& layerId) const;
