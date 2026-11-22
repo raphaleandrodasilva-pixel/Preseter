@@ -2890,6 +2890,19 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onSelectPreset(shortcutPatch);
           return;
         }
+        const shortcutSet = shortcut
+          ? sets.find((set) => !set.skipped && set.shortcut === shortcut)
+          : undefined;
+        if (shortcutSet) {
+          const first = presets
+            .filter((patch) => patch.setId === shortcutSet.id && !patch.skipped)
+            .sort((a, b) => (a.setOrder ?? 0) - (b.setOrder ?? 0))[0];
+          if (first) {
+            e.preventDefault();
+            onSelectPreset(first);
+            return;
+          }
+        }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); panic(); return; }
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMasterMute(); return; }
         const skip = e.ctrlKey || e.metaKey;
@@ -2951,7 +2964,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedId, draft, presets, currentPreset, selectedLayerId, openEditors, masterMuted, computerKeyboardMidi]);
+  }, [mode, selectedId, draft, presets, sets, currentPreset, selectedLayerId, openEditors, masterMuted, computerKeyboardMidi]);
 
   if (mode === 'perform') {
     const elements = performElements;
@@ -3012,15 +3025,23 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             }}
           >
             <option value="">Selecionar patch…</option>
-            {performAllGroups.map((group) => (
-              <optgroup key={group.key} label={group.name}>
-                {group.patches.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {String(p.programNumber + 1).padStart(3, '0')} — {p.name}{p.skipped ? ' (skip)' : ''}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+            {performAllGroups.map((group) => {
+              const groupShortcut = group.setId
+                ? sets.find((set) => set.id === group.setId)?.shortcut
+                : undefined;
+              return (
+                <optgroup
+                  key={group.key}
+                  label={groupShortcut ? `${group.name} [${groupShortcut}]` : group.name}
+                >
+                  {group.patches.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {String(p.programNumber + 1).padStart(3, '0')} — {p.name}{p.skipped ? ' (skip)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
           <button
             className="hw-squarebtn px-3 py-1.5 text-xs disabled:opacity-50"
@@ -3107,6 +3128,9 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                 {performGroups.map((group) => {
                   // Durante a busca, abre todos os grupos para mostrar o resultado.
                   const collapsed = !performListTerm && performCollapsedSets.includes(group.key);
+                  const groupShortcut = group.setId
+                    ? sets.find((set) => set.id === group.setId)?.shortcut
+                    : undefined;
                   return (
                     <section key={group.key} className="mb-1">
                       <button
@@ -3120,6 +3144,11 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                         </span>
                         <span className="shrink-0">📁</span>
                         <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                        {groupShortcut && (
+                          <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-semibold" style={{ background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }}>
+                            {groupShortcut}
+                          </span>
+                        )}
                         <span style={{ color: '#8E8E93' }}>{group.patches.length}</span>
                       </button>
                       {!collapsed && group.patches.map((patch) => {
@@ -3258,6 +3287,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             mode="layout"
             draft={draft}
             presets={presets}
+            sets={sets}
             scannedPlugins={scannedPlugins}
             scannedParams={scannedParams}
             selectedElement={selected}
@@ -3300,6 +3330,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onRenameSet={renameSet}
           onDeleteSet={deleteSet}
           onSetTranspose={(setId, semitones) => updateSet(setId, { transpose: semitones })}
+          onSetShortcut={(setId, shortcut) => updateSet(setId, { shortcut })}
           onToggleSetExpanded={toggleSetExpanded}
           onToggleSetSkipped={toggleSetSkipped}
           onTogglePresetSkipped={(id) => void togglePresetSkipped(id)}
@@ -3413,6 +3444,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onRenameSet={renameSet}
                     onDeleteSet={deleteSet}
                     onSetTranspose={(setId, semitones) => updateSet(setId, { transpose: semitones })}
+                    onSetShortcut={(setId, shortcut) => updateSet(setId, { shortcut })}
                     onToggleSetExpanded={toggleSetExpanded}
                     onToggleSetSkipped={toggleSetSkipped}
                     onTogglePresetSkipped={(id) => void togglePresetSkipped(id)}
@@ -3564,6 +3596,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               mode="edit"
               draft={draft}
               presets={presets}
+              sets={sets}
               scannedPlugins={scannedPlugins}
               scannedParams={scannedParams}
               selectedElement={selected}

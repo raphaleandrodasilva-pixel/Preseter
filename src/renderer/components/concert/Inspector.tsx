@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { BusSettings, Preset, PresetPluginAssignment, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
+import type { BusSettings, Preset, PresetPluginAssignment, PresetSet, UiElement, VstPluginInfo, VstPreset } from '@shared/types';
 import { ControlInspector } from '../composer/ControlInspector';
 import { MappingTable } from '../composer/MappingTable';
 import { ChannelStripLibrary } from './ChannelStripLibrary';
 import { IconPicker } from './IconPicker';
 import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
+import { findShortcutConflict } from '@shared/shortcut-conflicts';
 
 interface InspectorProps {
   /** No Layout, mostra só o Screen Control Inspector; no Edit, as abas do patch. */
@@ -12,6 +13,8 @@ interface InspectorProps {
   draft: Preset | null;
   /** Todos os patches do concert, para validar atalhos duplicados. */
   presets: Preset[];
+  /** Sets do concert, para validar atalhos de grupo duplicados. */
+  sets?: PresetSet[];
   scannedPlugins: VstPluginInfo[];
   scannedParams: { path: string; params: { id: string; name: string }[] }[];
   selectedElement: UiElement | null;
@@ -57,6 +60,7 @@ export const Inspector: React.FC<InspectorProps> = ({
   mode,
   draft,
   presets,
+  sets = [],
   scannedPlugins,
   scannedParams,
   selectedElement,
@@ -158,16 +162,13 @@ export const Inspector: React.FC<InspectorProps> = ({
       if (!shortcut) return;
       event.preventDefault();
       event.stopPropagation();
-      if (shortcut === 'Space' || shortcut.endsWith('+Space')) {
-        setShortcutError('A barra de espaço é reservada para o panic.');
-        setLearningShortcut(false);
-        return;
-      }
-      const conflict = presets.find(
-        (preset) => preset.id !== draft.id && (preset.shortcut ?? '') === shortcut
-      );
+      const conflict = findShortcutConflict(shortcut, {
+        patchId: draft.id,
+        presets,
+        sets,
+      });
       if (conflict) {
-        setShortcutError(`Atalho já usado por “${conflict.name}”.`);
+        setShortcutError(conflict.message);
         setLearningShortcut(false);
         return;
       }
@@ -177,7 +178,7 @@ export const Inspector: React.FC<InspectorProps> = ({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [learningShortcut, presets, draft, onPatchChange]);
+  }, [learningShortcut, presets, sets, draft, onPatchChange]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'library', label: 'Patch' },

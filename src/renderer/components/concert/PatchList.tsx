@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Preset, PresetSet } from '@shared/types';
+import { shortcutFromKeyboardEvent } from '@shared/shortcuts';
+import { findShortcutConflict } from '@shared/shortcut-conflicts';
 import { PatchIcon } from '../icons/PatchIcons';
 
 interface PatchListProps {
@@ -17,6 +19,8 @@ interface PatchListProps {
   onRenameSet: (setId: string, name: string) => void;
   onDeleteSet: (setId: string) => void;
   onSetTranspose: (setId: string, semitones: number) => void;
+  /** Define (ou limpa, com string vazia) o atalho de um grupo no Perform. */
+  onSetShortcut?: (setId: string, shortcut: string) => void;
   onToggleSetExpanded: (setId: string) => void;
   onToggleSetSkipped: (setId: string) => void;
   onTogglePresetSkipped: (presetId: string) => void;
@@ -81,6 +85,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   onRenameSet,
   onDeleteSet,
   onSetTranspose,
+  onSetShortcut,
   onToggleSetExpanded,
   onToggleSetSkipped,
   onTogglePresetSkipped,
@@ -108,6 +113,8 @@ export const PatchList: React.FC<PatchListProps> = ({
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const [renamingSetId, setRenamingSetId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [learningSetShortcutId, setLearningSetShortcutId] = useState<string | null>(null);
+  const [setShortcutError, setSetShortcutError] = useState<{ setId: string; message: string } | null>(null);
   /** Patches selecionados na lista (clique, Cmd/Ctrl-clique e Shift-clique). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   /** Último item clicado, base do Shift-clique. */
@@ -117,6 +124,47 @@ export const PatchList: React.FC<PatchListProps> = ({
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLElement>(null);
   const orderedSets = useMemo(() => sortedSets(sets), [sets]);
+
+  // Aprende o atalho de um grupo e valida contra patches, outros sets e o app.
+  useEffect(() => {
+    if (!learningSetShortcutId || !onSetShortcut) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setLearningSetShortcutId(null);
+        setSetShortcutError(null);
+        return;
+      }
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        event.stopPropagation();
+        onSetShortcut(learningSetShortcutId, '');
+        setLearningSetShortcutId(null);
+        setSetShortcutError(null);
+        return;
+      }
+      const shortcut = shortcutFromKeyboardEvent(event);
+      if (!shortcut || event.repeat) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const conflict = findShortcutConflict(shortcut, {
+        setId: learningSetShortcutId,
+        presets,
+        sets,
+      });
+      if (conflict) {
+        setSetShortcutError({ setId: learningSetShortcutId, message: conflict.message });
+        setLearningSetShortcutId(null);
+        return;
+      }
+      onSetShortcut(learningSetShortcutId, shortcut);
+      setLearningSetShortcutId(null);
+      setSetShortcutError(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [learningSetShortcutId, onSetShortcut, presets, sets]);
 
   // Ordem visual completa da lista: sets na ordem, patches de cada set, depois "Sem set".
   const visualPatches = useMemo(() => {
@@ -695,6 +743,24 @@ export const PatchList: React.FC<PatchListProps> = ({
                   </button>
                 )}
                 <span className="text-[10px] text-slate-600">{list.length}</span>
+                {onSetShortcut && (
+                  <button
+                    type="button"
+                    className="rounded px-1 text-[9px] font-semibold"
+                    style={set.shortcut
+                      ? { background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }
+                      : { color: '#8E8E93' }}
+                    title={set.shortcut
+                      ? `Atalho do grupo: ${set.shortcut} — clique para trocar; Backspace remove`
+                      : 'Definir atalho para este grupo no Perform'}
+                    onClick={() => {
+                      setSetShortcutError(null);
+                      setLearningSetShortcutId((current) => (current === set.id ? null : set.id));
+                    }}
+                  >
+                    {learningSetShortcutId === set.id ? '…' : (set.shortcut || '⌨')}
+                  </button>
+                )}
                 <label className="flex items-center gap-0.5 text-[9px] text-slate-600" title="Transpose do set (semitons)">
                   <span>↕</span>
                   <input
@@ -723,6 +789,16 @@ export const PatchList: React.FC<PatchListProps> = ({
                   ×
                 </button>
               </div>
+              {learningSetShortcutId === set.id && (
+                <div className="px-2 pb-1 text-[9px]" style={{ color: '#9AD1FF' }}>
+                  Pressione uma tecla — Esc cancela · Backspace remove.
+                </div>
+              )}
+              {setShortcutError?.setId === set.id && (
+                <div className="px-2 pb-1 text-[9px]" style={{ color: '#FF8A80' }}>
+                  {setShortcutError.message}
+                </div>
+              )}
               {expanded && (
                 <div
                   className="px-1 pb-1"

@@ -199,6 +199,8 @@ export interface PresetSet {
   skipped?: boolean;
   /** Transpose deste set, em semitons (soma com patch e concert na Fase 3.4). */
   transpose?: number;
+  /** Atalho de teclado para pular direto para este grupo no Perform. */
+  shortcut?: string;
   createdAt: number;
   updatedAt: number;
 }
