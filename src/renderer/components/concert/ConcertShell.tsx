@@ -40,6 +40,7 @@ import {
 import { defaultSends } from '@shared/concert-strips';
 import { suggestPatchIcon } from '@shared/patch-icons';
 import { buildPresetLayout } from '@shared/collection-layouts';
+import { groupPatchesBySet } from '@shared/patch-groups';
 import { useAppContext } from '../../context/AppContext';
 import { ModeToolbar, type ConcertMode } from './ModeToolbar';
 import { PatchList } from './PatchList';
@@ -311,6 +312,8 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   const [performQuery, setPerformQuery] = useState('');
   const [performListOpen, setPerformListOpen] = useState(true);
   const [performListQuery, setPerformListQuery] = useState('');
+  /** Sets recolhidos só no Perform; não altera o estado salvo no concert. */
+  const [performCollapsedSets, setPerformCollapsedSets] = useState<string[]>([]);
   const toastTimer = useRef<number | undefined>(undefined);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [concertSettingsTab, setConcertSettingsTab] = useState<ConcertSettingsTab | null>(null);
@@ -2953,21 +2956,20 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
   if (mode === 'perform') {
     const elements = performElements;
     const performListTerm = performListQuery.trim().toLowerCase();
-    const performListRows = [...presets]
-      .filter((patch) => {
-        if (!performListTerm) return true;
-        const setName = sets.find((set) => set.id === patch.setId)?.name ?? '';
-        return `${patch.name} ${String(patch.programNumber + 1)} ${patch.shortcut ?? ''} ${setName}`
-          .toLowerCase()
-          .includes(performListTerm);
-      })
-      .sort((a, b) => {
-        const setA = sets.find((set) => set.id === a.setId)?.order ?? -1;
-        const setB = sets.find((set) => set.id === b.setId)?.order ?? -1;
-        return setA - setB
-          || (a.setOrder ?? 0) - (b.setOrder ?? 0)
-          || a.programNumber - b.programNumber;
-      });
+    const performAllGroups = groupPatchesBySet(presets, sets);
+    const performListRows = presets.filter((patch) => {
+      if (!performListTerm) return true;
+      const setName = sets.find((set) => set.id === patch.setId)?.name ?? '';
+      return `${patch.name} ${String(patch.programNumber + 1)} ${patch.shortcut ?? ''} ${setName}`
+        .toLowerCase()
+        .includes(performListTerm);
+    });
+    const performGroups = groupPatchesBySet(performListRows, sets);
+    const togglePerformSet = (key: string) => {
+      setPerformCollapsedSets((current) =>
+        current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+      );
+    };
     return (
       <div className="flex h-full flex-col text-slate-200" style={{ background: '#1C1C1E' }}>
         <div
@@ -3010,8 +3012,14 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
             }}
           >
             <option value="">Selecionar patch…</option>
-            {[...presets].sort((a, b) => a.programNumber - b.programNumber).map((p) => (
-              <option key={p.id} value={p.id}>{String(p.programNumber + 1).padStart(3, '0')} — {p.name}{p.skipped ? ' (skip)' : ''}</option>
+            {performAllGroups.map((group) => (
+              <optgroup key={group.key} label={group.name}>
+                {group.patches.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {String(p.programNumber + 1).padStart(3, '0')} — {p.name}{p.skipped ? ' (skip)' : ''}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <button
@@ -3091,38 +3099,58 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                 />
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-                {performListRows.length === 0 && (
+                {performGroups.length === 0 && (
                   <div className="p-3 text-center text-[11px]" style={{ color: '#8E8E93' }}>
                     Nenhum patch.
                   </div>
                 )}
-                {performListRows.map((patch) => {
-                  const active = patch.id === currentPreset?.id;
-                  const setName = sets.find((set) => set.id === patch.setId)?.name;
+                {performGroups.map((group) => {
+                  // Durante a busca, abre todos os grupos para mostrar o resultado.
+                  const collapsed = !performListTerm && performCollapsedSets.includes(group.key);
                   return (
-                    <button
-                      key={patch.id}
-                      onClick={() => onSelectPreset(patch)}
-                      className="mb-1 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px]"
-                      style={active
-                        ? { background: 'rgba(10,132,255,0.26)', color: '#FFFFFF' }
-                        : { color: '#D1D1D6' }}
-                    >
-                      <span className="w-8 shrink-0 text-right tabular-nums" style={{ color: active ? '#CFE5FF' : '#8E8E93' }}>
-                        {String(patch.programNumber + 1).padStart(3, '0')}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="block truncate font-medium">{patch.name}</span>
-                        <span className="block truncate text-[9px]" style={{ color: '#8E8E93' }}>
-                          {setName ?? 'Sem set'}{patch.skipped ? ' · skip' : ''}
+                    <section key={group.key} className="mb-1">
+                      <button
+                        onClick={() => togglePerformSet(group.key)}
+                        className="flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] font-semibold"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: '#D1D1D6' }}
+                        title={collapsed ? `Expandir ${group.name}` : `Recolher ${group.name}`}
+                      >
+                        <span className="w-3 shrink-0 text-center" style={{ color: '#8E8E93' }}>
+                          {collapsed ? '▸' : '▾'}
                         </span>
-                      </span>
-                      {patch.shortcut && (
-                        <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold" style={{ background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }}>
-                          {patch.shortcut}
-                        </span>
-                      )}
-                    </button>
+                        <span className="shrink-0">📁</span>
+                        <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                        <span style={{ color: '#8E8E93' }}>{group.patches.length}</span>
+                      </button>
+                      {!collapsed && group.patches.map((patch) => {
+                        const active = patch.id === currentPreset?.id;
+                        return (
+                          <button
+                            key={patch.id}
+                            onClick={() => onSelectPreset(patch)}
+                            className="mb-1 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px]"
+                            style={active
+                              ? { background: 'rgba(10,132,255,0.26)', color: '#FFFFFF' }
+                              : { color: '#D1D1D6' }}
+                          >
+                            <span className="w-8 shrink-0 text-right tabular-nums" style={{ color: active ? '#CFE5FF' : '#8E8E93' }}>
+                              {String(patch.programNumber + 1).padStart(3, '0')}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              <span className="block truncate font-medium">{patch.name}</span>
+                              {patch.skipped && (
+                                <span className="block truncate text-[9px]" style={{ color: '#8E8E93' }}>skip</span>
+                              )}
+                            </span>
+                            {patch.shortcut && (
+                              <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold" style={{ background: '#2C2C2E', color: '#9AD1FF', border: '1px solid #3A3A3C' }}>
+                                {patch.shortcut}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </section>
                   );
                 })}
               </div>
