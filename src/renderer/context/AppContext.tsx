@@ -67,6 +67,10 @@ export interface AppContextType {
   concertName: string;
   /** true depois que o concert inicial terminou de carregar. */
   concertLoaded: boolean;
+  /** true quando existe um concert ativo (aberto ou criado por um template). */
+  concertActive: boolean;
+  /** Abre o seletor de templates (Arquivo → Novo concert). */
+  openTemplatePicker: () => Promise<void>;
   /** Overlay global de carregamento de arquivo/patch. */
   loadProgress: AppLoadProgress | null;
   dismissLoadProgress: () => void;
@@ -424,6 +428,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [sets, setSets] = useState<PresetSet[]>([]);
   const [concertName, setConcertNameState] = useState<string>('Meu Concert');
   const [concertLoaded, setConcertLoaded] = useState(false);
+  /** Falso depois de fechar o arquivo, até abrir ou criar um concert. */
+  const [concertActive, setConcertActive] = useState(false);
   const [loadProgress, setLoadProgress] = useState<AppLoadProgress | null>(null);
   const [concertPath, setConcertPath] = useState<string | null>(null);
   const [concertDirty, setConcertDirty] = useState(false);
@@ -611,7 +617,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [layout, concertMappings, sets]);
 
   /** Aplica no renderer o estado do concert vindo do main. */
-  const applyConcertState = useCallback((state: ConcertState) => {
+  const applyConcertState = useCallback((
+    state: ConcertState,
+    options: { active?: boolean } = {}
+  ) => {
+    setConcertActive(
+      options.active ?? (Boolean(state.path) || state.patches.length > 0 || state.sets.length > 0)
+    );
     setPresets(state.patches.map((preset) => ({
       ...preset,
       layout: materializePatchLayout(preset, state.layout, state.mappings, state.sets),
@@ -1194,15 +1206,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHistoryVersion((version) => version + 1);
   }, [applySnapshot, history]);
 
+  const openTemplatePicker = useCallback(async () => {
+    try {
+      const templates = await window.electronAPI.concertTemplates();
+      setConcertTemplates(templates);
+      setTemplatePickerOpen(true);
+    } catch (error) {
+      setConcertError(error instanceof Error ? error.message : 'Falha ao listar os templates.');
+    }
+  }, []);
+
   // === Arquivo (menu nativo) ===
   const handleMenuAction = useCallback(
     async (action: MenuAction) => {
       setConcertError(null);
       try {
         if (action.action === 'new') {
-          const templates = await window.electronAPI.concertTemplates();
-          setConcertTemplates(templates);
-          setTemplatePickerOpen(true);
+          await openTemplatePicker();
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
           if (state) await openConcertState(state);
@@ -1227,6 +1247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           await openConcertState(state);
           setConcertPath(null);
           setConcertDirty(false);
+          setConcertActive(false);
         } else if (action.action === 'undo') {
           undo();
         } else if (action.action === 'redo') {
@@ -1240,7 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setConcertError(error instanceof Error ? error.message : 'Falha na operação de arquivo.');
       }
     },
-    [applyConcertState, openConcertState, undo, redo]
+    [applyConcertState, openConcertState, openTemplatePicker, undo, redo]
   );
   menuHandlerRef.current = handleMenuAction;
 
@@ -1250,7 +1271,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setConcertError(null);
       try {
         const state = await window.electronAPI.concertNew(templateId);
-        applyConcertState(state);
+        applyConcertState(state, { active: true });
         if (templateId === 'midi-externo') {
           const first = state.patches[0];
           if (first) {
@@ -2304,6 +2325,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sets,
     concertName,
     concertLoaded,
+    concertActive,
     loadProgress,
     dismissLoadProgress,
     currentPreset,
@@ -2338,6 +2360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearExternalMidiSetup,
     chooseTemplate,
     cancelTemplatePicker,
+    openTemplatePicker,
     openConcertFile,
     midiDevices,
     midiError,

@@ -22,6 +22,7 @@ const AppContent: React.FC = () => {
     concertError,
     concertRevision,
     concertLoaded,
+    concertActive,
     concertTemplates,
     templatePickerOpen,
     infoModal,
@@ -68,6 +69,10 @@ const AppContent: React.FC = () => {
   const startNewPatch = (setId?: string) => {
     if (!concertLoaded) {
       showToast('Carregando o concert… tente de novo em instantes.');
+      return;
+    }
+    if (!concertActive) {
+      showToast('Crie ou abra um concert antes de adicionar patches.');
       return;
     }
     const usedPrograms = new Set(presets.map((p) => p.programNumber));

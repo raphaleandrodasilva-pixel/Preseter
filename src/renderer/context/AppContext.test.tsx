@@ -85,6 +85,7 @@ describe('AppProvider initialization', () => {
     expect(latest.audioDevices).not.toBeNull();
     expect(latest.preferences?.scrollSpeed).toBe('slower');
     expect(latest.concertStrips).toHaveLength(1);
+    expect(latest.concertActive).toBe(true);
     expect(window.electronAPI.concertInit).toHaveBeenCalledWith({});
   });
 
@@ -796,6 +797,14 @@ describe('AppProvider main-process events', () => {
 
     await act(async () => api().emit('onMenuAction', { action: 'save' }));
     expect(latest.concertPath).toBe('C:/saved.preseter');
+
+    await act(async () => api().emit('onMenuAction', { action: 'close' }));
+    expect(latest.concertActive).toBe(false);
+
+    await act(async () => {
+      await latest.chooseTemplate('vazio');
+    });
+    expect(latest.concertActive).toBe(true);
   });
 
   it('opens a concert file from the template page', async () => {

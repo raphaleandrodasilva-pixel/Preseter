@@ -3312,6 +3312,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
           onNewPatchFromSelection={newPatchFromSelection}
           onNewSetFromSelection={newSetFromSelection}
           onRegenerateLayouts={regenerateLayouts}
+          concertActive={ctx.concertActive}
           onExportPatch={(id) => void exportPatch(id)}
           onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
           onExportSet={(id) => void exportSet(id)}
@@ -3424,6 +3425,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onNewPatchFromSelection={newPatchFromSelection}
                     onNewSetFromSelection={newSetFromSelection}
                     onRegenerateLayouts={regenerateLayouts}
+                    concertActive={ctx.concertActive}
                     onExportPatch={(id) => void exportPatch(id)}
                     onImportPatch={() => void importPatch().then((imported) => { if (imported) onSelectPreset(imported); })}
                     onExportSet={(id) => void exportSet(id)}
@@ -3507,6 +3509,32 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   </>
                 )}
               />
+            ) : !ctx.concertActive ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <div className="mb-2 text-4xl" style={{ color: '#0A84FF' }}>♫</div>
+                  <div className="font-semibold text-white">Nenhum concert aberto</div>
+                  <p className="my-2 text-xs" style={{ color: '#9A9AA0' }}>
+                    Abra um arquivo .preseter ou crie um concert a partir de um template.
+                  </p>
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <button
+                      className="rounded-lg px-4 py-2 text-sm font-semibold"
+                      style={{ background: '#0A84FF', color: '#FFFFFF' }}
+                      onClick={() => void ctx.openTemplatePicker()}
+                    >
+                      Novo concert
+                    </button>
+                    <button
+                      className="rounded-lg px-4 py-2 text-sm font-semibold"
+                      style={{ border: '1px solid #3A3A3C', background: '#2C2C2E', color: '#EDEDEF' }}
+                      onClick={() => void ctx.openConcertFile()}
+                    >
+                      Abrir concert…
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">

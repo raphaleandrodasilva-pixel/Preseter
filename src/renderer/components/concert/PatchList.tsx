@@ -40,6 +40,8 @@ interface PatchListProps {
     beforeId: string | null,
     copy: boolean
   ) => Promise<string[]>;
+  /** Falso depois de fechar o arquivo: esconde as ações de criar patch/set. */
+  concertActive?: boolean;
   compact?: boolean;
 }
 
@@ -96,6 +98,7 @@ export const PatchList: React.FC<PatchListProps> = ({
   onExportSet,
   onImportSet,
   onMovePatches,
+  concertActive = true,
   compact = false,
 }) => {
   const [query, setQuery] = useState('');
@@ -447,13 +450,15 @@ export const PatchList: React.FC<PatchListProps> = ({
           {multipleSelection ? `Multiple Selection (${selectedIds.length})` : 'Patch List'}
         </div>
         <span className="ml-auto text-[10px]" style={{ color: '#636366' }}>{presets.length}</span>
-        <button
-          className="hw-squarebtn px-1.5 py-0.5 text-sm"
-          title="Adicionar patch no fim"
-          onClick={() => onNewPatch(undefined)}
-        >
-          +
-        </button>
+        {concertActive && (
+          <button
+            className="hw-squarebtn px-1.5 py-0.5 text-sm"
+            title="Adicionar patch no fim"
+            onClick={() => onNewPatch(undefined)}
+          >
+            +
+          </button>
+        )}
         <div className="relative">
           <button
             ref={actionButtonRef}
@@ -480,13 +485,17 @@ export const PatchList: React.FC<PatchListProps> = ({
                 background: '#1F1F21',
               }}
             >
-              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewSet(); setActionOpen(false); }}>
-                + Novo Set
-              </button>
-              <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewPatch(undefined); setActionOpen(false); }}>
-                + Novo Patch
-              </button>
-              <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
+              {concertActive && (
+                <>
+                  <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewSet(); setActionOpen(false); }}>
+                    + Novo Set
+                  </button>
+                  <button className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E]" style={{ color: '#EDEDEF' }} onClick={() => { onNewPatch(undefined); setActionOpen(false); }}>
+                    + Novo Patch
+                  </button>
+                  <div className="my-1 border-t" style={{ borderColor: '#3A3A3C' }} />
+                </>
+              )}
               <button
                 className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#2C2C2E] disabled:opacity-40"
                 style={{ color: '#EDEDEF' }}
@@ -613,7 +622,9 @@ export const PatchList: React.FC<PatchListProps> = ({
         </button>
         {presets.length === 0 && (
           <div className="rounded-lg p-3 text-center text-[11px]" style={{ border: '1px solid #3A3A3C', color: '#9A9AA0' }}>
-            Concert vazio. Crie um Set e seu primeiro Patch.
+            {concertActive
+              ? 'Concert vazio. Crie um Set e seu primeiro Patch.'
+              : 'Nenhum concert aberto. Use Arquivo → Novo concert ou Abrir.'}
           </div>
         )}
         {orderedSets.map((set) => {
@@ -697,9 +708,11 @@ export const PatchList: React.FC<PatchListProps> = ({
                     style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
                   />
                 </label>
-                <button className="rounded px-1 text-[11px] text-slate-500 hover:text-amber-200" title="Novo patch neste set" onClick={() => onNewPatch(set.id)}>
-                  +
-                </button>
+                {concertActive && (
+                  <button className="rounded px-1 text-[11px] text-slate-500 hover:text-amber-200" title="Novo patch neste set" onClick={() => onNewPatch(set.id)}>
+                    +
+                  </button>
+                )}
                 <button className="rounded px-1 text-[10px] text-slate-500 hover:text-slate-200" title={set.skipped ? 'Ativar set' : 'Pular set'} onClick={() => onToggleSetSkipped(set.id)}>
                   {set.skipped ? '○' : '⊘'}
                 </button>
