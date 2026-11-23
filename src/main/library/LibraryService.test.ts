@@ -10,11 +10,19 @@ import {
   safeFileName,
   type LibraryFile,
 } from '../../shared/library/format';
-import { findEffect } from '../../shared/effects/catalog';
+import { EFFECTS as CATALOG_EFFECTS, findEffect } from '../../shared/effects/catalog';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
 import { parseConcertFile } from '../concert/ConcertFile';
-import { buildCollectionConcert } from '../collection/generateCollection';
-import { generateLibrary, inspectLibrary, listLibraries, readLibraryFile } from './LibraryService';
+import { buildCollectionConcert, findEffectPlugin } from '../collection/generateCollection';
+import {
+  describeMissing,
+  generateLibrary,
+  inspectLibrary,
+  installedPlugins,
+  listLibraries,
+  needsBundledEffectsScan,
+  readLibraryFile,
+} from './LibraryService';
 
 const ROOT = path.resolve('libraries');
 const load = (id: string): LibraryFile => readLibraryFile(path.join(ROOT, id, 'biblioteca.json'));
@@ -82,7 +90,7 @@ describe('bibliotecas do Preseter', () => {
     expect(list.every((item) => !item.error)).toBe(true);
     expect(list.find((item) => item.id === 'factory-40')?.patches).toBe(40);
     expect(list.find((item) => item.id === 'factory-40-efeitos')?.patches).toBe(40);
-    expect(list.find((item) => item.id === 'workstation')?.patches).toBe(768);
+    expect(list.find((item) => item.id === 'workstation')?.patches).toBe(896);
   });
 
   it('a Factory 40 pelo arquivo gera o mesmo concert do gerador atual', () => {
@@ -104,13 +112,26 @@ describe('bibliotecas do Preseter', () => {
     }
   });
 
-  it('a Workstation tem 6 concerts com Program Change de 0 a 127, sem repetir receita', () => {
+  it('a Workstation tem 128 Performances com várias camadas e nomes únicos', () => {
+    const performances = load('workstation').concerts.find((concert) => concert.id === 'performances');
+    const patches = performances?.sets.flatMap((set) => set.patches) ?? [];
+    expect(patches).toHaveLength(128);
+    expect(new Set(patches.map((patch) => patch.name)).size).toBe(128);
+    expect(patches.map((patch) => patch.programNumber)).toEqual(Array.from({ length: 128 }, (_, index) => index));
+    for (const patch of patches) {
+      expect(patch.layers.length, patch.name).toBeGreaterThan(1);
+      expect(patch.name).not.toMatch(/yamaha|motif/i);
+    }
+  });
+
+  it('a Workstation tem 6 bancos com Program Change de 0 a 127, sem repetir receita', () => {
     const library = load('workstation');
-    expect(library.concerts.map((concert) => concert.name)).toEqual(
+    const banks = library.concerts.filter((concert) => concert.id !== 'performances');
+    expect(banks.map((concert) => concert.name)).toEqual(
       ['PRE1', 'PRE2', 'PRE3', 'PRE4', 'PRE5', 'PRE6'].map((bank) => `Workstation ${bank}`)
     );
     const signatures = new Set<string>();
-    for (const concert of library.concerts) {
+    for (const concert of banks) {
       const patches = concert.sets.flatMap((set) => set.patches);
       expect(patches.map((patch) => patch.programNumber).sort((a, b) => a - b))
         .toEqual(Array.from({ length: 128 }, (_, index) => index));
@@ -142,11 +163,11 @@ describe('bibliotecas do Preseter', () => {
     try {
       const library = load('workstation');
       const environment = { plugins, soundsFolder: sounds };
-      expect(inspectLibrary(library, 'workstation', environment)).toMatchObject({ total: 768, ready: 768, missing: [] });
+      expect(inspectLibrary(library, 'workstation', environment)).toMatchObject({ total: 896, ready: 896, missing: [] });
 
       const first = generateLibrary(library, environment, output);
-      expect(first.patches).toBe(768);
-      expect(first.concerts).toHaveLength(6);
+      expect(first.patches).toBe(896);
+      expect(first.concerts).toHaveLength(7);
       for (const concert of first.concerts) {
         expect(parseConcertFile(fs.readFileSync(concert.path, 'utf8')).patches).toHaveLength(128);
       }
@@ -194,6 +215,77 @@ describe('bibliotecas do Preseter', () => {
     } finally {
       removeTempDir(sounds);
       removeTempDir(output);
+    }
+  });
+
+  it('mostra efeito ausente com o nome Preseter e não o manda para a Loja', () => {
+    const { missing, downloadable } = describeMissing(['calfNXT Reverb', 'Preseter Reverb', 'Salamander Grand Piano V3']);
+    expect(missing).toEqual([findEffect('calfNXT Reverb')?.displayName, 'Salamander Grand Piano V3']);
+    expect(missing.join(' ')).not.toMatch(/calf/i);
+    expect(downloadable).toEqual(['Salamander Grand Piano V3']);
+  });
+
+  it('detecta quando o cache não tem os efeitos que acompanham o app', () => {
+    const onlyGuitarix = plugins.filter((plugin) => plugin.id.startsWith('gx-'));
+    expect(needsBundledEffectsScan(onlyGuitarix)).toBe(true);
+    expect(needsBundledEffectsScan([])).toBe(true);
+
+    const all = CATALOG_EFFECTS.map((effect) => ({
+      id: effect.id,
+      name: effect.displayName,
+      path: effect.source === 'guitarix'
+        ? `http://guitarix.sourceforge.net/plugins/${effect.bundle.replace(/\.lv2$/, '')}#x`
+        : `D:/Programas/Preseter/plugins/${effect.bundle}`,
+      isInstrument: false,
+    }));
+    expect(needsBundledEffectsScan(all)).toBe(false);
+  });
+
+  it('mostra os efeitos que faltam com o nome Preseter e não tenta baixá-los', () => {
+    const sounds = makeSounds();
+    try {
+      const withoutEffects = plugins.filter((plugin) => !plugin.name.startsWith('calfNXT'));
+      const askedToDownload: string[] = [];
+      const status = inspectLibrary(load('factory-40'), 'factory-40', { plugins: withoutEffects, soundsFolder: sounds }, (labels) => {
+        askedToDownload.push(...labels);
+        return [];
+      });
+      expect(status.missing).toEqual(expect.arrayContaining(['Preseter Reverb', 'Preseter Delay']));
+      expect(status.missing.join(' ')).not.toMatch(/calf/i);
+      expect(askedToDownload).toEqual([]);
+    } finally {
+      removeTempDir(sounds);
+    }
+  });
+
+  it('encontra todos os efeitos pelo nome Preseter', () => {
+    const scanned = CATALOG_EFFECTS.map((effect) => ({
+      id: effect.id,
+      name: effect.source === 'guitarix' ? effect.pluginNames?.[0] ?? effect.displayName : `calfNXT ${effect.match}`,
+      path: effect.source === 'guitarix'
+        ? `http://guitarix.sourceforge.net/plugins/${effect.bundle.replace(/\.lv2$/, '')}#x`
+        : `D:/Programas/Preseter/plugins/${effect.bundle}`,
+      isInstrument: false,
+    }));
+    for (const effect of CATALOG_EFFECTS) {
+      expect(findEffectPlugin(scanned, effect.displayName)?.id, effect.displayName).toBe(effect.id);
+    }
+    expect(needsBundledEffectsScan(scanned)).toBe(false);
+  });
+
+  it('ignora plugin do cache cujo arquivo foi apagado', () => {
+    const folder = makeTempDir();
+    try {
+      const existing = path.join(folder, 'Existe.vst3');
+      fs.writeFileSync(existing, 'fake');
+      const list = [
+        { id: 'a', name: 'Existe', path: existing },
+        { id: 'b', name: 'Apagado', path: path.join(folder, 'Apagado.vst3') },
+        { id: 'c', name: 'LV2', path: 'http://guitarix.sourceforge.net/plugins/gx_amp#GUITARIX' },
+      ];
+      expect(installedPlugins(list).map((plugin) => plugin.id)).toEqual(['a', 'c']);
+    } finally {
+      removeTempDir(folder);
     }
   });
 

@@ -59,7 +59,7 @@ Fluxo sugerido: rascunho em `biblioteca.json` → **Gerar** → acerto de ouvido
                   "nativeInstrument": "synth2", "programIndex": 14
                 }
               ],
-              "master": [{ "effect": "calfNXT Compressor", "preset": "piano" }],
+              "master": [{ "effect": "Preseter Compressor", "preset": "piano" }],
               "sends": [-14, -60, -60, -60],
               "auxPresets": { "1": "hall-aux" }
             }

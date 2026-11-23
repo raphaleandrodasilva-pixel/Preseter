@@ -40,7 +40,7 @@ export function findEffectPlugin (
   if (!effect) return undefined;
   const wanted = new Set(
     [
-      effect.match,
+      effectKey(effect.match),
       effectKey(effect.displayName),
       effectKey(effect.shortName),
       ...(effect.pluginNames ?? []).map(effectKey),

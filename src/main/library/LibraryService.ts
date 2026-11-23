@@ -19,12 +19,37 @@ import {
   type LibrarySummary,
 } from '../../shared/library/format';
 import { serializeConcertFile } from '../concert/ConcertFile';
-import { buildCollectionConcert, type BuildCollectionResult, type CollectionPlugin } from '../collection/generateCollection';
+import { EFFECTS, findEffect } from '../../shared/effects/catalog';
+import {
+  buildCollectionConcert,
+  findEffectPlugin,
+  type BuildCollectionResult,
+  type CollectionPlugin,
+} from '../collection/generateCollection';
 import { resolveConcertSnapshot } from './exportLibrary';
 
 export interface LibraryEnvironment {
   plugins: CollectionPlugin[];
   soundsFolder: string;
+}
+
+/** Efeitos aparecem com o nome Preseter, nunca com o nome interno do plugin. */
+export const displayMissingName = (label: string): string => findEffect(label)?.displayName ?? label;
+
+/** Nomes ausentes como o usuário os vê; efeitos vêm com o app e nunca vão para a Loja. */
+export function describeMissing (labels: string[]): { missing: string[]; downloadable: string[] } {
+  const missing = [...new Set(labels.map(displayMissingName))];
+  return { missing, downloadable: missing.filter((label) => !findEffect(label)) };
+}
+
+/** Tira do cache os plugins cujo arquivo não existe mais (LV2 usa URI e fica). */
+export function installedPlugins<T extends CollectionPlugin> (plugins: T[]): T[] {
+  return plugins.filter((plugin) => !plugin.path || !path.isAbsolute(plugin.path) || existsSync(plugin.path));
+}
+
+/** Os efeitos do catálogo acompanham o app: se algum não está na lista, falta escanear. */
+export function needsBundledEffectsScan (plugins: CollectionPlugin[]): boolean {
+  return EFFECTS.some((effect) => !findEffectPlugin(plugins, effect.displayName));
 }
 
 export function readLibraryFile (filePath: string): LibraryFile {
@@ -112,7 +137,9 @@ export function inspectLibrary (
       ready: built.file.patches.length,
     };
   });
-  const missingList = [...missing];
+  const missingList = [...new Set([...missing].map(displayMissingName))];
+  // Efeitos vêm com o app: a Loja só resolve sons e plugins externos.
+  const downloadable = missingList.filter((label) => !findEffect(label));
   return {
     source,
     id: library.id,
@@ -123,7 +150,7 @@ export function inspectLibrary (
     ready: concerts.reduce((sum, concert) => sum + concert.ready, 0),
     skipped,
     missing: missingList,
-    missingIds: findCatalogIds(missingList),
+    missingIds: findCatalogIds(downloadable),
   };
 }
 
@@ -180,6 +207,6 @@ export function generateLibrary (
     concerts,
     patches: concerts.reduce((sum, concert) => sum + concert.patches, 0),
     skipped,
-    missing: [...missing],
+    missing: [...new Set([...missing].map(displayMissingName))],
   };
 }

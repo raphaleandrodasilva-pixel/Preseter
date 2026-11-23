@@ -17,9 +17,12 @@ import { StoreService } from './store/StoreService';
 import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
 import { buildLibraryFromConcert } from './library/exportLibrary';
 import {
+  describeMissing,
   generateLibrary,
   inspectLibrary,
+  installedPlugins,
   listLibraries,
+  needsBundledEffectsScan,
   readLibraryFile,
   type LibraryEnvironment,
 } from './library/LibraryService';
@@ -159,6 +162,8 @@ class MainWindow {
   private vstPresetLibrary: VstPresetLibrary;
   /** Último arquivo de biblioteca escolhido no diálogo. */
   private externalLibraryPath: string | null = null;
+  /** Os efeitos do app já foram procurados nesta sessão. */
+  private bundledEffectsScanned = false;
   private vstWatchers: fs.FSWatcher[] = [];
   private vstWatchTimer: NodeJS.Timeout | null = null;
   private vstRefreshPending = false;
@@ -1011,18 +1016,10 @@ class MainWindow {
     ipcMain.handle('collection-status', () => this.collectionInstaller.status(this.collectionItems()));
 
     ipcMain.handle('collection-readiness', async () => {
-      let plugins = this.vstManager.getScannedPlugins();
-      if (plugins.length === 0) {
-        try {
-          plugins = await this.vstManager.scanDefaultDirectories();
-        } catch (error) {
-          console.warn('[Preseter] Não foi possível escanear os plugins da Factory 40:', error);
-        }
-      }
-      const readiness = analyzeCollectionConcert(plugins, {
-        soundsFolder: this.soundsFolder(),
-      });
-      return { ...readiness, missingIds: this.collectionIdsFor(readiness.missing) };
+      const { plugins, soundsFolder } = await this.libraryEnvironment();
+      const readiness = analyzeCollectionConcert(plugins, { soundsFolder });
+      const { missing, downloadable } = describeMissing(readiness.missing);
+      return { ...readiness, missing, missingIds: this.collectionIdsFor(downloadable) };
     });
 
     ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
@@ -2663,10 +2660,20 @@ class MainWindow {
   }
 
   private async libraryEnvironment(): Promise<LibraryEnvironment> {
-    let plugins = this.vstManager.getScannedPlugins();
+    let plugins = installedPlugins(this.vstManager.getScannedPlugins());
+    // O scan no boot vem desligado: o cache pode não ter os efeitos do próprio app.
+    const bundled = bundledPluginFolders();
+    if (!this.bundledEffectsScanned && bundled.length > 0 && needsBundledEffectsScan(plugins)) {
+      try {
+        plugins = installedPlugins(await this.vstManager.scanDirectories(bundled));
+        this.bundledEffectsScanned = true;
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível escanear os efeitos do app:', error);
+      }
+    }
     if (plugins.length === 0) {
       try {
-        plugins = await this.vstManager.scanDefaultDirectories();
+        plugins = installedPlugins(await this.vstManager.scanDefaultDirectories());
       } catch (error) {
         console.warn('[Preseter] Não foi possível escanear os plugins da biblioteca:', error);
       }
@@ -2706,18 +2713,12 @@ class MainWindow {
     skipped: string[];
     missing: string[];
   } | null> {
-    let plugins = this.vstManager.getScannedPlugins();
-    if (plugins.length === 0) {
-      try {
-        plugins = await this.vstManager.scanDefaultDirectories();
-      } catch (error) {
-        console.warn('[Preseter] Não foi possível escanear os plugins da coleção:', error);
-      }
-    }
-    const { file, skipped, missing } = buildCollectionConcert(plugins, {
+    const { plugins, soundsFolder } = await this.libraryEnvironment();
+    const { file, skipped, missing: missingLabels } = buildCollectionConcert(plugins, {
       tempo: 100,
-      soundsFolder: this.soundsFolder(),
+      soundsFolder,
     });
+    const { missing } = describeMissing(missingLabels);
     const result = await dialog.showSaveDialog({
       title: 'Salvar concert da coleção',
       defaultPath: path.join(app.getPath('documents'), 'Colecao.pst'),
