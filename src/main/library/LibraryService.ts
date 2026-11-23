@@ -4,6 +4,8 @@ import { SAMPLE_LIBRARY_FILES } from '../../shared/collection-presets';
 import {
   LIBRARY_FILE_NAME,
   LIBRARY_MAX_BYTES,
+  concertPatchCount,
+  concertSetCount,
   concertToCollectionSets,
   countLibraryPatches,
   parseLibraryFile,
@@ -18,6 +20,7 @@ import {
 } from '../../shared/library/format';
 import { serializeConcertFile } from '../concert/ConcertFile';
 import { buildCollectionConcert, type BuildCollectionResult, type CollectionPlugin } from '../collection/generateCollection';
+import { resolveConcertSnapshot } from './exportLibrary';
 
 export interface LibraryEnvironment {
   plugins: CollectionPlugin[];
@@ -68,6 +71,7 @@ function buildConcert (
   environment: LibraryEnvironment
 ): BuildCollectionResult {
   const concert = library.concerts[index];
+  if (concert.snapshot !== undefined) return resolveConcertSnapshot(library, concert, environment);
   return buildCollectionConcert(environment.plugins, {
     tempo: concert.tempo ?? 100,
     name: concert.name,
@@ -97,13 +101,13 @@ export function inspectLibrary (
   const missing = new Set<string>(drumKitMissing(library, environment.soundsFolder));
   const concerts: LibraryConcertStatus[] = library.concerts.map((concert, index) => {
     const built = buildConcert(library, index, environment);
-    const patches = concert.sets.reduce((sum, set) => sum + set.patches.length, 0);
+    const patches = concertPatchCount(concert);
     skipped.push(...built.skipped.map((item) => `${concert.name} · ${item}`));
     built.missing.forEach((item) => missing.add(item));
     return {
       id: concert.id,
       name: concert.name,
-      sets: concert.sets.length,
+      sets: concertSetCount(concert),
       patches,
       ready: built.file.patches.length,
     };

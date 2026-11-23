@@ -15,6 +15,7 @@ import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
 import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
+import { buildLibraryFromConcert } from './library/exportLibrary';
 import {
   generateLibrary,
   inspectLibrary,
@@ -22,7 +23,13 @@ import {
   readLibraryFile,
   type LibraryEnvironment,
 } from './library/LibraryService';
-import { EXTERNAL_LIBRARY_SOURCE, type LibraryFile, type LibrarySummary } from '../shared/library/format';
+import {
+  EXTERNAL_LIBRARY_SOURCE,
+  LIBRARY_FILE_NAME,
+  safeFileName,
+  type LibraryFile,
+  type LibrarySummary,
+} from '../shared/library/format';
 import { SAMPLE_LIBRARY_FILES } from '../shared/collection-presets';
 import { findFactoryDrumPattern, toEngineDrumPattern } from '../shared/drum-patterns';
 import { PerformanceMode } from './performance/PerformanceMode';
@@ -2517,6 +2524,7 @@ class MainWindow {
           { label: 'Abrir…', accelerator: 'CmdOrCtrl+O', click: () => this.sendMenuAction({ action: 'open' }) },
           { label: 'Abrir Recente', submenu: recentSubmenu },
           { label: 'Gerar Biblioteca…', click: () => this.sendMenuAction({ action: 'generate-library' }) },
+          { label: 'Exportar como Biblioteca…', click: () => void this.exportConcertAsLibrary() },
           { type: 'separator' },
           { label: 'Salvar', accelerator: 'CmdOrCtrl+S', click: () => this.sendMenuAction({ action: 'save' }) },
           { label: 'Salvar Como…', accelerator: 'CmdOrCtrl+Shift+S', click: () => this.sendMenuAction({ action: 'save-as' }) },
@@ -2584,6 +2592,62 @@ class MainWindow {
   /** Bibliotecas que acompanham o app (`libraries/<id>/biblioteca.json`). */
   private librariesFolder(): string {
     return path.join(app.getAppPath(), 'libraries');
+  }
+
+  /** Arquivo → Exportar como Biblioteca…: grava o concert aberto em um arquivo portátil. */
+  private async exportConcertAsLibrary(): Promise<void> {
+    const showMessage = (options: Electron.MessageBoxOptions) => (this.window
+      ? dialog.showMessageBox(this.window, options)
+      : dialog.showMessageBox(options));
+    try {
+      const environment = await this.libraryEnvironment();
+      const { library, patches, warnings } = buildLibraryFromConcert(this.concertManager.buildDocument(), {
+        ...environment,
+        homeDir: app.getPath('home'),
+      });
+
+      const folder = path.join(app.getPath('documents'), 'Preseter', 'Bibliotecas', safeFileName(library.name));
+      fs.mkdirSync(folder, { recursive: true });
+      const saveOptions: Electron.SaveDialogOptions = {
+        title: 'Exportar como Biblioteca',
+        defaultPath: path.join(folder, LIBRARY_FILE_NAME),
+        filters: [{ name: 'Biblioteca do Preseter', extensions: ['json'] }],
+      };
+      const target = this.window
+        ? await dialog.showSaveDialog(this.window, saveOptions)
+        : await dialog.showSaveDialog(saveOptions);
+      if (target.canceled || !target.filePath) return;
+
+      const temporary = `${target.filePath}.tmp`;
+      try {
+        fs.writeFileSync(temporary, `${JSON.stringify(library, null, 1)}\n`, 'utf8');
+        fs.renameSync(temporary, target.filePath);
+      } catch (error) {
+        fs.rmSync(temporary, { force: true });
+        throw error;
+      }
+
+      const shown = warnings.slice(0, 8);
+      const remaining = warnings.length - shown.length;
+      await showMessage({
+        type: warnings.length > 0 ? 'warning' : 'info',
+        title: 'Biblioteca exportada',
+        message: `${patches} ${patches === 1 ? 'patch exportado' : 'patches exportados'}.`,
+        detail: [
+          target.filePath,
+          'Só entram os ajustes de knobs já salvos no patch.',
+          ...shown,
+          ...(remaining > 0 ? [`E mais ${remaining} avisos.`] : []),
+        ].join('\n\n'),
+      });
+    } catch (error) {
+      await showMessage({
+        type: 'error',
+        title: 'Exportar como Biblioteca',
+        message: 'Não foi possível exportar o concert.',
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /** Só lê uma biblioteca da lista do app ou o arquivo escolhido no diálogo. */

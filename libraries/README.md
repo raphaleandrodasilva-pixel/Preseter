@@ -15,6 +15,16 @@ libraries/
 As pastas daqui acompanham o instalador. Um arquivo em qualquer outro lugar pode ser aberto
 com **Escolher arquivo…**.
 
+## Exportar do app
+
+Monte e ajuste os patches no Preseter, salve cada patch e use **Arquivo → Exportar como
+Biblioteca…**. O arquivo guarda o concert completo (camadas, splits, efeitos, knobs salvos,
+layout, atalhos e mappings) sem os caminhos do seu computador. Em outro PC, abra com
+**Arquivo → Gerar Biblioteca… → Escolher arquivo…**: os plugins são procurados pelo nome.
+
+Fluxo sugerido: rascunho em `biblioteca.json` → **Gerar** → acerto de ouvido → salvar →
+**Exportar**.
+
 ## Exemplo
 
 ```json
@@ -67,7 +77,7 @@ com **Escolher arquivo…**.
 
 | Campo | Regra |
 |---|---|
-| `format`, `version` | Sempre `preseter.library` e `1` |
+| `format`, `version` | Sempre `preseter.library`; versão `1` para receitas (`2` nos arquivos exportados) |
 | `id` | Letras minúsculas, números e hífen; único entre as bibliotecas |
 | `name` | Nome mostrado no app e usado na pasta de saída |
 | `sampleLibraries` | Opcional. SF2/SFZ extras, com caminho **relativo** à pasta de sons |

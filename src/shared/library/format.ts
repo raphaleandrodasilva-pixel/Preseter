@@ -13,12 +13,17 @@ import { MAX_AUX_BUSES, MAX_INSERTS, SEND_OFF_DB } from '../types';
  * botão Arquivo → Gerar Biblioteca… transforma em um ou mais concerts `.pst`.
  */
 export const LIBRARY_FORMAT = 'preseter.library';
-export const LIBRARY_VERSION = 1;
+/** 1 = receitas; 2 = também aceita concerts exportados (`snapshot`). */
+export const LIBRARY_VERSION = 2;
+/** Referências portáteis a plugins dentro de um concert exportado. */
+export const PLUGIN_PATH_TOKEN = 'preseter-plugin:';
+export const PLUGIN_ID_TOKEN = 'preseter-plugin-id:';
 export const LIBRARY_FILE_NAME = 'biblioteca.json';
 export const LIBRARY_MAX_BYTES = 32 * 1024 * 1024;
 
 const MAX_CONCERTS = 32;
 const MAX_PATCHES_PER_CONCERT = 128;
+const MAX_SNAPSHOT_PATCHES = 2048;
 const MAX_LAYERS = 16;
 const MAX_ERRORS = 20;
 
@@ -47,7 +52,17 @@ export interface LibraryConcert {
   id: string;
   name: string;
   tempo?: number;
+  /** Receitas. Fica vazio quando o concert vem de `snapshot`. */
   sets: LibrarySet[];
+  /** Concert exportado do app, com knobs, layout e mappings. */
+  snapshot?: unknown;
+}
+
+/** Plugin citado por um concert exportado; resolvido pelo nome no scan local. */
+export interface LibraryPluginRef {
+  name: string;
+  format?: string;
+  kind: 'instrument' | 'effect';
 }
 
 export interface LibrarySampleFile {
@@ -64,6 +79,8 @@ export interface LibraryFile {
   description?: string;
   /** Bibliotecas de samples além de `musescore`, `sonatina` e `salamander`. */
   sampleLibraries?: Record<string, LibrarySampleFile>;
+  /** Plugins usados pelos concerts exportados. */
+  pluginRefs?: Record<string, LibraryPluginRef>;
   concerts: LibraryConcert[];
 }
 
@@ -300,6 +317,76 @@ function checkPatch (
   }
 }
 
+/**
+ * Concert exportado: plugin só pode ser nativo ou referência declarada. Assim um
+ * arquivo de biblioteca nunca manda o motor carregar uma DLL por caminho direto.
+ */
+function checkSnapshot (
+  snapshot: unknown,
+  refs: Record<string, unknown>,
+  where: string,
+  problems: Problems
+): void {
+  if (!isObject(snapshot) || snapshot.format !== 'preseter.concert' || !Array.isArray(snapshot.patches)) {
+    problems.add(where, 'concert exportado inválido');
+    return;
+  }
+  if (snapshot.patches.length === 0 || snapshot.patches.length > MAX_SNAPSHOT_PATCHES) {
+    problems.add(where, `use de 1 a ${MAX_SNAPSHOT_PATCHES} patches`);
+  }
+  const validRef = (value: unknown, token: string): boolean => {
+    if (typeof value !== 'string') return false;
+    if (/^preseter\.[a-z0-9]+$/.test(value)) return true;
+    return value.startsWith(token) && Object.hasOwn(refs, value.slice(token.length));
+  };
+  const checkPlugin = (item: unknown, at: string): void => {
+    if (!isObject(item) || !validRef(item.path, PLUGIN_PATH_TOKEN) || !validRef(item.pluginId, PLUGIN_ID_TOKEN)) {
+      problems.add(at, 'plugin precisa ser nativo ou uma referência da biblioteca');
+    }
+  };
+  const checkInserts = (value: unknown, at: string): void => {
+    if (value === undefined) return;
+    if (!Array.isArray(value)) {
+      problems.add(at, 'inserts inválidos');
+      return;
+    }
+    value.forEach((insert, index) => checkPlugin(insert, `${at}[${index}]`));
+  };
+
+  snapshot.patches.forEach((patch, patchIndex) => {
+    const at = `${where} patch ${patchIndex + 1}`;
+    if (!isObject(patch)) {
+      problems.add(at, 'patch inválido');
+      return;
+    }
+    if (patch.plugins !== undefined && !Array.isArray(patch.plugins)) problems.add(at, 'camadas inválidas');
+    (Array.isArray(patch.plugins) ? patch.plugins : []).forEach((layer, layerIndex) => {
+      const layerAt = `${at} camada ${layerIndex + 1}`;
+      if (!isObject(layer)) {
+        problems.add(layerAt, 'camada inválida');
+        return;
+      }
+      if (!layer.externalMidi) checkPlugin(layer, layerAt);
+      if (layer.samplePath !== undefined && layer.samplePath !== '' && !isSafeRelativePath(layer.samplePath)) {
+        problems.add(layerAt, 'samplePath precisa ser relativo à pasta de sons');
+      }
+      checkInserts(layer.inserts, `${layerAt} inserts`);
+    });
+    if (isObject(patch.master)) checkInserts(patch.master.inserts, `${at} master`);
+  });
+
+  const concert = isObject(snapshot.concert) ? snapshot.concert : {};
+  const settings = isObject(concert.settings) ? concert.settings : {};
+  const buses = isObject(settings.buses) ? settings.buses : {};
+  for (const group of ['aux', 'outputs']) {
+    const list = buses[group];
+    if (!Array.isArray(list)) continue;
+    list.forEach((bus, index) => {
+      if (isObject(bus)) checkInserts(bus.inserts, `${where} ${group} ${index + 1}`);
+    });
+  }
+}
+
 /** Lê e valida o texto de uma biblioteca. Lança um erro com os problemas achados. */
 export function parseLibraryFile (text: string): LibraryFile {
   if (text.length > LIBRARY_MAX_BYTES) throw new Error('A biblioteca é grande demais.');
@@ -339,6 +426,14 @@ export function parseLibraryFile (text: string): LibraryFile {
     }
   }
 
+  const pluginRefs = isObject(raw.pluginRefs) ? raw.pluginRefs : {};
+  if (raw.pluginRefs !== undefined && !isObject(raw.pluginRefs)) problems.add('pluginRefs', 'inválido');
+  for (const [key, ref] of Object.entries(pluginRefs)) {
+    if (!/^[A-Za-z0-9]+$/.test(key) || !isObject(ref) || !isText(ref.name) || (ref.kind !== 'instrument' && ref.kind !== 'effect')) {
+      problems.add(`pluginRefs.${key}`, 'precisa de name e kind');
+    }
+  }
+
   if (!Array.isArray(raw.concerts) || raw.concerts.length === 0 || raw.concerts.length > MAX_CONCERTS) {
     problems.add('concerts', `use de 1 a ${MAX_CONCERTS} concerts`);
   } else {
@@ -359,6 +454,11 @@ export function parseLibraryFile (text: string): LibraryFile {
       if (!nameKey || concertNames.has(nameKey)) problems.add(where, 'nome inválido ou repetido');
       concertNames.add(nameKey);
       if (concert.tempo !== undefined && !isNumberIn(concert.tempo, 20, 400)) problems.add(where, 'tempo inválido');
+      if (concert.snapshot !== undefined) {
+        if (Array.isArray(concert.sets) && concert.sets.length > 0) problems.add(where, 'use sets ou snapshot, não os dois');
+        checkSnapshot(concert.snapshot, pluginRefs, where, problems);
+        return;
+      }
       if (!Array.isArray(concert.sets) || concert.sets.length === 0) {
         problems.add(where, 'precisa de pelo menos um set');
         return;
@@ -404,11 +504,18 @@ export function safeFileName (value: string): string {
   return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(clean) ? `${clean}_` : clean;
 }
 
+export function concertPatchCount (concert: LibraryConcert): number {
+  if (isObject(concert.snapshot) && Array.isArray(concert.snapshot.patches)) return concert.snapshot.patches.length;
+  return concert.sets.reduce((sum, set) => sum + set.patches.length, 0);
+}
+
+export function concertSetCount (concert: LibraryConcert): number {
+  if (isObject(concert.snapshot) && Array.isArray(concert.snapshot.sets)) return concert.snapshot.sets.length;
+  return concert.sets.length;
+}
+
 export const countLibraryPatches = (library: LibraryFile): number =>
-  library.concerts.reduce(
-    (sum, concert) => sum + concert.sets.reduce((inner, set) => inner + set.patches.length, 0),
-    0
-  );
+  library.concerts.reduce((sum, concert) => sum + concertPatchCount(concert), 0);
 
 /** Converte um concert da biblioteca para a estrutura do gerador de coleções. */
 export function concertToCollectionSets (concert: LibraryConcert): CollectionSet[] {
