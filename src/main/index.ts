@@ -15,6 +15,8 @@ import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
 import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
+import { writeWorkstationConcerts } from './collection/generateWorkstationCollection';
+import type { WorkstationGenerateResult } from '../shared/collection';
 import { SAMPLE_LIBRARY_FILES } from '../shared/collection-presets';
 import { findFactoryDrumPattern, toEngineDrumPattern } from '../shared/drum-patterns';
 import { PerformanceMode } from './performance/PerformanceMode';
@@ -1056,6 +1058,7 @@ class MainWindow {
     });
 
     ipcMain.handle('collection-generate', () => this.generateCollectionConcert());
+    ipcMain.handle('collection-workstation-generate', () => this.generateWorkstationCollection());
 
     // === Loja ===
 
@@ -1892,6 +1895,16 @@ class MainWindow {
       }
       activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
+      // Antes da troca: camadas por velocity não podem soar juntas na primeira nota.
+      try {
+        await this.vstManager.setLayerVelocityRange(
+          layerId,
+          assignment.velocityMin ?? 1,
+          assignment.velocityMax ?? 127
+        );
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
+      }
       const savedStateKeys = [
         `loaded_${layerId}`,
         layerId,
@@ -1940,19 +1953,6 @@ class MainWindow {
       this.applyCurrentTranspose(preset),
       this.applyCurrentAudioInput(preset),
       this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false }),
-      ...assignments.map(async (assignment, index) => {
-        const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-        if (assignment.externalMidi || !activeLayerIds.has(layerId)) return;
-        try {
-          await this.vstManager.setLayerVelocityRange(
-            layerId,
-            assignment.velocityMin ?? 1,
-            assignment.velocityMax ?? 127
-          );
-        } catch (error) {
-          console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
-        }
-      }),
     ]);
 
     // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
@@ -2577,6 +2577,27 @@ class MainWindow {
       skipped,
       missing,
     };
+  }
+
+  /** Gera um concert por banco (PRE1..PRE6), separado da Factory 40. */
+  private async generateWorkstationCollection(): Promise<WorkstationGenerateResult | null> {
+    const result = await dialog.showOpenDialog({
+      title: 'Escolha onde criar a pasta da coleção Workstation',
+      defaultPath: app.getPath('documents'),
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    const parent = result.filePaths[0];
+    if (result.canceled || !parent) return null;
+
+    let plugins = this.vstManager.getScannedPlugins();
+    if (plugins.length === 0) {
+      try {
+        plugins = await this.vstManager.scanDefaultDirectories();
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível escanear os plugins da coleção:', error);
+      }
+    }
+    return writeWorkstationConcerts(parent, plugins, { soundsFolder: this.soundsFolder() });
   }
 
   /** Pastas que o app sempre varre: padrões do sistema + extras do usuário. */

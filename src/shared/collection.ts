@@ -202,6 +202,24 @@ export interface CollectionGenerateResult {
   missing: string[];
 }
 
+/** Um banco gerado da coleção Workstation. */
+export interface WorkstationBankResult {
+  bank: string;
+  /** Arquivo gravado; null quando nenhum patch do banco pôde ser gerado. */
+  path: string | null;
+  sets: number;
+  patches: number;
+  skipped: number;
+}
+
+export interface WorkstationGenerateResult {
+  folder: string;
+  banks: WorkstationBankResult[];
+  patches: number;
+  skipped: string[];
+  missing: string[];
+}
+
 /** Resultado da verificação de prontidão da Factory 40. */
 export interface CollectionReadiness {
   total: number;

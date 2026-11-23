@@ -575,6 +575,10 @@ void SamplerProcessor::killAll() noexcept
     }
     activeVoices.store (0);
     sustainPedal = false;
+    pitchBendSemitones = 0.0f;
+    modWheel = 0.0f;
+    expression = 1.0f;
+    expressionSmoothed = 1.0f;
 }
 
 void SamplerProcessor::panicNow() noexcept
@@ -601,6 +605,23 @@ void SamplerProcessor::handleMidi (const juce::MidiMessage& message)
     {
         sustainPedal = false;
         releaseAll (true);
+    }
+    else if (message.isPitchWheel())
+    {
+        // Faixa padrão de ±2 semitons.
+        const offset = message.getPitchWheelValue() - 8192;
+        pitchBendSemitones = 2.0f * (float) offset / (offset < 0 ? 8192.0f : 8191.0f);
+    }
+    else if (message.isController())
+    {
+        const value = (float) message.getControllerValue() / 127.0f;
+        switch (message.getControllerNumber())
+        {
+            case 1:   modWheel = value; break;
+            case 11:  expression = value * value; break;
+            case 121: pitchBendSemitones = 0.0f; modWheel = 0.0f; expression = 1.0f; break;
+            default:  break;
+        }
     }
 }
 
@@ -631,6 +652,16 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
     const int numChannels = audio.getNumChannels();
     auto* left = audio.getWritePointer (0);
     auto* right = numChannels > 1 ? audio.getWritePointer (1) : left;
+
+    // Pitch bend e vibrato (mod wheel) por bloco; expressão em rampa, sem cliques.
+    const double vibratoCents = (double) modWheel * 40.0 * std::sin (vibratoPhase);
+    vibratoPhase = std::fmod (vibratoPhase
+                                  + juce::MathConstants<double>::twoPi * 5.5 * numSamples / currentSampleRate,
+                              juce::MathConstants<double>::twoPi);
+    const double pitchFactor = std::pow (2.0, ((double) pitchBendSemitones + vibratoCents / 100.0) / 12.0);
+    const float expressionStart = expressionSmoothed;
+    const float expressionStep = (expression - expressionStart) / (float) numSamples;
+    expressionSmoothed = expression;
 
     int active = 0;
     for (auto& voice : voices)
@@ -700,7 +731,8 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
                 value = (a + (b - a) * fraction) / 32768.0f;
             }
 
-            value = voice.filter.process (value) * env * voice.gain;
+            value = voice.filter.process (value) * env * voice.gain
+                  * (expressionStart + expressionStep * (float) (i + 1));
             if (right != left)
             {
                 left[i] += value * voice.gainLeft;
@@ -711,7 +743,7 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
                 left[i] += value * 0.707f;
             }
 
-            voice.position += voice.ratio;
+            voice.position += voice.ratio * pitchFactor;
             if (! looping && voice.position >= (double) end)
             {
                 voice.active = false;

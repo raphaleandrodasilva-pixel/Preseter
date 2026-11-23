@@ -7,7 +7,7 @@ import * as path from 'path';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from '../concert/ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
-import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec, type EffectSpec } from '../../shared/collection-presets';
+import { COLLECTION_SETS, SAMPLE_LIBRARY_FILES, type CollectionLayerSpec, type CollectionSet, type EffectSpec } from '../../shared/collection-presets';
 import { buildPatchLayout } from '../../shared/collection-layouts';
 import { effectKey, findEffect } from '../../shared/effects/catalog';
 import { suggestPatchIcon } from '../../shared/patch-icons';
@@ -228,7 +228,7 @@ function resolvePlugin(
  */
 export function buildCollectionConcert(
   plugins: CollectionPlugin[],
-  options: { tempo?: number; name?: string; soundsFolder?: string } = {}
+  options: { tempo?: number; name?: string; soundsFolder?: string; sets?: CollectionSet[] } = {}
 ): BuildCollectionResult {
   const tempo = options.tempo ?? DEFAULT_TEMPO;
   const now = Date.now();
@@ -238,7 +238,7 @@ export function buildCollectionConcert(
   const missing = new Set<string>();
   let program = 0;
 
-  for (const [setName, patches] of COLLECTION_SETS) {
+  for (const [setName, patches] of options.sets ?? COLLECTION_SETS) {
     const setId = nextId('set');
     let setOrder = 0;
     for (const [name, layers, meta] of patches) {
@@ -367,7 +367,7 @@ export function buildCollectionConcert(
         notes,
         setId,
         setOrder: setOrder++,
-        programNumber: program++,
+        programNumber: meta?.programNumber ?? program++,
         midiChannel: meta?.midiChannel ?? 0,
         plugins: assignments,
         vstStates,

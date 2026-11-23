@@ -32,6 +32,7 @@ import type { EngineParameter } from '@shared/engine-protocol';
 import type {
   CollectionDownloadResult,
   CollectionGenerateResult,
+  WorkstationGenerateResult,
   CollectionItemStatus,
   CollectionProgress,
   CollectionReadiness,
@@ -92,6 +93,7 @@ export interface ElectronAPI {
   collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;
   collectionGenerate: () => Promise<CollectionGenerateResult | null>;
+  collectionWorkstationGenerate: () => Promise<WorkstationGenerateResult | null>;
   storeList: () => Promise<StoreSnapshot>;
   storeSourcesGet: () => Promise<import('@shared/store-sources').StoreSourcesState>;
   storeSourcesSet: (text: string) => Promise<{

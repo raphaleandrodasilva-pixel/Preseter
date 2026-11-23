@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import type { CollectionReadiness } from '@shared/collection';
+import type { CollectionReadiness, WorkstationGenerateResult } from '@shared/collection';
 import { useAppContext } from '../../context/AppContext';
 
 function formatBytes(bytes: number): string {
@@ -33,6 +33,9 @@ export const CollectionSettings: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<CollectionReadiness | null>(null);
   const [checking, setChecking] = useState(false);
+  const [workstationBusy, setWorkstationBusy] = useState(false);
+  const [workstation, setWorkstation] = useState<WorkstationGenerateResult | null>(null);
+  const [workstationNotice, setWorkstationNotice] = useState<string | null>(null);
 
   const checkReadiness = useCallback(async () => {
     setChecking(true);
@@ -109,6 +112,24 @@ export const CollectionSettings: React.FC = () => {
       setNotice(`Concert gerado: ${result.sets} sets, ${result.patches} patches.`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleGenerateWorkstation = async () => {
+    setWorkstationBusy(true);
+    setWorkstationNotice(null);
+    try {
+      const result = await window.electronAPI.collectionWorkstationGenerate();
+      if (!result) {
+        setWorkstationNotice('Geração cancelada.');
+        return;
+      }
+      setWorkstation(result);
+      setWorkstationNotice(`${result.patches} de 768 patches gerados em ${result.folder}.`);
+    } catch (error) {
+      setWorkstationNotice(error instanceof Error ? error.message : 'Falha ao gerar a coleção Workstation.');
+    } finally {
+      setWorkstationBusy(false);
     }
   };
 
@@ -261,6 +282,45 @@ export const CollectionSettings: React.FC = () => {
           </div>
         )}
         {notice && <p className="text-[11px]" style={{ color: '#C6C6CB' }}>{notice}</p>}
+      </section>
+
+      <section className="hw-inset space-y-2 p-3" data-testid="workstation-collection">
+        <h4 className="hw-label">Coleção Workstation</h4>
+        <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
+          6 bancos (PRE1 a PRE6) com 128 timbres cada, em concerts separados da Factory 40.
+          Arquivos existentes não são sobrescritos.
+        </p>
+        <button
+          type="button"
+          className="rounded px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40"
+          style={{ background: '#0A84FF', color: '#fff' }}
+          onClick={() => void handleGenerateWorkstation()}
+          disabled={workstationBusy}
+        >
+          {workstationBusy ? 'Gerando…' : 'Gerar os 6 bancos'}
+        </button>
+        {workstation && (
+          <div className="flex flex-wrap gap-1.5">
+            {workstation.banks.map((item) => (
+              <button
+                key={item.bank}
+                type="button"
+                className="hw-squarebtn px-2 py-1 text-[11px] disabled:opacity-40"
+                disabled={!item.path}
+                title={item.path ?? 'Nenhum patch disponível neste banco'}
+                onClick={() => { if (item.path) void openConcertPath(item.path); }}
+              >
+                Abrir {item.bank} ({item.patches})
+              </button>
+            ))}
+          </div>
+        )}
+        {workstation && workstation.skipped.length > 0 && (
+          <p className="text-[11px]" style={{ color: '#FFB74D' }}>
+            {workstation.skipped.length} patches pulados. Faltando: {workstation.missing.join(', ')}
+          </p>
+        )}
+        {workstationNotice && <p className="text-[11px]" style={{ color: '#C6C6CB' }}>{workstationNotice}</p>}
       </section>
 
       <section className="hw-inset space-y-2 p-3">

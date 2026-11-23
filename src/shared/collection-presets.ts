@@ -80,6 +80,8 @@ export type EffectSpec = string | EffectRef;
 
 export interface CollectionPatchMeta {
   midiChannel?: number;
+  /** Program Change fixo do patch. Ausente = ordem de geração. */
+  programNumber?: number;
   description?: string;
   /**
    * Inserts do strip de cada layer do patch. Aceita o nome do scan

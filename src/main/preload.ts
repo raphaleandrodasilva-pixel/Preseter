@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   collectionOpenInstaller: (filePath: string) =>
     ipcRenderer.invoke('collection-open-installer', filePath),
   collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
+  collectionWorkstationGenerate: () => ipcRenderer.invoke('collection-workstation-generate'),
   storeList: () => ipcRenderer.invoke('store-list'),
   storeSourcesGet: () => ipcRenderer.invoke('store-sources-get'),
   storeSourcesSet: (text: string) => ipcRenderer.invoke('store-sources-set', text),

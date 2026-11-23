@@ -118,6 +118,7 @@ export function createElectronApiMock(): ElectronApiMock {
     collectionOpenFolder: vi.fn(async () => true),
     collectionOpenInstaller: vi.fn(async () => true),
     collectionGenerate: vi.fn(async () => null),
+    collectionWorkstationGenerate: vi.fn(async () => null),
     storeList: vi.fn(async () => emptyStoreSnapshot()),
     storeSourcesGet: vi.fn(async () => ({
       path: '',
