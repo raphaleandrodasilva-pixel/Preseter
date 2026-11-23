@@ -415,7 +415,7 @@ export interface RecentConcert {
 
 /** Ação disparada pelo menu nativo "Arquivo". */
 export type MenuAction =
-  | { action: 'new' | 'open' | 'save' | 'save-as' | 'close' | 'undo' | 'redo' | 'help' | 'about' }
+  | { action: 'new' | 'open' | 'generate-library' | 'save' | 'save-as' | 'close' | 'undo' | 'redo' | 'help' | 'about' }
   | { action: 'open-recent'; path: string };
 
 /** Resumo de um template de concert mostrado no seletor (Fase 2.3). */

@@ -10,6 +10,7 @@ import { ConcertShell } from './concert/ConcertShell';
 import { TemplatePicker } from './concert/TemplatePicker';
 import { AboutModal } from './concert/AboutModal';
 import { HelpModal } from './concert/HelpModal';
+import { LibraryGeneratorModal } from './concert/LibraryGeneratorModal';
 import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
@@ -353,6 +354,7 @@ const AppContent: React.FC = () => {
       </div>
       {infoModal === 'about' && <AboutModal onClose={closeInfoModal} />}
       {infoModal === 'help' && <HelpModal onClose={closeInfoModal} />}
+      {infoModal === 'library' && <LibraryGeneratorModal onClose={closeInfoModal} />}
       {templatePickerOpen && (
         <TemplatePicker
           templates={concertTemplates}

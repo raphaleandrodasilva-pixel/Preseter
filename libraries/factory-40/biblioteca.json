@@ -1,0 +1,72 @@
+{
+  "format": "preseter.library",
+  "version": 1,
+  "id": "factory-40",
+  "name": "Factory 40",
+  "description": "Os 40 timbres de fábrica do Preseter.",
+  "concerts": [
+    {
+      "id": "factory-40",
+      "name": "Factory 40",
+      "tempo": 100,
+      "sets": [
+        { "name": "Pianos & Keys", "patches": [
+          {"name":"Concert Grand","programNumber":0,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Piano de cauda","sample":{"library":"salamander","loop":false,"velocity":1,"polyphony":64}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"hall-aux"}},
+          {"name":"Soft Grand","programNumber":1,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Piano macio","sample":{"library":"salamander","loop":false,"cutoff":5500,"attack":0.004,"release":0.25,"velocity":0.75,"polyphony":64}}],"sends":[-12,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"Pop Piano","programNumber":2,"layers":[{"inst":"NATIVE","db":-1,"min":0,"max":127,"label":"Piano pop","sample":{"library":"salamander","loop":false,"cutoff":14000,"attack":0.001,"velocity":1,"polyphony":64}}],"inserts":[{"effect":"calfNXT Compressor","preset":"bus"}],"sends":[-16,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Upright Piano","programNumber":3,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Piano vertical","sample":{"library":"sonatina","bank":0,"program":0,"loop":false,"release":0.35,"velocity":0.95,"polyphony":48}}],"sends":[-16,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Rhodes Classic","programNumber":4,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Rhodes","programIndex":0,"nativeInstrument":"tines"}],"inserts":[{"effect":"calfNXT Chorus","preset":"subtle"},{"effect":"calfNXT Phaser","preset":"slow"}],"sends":[-16,-22,-60,-60],"auxPresets":{"1":"plate-aux","2":"echo-aux"}},
+          {"name":"Wurlitzer EP","programNumber":5,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Wurly","programIndex":0,"nativeInstrument":"reeds"}],"inserts":[{"effect":"calfNXT Pulsator","preset":"slow"}],"sends":[-16,-22,-60,-60],"auxPresets":{"1":"plate-aux","2":"slap-aux"}},
+          {"name":"FM Electric Piano","programNumber":6,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Piano elétrico FM","programIndex":0,"nativeInstrument":"dx"}],"inserts":[{"effect":"calfNXT Chorus","preset":"subtle"}],"sends":[-16,-22,-60,-60],"auxPresets":{"1":"plate-aux","2":"echo-aux"}},
+          {"name":"Clavinet Funk","programNumber":7,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Clavinet","sample":{"library":"musescore","bank":0,"program":7,"loop":false,"release":0.12,"cutoff":12000,"velocity":1.1,"polyphony":24}}],"inserts":[{"effect":"calfNXT Phaser","preset":"fast"}]}
+        ] },
+        { "name": "Organs", "patches": [
+          {"name":"Hammond Jazz","programNumber":8,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Hammond jazz","programIndex":0,"nativeInstrument":"organ"}],"sends":[-20,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Hammond Gospel","programNumber":9,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Hammond gospel","programIndex":1,"nativeInstrument":"organ"}],"sends":[-18,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Hammond Rock","programNumber":10,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Hammond rock","programIndex":2,"nativeInstrument":"organ"}],"inserts":[{"effect":"calfNXT Compressor","preset":"bus"}],"sends":[-22,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Vintage Transistor Organ","programNumber":11,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Órgão combo","programIndex":3,"nativeInstrument":"organ"}],"inserts":[{"effect":"calfNXT Phaser","preset":"slow"}],"sends":[-20,-60,-60,-60],"auxPresets":{"1":"room-aux"}}
+        ] },
+        { "name": "Strings", "patches": [
+          {"name":"Solo Violin","programNumber":12,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Violino solo","sample":{"library":"sonatina","bank":0,"program":12,"loop":true,"release":0.45,"velocity":0.9,"polyphony":16}}],"sends":[-10,-60,-60,-60],"auxPresets":{"1":"hall-aux"}},
+          {"name":"String Ensemble","programNumber":13,"layers":[{"inst":"NATIVE","db":-3,"min":55,"max":108,"label":"Violinos","sample":{"library":"sonatina","bank":0,"program":2,"loop":true,"release":0.5,"polyphony":24},"pan":-0.15},{"inst":"NATIVE","db":-4,"min":48,"max":102,"label":"Violas","sample":{"library":"sonatina","bank":0,"program":6,"loop":true,"release":0.5,"polyphony":16},"pan":0},{"inst":"NATIVE","db":-3,"min":36,"max":82,"label":"Cellos","sample":{"library":"sonatina","bank":0,"program":8,"loop":true,"release":0.5,"polyphony":16},"pan":0.12},{"inst":"NATIVE","db":-5,"min":24,"max":66,"label":"Contrabaixos","sample":{"library":"sonatina","bank":0,"program":10,"loop":true,"release":0.5,"polyphony":8},"pan":0.18}],"sends":[-10,-60,-60,-60],"auxPresets":{"1":"hall-aux"}},
+          {"name":"Cinematic Strings","programNumber":14,"layers":[{"inst":"NATIVE","db":-2,"min":55,"max":108,"label":"Violinos","sample":{"library":"sonatina","bank":0,"program":2,"loop":true,"attack":0.35,"release":1.6,"polyphony":24},"pan":-0.12},{"inst":"NATIVE","db":-3,"min":36,"max":84,"label":"Cellos","sample":{"library":"sonatina","bank":0,"program":8,"loop":true,"attack":0.4,"release":1.8,"polyphony":16},"pan":0.12}],"inserts":[{"effect":"calfNXT Stereo","preset":"wide"}],"sends":[-8,-60,-60,-60],"auxPresets":{"1":"arena-aux"}},
+          {"name":"Pizzicato Strings","programNumber":15,"layers":[{"inst":"NATIVE","db":-3,"min":36,"max":96,"label":"Cordas em pizzicato","sample":{"library":"sonatina","bank":0,"program":3,"loop":false,"release":0.18,"velocity":1.1,"polyphony":24}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"Warm String Pad","programNumber":16,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Pad de cordas","programIndex":29,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Chorus","preset":"ensemble"}],"sends":[-10,-60,-60,-60],"auxPresets":{"1":"hall-aux"}}
+        ] },
+        { "name": "Brass", "patches": [
+          {"name":"Solo Trumpet","programNumber":17,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Trompete","sample":{"library":"sonatina","bank":0,"program":27,"loop":true,"release":0.35,"velocity":0.95,"polyphony":16}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"Trombone","programNumber":18,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Trombone","sample":{"library":"sonatina","bank":0,"program":31,"loop":true,"release":0.4,"velocity":0.95,"polyphony":16}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"French Horn","programNumber":19,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Trompa","sample":{"library":"sonatina","bank":0,"program":29,"loop":true,"release":0.45,"velocity":0.9,"polyphony":16}}],"sends":[-12,-60,-60,-60],"auxPresets":{"1":"hall-aux"}},
+          {"name":"Brass Section","programNumber":20,"layers":[{"inst":"NATIVE","db":-3,"min":60,"max":108,"label":"Trompetes","sample":{"library":"sonatina","bank":0,"program":28,"loop":true,"release":0.4,"polyphony":16},"pan":-0.1},{"inst":"NATIVE","db":-3,"min":43,"max":91,"label":"Trombones","sample":{"library":"sonatina","bank":0,"program":32,"loop":true,"release":0.4,"polyphony":12},"pan":0.05},{"inst":"NATIVE","db":-4,"min":36,"max":84,"label":"Trompas","sample":{"library":"sonatina","bank":0,"program":30,"loop":true,"release":0.5,"polyphony":12},"pan":0.15}],"master":[{"effect":"calfNXT Compressor","preset":"bus"}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"hall-aux"}}
+        ] },
+        { "name": "Woodwinds", "patches": [
+          {"name":"Concert Flute","programNumber":21,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Flauta","sample":{"library":"sonatina","bank":0,"program":14,"loop":true,"release":0.35,"velocity":0.9,"polyphony":12}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"Clarinet","programNumber":22,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Clarinete","sample":{"library":"sonatina","bank":0,"program":20,"loop":true,"release":0.35,"velocity":0.9,"polyphony":12}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}},
+          {"name":"Oboe","programNumber":23,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Oboé","sample":{"library":"sonatina","bank":0,"program":16,"loop":true,"release":0.35,"velocity":0.9,"polyphony":12}}],"sends":[-14,-60,-60,-60],"auxPresets":{"1":"chamber-aux"}}
+        ] },
+        { "name": "Guitars & Bass", "patches": [
+          {"name":"Acoustic Guitar Nylon","programNumber":24,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Violão de nylon","sample":{"library":"musescore","bank":0,"program":24,"loop":false,"release":0.5,"velocity":1,"polyphony":24}}],"sends":[-16,-20,-60,-60],"auxPresets":{"1":"room-aux","2":"echo-aux"}},
+          {"name":"Acoustic Guitar Steel","programNumber":25,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Violão de aço","sample":{"library":"musescore","bank":0,"program":25,"loop":false,"release":0.5,"velocity":1,"polyphony":24}}],"inserts":[{"effect":"calfNXT Compressor","preset":"default"}],"sends":[-16,-20,-60,-60],"auxPresets":{"1":"room-aux","2":"echo-aux"}},
+          {"name":"Electric Guitar Clean","programNumber":26,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Guitarra limpa","sample":{"library":"musescore","bank":0,"program":27,"loop":false,"release":0.45,"velocity":1,"polyphony":24}}],"inserts":[{"effect":"calfNXT Chorus","preset":"subtle"}],"sends":[-16,-20,-60,-60],"auxPresets":{"1":"plate-aux","2":"slap-aux"}},
+          {"name":"Precision Bass","programNumber":27,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Baixo precision","sample":{"library":"musescore","bank":0,"program":34,"loop":false,"release":0.25,"velocity":1,"polyphony":12}}],"inserts":[{"effect":"calfNXT Compressor","preset":"bass"},{"effect":"calfNXT Harmonics","preset":"bass"}]},
+          {"name":"Synth Bass","programNumber":28,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Baixo sintetizado","programIndex":17,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Compressor","preset":"bass"}]}
+        ] },
+        { "name": "Drums & Percussion", "patches": [
+          {"name":"Acoustic Rock Kit","programNumber":29,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Kit acústico","sample":{"library":"musescore","bank":128,"program":0,"loop":false,"release":0.05,"velocity":1,"polyphony":32}}],"master":[{"effect":"calfNXT Compressor","preset":"drum"}],"sends":[-18,-60,-60,-60],"auxPresets":{"1":"room-aux"}},
+          {"name":"Electronic Drum Kit","programNumber":30,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Kit eletrônico","programIndex":0,"nativeInstrument":"drums","drums":{"enabled":true,"startWithPatch":true,"patternId":"electro","kitProgram":24}}],"inserts":[{"effect":"calfNXT Transients","preset":"attack"}],"sends":[-18,-60,-60,-60],"auxPresets":{"1":"gated-aux"}},
+          {"name":"Orchestral Percussion","programNumber":31,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Percussão orquestral","sample":{"library":"sonatina","bank":0,"program":36,"loop":false,"release":0.2,"velocity":1,"polyphony":32}}],"sends":[-12,-60,-60,-60],"auxPresets":{"1":"hall-aux"}}
+        ] },
+        { "name": "Synthesizers", "patches": [
+          {"name":"Analog Poly Synth","programNumber":32,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Analógico polifônico","programIndex":3,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Chorus","preset":"wide"}],"sends":[-14,-20,-60,-60],"auxPresets":{"1":"plate-aux","2":"echo-aux"}},
+          {"name":"Vintage Analog Lead","programNumber":33,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Lead analógico","programIndex":8,"nativeInstrument":"jx"}],"sends":[-16,-14,-60,-60],"auxPresets":{"1":"plate-aux","2":"dotted-aux"}},
+          {"name":"Modern Synth Lead","programNumber":34,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Lead moderno","programIndex":9,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Stereo","preset":"wide"}],"sends":[-16,-14,-60,-60],"auxPresets":{"1":"plate-aux","2":"pingpong-aux"}},
+          {"name":"Warm Analog Pad","programNumber":35,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Pad analógico","programIndex":27,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Chorus","preset":"ensemble"}],"sends":[-10,-60,-60,-60],"auxPresets":{"1":"hall-aux"}},
+          {"name":"Digital Bell","programNumber":36,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Sino digital","programIndex":4,"nativeInstrument":"dx"}],"sends":[-12,-20,-60,-60],"auxPresets":{"1":"hall-aux","2":"echo-aux"}},
+          {"name":"Arpeggiator","programNumber":37,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Arpejo","programIndex":12,"nativeInstrument":"jx","arp":{"enabled":true,"mode":"up","rate":"1/16","octaves":2,"gate":50,"swing":0,"hold":false}}],"sends":[-16,-14,-60,-60],"auxPresets":{"1":"plate-aux","2":"dotted-aux"}},
+          {"name":"Deep Synth Bass","programNumber":38,"layers":[{"inst":"NATIVE","db":-2,"min":0,"max":127,"label":"Deep Synth Bass","programIndex":20,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Harmonics","preset":"bass"}]},
+          {"name":"Ambient Texture","programNumber":39,"layers":[{"inst":"NATIVE","db":-3,"min":0,"max":127,"label":"Textura ambiente","programIndex":48,"nativeInstrument":"jx"}],"inserts":[{"effect":"calfNXT Chorus","preset":"wide"},{"effect":"calfNXT Stereo","preset":"wide"}],"sends":[-8,-12,-60,-60],"auxPresets":{"1":"arena-aux","2":"echo-aux"}}
+        ] }
+      ]
+    }
+  ]
+}

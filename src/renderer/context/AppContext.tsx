@@ -115,7 +115,7 @@ export interface AppContextType {
   /** true quando o seletor de templates está aberto. */
   templatePickerOpen: boolean;
   /** Modal de ajuda/sobre aberto pelo menu Ajuda. */
-  infoModal: 'help' | 'about' | null;
+  infoModal: 'help' | 'about' | 'library' | null;
   closeInfoModal: () => void;
   /** true quando o template MIDI externo pediu para abrir o editor. */
   externalMidiSetupPending: boolean;
@@ -441,7 +441,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [concertRevision, setConcertRevision] = useState(0);
   const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateSummary[]>([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
-  const [infoModal, setInfoModal] = useState<'help' | 'about' | null>(null);
+  const [infoModal, setInfoModal] = useState<'help' | 'about' | 'library' | null>(null);
   const [externalMidiSetupPending, setExternalMidiSetupPending] = useState(false);
   /** true depois que o estado do concert foi carregado do main (libera o sync). */
   const concertReady = useRef(false);
@@ -1249,6 +1249,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (action.action === 'open') {
           const state = await window.electronAPI.concertOpen();
           if (state) await openConcertState(state);
+        } else if (action.action === 'generate-library') {
+          setInfoModal('library');
         } else if (action.action === 'open-recent') {
           await openConcertState(await window.electronAPI.concertOpenRecent(action.path));
         } else if (action.action === 'save') {

@@ -36,6 +36,7 @@ import type {
   CollectionProgress,
   CollectionReadiness,
 } from '@shared/collection';
+import type { LibraryGenerateResult, LibraryInspection, LibrarySummary } from '@shared/library/format';
 import type { StoreSnapshot, StoreUpdateResult, StoreImageRefreshResult } from '@shared/store';
 import type {
   ArpSettings,
@@ -92,6 +93,11 @@ export interface ElectronAPI {
   collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;
   collectionGenerate: () => Promise<CollectionGenerateResult | null>;
+  libraryList: () => Promise<{ libraries: LibrarySummary[]; defaultFolder: string }>;
+  libraryInspect: (source: string) => Promise<LibraryInspection>;
+  libraryPickFile: () => Promise<LibraryInspection | null>;
+  libraryPickFolder: (current?: string) => Promise<string | null>;
+  libraryGenerate: (source: string, folder: string) => Promise<LibraryGenerateResult>;
   storeList: () => Promise<StoreSnapshot>;
   storeSourcesGet: () => Promise<import('@shared/store-sources').StoreSourcesState>;
   storeSourcesSet: (text: string) => Promise<{

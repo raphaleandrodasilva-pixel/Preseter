@@ -7,7 +7,8 @@ import { MAX_AUX_BUSES, SEND_OFF_DB } from './types';
 export type SampleLibrary = 'musescore' | 'sonatina' | 'salamander';
 
 export interface SampleSpec {
-  library: SampleLibrary;
+  /** Biblioteca padrão ou uma declarada em `sampleLibraries` do arquivo de biblioteca. */
+  library: SampleLibrary | (string & {});
   /** Banco do preset SF2 (128 = kit de bateria). */
   bank?: number;
   /** Programa do preset SF2. */
@@ -80,6 +81,8 @@ export type EffectSpec = string | EffectRef;
 
 export interface CollectionPatchMeta {
   midiChannel?: number;
+  /** Program Change fixo do patch. Ausente = ordem de geração. */
+  programNumber?: number;
   description?: string;
   /**
    * Inserts do strip de cada layer do patch. Aceita o nome do scan

@@ -70,6 +70,7 @@
     "files": [
       "dist/**/*",
       "store/**/*",
+      "libraries/**/*",
       "node_modules/**/*",
       "!node_modules/ffmpeg-static/**/*",
       "!docs/**/*",

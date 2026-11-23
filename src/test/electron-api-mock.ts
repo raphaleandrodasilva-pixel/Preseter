@@ -118,6 +118,15 @@ export function createElectronApiMock(): ElectronApiMock {
     collectionOpenFolder: vi.fn(async () => true),
     collectionOpenInstaller: vi.fn(async () => true),
     collectionGenerate: vi.fn(async () => null),
+    libraryList: vi.fn(async () => ({ libraries: [], defaultFolder: 'C:/Documentos/Preseter' })),
+    libraryInspect: vi.fn(async () => {
+      throw new Error('libraryInspect sem mock');
+    }),
+    libraryPickFile: vi.fn(async () => null),
+    libraryPickFolder: vi.fn(async () => null),
+    libraryGenerate: vi.fn(async () => {
+      throw new Error('libraryGenerate sem mock');
+    }),
     storeList: vi.fn(async () => emptyStoreSnapshot()),
     storeSourcesGet: vi.fn(async () => ({
       path: '',

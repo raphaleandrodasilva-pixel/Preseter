@@ -136,6 +136,12 @@ private:
     int currentProgram = 0;
     int currentBank = 0;
     bool sustainPedal = false;
+    // Controles de expressão (só na thread de áudio).
+    float pitchBendSemitones = 0.0f;
+    float modWheel = 0.0f;
+    float expression = 1.0f;
+    float expressionSmoothed = 1.0f;
+    double vibratoPhase = 0.0;
     std::atomic<int> activeVoices { 0 };
     std::atomic<int> maxVoices { 64 };
     std::atomic<bool> loopsEnabled { true };

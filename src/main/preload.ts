@@ -64,6 +64,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   collectionOpenInstaller: (filePath: string) =>
     ipcRenderer.invoke('collection-open-installer', filePath),
   collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
+  libraryList: () => ipcRenderer.invoke('library-list'),
+  libraryInspect: (source: string) => ipcRenderer.invoke('library-inspect', source),
+  libraryPickFile: () => ipcRenderer.invoke('library-pick-file'),
+  libraryPickFolder: (current?: string) => ipcRenderer.invoke('library-pick-folder', current),
+  libraryGenerate: (source: string, folder: string) => ipcRenderer.invoke('library-generate', source, folder),
   storeList: () => ipcRenderer.invoke('store-list'),
   storeSourcesGet: () => ipcRenderer.invoke('store-sources-get'),
   storeSourcesSet: (text: string) => ipcRenderer.invoke('store-sources-set', text),

@@ -15,6 +15,14 @@ import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
 import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
+import {
+  generateLibrary,
+  inspectLibrary,
+  listLibraries,
+  readLibraryFile,
+  type LibraryEnvironment,
+} from './library/LibraryService';
+import { EXTERNAL_LIBRARY_SOURCE, type LibraryFile, type LibrarySummary } from '../shared/library/format';
 import { SAMPLE_LIBRARY_FILES } from '../shared/collection-presets';
 import { findFactoryDrumPattern, toEngineDrumPattern } from '../shared/drum-patterns';
 import { PerformanceMode } from './performance/PerformanceMode';
@@ -142,6 +150,8 @@ class MainWindow {
   private backgroundScan = false;
   private vstManager: VstManager;
   private vstPresetLibrary: VstPresetLibrary;
+  /** Último arquivo de biblioteca escolhido no diálogo. */
+  private externalLibraryPath: string | null = null;
   private vstWatchers: fs.FSWatcher[] = [];
   private vstWatchTimer: NodeJS.Timeout | null = null;
   private vstRefreshPending = false;
@@ -1005,19 +1015,7 @@ class MainWindow {
       const readiness = analyzeCollectionConcert(plugins, {
         soundsFolder: this.soundsFolder(),
       });
-      const catalog = this.collectionItems();
-      const missingIds = new Set<string>();
-      for (const label of readiness.missing) {
-        const needle = label.toLowerCase();
-        const match = catalog.find((item) => {
-          const name = item.name.toLowerCase();
-          return name.includes(needle)
-            || needle.includes(name.split(/\s+/)[0] ?? '')
-            || name.split(/\s+/)[0] === needle;
-        });
-        if (match) missingIds.add(match.id);
-      }
-      return { ...readiness, missingIds: [...missingIds] };
+      return { ...readiness, missingIds: this.collectionIdsFor(readiness.missing) };
     });
 
     ipcMain.handle('collection-download', async (_event, ids: string[], force?: boolean) => {
@@ -1056,6 +1054,55 @@ class MainWindow {
     });
 
     ipcMain.handle('collection-generate', () => this.generateCollectionConcert());
+
+    // === Bibliotecas (Arquivo → Gerar Biblioteca…) ===
+
+    ipcMain.handle('library-list', () => ({
+      libraries: listLibraries(this.librariesFolder()).map(
+        ({ filePath: _filePath, ...summary }): LibrarySummary => summary
+      ),
+      defaultFolder: path.join(app.getPath('documents'), 'Preseter', 'Bibliotecas'),
+    }));
+
+    ipcMain.handle('library-inspect', async (_event, source: unknown) => {
+      const library = this.readLibrarySource(source);
+      return inspectLibrary(library, String(source), await this.libraryEnvironment(), (labels) => this.collectionIdsFor(labels));
+    });
+
+    ipcMain.handle('library-pick-file', async () => {
+      const options: Electron.OpenDialogOptions = {
+        title: 'Escolher arquivo de biblioteca',
+        properties: ['openFile'],
+        filters: [{ name: 'Biblioteca do Preseter', extensions: ['json'] }],
+      };
+      const picked = this.window
+        ? await dialog.showOpenDialog(this.window, options)
+        : await dialog.showOpenDialog(options);
+      const filePath = picked.filePaths[0];
+      if (picked.canceled || !filePath) return null;
+      const library = readLibraryFile(filePath);
+      this.externalLibraryPath = filePath;
+      return inspectLibrary(library, EXTERNAL_LIBRARY_SOURCE, await this.libraryEnvironment(), (labels) => this.collectionIdsFor(labels));
+    });
+
+    ipcMain.handle('library-pick-folder', async (_event, current?: unknown) => {
+      const options: Electron.OpenDialogOptions = {
+        title: 'Onde salvar a biblioteca',
+        defaultPath: typeof current === 'string' && current ? current : app.getPath('documents'),
+        properties: ['openDirectory', 'createDirectory'],
+      };
+      const picked = this.window
+        ? await dialog.showOpenDialog(this.window, options)
+        : await dialog.showOpenDialog(options);
+      return picked.canceled ? null : picked.filePaths[0] ?? null;
+    });
+
+    ipcMain.handle('library-generate', async (_event, source: unknown, folder: unknown) => {
+      if (typeof folder !== 'string' || !path.isAbsolute(folder)) {
+        throw new Error('Escolha uma pasta válida para salvar a biblioteca.');
+      }
+      return generateLibrary(this.readLibrarySource(source), await this.libraryEnvironment(), folder);
+    });
 
     // === Loja ===
 
@@ -1892,6 +1939,16 @@ class MainWindow {
       }
       activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
+      // Antes da troca: camadas por velocity não podem soar juntas na primeira nota.
+      try {
+        await this.vstManager.setLayerVelocityRange(
+          layerId,
+          assignment.velocityMin ?? 1,
+          assignment.velocityMax ?? 127
+        );
+      } catch (error) {
+        console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
+      }
       const savedStateKeys = [
         `loaded_${layerId}`,
         layerId,
@@ -1940,19 +1997,6 @@ class MainWindow {
       this.applyCurrentTranspose(preset),
       this.applyCurrentAudioInput(preset),
       this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false }),
-      ...assignments.map(async (assignment, index) => {
-        const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
-        if (assignment.externalMidi || !activeLayerIds.has(layerId)) return;
-        try {
-          await this.vstManager.setLayerVelocityRange(
-            layerId,
-            assignment.velocityMin ?? 1,
-            assignment.velocityMax ?? 127
-          );
-        } catch (error) {
-          console.warn(`[Preseter] Não foi possível aplicar a velocity do layer "${layerId}":`, error);
-        }
-      }),
     ]);
 
     // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
@@ -2472,6 +2516,7 @@ class MainWindow {
           { label: 'Novo Concert', accelerator: 'CmdOrCtrl+N', click: () => this.sendMenuAction({ action: 'new' }) },
           { label: 'Abrir…', accelerator: 'CmdOrCtrl+O', click: () => this.sendMenuAction({ action: 'open' }) },
           { label: 'Abrir Recente', submenu: recentSubmenu },
+          { label: 'Gerar Biblioteca…', click: () => this.sendMenuAction({ action: 'generate-library' }) },
           { type: 'separator' },
           { label: 'Salvar', accelerator: 'CmdOrCtrl+S', click: () => this.sendMenuAction({ action: 'save' }) },
           { label: 'Salvar Como…', accelerator: 'CmdOrCtrl+Shift+S', click: () => this.sendMenuAction({ action: 'save-as' }) },
@@ -2536,6 +2581,52 @@ class MainWindow {
   }
 
   /** Catálogo da coleção já resolvido para o sistema atual. */
+  /** Bibliotecas que acompanham o app (`libraries/<id>/biblioteca.json`). */
+  private librariesFolder(): string {
+    return path.join(app.getAppPath(), 'libraries');
+  }
+
+  /** Só lê uma biblioteca da lista do app ou o arquivo escolhido no diálogo. */
+  private readLibrarySource(source: unknown): LibraryFile {
+    if (source === EXTERNAL_LIBRARY_SOURCE) {
+      if (!this.externalLibraryPath) throw new Error('Nenhum arquivo de biblioteca foi escolhido.');
+      return readLibraryFile(this.externalLibraryPath);
+    }
+    const entry = listLibraries(this.librariesFolder()).find((item) => item.id === source);
+    if (!entry) throw new Error('Biblioteca não encontrada.');
+    if (entry.error) throw new Error(entry.error);
+    return readLibraryFile(entry.filePath);
+  }
+
+  private async libraryEnvironment(): Promise<LibraryEnvironment> {
+    let plugins = this.vstManager.getScannedPlugins();
+    if (plugins.length === 0) {
+      try {
+        plugins = await this.vstManager.scanDefaultDirectories();
+      } catch (error) {
+        console.warn('[Preseter] Não foi possível escanear os plugins da biblioteca:', error);
+      }
+    }
+    return { plugins, soundsFolder: this.soundsFolder() };
+  }
+
+  /** Itens da Loja que resolvem as dependências ausentes. */
+  private collectionIdsFor(labels: string[]): string[] {
+    const catalog = this.collectionItems();
+    const ids = new Set<string>();
+    for (const label of labels) {
+      const needle = label.toLowerCase();
+      const match = catalog.find((item) => {
+        const name = item.name.toLowerCase();
+        return name.includes(needle)
+          || needle.includes(name.split(/\s+/)[0] ?? '')
+          || name.split(/\s+/)[0] === needle;
+      });
+      if (match) ids.add(match.id);
+    }
+    return [...ids];
+  }
+
   private collectionItems(): CollectionItem[] {
     return resolveCollectionItems(
       COLLECTION_CATALOG.items,
