@@ -168,7 +168,8 @@ const EFFECT_CONTROLS: Record<string, Array<{ name: string; label: string }>> = 
   Harmonics: [{ name: 'Drive', label: 'Drive' }, { name: 'Blend', label: 'Blend' }],
   Transients: [{ name: 'Attack Boost', label: 'Attack' }, { name: 'Release Boost', label: 'Release' }],
   Stereo: [{ name: 'Amount', label: 'Width' }, { name: 'Spread', label: 'Spread' }],
-  EQ: [{ name: 'B1 Gain', label: 'Low' }, { name: 'B1 Freq', label: 'Low Freq' }],
+  // EQ fica sem knobs: nos presets a banda 1 é um corte de graves (o ganho dela
+  // não faz nada) e cada preset ativa bandas diferentes. Ajuste pelo painel.
   Reverb: [{ name: 'Decay', label: 'Decay' }, { name: 'Wet', label: 'Wet' }],
   Delay: [{ name: 'Feedback', label: 'Feedback' }, { name: 'Wet', label: 'Wet' }],
   Overdrive: [{ name: 'Drive', label: 'Drive' }, { name: 'Tone', label: 'Tone' }],

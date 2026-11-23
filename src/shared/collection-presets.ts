@@ -207,7 +207,10 @@ const arp = (mode: ArpSettings['mode'] = 'up'): ArpSettings => ({
 /**
  * 40 patches da Factory 40, seguindo docs/FACTORY-40-NATIVOS.md.
  * Instrumentos: sampler nativo para acústicos, Preseter Organ/Tines/Wurly,
- * DX10, JX10. Efeitos: só calfNXT, resolvidos por nome em `effectKey`.
+ * DX10, JX10. Efeitos: calfNXT e Guitarix, resolvidos por nome em `effectKey`.
+ * Timbres com várias camadas levam os efeitos no Master do patch (CPU).
+ * Amp/Overdrive do Guitarix são mono: não usar em fonte estéreo como o Leslie.
+ * Não usar EQ com corte alto (`pad-cordas`) em timbres com graves (cello, contrabaixo).
  * Pianos acústicos usam SEMPRE o sampler (nunca `preseter.piano`).
  */
 export const COLLECTION_SETS: CollectionSet[] = [
@@ -216,20 +219,26 @@ export const COLLECTION_SETS: CollectionSet[] = [
       S(-2, 0, 127, 'Piano de cauda', {
         library: 'salamander', loop: false, velocity: 1, polyphony: 64,
       }),
-    ], PATCH_FX({ r: { preset: 'hall', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'piano')],
+      r: { preset: 'hall', db: -14 },
+    })],
     ['Soft Grand', [
       S(-3, 0, 127, 'Piano macio', {
         library: 'salamander', loop: false, cutoff: 5500, attack: 0.004,
         release: 0.25, velocity: 0.75, polyphony: 64,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -12 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'piano'), FX('calfNXT Compressor', 'piano')],
+      r: { preset: 'chamber', db: -12 },
+    })],
     ['Pop Piano', [
       S(-1, 0, 127, 'Piano pop', {
         library: 'salamander', loop: false, cutoff: 14000, attack: 0.001,
         velocity: 1, polyphony: 64,
       }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Compressor', 'bus')],
+      inserts: [FX('calfNXT Equalizer', 'piano'), FX('calfNXT Compressor', 'bus'), FX('calfNXT Harmonics', 'exciter')],
       r: { preset: 'room', db: -16 },
     })],
     ['Upright Piano', [
@@ -237,25 +246,28 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 0, loop: false, release: 0.35,
         velocity: 0.95, polyphony: 48,
       }),
-    ], PATCH_FX({ r: { preset: 'room', db: -16 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'piano'), FX('calfNXT Compressor', 'piano')],
+      r: { preset: 'room', db: -16 },
+    })],
     ['Rhodes Classic', [
       N('tines', -3, 0, 127, 'Rhodes', 0),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'subtle'), FX('calfNXT Phaser', 'slow')],
+      inserts: [FX('calfNXT Equalizer', 'teclas'), FX('calfNXT Compressor', 'piano'), FX('calfNXT Chorus', 'subtle'), FX('calfNXT Phaser', 'slow')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'echo', db: -22 },
     })],
     ['Wurlitzer EP', [
       N('reeds', -3, 0, 127, 'Wurly', 0),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Pulsator', 'slow')],
+      inserts: [FX('calfNXT Equalizer', 'teclas'), FX('calfNXT Compressor', 'piano'), FX('calfNXT Pulsator', 'slow')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'slap', db: -22 },
     })],
     ['FM Electric Piano', [
       N('dx', -3, 0, 127, 'Piano elétrico FM', 0),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'subtle')],
+      inserts: [FX('calfNXT Equalizer', 'teclas'), FX('calfNXT Chorus', 'subtle')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'echo', db: -22 },
     })],
@@ -264,25 +276,33 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'musescore', bank: 0, program: 7, loop: false, release: 0.12,
         cutoff: 12000, velocity: 1.1, polyphony: 24,
       }),
-    ], PATCH_FX({ inserts: [FX('calfNXT Phaser', 'fast')] })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'teclas'), FX('calfNXT Transients', 'pluck'), FX('calfNXT Phaser', 'fast')],
+    })],
   ]],
   ['Organs', [
     ['Hammond Jazz', [
       N('organ', -3, 0, 127, 'Hammond jazz', 0),
-    ], PATCH_FX({ r: { preset: 'room', db: -20 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'organ')],
+      r: { preset: 'room', db: -20 },
+    })],
     ['Hammond Gospel', [
       N('organ', -2, 0, 127, 'Hammond gospel', 1),
-    ], PATCH_FX({ r: { preset: 'room', db: -18 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'organ'), FX('calfNXT Compressor', 'bus')],
+      r: { preset: 'room', db: -18 },
+    })],
     ['Hammond Rock', [
       N('organ', -2, 0, 127, 'Hammond rock', 2),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Compressor', 'bus')],
+      inserts: [FX('calfNXT Equalizer', 'organ'), FX('calfNXT Compressor', 'bus'), FX('calfNXT Harmonics', 'exciter')],
       r: { preset: 'room', db: -22 },
     })],
     ['Vintage Transistor Organ', [
       N('organ', -3, 0, 127, 'Órgão combo', 3),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Phaser', 'slow')],
+      inserts: [FX('calfNXT Equalizer', 'organ'), FX('calfNXT Phaser', 'slow')],
       r: { preset: 'room', db: -20 },
     })],
   ]],
@@ -292,7 +312,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 12, loop: true, release: 0.45,
         velocity: 0.9, polyphony: 16,
       }),
-    ], PATCH_FX({ r: { preset: 'hall', db: -10 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'pad-cordas')],
+      r: { preset: 'hall', db: -10 },
+    })],
     ['String Ensemble', [
       S(-3, 55, 108, 'Violinos', {
         library: 'sonatina', bank: 0, program: 2, loop: true, release: 0.5, polyphony: 24,
@@ -306,7 +329,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
       S(-5, 24, 66, 'Contrabaixos', {
         library: 'sonatina', bank: 0, program: 10, loop: true, release: 0.5, polyphony: 8,
       }, { pan: 0.18 }),
-    ], PATCH_FX({ r: { preset: 'hall', db: -10 } })],
+    ], PATCH_FX({
+      master: [FX('calfNXT Equalizer', 'presence'), FX('calfNXT Compressor', 'bus')],
+      r: { preset: 'hall', db: -10 },
+    })],
     ['Cinematic Strings', [
       S(-2, 55, 108, 'Violinos', {
         library: 'sonatina', bank: 0, program: 2, loop: true, attack: 0.35,
@@ -317,7 +343,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         release: 1.8, polyphony: 16,
       }, { pan: 0.12 }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Stereo', 'wide')],
+      master: [FX('calfNXT Equalizer', 'presence'), FX('calfNXT Stereo', 'wide')],
       r: { preset: 'arena', db: -8 },
     })],
     ['Pizzicato Strings', [
@@ -325,11 +351,14 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 3, loop: false, release: 0.18,
         velocity: 1.1, polyphony: 24,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Transients', 'pluck')],
+      r: { preset: 'chamber', db: -14 },
+    })],
     ['Warm String Pad', [
       N('jx', -3, 0, 127, 'Pad de cordas', 29),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'ensemble')],
+      inserts: [FX('calfNXT Equalizer', 'pad-cordas'), FX('calfNXT Chorus', 'ensemble')],
       r: { preset: 'hall', db: -10 },
     })],
   ]],
@@ -339,19 +368,28 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 27, loop: true, release: 0.35,
         velocity: 0.95, polyphony: 16,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'presence'), FX('calfNXT Compressor', 'piano')],
+      r: { preset: 'chamber', db: -14 },
+    })],
     ['Trombone', [
       S(-2, 0, 127, 'Trombone', {
         library: 'sonatina', bank: 0, program: 31, loop: true, release: 0.4,
         velocity: 0.95, polyphony: 16,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'presence'), FX('calfNXT Compressor', 'piano')],
+      r: { preset: 'chamber', db: -14 },
+    })],
     ['French Horn', [
       S(-2, 0, 127, 'Trompa', {
         library: 'sonatina', bank: 0, program: 29, loop: true, release: 0.45,
         velocity: 0.9, polyphony: 16,
       }),
-    ], PATCH_FX({ r: { preset: 'hall', db: -12 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Compressor', 'piano')],
+      r: { preset: 'hall', db: -12 },
+    })],
     ['Brass Section', [
       S(-3, 60, 108, 'Trompetes', {
         library: 'sonatina', bank: 0, program: 28, loop: true, release: 0.4, polyphony: 16,
@@ -363,7 +401,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 30, loop: true, release: 0.5, polyphony: 12,
       }, { pan: 0.15 }),
     ], PATCH_FX({
-      master: [FX('calfNXT Compressor', 'bus')],
+      master: [FX('calfNXT Equalizer', 'presence'), FX('calfNXT Compressor', 'bus')],
       r: { preset: 'hall', db: -14 },
     })],
   ]],
@@ -373,19 +411,28 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 14, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'low-cut')],
+      r: { preset: 'chamber', db: -14 },
+    })],
     ['Clarinet', [
       S(-2, 0, 127, 'Clarinete', {
         library: 'sonatina', bank: 0, program: 20, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'low-cut')],
+      r: { preset: 'chamber', db: -14 },
+    })],
     ['Oboe', [
       S(-2, 0, 127, 'Oboé', {
         library: 'sonatina', bank: 0, program: 16, loop: true, release: 0.35,
         velocity: 0.9, polyphony: 12,
       }),
-    ], PATCH_FX({ r: { preset: 'chamber', db: -14 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'low-cut')],
+      r: { preset: 'chamber', db: -14 },
+    })],
   ]],
   ['Guitars & Bass', [
     ['Acoustic Guitar Nylon', [
@@ -394,6 +441,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         velocity: 1, polyphony: 24,
       }),
     ], PATCH_FX({
+      inserts: [FX('calfNXT Equalizer', 'guitarra'), FX('calfNXT Compressor', 'piano')],
       r: { preset: 'room', db: -16 },
       d: { preset: 'echo', db: -20 },
     })],
@@ -403,7 +451,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         velocity: 1, polyphony: 24,
       }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Compressor', 'default')],
+      inserts: [FX('calfNXT Equalizer', 'guitarra'), FX('calfNXT Compressor', 'piano'), FX('calfNXT Transients', 'pluck')],
       r: { preset: 'room', db: -16 },
       d: { preset: 'echo', db: -20 },
     })],
@@ -413,7 +461,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         velocity: 1, polyphony: 24,
       }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'subtle')],
+      inserts: [FX('Preseter Amp', 'clean'), FX('calfNXT Equalizer', 'guitarra'), FX('calfNXT Chorus', 'subtle')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'slap', db: -20 },
     })],
@@ -423,12 +471,12 @@ export const COLLECTION_SETS: CollectionSet[] = [
         velocity: 1, polyphony: 12,
       }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
+      inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
     })],
     ['Synth Bass', [
       N('jx', -2, 0, 127, 'Baixo sintetizado', 17),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Compressor', 'bass')],
+      inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass')],
     })],
   ]],
   ['Drums & Percussion', [
@@ -438,7 +486,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         velocity: 1, polyphony: 32,
       }),
     ], PATCH_FX({
-      master: [FX('calfNXT Compressor', 'drum')],
+      master: [FX('calfNXT Transients', 'attack'), FX('calfNXT Compressor', 'drum')],
       r: { preset: 'room', db: -18 },
     })],
     ['Electronic Drum Kit', [
@@ -451,7 +499,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
         },
       }),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Transients', 'attack')],
+      inserts: [FX('calfNXT Crusher', 'soft'), FX('calfNXT Transients', 'attack'), FX('calfNXT Compressor', 'drum')],
       r: { preset: 'gated', db: -18 },
     })],
     ['Orchestral Percussion', [
@@ -459,56 +507,62 @@ export const COLLECTION_SETS: CollectionSet[] = [
         library: 'sonatina', bank: 0, program: 36, loop: false, release: 0.2,
         velocity: 1, polyphony: 32,
       }),
-    ], PATCH_FX({ r: { preset: 'hall', db: -12 } })],
+    ], PATCH_FX({
+      inserts: [FX('calfNXT Transients', 'attack')],
+      r: { preset: 'hall', db: -12 },
+    })],
   ]],
   ['Synthesizers', [
     ['Analog Poly Synth', [
       N('jx', -2, 0, 127, 'Analógico polifônico', 3),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'wide')],
+      inserts: [FX('calfNXT Compressor', 'piano'), FX('calfNXT Chorus', 'wide')],
       r: { preset: 'plate', db: -14 },
       d: { preset: 'echo', db: -20 },
     })],
     ['Vintage Analog Lead', [
       N('jx', -2, 0, 127, 'Lead analógico', 8),
     ], PATCH_FX({
+      inserts: [FX('Preseter Overdrive', 'boost'), FX('calfNXT Chorus', 'subtle')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'dotted', db: -14 },
     })],
     ['Modern Synth Lead', [
       N('jx', -2, 0, 127, 'Lead moderno', 9),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Stereo', 'wide')],
+      inserts: [FX('calfNXT Harmonics', 'exciter'), FX('calfNXT Stereo', 'wide')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'pingpong', db: -14 },
     })],
     ['Warm Analog Pad', [
       N('jx', -3, 0, 127, 'Pad analógico', 27),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'ensemble')],
+      inserts: [FX('calfNXT Filter', 'smooth'), FX('calfNXT Chorus', 'ensemble')],
       r: { preset: 'hall', db: -10 },
     })],
     ['Digital Bell', [
       N('dx', -3, 0, 127, 'Sino digital', 4),
     ], PATCH_FX({
+      inserts: [FX('calfNXT Ringmodulator', 'bell'), FX('calfNXT Chorus', 'subtle')],
       r: { preset: 'hall', db: -12 },
       d: { preset: 'echo', db: -20 },
     })],
     ['Arpeggiator', [
       N('jx', -2, 0, 127, 'Arpejo', 12, { arp: arp() }),
     ], PATCH_FX({
+      inserts: [FX('calfNXT Filter', 'envelope'), FX('calfNXT Flanger', 'subtle')],
       r: { preset: 'plate', db: -16 },
       d: { preset: 'dotted', db: -14 },
     })],
     ['Deep Synth Bass', [
       N('jx', -2, 0, 127, 'Deep Synth Bass', 20),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Harmonics', 'bass')],
+      inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
     })],
     ['Ambient Texture', [
       N('jx', -3, 0, 127, 'Textura ambiente', 48),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Chorus', 'wide'), FX('calfNXT Stereo', 'wide')],
+      inserts: [FX('calfNXT Flanger', 'subtle'), FX('calfNXT Chorus', 'wide'), FX('calfNXT Stereo', 'wide')],
       r: { preset: 'arena', db: -8 },
       d: { preset: 'echo', db: -12 },
     })],

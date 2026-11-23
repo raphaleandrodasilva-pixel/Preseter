@@ -8,7 +8,7 @@ import {
   nativeAssignmentFor,
   resolveEffectInserts,
 } from './generateCollection';
-import { N } from '../../shared/collection-presets';
+import { COLLECTION_SETS, N, type EffectSpec } from '../../shared/collection-presets';
 import { findEffect } from '../../shared/effects/catalog';
 import { COLLECTION_CATALOG, resolveCollectionItems } from '../../shared/collection';
 import { makeTempDir, removeTempDir } from '../../test/helpers/temp';
@@ -85,6 +85,36 @@ const plugins = [
     id: 'calf-transients',
     name: 'calfNXT Transients',
     path: 'C:/plugins/calfnxt/calfNXTTransients.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-flanger',
+    name: 'calfNXT Flanger',
+    path: 'C:/plugins/calfnxt/calfNXTFlanger.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-crusher',
+    name: 'calfNXT Crusher',
+    path: 'C:/plugins/calfnxt/calfNXTCrusher.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'calf-ringmod',
+    name: 'calfNXT Ringmodulator',
+    path: 'C:/plugins/calfnxt/calfNXTRingmodulator.vst3',
+    isInstrument: false,
+  },
+  {
+    id: 'gx-amp',
+    name: 'GxAmplifier-X',
+    path: 'http://guitarix.sourceforge.net/plugins/gx_amp#GUITARIX',
+    isInstrument: false,
+  },
+  {
+    id: 'gx-overdrive',
+    name: 'GxTubeScreamer',
+    path: 'http://guitarix.sourceforge.net/plugins/gxts9#ts9sim',
     isInstrument: false,
   },
 ];
@@ -293,9 +323,9 @@ describe('efeitos nativos na coleção', () => {
 
       // Controles de efeito apontam para índices que existem no catálogo.
       const ambient = file.patches.find((patch) => patch.name === 'Ambient Texture');
-      const stereo = ambient?.plugins?.[0]?.inserts?.find((insert) => insert.slot === 1);
+      const stereo = ambient?.plugins?.[0]?.inserts?.find((insert) => insert.slot === 2);
       const stereoControls = ambient?.layout.elements.filter(
-        (element) => element.paramSlot === 1 && element.paramOwner === ambient.plugins?.[0]?.layerId
+        (element) => element.paramSlot === 2 && element.paramOwner === ambient.plugins?.[0]?.layerId
       ) ?? [];
       expect(stereo).toBeDefined();
       expect(stereoControls.length).toBeGreaterThan(0);
@@ -355,10 +385,12 @@ describe('efeitos nativos na coleção', () => {
       const rhodes = file.patches.find((patch) => patch.name === 'Rhodes Classic');
 
       expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.pluginId)).toEqual([
+        'calf-eq',
+        'calf-comp',
         'calf-chorus',
         'calf-phaser',
       ]);
-      expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.slot)).toEqual([0, 1]);
+      expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.slot)).toEqual([0, 1, 2, 3]);
       expect(rhodes?.plugins?.[0]?.inserts?.every((insert) => insert.bypass === false)).toBe(true);
       expect(rhodes?.master?.sends).toEqual([-16, -22, -60, -60]);
       expect(missing).toEqual([]);
@@ -423,24 +455,67 @@ describe('efeitos nativos na coleção', () => {
 
       const rhodes = file.patches.find((patch) => patch.name === 'Rhodes Classic');
       expect(rhodes?.plugins?.[0]?.inserts?.map((insert) => insert.presetId)).toEqual([
+        'teclas',
+        'piano',
         'subtle',
         'slow',
       ]);
       expect(rhodes?.auxPresets).toEqual({ 1: 'plate-aux', 2: 'echo-aux' });
 
       const modern = file.patches.find((patch) => patch.name === 'Modern Synth Lead');
-      expect(modern?.plugins?.[0]?.inserts?.[0]).toMatchObject({
+      expect(modern?.plugins?.[0]?.inserts?.[1]).toMatchObject({
         name: 'calfNXT Stereo',
         presetId: 'wide',
       });
       expect(modern?.auxPresets).toEqual({ 1: 'plate-aux', 2: 'pingpong-aux' });
 
       const deep = file.patches.find((patch) => patch.name === 'Deep Synth Bass');
-      expect(deep?.plugins?.[0]?.inserts?.map((insert) => insert.name)).toEqual(['calfNXT Harmonics']);
+      expect(deep?.plugins?.[0]?.inserts?.map((insert) => insert.name)).toEqual([
+        'calfNXT Equalizer',
+        'calfNXT Compressor',
+        'calfNXT Harmonics',
+      ]);
       expect(deep?.master?.sends).toBeUndefined();
     } finally {
       removeTempDir(sounds);
     }
+  });
+
+  it('usa só efeitos e presets do catálogo, dentro das regras da Factory 40', () => {
+    const refsOf = (specs: EffectSpec[] = []) =>
+      specs.map((spec) => (typeof spec === 'string' ? { effect: spec } : spec));
+    let total = 0;
+
+    for (const [, patches] of COLLECTION_SETS) {
+      for (const [name, layers, meta] of patches) {
+        total += 1;
+        const inserts = refsOf(meta?.inserts);
+        const master = refsOf(meta?.master);
+        expect(inserts.length + master.length, `${name}: sem efeito`).toBeGreaterThan(0);
+        expect(inserts.length, `${name}: inserts demais`).toBeLessThanOrEqual(4);
+        expect(master.length, `${name}: master demais`).toBeLessThanOrEqual(4);
+        // Várias camadas: o efeito vai no Master para não multiplicar a CPU.
+        if (layers.length > 1) expect(inserts, `${name}: insert por camada`).toEqual([]);
+
+        for (const ref of [...inserts, ...master]) {
+          const effect = findEffect(ref.effect);
+          expect(effect, `${name}: efeito ${ref.effect}`).toBeDefined();
+          expect(
+            effect?.presets.some((preset) => preset.id === ref.preset),
+            `${name}: preset ${ref.effect}/${ref.preset}`
+          ).toBe(true);
+          // Guitarix é mono: achataria o Leslie estéreo do órgão.
+          if (layers.some((layer) => layer.nativeInstrument === 'organ')) {
+            expect(effect?.source, `${name}: efeito mono no órgão`).not.toBe('guitarix');
+          }
+          // Corte em 100 Hz tiraria a fundamental de cellos e contrabaixos.
+          if (layers.some((layer) => /cello|contrabaix/i.test(layer.label))) {
+            expect(ref.preset, `${name}: corte de graves`).not.toBe('pad-cordas');
+          }
+        }
+      }
+    }
+    expect(total).toBe(40);
   });
 
   it('resolveEffectInserts respeita o limite de 4 slots', () => {
