@@ -207,7 +207,7 @@ const arp = (mode: ArpSettings['mode'] = 'up'): ArpSettings => ({
 /**
  * 40 patches da Factory 40, seguindo docs/FACTORY-40-NATIVOS.md.
  * Instrumentos: sampler nativo para acústicos, Preseter Organ/Tines/Wurly,
- * DX10, JX10. Efeitos: calfNXT e Guitarix, resolvidos por nome em `effectKey`.
+ * DX10, JX10 e Synth2 (programa = posição do .sy1 em presets/synth2). Efeitos: calfNXT e Guitarix, resolvidos por nome em `effectKey`.
  * Timbres com várias camadas levam os efeitos no Master do patch (CPU).
  * Amp/Overdrive do Guitarix são mono: não usar em fonte estéreo como o Leslie.
  * Não usar EQ com corte alto (`pad-cordas`) em timbres com graves (cello, contrabaixo).
@@ -356,7 +356,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       r: { preset: 'chamber', db: -14 },
     })],
     ['Warm String Pad', [
-      N('jx', -3, 0, 127, 'Pad de cordas', 29),
+      N('synth2', -3, 0, 127, 'Pad de cordas', 14), // PAD Basic Strings
     ], PATCH_FX({
       inserts: [FX('calfNXT Equalizer', 'pad-cordas'), FX('calfNXT Chorus', 'ensemble')],
       r: { preset: 'hall', db: -10 },
@@ -474,7 +474,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
     })],
     ['Synth Bass', [
-      N('jx', -2, 0, 127, 'Baixo sintetizado', 17),
+      N('synth2', -3, 0, 127, 'Baixo sintetizado', 15), // BAS Solid (mono)
     ], PATCH_FX({
       inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass')],
     })],
@@ -514,7 +514,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
   ]],
   ['Synthesizers', [
     ['Analog Poly Synth', [
-      N('jx', -2, 0, 127, 'Analógico polifônico', 3),
+      N('synth2', -2, 0, 127, 'Analógico polifônico', 39), // SYN PWM
     ], PATCH_FX({
       inserts: [FX('calfNXT Compressor', 'piano'), FX('calfNXT Chorus', 'wide')],
       r: { preset: 'plate', db: -14 },
@@ -535,9 +535,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
       d: { preset: 'pingpong', db: -14 },
     })],
     ['Warm Analog Pad', [
-      N('jx', -3, 0, 127, 'Pad analógico', 27),
+      // O preset já tem chorus interno: não somar outro.
+      N('synth2', -3, 0, 127, 'Pad analógico', 10), // PAD MKS-70 Warm
     ], PATCH_FX({
-      inserts: [FX('calfNXT Filter', 'smooth'), FX('calfNXT Chorus', 'ensemble')],
+      inserts: [FX('calfNXT Equalizer', 'low-cut')],
       r: { preset: 'hall', db: -10 },
     })],
     ['Digital Bell', [
@@ -557,14 +558,15 @@ export const COLLECTION_SETS: CollectionSet[] = [
     ['Deep Synth Bass', [
       N('jx', -2, 0, 127, 'Deep Synth Bass', 20),
     ], PATCH_FX({
-      inserts: [FX('calfNXT Equalizer', 'baixo'), FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
+      // Sem EQ: o corte em 35 Hz tiraria a fundamental deste subgrave.
+      inserts: [FX('calfNXT Compressor', 'bass'), FX('calfNXT Harmonics', 'bass')],
     })],
     ['Ambient Texture', [
-      N('jx', -3, 0, 127, 'Textura ambiente', 48),
+      // O preset já tem delay interno: sem send para o Aux de delay.
+      N('synth2', -3, 0, 127, 'Textura ambiente', 3), // PAD Distant Hills
     ], PATCH_FX({
       inserts: [FX('calfNXT Flanger', 'subtle'), FX('calfNXT Chorus', 'wide'), FX('calfNXT Stereo', 'wide')],
       r: { preset: 'arena', db: -8 },
-      d: { preset: 'echo', db: -12 },
     })],
   ]],
 ];

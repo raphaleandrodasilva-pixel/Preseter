@@ -361,9 +361,9 @@ describe('efeitos nativos na coleção', () => {
       expect(keyboardOf('Precision Bass')).toMatchObject({ keyboardLow: 28, keyboardHigh: 67 });
       expect(keyboardOf('Acoustic Guitar Nylon')).toMatchObject({ keyboardLow: 40, keyboardHigh: 88 });
 
-      // JX10: controles do sintetizador; Synth Bass também é JX, com teclado de baixo.
-      expect(paramsOf('Analog Poly Synth')).toEqual(['0', '6', '7', '11', '14', '20']);
-      expect(paramsOf('Synth Bass')).toEqual(['0', '6', '7', '11', '14', '20']);
+      // Synth2: controles do sintetizador; Synth Bass com teclado de baixo.
+      expect(paramsOf('Analog Poly Synth')).toEqual(['2', '19', '20', '25', '28', '30']);
+      expect(paramsOf('Synth Bass')).toEqual(['2', '19', '20', '25', '28', '30']);
       expect(keyboardOf('Synth Bass')).toMatchObject({ keyboardLow: 28, keyboardHigh: 67 });
       expect(paramsOf('Arpeggiator')).toEqual([
         '0', '6', '7', '11', '14', '20', '31', '32', '33', '34',
@@ -471,7 +471,6 @@ describe('efeitos nativos na coleção', () => {
 
       const deep = file.patches.find((patch) => patch.name === 'Deep Synth Bass');
       expect(deep?.plugins?.[0]?.inserts?.map((insert) => insert.name)).toEqual([
-        'calfNXT Equalizer',
         'calfNXT Compressor',
         'calfNXT Harmonics',
       ]);
@@ -518,6 +517,29 @@ describe('efeitos nativos na coleção', () => {
     expect(total).toBe(40);
   });
 
+  it('aponta os timbres do Synth2 para os presets certos do banco de fábrica', () => {
+    // O motor numera os programas pela ordem dos arquivos .sy1.
+    const folder = path.resolve('presets/synth2');
+    const names = fs.readdirSync(folder)
+      .filter((file) => file.endsWith('.sy1'))
+      .sort()
+      .map((file) => fs.readFileSync(path.join(folder, file), 'utf8').split(/\r?\n/)[0]);
+    const expected: Record<string, string> = {
+      'Warm String Pad': 'PAD Basic Strings',
+      'Synth Bass': 'BAS Solid',
+      'Analog Poly Synth': 'SYN PWM',
+      'Warm Analog Pad': 'PAD MKS-70 Warm',
+      'Ambient Texture': 'PAD Distant Hills',
+    };
+
+    const patches = COLLECTION_SETS.flatMap(([, list]) => list);
+    for (const [name, preset] of Object.entries(expected)) {
+      const layer = patches.find(([patch]) => patch === name)?.[1][0];
+      expect(layer?.nativeInstrument, name).toBe('synth2');
+      expect(names[layer?.programIndex ?? -1], name).toBe(preset);
+    }
+  });
+
   it('resolveEffectInserts respeita o limite de 4 slots', () => {
     const missing = new Set<string>();
     const inserts = resolveEffectInserts(
@@ -559,7 +581,7 @@ describe('buildCollectionConcert', () => {
       expect(file.patches.find((patch) => patch.name === 'Warm Analog Pad')?.icon).toBe('pad');
       expect(
         file.patches.find((patch) => patch.name === 'Synth Bass')?.plugins?.[0]?.pluginId
-      ).toBe('preseter.jx');
+      ).toBe('preseter.synth2');
       expect(
         file.patches.flatMap((patch) => patch.plugins ?? []).every((layer) => typeof layer.mix?.volumeDb === 'number')
       ).toBe(true);
