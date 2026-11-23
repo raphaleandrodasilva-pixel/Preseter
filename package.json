@@ -1,6 +1,6 @@
 {
   "name": "preseter",
-  "version": "1.1.6-beta.2",
+  "version": "1.1.6-beta.3",
   "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
   "main": "dist/main/index.js",
   "scripts": {
