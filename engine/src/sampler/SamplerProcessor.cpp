@@ -609,12 +609,12 @@ void SamplerProcessor::handleMidi (const juce::MidiMessage& message)
     else if (message.isPitchWheel())
     {
         // Faixa padrão de ±2 semitons.
-        const offset = message.getPitchWheelValue() - 8192;
+        const int offset = message.getPitchWheelValue() - 8192;
         pitchBendSemitones = 2.0f * (float) offset / (offset < 0 ? 8192.0f : 8191.0f);
     }
     else if (message.isController())
     {
-        const value = (float) message.getControllerValue() / 127.0f;
+        const float value = (float) message.getControllerValue() / 127.0f;
         switch (message.getControllerNumber())
         {
             case 1:   modWheel = value; break;
