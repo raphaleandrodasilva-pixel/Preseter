@@ -2160,7 +2160,7 @@ class MainWindow {
     insert: Insert,
     presetId: string | undefined
   ): Promise<void> {
-    const values = effectPresetValues(insert.path, presetId);
+    const values = effectPresetValues(insert.path, presetId, { aux: /^aux[1-4]$/.test(ownerId) });
     if (values.length === 0) return;
     for (const { index, value } of values) {
       try {

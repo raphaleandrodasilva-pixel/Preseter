@@ -1,0 +1,63 @@
+{
+  "effect": "preseter.filter",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Modo": 0,
+        "Ressonância": 0.707,
+        "Frequência": 1000,
+        "Inércia": 20,
+        "Envelope": 0,
+        "Mix": 1,
+        "Alvo": 4000,
+        "Ativação": 0,
+        "Ataque": 20,
+        "Liberação": 200,
+        "Detecção": 2,
+        "Soft clip": 0,
+        "Espectro": 0,
+        "Mono": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "smooth",
+      "label": "Suave",
+      "values": {
+        "Modo": 0,
+        "Ressonância": 1.2,
+        "Frequência": 2500,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "acid",
+      "label": "Ácido",
+      "values": {
+        "Modo": 0,
+        "Ressonância": 5,
+        "Frequência": 700,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "envelope",
+      "label": "Com envelope",
+      "values": {
+        "Modo": 0,
+        "Ressonância": 2.5,
+        "Frequência": 900,
+        "Envelope": 1,
+        "Mix": 1,
+        "Alvo": 6000,
+        "Ataque": 5,
+        "Liberação": 180
+      }
+    }
+  ]
+}

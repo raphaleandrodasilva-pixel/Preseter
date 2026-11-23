@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EffectiveStrip, MAX_AUX_BUSES, Preset, SEND_OFF_DB } from '@shared/types';
 import { resolveStrips } from '@shared/concert-strips';
 import { createDefaultKeyboardLayout } from '@shared/default-layout';
 import { suggestPatchIcon } from '@shared/patch-icons';
+import { firstPlayablePreset } from '@shared/concert-navigation';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { useSlowScroll } from '../hooks/useSlowScroll';
 import { ConcertShell } from './concert/ConcertShell';
@@ -23,6 +24,8 @@ const AppContent: React.FC = () => {
     concertRevision,
     concertLoaded,
     concertActive,
+    currentPreset,
+    loadProgress,
     concertTemplates,
     templatePickerOpen,
     infoModal,
@@ -66,6 +69,35 @@ const AppContent: React.FC = () => {
     window.setTimeout(() => setToast(''), 2600);
   };
 
+  /** Cópia editável do patch, com ids de layer garantidos. */
+  const editablePreset = (preset: Preset): Preset => ({
+    ...preset,
+    plugins: (preset.plugins ?? []).map((plugin, index) => ({
+      ...plugin,
+      layerId: plugin.layerId ?? `${preset.id}:layer:${index}`,
+      minNote: plugin.minNote ?? 0,
+      maxNote: plugin.maxNote ?? 127,
+    })),
+    layout: {
+      ...preset.layout,
+      elements: preset.layout.elements.map((element) => ({ ...element })),
+    },
+  });
+
+  /** Há alterações no rascunho que ainda não foram para o concert? */
+  const isDraftDirty = (): boolean => {
+    if (!draft) return false;
+    const saved = presets.find((preset) => preset.id === draft.id);
+    if (!saved) return true;
+    return draft.updatedAt !== saved.updatedAt;
+  };
+
+  /** Confirma a troca de patch quando o rascunho atual tem alterações. */
+  const confirmDiscardDraft = (nextPatchId?: string): boolean => {
+    if (!draft || draft.id === nextPatchId || !isDraftDirty()) return true;
+    return window.confirm(`Descartar as alterações não salvas do patch “${draft.name}”?`);
+  };
+
   const startNewPatch = (setId?: string) => {
     if (!concertLoaded) {
       showToast('Carregando o concert… tente de novo em instantes.');
@@ -75,6 +107,7 @@ const AppContent: React.FC = () => {
       showToast('Crie ou abra um concert antes de adicionar patches.');
       return;
     }
+    if (!confirmDiscardDraft()) return;
     const usedPrograms = new Set(presets.map((p) => p.programNumber));
     const nextProgram =
       Array.from({ length: 128 }, (_, i) => i).find((pg) => !usedPrograms.has(pg)) ?? 0;
@@ -108,25 +141,24 @@ const AppContent: React.FC = () => {
       showToast('Carregando o concert… tente de novo em instantes.');
       return;
     }
-    setDraft({
-      ...preset,
-      plugins: (preset.plugins ?? []).map((plugin, index) => ({
-        ...plugin,
-        layerId: plugin.layerId ?? `${preset.id}:layer:${index}`,
-        minNote: plugin.minNote ?? 0,
-        maxNote: plugin.maxNote ?? 127,
-      })),
-      layout: { ...preset.layout, elements: preset.layout.elements.map((e) => ({ ...e })) },
-    });
+    if (draft?.id === preset.id) {
+      setMode('edit');
+      return;
+    }
+    if (!confirmDiscardDraft(preset.id)) return;
+    setDraft(editablePreset(preset));
     setSelectedId(null);
     setMode('edit');
     setError(null);
   };
 
   const selectPreset = async (preset: Preset) => {
+    if (mode === 'edit' && draft?.id === preset.id) return;
+    if (!confirmDiscardDraft(preset.id)) return;
     setError(null);
-    setDraft(null);
     setSelectedId(null);
+    // No Edit o patch já abre como rascunho; em Layout/Perform só carrega.
+    setDraft(mode === 'edit' ? editablePreset(preset) : null);
     try {
       const loaded = await loadPreset(preset.id, { silent: mode === 'perform' });
       if (!loaded) {
@@ -137,6 +169,29 @@ const AppContent: React.FC = () => {
       setError(`Falha ao carregar "${preset.name}": ${detail}`);
     }
   };
+
+  /** Ao abrir/criar um concert, abre o primeiro patch disponível. */
+  const autoLoadedConcertRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!concertLoaded || !concertActive || mode !== 'edit') return;
+    if (draft) return;
+
+    // Abre o patch atual (ou o primeiro do concert) como rascunho editável.
+    if (currentPreset) {
+      if (!loadProgress?.active) setDraft(editablePreset(currentPreset));
+      return;
+    }
+    if (loadProgress?.active) return;
+
+    const first = firstPlayablePreset(presets);
+    if (!first) return;
+    const key = `${concertRevision}:${first.id}`;
+    if (autoLoadedConcertRef.current === key) return;
+    autoLoadedConcertRef.current = key;
+    void selectPreset(first);
+    // selectPreset já abre o rascunho no modo Edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [concertLoaded, concertActive, concertRevision, mode, draft, currentPreset, presets, loadProgress?.active]);
 
   const updatePresetVstParameter = async (pluginPath: string, parameterId: string, value: number) => {
     const plugin = loadedPlugins.find((entry) => entry.path === pluginPath);
@@ -170,8 +225,16 @@ const AppContent: React.FC = () => {
     }).filter((strip) => strip.level !== 'patch');
   };
 
-  const saveDraft = async (target: Preset | null = draft): Promise<boolean> => {
-    if (!target) return false;
+  const saveDraft = async (candidate?: Preset | null): Promise<boolean> => {
+    // Chamadas antigas de botão passavam o MouseEvent; ignora qualquer objeto
+    // que não seja um patch e usa o rascunho atual.
+    const target = candidate && typeof candidate === 'object' && 'id' in candidate
+      ? candidate
+      : draft;
+    if (!target) {
+      setError('Nenhum patch aberto para salvar.');
+      return false;
+    }
     if (!target.name.trim()) {
       setError('Informe um nome para o patch antes de salvar.');
       return false;
@@ -224,10 +287,18 @@ const AppContent: React.FC = () => {
           if (state) vstStates[`insert_${strip.id}_${insert.slot}`] = state;
         }
       }
-      const saved = await savePreset({ ...target, master, vstStates, updatedAt: Date.now() });
+      const savedAt = Date.now();
+      const saved = await savePreset({ ...target, master, vstStates, updatedAt: savedAt });
       if (!saved) setError('O armazenamento não confirmou que o patch foi salvo.');
       else {
         setError(null);
+        // Mantém o rascunho sincronizado com o que foi salvo para a checagem
+        // de alterações pendentes não acusar um rascunho já gravado.
+        setDraft((current) => (
+          current && current.id === target.id
+            ? { ...current, master, vstStates, updatedAt: savedAt }
+            : current
+        ));
         showToast('Patch salvo.');
       }
       return saved;

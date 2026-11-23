@@ -1,0 +1,49 @@
+{
+  "effect": "preseter.gx.cab",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Cabine": 0.999999,
+        "Graves": 0,
+        "Agudos": 0,
+        "Modelo de cabine": 0,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "open",
+      "label": "Aberto",
+      "values": {
+        "Cabine": 1.499999,
+        "Graves": -1,
+        "Agudos": 1,
+        "Modelo de cabine": 2,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "closed",
+      "label": "Fechado",
+      "values": {
+        "Cabine": 3.000002,
+        "Graves": 1.5,
+        "Agudos": -1,
+        "Modelo de cabine": 0,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "bright",
+      "label": "Brilhante",
+      "values": {
+        "Cabine": 1.999999,
+        "Graves": -2,
+        "Agudos": 2,
+        "Modelo de cabine": 14,
+        "Bypass": 0
+      }
+    }
+  ]
+}

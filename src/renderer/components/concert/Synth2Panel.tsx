@@ -345,6 +345,10 @@ export const Synth2Panel: React.FC<Synth2PanelProps> = ({
           value={value}
           display={param.text || `${real.toFixed(0)}`}
           onChange={(next) => setNormalized(control.name, next)}
+          onReset={() => {
+            const fallback = paramOf(control.name)?.defaultValue;
+            if (fallback !== undefined) setNormalized(control.name, fallback);
+          }}
         />
         {range && (
           <NumberField

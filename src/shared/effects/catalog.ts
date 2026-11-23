@@ -112,13 +112,25 @@ export function effectDisplayName (pathOrName: string, fallback: string): string
  * Valores de um preset do catálogo, já no formato que o motor usa em `setParam`
  * (índice do parâmetro → valor normalizado 0..1). Lista vazia se o efeito ou o
  * preset não existirem.
+ *
+ * Em insert de Aux (`aux: true`), um preset sem sufixo (`hall`) usa a versão
+ * `hall-aux` (Seco −60 dB / Molhado 0 dB) quando ela existir; sem ela, cai no
+ * preset original. Isso mantém coleções antigas corretas.
  */
 export function effectPresetValues (
   pathOrName: string,
-  presetId: string | undefined
+  presetId: string | undefined,
+  options: { aux?: boolean } = {}
 ): Array<{ index: number; value: number }> {
   if (!presetId) return [];
-  const preset = findEffect(pathOrName)?.presets.find((entry) => entry.id === presetId);
+  const effect = findEffect(pathOrName);
+  if (!effect) return [];
+  const candidates = options.aux && !presetId.endsWith('-aux')
+    ? [`${presetId}-aux`, presetId]
+    : [presetId];
+  const preset = candidates
+    .map((id) => effect.presets.find((entry) => entry.id === id))
+    .find((entry) => entry !== undefined);
   if (!preset) return [];
   return Object.entries(preset.values)
     .map(([index, value]) => ({ index: Number(index), value }))

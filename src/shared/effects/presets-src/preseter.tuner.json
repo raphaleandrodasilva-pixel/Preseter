@@ -1,0 +1,47 @@
+{
+  "effect": "preseter.tuner",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Fonte": 0,
+        "Qualidade": 0.75,
+        "Formante": 0.85,
+        "Retune": 80,
+        "Liberação": 120,
+        "Quantidade": 1,
+        "Limite": 10,
+        "Flex": 100,
+        "Manter": 0.75,
+        "Profundidade": 0.4,
+        "Oitava": 0.88,
+        "Unvoiced": 0.58,
+        "Detecção": 0,
+        "Grave": 80,
+        "Agudo": 700,
+        "A4": 440,
+        "C": 1,
+        "C#": 1,
+        "D": 1,
+        "D#": 1,
+        "E": 1,
+        "F": 1,
+        "F#": 1,
+        "G": 1,
+        "G#": 1,
+        "A": 1,
+        "A#": 1,
+        "B": 1,
+        "Vibrato": 0,
+        "Delay": 100,
+        "Fade": 200,
+        "Velocidade": 5,
+        "Mono": 0
+      }
+    }
+  ]
+}

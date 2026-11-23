@@ -1,0 +1,60 @@
+{
+  "effect": "preseter.gx.tremolo",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Dry/Wet": 50,
+        "Modo": 0,
+        "Profundidade": 0.5,
+        "Velocidade": 4.99998,
+        "Reset": 0
+      }
+    },
+    {
+      "id": "subtle",
+      "label": "Sutil",
+      "values": {
+        "Dry/Wet": 100,
+        "Modo": 0,
+        "Profundidade": 0.3,
+        "Velocidade": 4,
+        "Reset": 0
+      }
+    },
+    {
+      "id": "classic",
+      "label": "Clássico",
+      "values": {
+        "Dry/Wet": 100,
+        "Modo": 0,
+        "Profundidade": 0.5,
+        "Velocidade": 5,
+        "Reset": 0
+      }
+    },
+    {
+      "id": "fast",
+      "label": "Rápido",
+      "values": {
+        "Dry/Wet": 100,
+        "Modo": 1,
+        "Profundidade": 0.6,
+        "Velocidade": 8,
+        "Reset": 0
+      }
+    },
+    {
+      "id": "deep",
+      "label": "Profundo",
+      "values": {
+        "Dry/Wet": 100,
+        "Modo": 0,
+        "Profundidade": 0.8,
+        "Velocidade": 2.5,
+        "Reset": 0
+      }
+    }
+  ]
+}

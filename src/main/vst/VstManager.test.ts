@@ -259,8 +259,41 @@ describe('VstManager scanning', () => {
     expect(plugins.map((plugin) => plugin.id)).toEqual(['scan-plugin-1', 'scan-plugin-2']);
   });
 
-  it('returns the same promise for concurrent default scans', async () => {
-    let resolveScan: ((value: unknown) => void) | undefined;
+  it('deduplica o mesmo plugin instalado em duas pastas, preferindo o bundle do app', async () => {
+    const bundled = 'C:/app/resources/plugins/calfnxt/calfNXTReverb.vst3';
+    const { engine } = makeEngine((command) =>
+      command === 'plugins'
+        ? {
+            formats: 'VST3',
+            plugins: [
+              scannedPlugin({
+                id: 'vendor-copy',
+                name: 'calfNXT Reverb',
+                manufacturer: 'calfNXT',
+                path: 'C:/repo/vendor/calfnxt/calfNXTReverb.vst3',
+                isInstrument: false,
+              }),
+              scannedPlugin({
+                id: 'bundled-copy',
+                name: 'calfNXT Reverb',
+                manufacturer: 'calfNXT',
+                path: bundled,
+                isInstrument: false,
+              }),
+            ],
+            blacklisted: [],
+          }
+        : undefined
+    );
+    const manager = new VstManager(engine, 'C:/app/resources/plugins/calfnxt');
+
+    const plugins = await manager.loadKnownPlugins();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].path).toBe(bundled);
+  });
+
+  it('returns the same promise for concurrent default scans', async () => {    let resolveScan: ((value: unknown) => void) | undefined;
     const { engine, request } = makeEngine((command) => {
       if (command === 'scan') {
         return new Promise((resolve) => {

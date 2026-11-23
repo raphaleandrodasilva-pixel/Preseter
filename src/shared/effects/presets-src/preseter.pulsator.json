@@ -1,0 +1,71 @@
+{
+  "effect": "preseter.pulsator",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Modo": 0,
+        "Modulação": 1,
+        "Offset L": 0,
+        "Offset R": 0.5,
+        "Mono in": 0,
+        "Resetar": 0,
+        "Largura do pulso": 3,
+        "Sincronizar": 0,
+        "BPM": 120,
+        "Tempo": 500
+      }
+    },
+    {
+      "id": "slow",
+      "label": "Lento",
+      "values": {
+        "Modo": 0,
+        "Modulação": 0.5,
+        "Offset L": 0,
+        "Offset R": 0.5,
+        "Largura do pulso": 2,
+        "BPM": 120,
+        "Tempo": 1000,
+        "Sincronizar": 0
+      }
+    },
+    {
+      "id": "fast",
+      "label": "Rápido",
+      "values": {
+        "Modo": 0,
+        "Modulação": 0.6,
+        "Offset L": 0.25,
+        "Offset R": 0.75,
+        "Largura do pulso": 1,
+        "BPM": 120,
+        "Tempo": 250,
+        "Sincronizar": 0
+      }
+    },
+    {
+      "id": "classic",
+      "label": "Classic (Wurly)",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Modo": 0,
+        "Modulação": 0.35,
+        "Offset L": 0,
+        "Offset R": 0.5,
+        "Mono in": 0,
+        "Resetar": 0,
+        "Largura do pulso": 3,
+        "Sincronizar": 0,
+        "BPM": 120,
+        "Tempo": 200
+      }
+    }
+  ]
+}

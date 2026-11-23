@@ -1,0 +1,89 @@
+{
+  "effect": "preseter.octaver",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Fonte": 0,
+        "Qualidade": 0.75,
+        "Oitava": 0.9,
+        "Unvoiced": 0.55,
+        "Detecção": 0,
+        "Grave": 31,
+        "Agudo": 400,
+        "Glide": 40,
+        "Gate": -48,
+        "Ataque": 8,
+        "Seco": 1,
+        "Nível seco": 0,
+        "Balanço seco": 0,
+        "Escuta seca": 0,
+        "−1": 0,
+        "−1 Level": -3,
+        "−1 Bal": 0,
+        "−1 Formant": 0.9,
+        "−1 Tone": 0.45,
+        "−1 Listen": 0,
+        "−2": 0,
+        "−2 Level": -5,
+        "−2 Bal": 0,
+        "−2 Formant": 0.92,
+        "−2 Tone": 0.3,
+        "−2 Listen": 0,
+        "+1": 0,
+        "+1 Level": -5,
+        "+1 Bal": 0,
+        "+1 Formant": 0.85,
+        "+1 Tone": 0.6,
+        "+1 Listen": 0,
+        "Sub": 1,
+        "Nível sub": -4,
+        "Balanço sub": 0,
+        "Forma sub": 0,
+        "Harmônicos": 0.35,
+        "Timbre sub": 0.35,
+        "Sub Listen": 0,
+        "Mono": 0
+      }
+    },
+    {
+      "id": "sub",
+      "label": "Sub",
+      "values": {
+        "Seco": 1,
+        "Nível seco": 0,
+        "−1": 0,
+        "+1": 0,
+        "Sub": 1,
+        "Nível sub": -3
+      }
+    },
+    {
+      "id": "down",
+      "label": "Uma oitava",
+      "values": {
+        "Seco": 1,
+        "Nível seco": 0,
+        "−1": 1,
+        "−1 Level": -3,
+        "Sub": 0
+      }
+    },
+    {
+      "id": "both",
+      "label": "Sub + oitava",
+      "values": {
+        "Seco": 1,
+        "Nível seco": 0,
+        "−1": 1,
+        "−1 Level": -4,
+        "Sub": 1,
+        "Nível sub": -4
+      }
+    }
+  ]
+}

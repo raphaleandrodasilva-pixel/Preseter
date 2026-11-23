@@ -127,8 +127,7 @@ export class VstManager extends EventEmitter {
         const result = await this.engine.request('scan', args, 10 * 60 * 1000);
         // O motor acumula entradas no known-plugins.xml; sem deduplicar, o mesmo
         // plugin pode voltar mais de uma vez para a lista (e para a interface).
-        const unique = new Map(result.plugins.map((plugin) => [plugin.id || plugin.path, plugin]));
-        this.scannedPlugins = [...unique.values()].map((plugin) => this.toVstPlugin(plugin));
+        this.scannedPlugins = this.dedupePlugins(result.plugins).map((plugin) => this.toVstPlugin(plugin));
         this.scanReport = {
           count: this.scannedPlugins.length,
           failed: result.failed ?? [],
@@ -155,7 +154,7 @@ export class VstManager extends EventEmitter {
   /** Lista os plugins conhecidos no cache do motor, sem varrer as pastas. */
   async loadKnownPlugins(): Promise<VstPluginInfo[]> {
     const result = await this.engine.request('plugins', {});
-    this.scannedPlugins = result.plugins.map((plugin) => this.toVstPlugin(plugin));
+    this.scannedPlugins = this.dedupePlugins(result.plugins).map((plugin) => this.toVstPlugin(plugin));
     // O relatório precisa refletir o cache: sem escanear nesta sessão, o Log
     // mostraria 0 plugins e 0 bloqueados mesmo com a lista cheia.
     this.scanReport = {
@@ -1019,6 +1018,31 @@ export class VstManager extends EventEmitter {
     if (!this.bundledFolder || !filePath) return false;
     const normalize = (value: string) => value.replace(/[\\/]+$/, '').toLowerCase();
     return normalize(filePath).startsWith(normalize(this.bundledFolder));
+  }
+
+  /**
+   * O motor acumula entradas no known-plugins.xml e o id do JUCE inclui um hash
+   * do caminho: o mesmo plugin em `vendor/` e em `resources/` vira duas
+   * entradas com ids diferentes. Deduplica pela identidade real (formato,
+   * fabricante e nome) e, quando há mais de uma cópia, mantém a empacotada com
+   * o app.
+   */
+  private dedupePlugins(plugins: EnginePluginInfo[]): EnginePluginInfo[] {
+    const byIdentity = new Map<string, EnginePluginInfo>();
+    for (const plugin of plugins) {
+      const key = `${plugin.format ?? ''}|${plugin.manufacturer ?? ''}|${plugin.name}`.toLowerCase();
+      const current = byIdentity.get(key);
+      if (!current || (this.isBundledPlugin(plugin.path) && !this.isBundledPlugin(current.path))) {
+        byIdentity.set(key, plugin);
+      }
+    }
+    // Entradas repetidas com o mesmo id (mesmo plugin listado duas vezes no
+    // cache do motor) também contam como duplicata.
+    const byId = new Map<string, EnginePluginInfo>();
+    for (const plugin of byIdentity.values()) {
+      if (!byId.has(plugin.id)) byId.set(plugin.id, plugin);
+    }
+    return [...byId.values()];
   }
 
   private detectArch(filePath: string): 'x64' | 'x86' | 'unknown' {

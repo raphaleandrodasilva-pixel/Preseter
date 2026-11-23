@@ -1,0 +1,109 @@
+{
+  "effect": "preseter.compressor",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Sidechain": 0,
+        "Limite": -20,
+        "Taxa": 4,
+        "Joelho": 6,
+        "Ataque": 20,
+        "Liberação": 200,
+        "Compensação": 0,
+        "Mix": 1,
+        "Modo": 1,
+        "Link": 0,
+        "PDR": 0,
+        "Passa-alta": 120,
+        "Passa-baixa": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "vocal",
+      "label": "Voz",
+      "values": {
+        "Limite": -18,
+        "Taxa": 3,
+        "Joelho": 6,
+        "Ataque": 15,
+        "Liberação": 120,
+        "Compensação": 3,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "drum",
+      "label": "Bateria",
+      "values": {
+        "Limite": -14,
+        "Taxa": 4,
+        "Joelho": 3,
+        "Ataque": 10,
+        "Liberação": 80,
+        "Compensação": 3,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "bass",
+      "label": "Baixo",
+      "values": {
+        "Limite": -20,
+        "Taxa": 4,
+        "Joelho": 6,
+        "Ataque": 25,
+        "Liberação": 150,
+        "Compensação": 4,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "bus",
+      "label": "Bus (glue)",
+      "values": {
+        "Limite": -12,
+        "Taxa": 2,
+        "Joelho": 8,
+        "Ataque": 30,
+        "Liberação": 200,
+        "Compensação": 2,
+        "Mix": 1
+      }
+    },
+    {
+      "id": "piano",
+      "label": "Piano",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Sidechain": 0,
+        "Limite": -16,
+        "Taxa": 2.5,
+        "Joelho": 8,
+        "Ataque": 30,
+        "Liberação": 250,
+        "Compensação": 2,
+        "Mix": 1,
+        "Modo": 1,
+        "Link": 0,
+        "PDR": 0,
+        "Passa-alta": 120,
+        "Passa-baixa": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Canal": 0
+      }
+    }
+  ]
+}

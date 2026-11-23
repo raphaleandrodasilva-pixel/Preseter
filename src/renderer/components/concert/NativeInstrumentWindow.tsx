@@ -74,14 +74,17 @@ const MdaKnob: React.FC<{
   valueOf: ValueOf;
   setNamed: SetNamed;
   format: (normalized: number) => string;
-}> = ({ label, name, valueOf, setNamed, format }) => {
+  defaultOf?: (name: string) => number | undefined;
+}> = ({ label, name, valueOf, setNamed, format, defaultOf }) => {
   const value = valueOf(name);
+  const fallback = defaultOf?.(name);
   return (
     <Knob
       label={label}
       value={value}
       display={format(value)}
       onChange={(next) => void setNamed(name, next)}
+      onReset={fallback === undefined ? undefined : () => void setNamed(name, fallback)}
     />
   );
 };
@@ -193,8 +196,9 @@ const MdaPanel: React.FC<{
   kind: MdaKind;
   valueOf: ValueOf;
   setNamed: SetNamed;
+  defaultOf?: (name: string) => number | undefined;
   activeVoices: number | null;
-}> = ({ kind, valueOf, setNamed, activeVoices }) => {
+}> = ({ kind, valueOf, setNamed, defaultOf, activeVoices }) => {
   const voices = activeVoices ?? 0;
 
   if (kind === 'piano') {
@@ -204,18 +208,18 @@ const MdaPanel: React.FC<{
         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.55fr)_minmax(0,1.45fr)]">
           <MdaSection title="Envelope">
             <div className={knobRow}>
-              <MdaKnob label="Decay" name="Envelope Decay" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-              <MdaKnob label="Release" name="Envelope Release" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Decay" name="Envelope Decay" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Release" name="Envelope Release" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
             </div>
           </MdaSection>
 
           <MdaSection title="Toque">
             <div className={knobRow}>
-              <MdaKnob label="Hardness" name="Hardness Offset" valueOf={valueOf} setNamed={setNamed} format={(v) => bipolar(v)} />
-              <MdaKnob label="Vel → Hardness" name="Velocity to Hardness" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-              <MdaKnob label="Muffling" name="Muffling Filter" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(1 - v)} />
-              <MdaKnob label="Vel → Muffling" name="Velocity to Muffling" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-              <MdaKnob label="Vel Sensitivity" name="Velocity Sensitivity" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Hardness" name="Hardness Offset" valueOf={valueOf} setNamed={setNamed} format={(v) => bipolar(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Vel → Hardness" name="Velocity to Hardness" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Muffling" name="Muffling Filter" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(1 - v)} />
+              <MdaKnob defaultOf={defaultOf} label="Vel → Muffling" name="Velocity to Muffling" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Vel Sensitivity" name="Velocity Sensitivity" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
             </div>
           </MdaSection>
         </div>
@@ -223,16 +227,16 @@ const MdaPanel: React.FC<{
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
           <MdaSection title="Estéreo e vozes">
             <div className={knobRow}>
-              <MdaKnob label="Stereo Width" name="Stereo Width" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.round(200 * v)}%`} />
-              <MdaKnob label="Polyphony" name="Polyphony" valueOf={valueOf} setNamed={setNamed} format={() => `${polyphony}`} />
+              <MdaKnob defaultOf={defaultOf} label="Stereo Width" name="Stereo Width" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.round(200 * v)}%`} />
+              <MdaKnob defaultOf={defaultOf} label="Polyphony" name="Polyphony" valueOf={valueOf} setNamed={setNamed} format={() => `${polyphony}`} />
             </div>
           </MdaSection>
 
           <MdaSection title="Afinação">
             <div className={knobRow}>
-              <MdaKnob label="Fine tuning" name="Fine Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * v - 50).toFixed(1)} ¢`} />
-              <MdaKnob label="Random detuning" name="Random Detuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(50 * v * v).toFixed(1)} ¢`} />
-              <MdaKnob label="Stretch tuning" name="Stretch Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * v - 50).toFixed(1)} ¢`} />
+              <MdaKnob defaultOf={defaultOf} label="Fine tuning" name="Fine Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * v - 50).toFixed(1)} ¢`} />
+              <MdaKnob defaultOf={defaultOf} label="Random detuning" name="Random Detuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(50 * v * v).toFixed(1)} ¢`} />
+              <MdaKnob defaultOf={defaultOf} label="Stretch tuning" name="Stretch Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * v - 50).toFixed(1)} ¢`} />
             </div>
           </MdaSection>
         </div>
@@ -259,9 +263,9 @@ const MdaPanel: React.FC<{
               shape={{ attack: valueOf('Attack'), decay: valueOf('Decay'), sustain: 0, release: valueOf('Release') }}
             />
             <div className={knobRow}>
-              <MdaKnob label="Attack" name="Attack" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(8 - 8 * v)} />
-              <MdaKnob label="Decay" name="Decay" valueOf={valueOf} setNamed={setNamed} format={(v) => v > 0.98 ? 'infinito' : dxTime(5 - 8 * v)} />
-              <MdaKnob label="Release" name="Release" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(5 - 5 * v)} />
+              <MdaKnob defaultOf={defaultOf} label="Attack" name="Attack" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(8 - 8 * v)} />
+              <MdaKnob defaultOf={defaultOf} label="Decay" name="Decay" valueOf={valueOf} setNamed={setNamed} format={(v) => v > 0.98 ? 'infinito' : dxTime(5 - 8 * v)} />
+              <MdaKnob defaultOf={defaultOf} label="Release" name="Release" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(5 - 5 * v)} />
             </div>
           </MdaSection>
 
@@ -271,10 +275,10 @@ const MdaPanel: React.FC<{
               shape={{ attack: 0.15, decay: valueOf('Mod Dec'), sustain: 0.25 * valueOf('Mod Sus'), release: valueOf('Mod Rel') }}
             />
             <div className={knobRow}>
-              <MdaKnob label="Mod Init" name="Mod Init" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
-              <MdaKnob label="Mod Dec" name="Mod Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(6 - 7 * v)} />
-              <MdaKnob label="Mod Sus" name="Mod Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
-              <MdaKnob label="Mod Rel" name="Mod Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(5 - 8 * v)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Init" name="Mod Init" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Dec" name="Mod Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(6 - 7 * v)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Sus" name="Mod Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Rel" name="Mod Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => dxTime(5 - 8 * v)} />
             </div>
           </MdaSection>
         </div>
@@ -282,20 +286,20 @@ const MdaPanel: React.FC<{
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
           <MdaSection title="FM">
             <div className={knobRow}>
-              <MdaKnob label="Coarse" name="Coarse" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(40.1 * v * v)} : 1`} />
-              <MdaKnob label="Fine" name="Fine" valueOf={valueOf} setNamed={setNamed} format={(v) => (0.2 * v * v).toFixed(3)} />
-              <MdaKnob label="Mod Vel" name="Mod Vel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-              <MdaKnob label="Mod Thru" name="Mod Thru" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
-              <MdaKnob label="Waveform" name="Waveform" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Coarse" name="Coarse" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(40.1 * v * v)} : 1`} />
+              <MdaKnob defaultOf={defaultOf} label="Fine" name="Fine" valueOf={valueOf} setNamed={setNamed} format={(v) => (0.2 * v * v).toFixed(3)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Vel" name="Mod Vel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+              <MdaKnob defaultOf={defaultOf} label="Mod Thru" name="Mod Thru" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(0.25 * v * v, 1)} />
+              <MdaKnob defaultOf={defaultOf} label="Waveform" name="Waveform" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
             </div>
           </MdaSection>
 
           <MdaSection title="LFO e afinação">
             <div className={knobRow}>
-              <MdaKnob label="Vibrato" name="Vibrato" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v * v, 1)} />
-              <MdaKnob label="LFO Rate" name="LFO Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(25 * v * v).toFixed(1)} Hz`} />
-              <MdaKnob label="Octave" name="Octave" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(6.9 * v) - 2}`} />
-              <MdaKnob label="FineTune" name="FineTune" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * (2 * v - 1)).toFixed(0)} ¢`} />
+              <MdaKnob defaultOf={defaultOf} label="Vibrato" name="Vibrato" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v * v, 1)} />
+              <MdaKnob defaultOf={defaultOf} label="LFO Rate" name="LFO Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(25 * v * v).toFixed(1)} Hz`} />
+              <MdaKnob defaultOf={defaultOf} label="Octave" name="Octave" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(6.9 * v) - 2}`} />
+              <MdaKnob defaultOf={defaultOf} label="FineTune" name="FineTune" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(100 * (2 * v - 1)).toFixed(0)} ¢`} />
             </div>
           </MdaSection>
         </div>
@@ -318,19 +322,19 @@ const MdaPanel: React.FC<{
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)]">
         <MdaSection title="Osciladores">
           <div className={knobRow}>
-            <MdaKnob label="OSC Mix" name="OSC Mix" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.round(100 - 50 * v)}:${Math.round(50 * v)}`} />
-            <MdaKnob label="OSC Tune" name="OSC Tune" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(48 * v) - 24} st`} />
-            <MdaKnob label="OSC Fine" name="OSC Fine" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(0.1 * Math.floor(Math.pow(15.876 * v - 7.938, 3))).toFixed(1)} ¢`} />
-            <MdaKnob label="Octave" name="Octave" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(4.9 * v) - 2}`} />
-            <MdaKnob label="Tuning" name="Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(200 * v - 100).toFixed(1)} ¢`} />
-            <MdaKnob label="Noise" name="Noise" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="OSC Mix" name="OSC Mix" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.round(100 - 50 * v)}:${Math.round(50 * v)}`} />
+            <MdaKnob defaultOf={defaultOf} label="OSC Tune" name="OSC Tune" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(48 * v) - 24} st`} />
+            <MdaKnob defaultOf={defaultOf} label="OSC Fine" name="OSC Fine" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(0.1 * Math.floor(Math.pow(15.876 * v - 7.938, 3))).toFixed(1)} ¢`} />
+            <MdaKnob defaultOf={defaultOf} label="Octave" name="Octave" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.floor(4.9 * v) - 2}`} />
+            <MdaKnob defaultOf={defaultOf} label="Tuning" name="Tuning" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(200 * v - 100).toFixed(1)} ¢`} />
+            <MdaKnob defaultOf={defaultOf} label="Noise" name="Noise" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
           </div>
         </MdaSection>
 
         <MdaSection title="Glide">
           <div className={knobRow}>
-            <MdaKnob label="Gld Rate" name="Gld Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="Gld Bend" name="Gld Bend" valueOf={valueOf} setNamed={setNamed} format={(v) => Math.pow(6.604 * v - 3.302, 3).toFixed(2)} />
+            <MdaKnob defaultOf={defaultOf} label="Gld Rate" name="Gld Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="Gld Bend" name="Gld Bend" valueOf={valueOf} setNamed={setNamed} format={(v) => Math.pow(6.604 * v - 3.302, 3).toFixed(2)} />
           </div>
           <div className="mt-3">
             <div className="hw-label mb-1">Mode</div>
@@ -350,8 +354,8 @@ const MdaPanel: React.FC<{
 
         <MdaSection title="LFO">
           <div className={knobRow}>
-            <MdaKnob label="LFO Rate" name="LFO Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.exp(7 * v - 4).toFixed(2)} Hz`} />
-            <MdaKnob label="Vibrato" name="Vibrato" valueOf={valueOf} setNamed={setNamed} format={(v) => v < 0.5 ? `PWM ${(100 - 200 * v).toFixed(0)}%` : `${(200 * v - 100).toFixed(0)}%`} />
+            <MdaKnob defaultOf={defaultOf} label="LFO Rate" name="LFO Rate" valueOf={valueOf} setNamed={setNamed} format={(v) => `${Math.exp(7 * v - 4).toFixed(2)} Hz`} />
+            <MdaKnob defaultOf={defaultOf} label="Vibrato" name="Vibrato" valueOf={valueOf} setNamed={setNamed} format={(v) => v < 0.5 ? `PWM ${(100 - 200 * v).toFixed(0)}%` : `${(200 * v - 100).toFixed(0)}%`} />
           </div>
         </MdaSection>
       </div>
@@ -363,15 +367,15 @@ const MdaPanel: React.FC<{
             shape={{ attack: valueOf('VCF Att'), decay: valueOf('VCF Dec'), sustain: valueOf('VCF Sus'), release: valueOf('VCF Rel') }}
           />
           <div className={knobRow}>
-            <MdaKnob label="VCF Freq" name="VCF Freq" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v, 1)} />
-            <MdaKnob label="VCF Reso" name="VCF Reso" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="VCF Env" name="VCF Env" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(200 * v - 100).toFixed(1)}%`} />
-            <MdaKnob label="VCF LFO" name="VCF LFO" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="VCF Vel" name="VCF Vel" valueOf={valueOf} setNamed={setNamed} format={(v) => pctOrOff(v)} />
-            <MdaKnob label="VCF Att" name="VCF Att" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="VCF Dec" name="VCF Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="VCF Sus" name="VCF Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="VCF Rel" name="VCF Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Freq" name="VCF Freq" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v, 1)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Reso" name="VCF Reso" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Env" name="VCF Env" valueOf={valueOf} setNamed={setNamed} format={(v) => `${(200 * v - 100).toFixed(1)}%`} />
+            <MdaKnob defaultOf={defaultOf} label="VCF LFO" name="VCF LFO" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Vel" name="VCF Vel" valueOf={valueOf} setNamed={setNamed} format={(v) => pctOrOff(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Att" name="VCF Att" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Dec" name="VCF Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Sus" name="VCF Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="VCF Rel" name="VCF Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
           </div>
         </MdaSection>
 
@@ -381,10 +385,10 @@ const MdaPanel: React.FC<{
             shape={{ attack: valueOf('ENV Att'), decay: valueOf('ENV Dec'), sustain: valueOf('ENV Sus'), release: valueOf('ENV Rel') }}
           />
           <div className={knobRow}>
-            <MdaKnob label="ENV Att" name="ENV Att" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="ENV Dec" name="ENV Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="ENV Sus" name="ENV Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
-            <MdaKnob label="ENV Rel" name="ENV Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="ENV Att" name="ENV Att" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="ENV Dec" name="ENV Dec" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="ENV Sus" name="ENV Sus" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
+            <MdaKnob defaultOf={defaultOf} label="ENV Rel" name="ENV Rel" valueOf={valueOf} setNamed={setNamed} format={(v) => pct(v)} />
           </div>
         </MdaSection>
       </div>
@@ -480,6 +484,8 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   const param = (name: string) => params.find((item) => item.name === name);
   const valueOf = (name: string, fallback = 0) => param(name)?.value ?? fallback;
+  /** Padrão (normalizado) do parâmetro, para o duplo clique nos knobs. */
+  const defaultOf = (name: string) => param(name)?.defaultValue;
 
   const setNamed = async (name: string, value: number) => {
     const target = param(name);
@@ -706,12 +712,12 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               <section className="hw-inset p-3">
                 <div className="hw-label mb-2">MDA ePiano</div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  <ParamKnob label="Decaimento" paramName="Envelope Decay" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="Liberação" paramName="Envelope Release" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="Dureza" paramName="Hardness" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
-                  <ParamKnob label="Brilho (agudos)" paramName="Treble Boost" min={-50} max={50} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Decaimento" paramName="Envelope Decay" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Liberação" paramName="Envelope Release" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Dureza" paramName="Hardness" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Brilho (agudos)" paramName="Treble Boost" min={-50} max={50} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
 
-                  <ParamKnob label="Modulação" paramName="Modulation" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed}
+                  <ParamKnob defaultOf={defaultOf} label="Modulação" paramName="Modulation" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed}
                     display={(v) => v > 0.5001 ? `Trem ${Math.round((v - 0.5) * 200)}%` : v < 0.4999 ? `Pan ${Math.round((0.5 - v) * 200)}%` : 'Desligado'} />
                   <div className="flex flex-col items-center gap-1">
                     <Knob
@@ -719,6 +725,10 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                       value={valueOf('LFO Rate')}
                       display={`${Math.exp(6.22 * valueOf('LFO Rate') - 2.61).toFixed(2)} Hz`}
                       onChange={(value) => void setNamed('LFO Rate', value)}
+                      onReset={() => {
+                        const fallback = defaultOf('LFO Rate');
+                        if (fallback !== undefined) void setNamed('LFO Rate', fallback);
+                      }}
                     />
                     <NumberField
                       value={Math.exp(6.22 * valueOf('LFO Rate') - 2.61)}
@@ -729,16 +739,16 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
                       onChange={(hz) => void setNamed('LFO Rate', Math.max(0, Math.min(1, (Math.log(Math.max(0.001, hz)) + 2.61) / 6.22)))}
                     />
                   </div>
-                  <ParamKnob label="Sensib. velocity" paramName="Velocity Sensitivity" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="Largura estéreo" paramName="Stereo Width" min={0} max={200} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Sensib. velocity" paramName="Velocity Sensitivity" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Largura estéreo" paramName="Stereo Width" min={0} max={200} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
 
-                  <ParamKnob label="Polifonia" paramName="Polyphony" min={1} max={32} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} vozes`} />
-                  <ParamKnob label="Afinação fina" paramName="Fine Tuning" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)} cents`} />
-                  <ParamKnob label="Variação por nota" paramName="Random Tuning" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(50 * v * v).toFixed(1)} cents`} />
-                  <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={100} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Polifonia" paramName="Polyphony" min={1} max={32} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} vozes`} />
+                  <ParamKnob defaultOf={defaultOf} label="Afinação fina" paramName="Fine Tuning" min={-50} max={50} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)} cents`} />
+                  <ParamKnob defaultOf={defaultOf} label="Variação por nota" paramName="Random Tuning" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(50 * v * v).toFixed(1)} cents`} />
+                  <ParamKnob defaultOf={defaultOf} label="Overdrive" paramName="Overdrive" min={0} max={100} step={0.1} decimals={1} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(1)}%`} />
 
-                  <ParamKnob label="Gain" paramName="Gain" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-                  <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Gain" paramName="Gain" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
                 </div>
                 <p className="mt-3 text-[9px]" style={{ color: '#8E8E93' }}>
                   Base: MDA ePiano (MIT). CC1 (modulação) controla a profundidade do tremolo/auto-pan.
@@ -759,16 +769,16 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               <section className="hw-inset p-3">
                 <div className="hw-label mb-2">OpenWurli — Wurlitzer 200A</div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  <ParamKnob label="Volume" paramName="Volume" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="Tremolo" paramName="Tremolo Depth" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="Speaker" paramName="Speaker Character" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
-                  <ParamKnob label="MLP" paramName="MLP Corrections" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
+                  <ParamKnob defaultOf={defaultOf} label="Volume" paramName="Volume" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Tremolo" paramName="Tremolo Depth" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Speaker" paramName="Speaker Character" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="MLP" paramName="MLP Corrections" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
 
-                  <ParamKnob label="Hammer" paramName="Hammer Contact" min={0.5} max={2} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
-                  <ParamKnob label="Damper" paramName="Damper" min={0.25} max={4} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
-                  <ParamKnob label="Reed trim" paramName="Reed Bar Trim" min={0} max={25000} step={10} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} Ω`} />
-                  <ParamKnob label="Noise" paramName="Noise" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
-                  <ParamKnob label="Noise gain" paramName="Noise Gain" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
+                  <ParamKnob defaultOf={defaultOf} label="Hammer" paramName="Hammer Contact" min={0.5} max={2} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
+                  <ParamKnob defaultOf={defaultOf} label="Damper" paramName="Damper" min={0.25} max={4} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => v.toFixed(2)} />
+                  <ParamKnob defaultOf={defaultOf} label="Reed trim" paramName="Reed Bar Trim" min={0} max={25000} step={10} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)} Ω`} />
+                  <ParamKnob defaultOf={defaultOf} label="Noise" paramName="Noise" min={0} max={1} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => v > 0.5 ? 'Ligado' : 'Desligado'} />
+                  <ParamKnob defaultOf={defaultOf} label="Noise gain" paramName="Noise Gain" min={0} max={100} step={1} decimals={0} valueOf={valueOf} setNamed={setNamed} display={(v) => `${v.toFixed(0)}%`} />
                 </div>
                 <p className="mt-3 text-[9px]" style={{ color: '#8E8E93' }}>
                   Base: OpenWurli (GPL-3.0-or-later). CC1 (modulação) controla a profundidade do tremolo.
@@ -798,6 +808,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               kind={kind as MdaKind}
               valueOf={valueOf}
               setNamed={setNamed}
+              defaultOf={defaultOf}
               activeVoices={activeVoices}
             />
           )}
@@ -806,10 +817,10 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
           <section className="hw-inset mt-3 p-3">
             <div className="hw-label mb-2">Som</div>
             <div className="flex flex-wrap items-start justify-around gap-3">
-              <ParamKnob label="Overdrive" paramName="Overdrive" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-              <ParamKnob label="Reverb" paramName="Reverb" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-              <ParamKnob label="Key click" paramName="Key click" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
-              <ParamKnob label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(v * 24 - 12).toFixed(1)} dB`} />
+              <ParamKnob defaultOf={defaultOf} label="Overdrive" paramName="Overdrive" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob defaultOf={defaultOf} label="Reverb" paramName="Reverb" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob defaultOf={defaultOf} label="Key click" paramName="Key click" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${Math.round(v * 100)}%`} />
+              <ParamKnob defaultOf={defaultOf} label="Volume" paramName="Volume" min={0} max={1} step={0.01} decimals={2} valueOf={valueOf} setNamed={setNamed} display={(v) => `${(v * 24 - 12).toFixed(1)} dB`} />
             </div>
           </section>
           )}

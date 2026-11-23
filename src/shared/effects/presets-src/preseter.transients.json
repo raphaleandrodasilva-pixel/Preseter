@@ -1,0 +1,77 @@
+{
+  "effect": "preseter.transients",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Mix": 1,
+        "Tempo de ataque": 30,
+        "Reforço de ataque": 0,
+        "Limiar de sustain": 0,
+        "Tempo de liberação": 300,
+        "Reforço de liberação": 0,
+        "Lookahead": 0,
+        "Visualização": 0,
+        "Passa-alta": 100,
+        "Passa-baixa": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Soft clip": 0,
+        "Link estéreo": 0,
+        "Sensibilidade": 0,
+        "Delta": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "attack",
+      "label": "Mais ataque",
+      "values": {
+        "Mix": 1,
+        "Reforço de ataque": 0.3,
+        "Reforço de liberação": -0.1
+      }
+    },
+    {
+      "id": "sustain",
+      "label": "Mais sustain",
+      "values": {
+        "Mix": 1,
+        "Reforço de ataque": -0.2,
+        "Reforço de liberação": 0.3
+      }
+    },
+    {
+      "id": "pluck",
+      "label": "Pluck",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Mix": 1,
+        "Tempo de ataque": 30,
+        "Reforço de ataque": 0.3,
+        "Limiar de sustain": 0,
+        "Tempo de liberação": 300,
+        "Reforço de liberação": -0.3,
+        "Lookahead": 0,
+        "Visualização": 0,
+        "Passa-alta": 100,
+        "Passa-baixa": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Soft clip": 0,
+        "Link estéreo": 0,
+        "Sensibilidade": 0,
+        "Delta": 0,
+        "Canal": 0
+      }
+    }
+  ]
+}

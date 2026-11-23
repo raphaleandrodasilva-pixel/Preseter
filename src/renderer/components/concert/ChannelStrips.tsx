@@ -35,9 +35,14 @@ import {
 } from '@shared/strip-levels';
 import { learnParameter, subscribeParameterLearn } from '../../services/parameter-learn';
 
-/** Efeitos embutidos do Preseter (calfnXT e a cadeia de guitarra do Guitarix). */
+/**
+ * Efeitos embutidos do Preseter (calfnXT e a cadeia de guitarra do Guitarix).
+ * Os bundles calfNXT mantêm o fabricante original do upstream ("calfNXT"), por
+ * isso não bastam `manufacturer === 'Preseter'` nem o `source` do catálogo.
+ */
 function isPreseterPlugin (plugin: VstPluginInfo): boolean {
-  return plugin.manufacturer === 'Preseter' || findEffect(plugin.path)?.source === 'guitarix';
+  if (plugin.manufacturer === 'Preseter' || plugin.manufacturer === 'calfNXT') return true;
+  return findEffect(plugin.path)?.source === 'guitarix';
 }
 
 interface ChannelStripsProps {
@@ -316,6 +321,8 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   /** Busca do seletor de instrumento/plugin (nome ou fabricante). */
   const [pickerQuery, setPickerQuery] = useState('');
+  /** Busca do seletor de efeito do insert (nome Preseter, plugin ou fabricante). */
+  const [insertQuery, setInsertQuery] = useState('');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [splitDraft, setSplitDraft] = useState<{
     baseLayerId: string;
@@ -518,6 +525,7 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
     slot: number,
     pick: (plugin: VstPluginInfo) => Promise<boolean>
   ) => {
+    setInsertQuery('');
     setInsertPicker({ title, slot, pick });
     requestScanIfEmpty(effects.length === 0);
   };
@@ -1978,46 +1986,66 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
           )}
         </div>
       </div>
-      {insertPicker && (
-        <div className="absolute bottom-2 left-2 right-2 z-40 max-h-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
-          <div className="mb-1 flex items-center justify-between px-1">
-            <span className="hw-label">{insertPicker.title} — slot {insertPicker.slot + 1}</span>
-            <button className="px-1 text-xs text-slate-400" onClick={() => setInsertPicker(null)}>✕</button>
-          </div>
-          {effects.length === 0 ? (
-            <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
-              {scanning ? 'Escaneando VST3…' : 'Nenhum efeito encontrado.'}
-              {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+      {insertPicker && (() => {
+        const term = insertQuery.trim().toLowerCase();
+        const displayOf = (plugin: VstPluginInfo) => effectDisplayName(plugin.path, plugin.name);
+        const matches = (plugin: VstPluginInfo) =>
+          displayOf(plugin).toLowerCase().includes(term)
+          || plugin.name.toLowerCase().includes(term)
+          || (plugin.manufacturer ?? '').toLowerCase().includes(term);
+        const filtered = term.length === 0 ? effects : effects.filter(matches);
+        const byName = (a: VstPluginInfo, b: VstPluginInfo) =>
+          displayOf(a).localeCompare(displayOf(b), 'pt-BR', { sensitivity: 'base' });
+        const preseterPlugins = filtered.filter(isPreseterPlugin).sort(byName);
+        const externalPlugins = filtered.filter((plugin) => !isPreseterPlugin(plugin)).sort(byName);
+        const renderOption = (plugin: VstPluginInfo) => (
+          <button
+            key={plugin.id}
+            disabled={busy}
+            className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
+            title={plugin.path}
+            onClick={() => {
+              const current = insertPicker;
+              setInsertPicker(null);
+              void (async () => {
+                setBusy(true);
+                try {
+                  const added = await current.pick(plugin);
+                  if (!added) setInsertPicker(current);
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          >
+            {displayOf(plugin)}
+          </button>
+        );
+        return (
+          <div className="absolute bottom-2 left-2 right-2 z-40 max-h-64 overflow-y-auto rounded-xl border p-2 shadow-2xl" style={{ background: '#2C2C2E', borderColor: '#36363D' }}>
+            <div className="mb-1 flex items-center justify-between px-1">
+              <span className="hw-label">{insertPicker.title} — slot {insertPicker.slot + 1}</span>
+              <button className="px-1 text-xs text-slate-400" onClick={() => { setInsertPicker(null); setInsertQuery(''); }}>✕</button>
             </div>
-          ) : (() => {
-            const byName = (a: VstPluginInfo, b: VstPluginInfo) =>
-              a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
-            const preseterPlugins = effects.filter(isPreseterPlugin).sort(byName);
-            const externalPlugins = effects.filter((plugin) => !isPreseterPlugin(plugin)).sort(byName);
-            const renderOption = (plugin: VstPluginInfo) => (
-              <button
-                key={plugin.id}
-                disabled={busy}
-                className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-slate-100 hover:bg-white/10 disabled:opacity-50"
-                title={plugin.path}
-                onClick={() => {
-                  const current = insertPicker;
-                  setInsertPicker(null);
-                  void (async () => {
-                    setBusy(true);
-                    try {
-                      const added = await current.pick(plugin);
-                      if (!added) setInsertPicker(current);
-                    } finally {
-                      setBusy(false);
-                    }
-                  })();
-                }}
-              >
-                {effectDisplayName(plugin.path, plugin.name)}
-              </button>
-            );
-            return (
+            <input
+              autoFocus
+              type="text"
+              value={insertQuery}
+              onChange={(event) => setInsertQuery(event.target.value)}
+              placeholder="Buscar por nome ou fabricante"
+              aria-label="Buscar efeito"
+              className="hw-inset mb-1 w-full px-2 py-1.5 text-xs text-slate-100"
+            />
+            {effects.length === 0 ? (
+              <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
+                {scanning ? 'Escaneando VST3…' : 'Nenhum efeito encontrado.'}
+                {!scanning && <button className="ml-1 underline" onClick={() => { setScanning(true); void onRequestScan().finally(() => setScanning(false)); }}>Escanear</button>}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-2 text-[11px]" style={{ color: '#9A9AA0' }}>
+                Nenhum efeito corresponde a "{insertQuery.trim()}".
+              </div>
+            ) : (
               <>
                 {preseterPlugins.length > 0 && (
                   <div className="mt-1 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: '#6E6E73' }}>
@@ -2032,10 +2060,10 @@ export const ChannelStrips: React.FC<ChannelStripsProps> = ({
                 )}
                 {externalPlugins.map(renderOption)}
               </>
-            );
-          })()}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
       {arpLayer && (
         <ArpeggiatorModal
           layerName={arpLayer.name}

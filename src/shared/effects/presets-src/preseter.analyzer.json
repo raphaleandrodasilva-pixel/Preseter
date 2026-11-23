@@ -1,0 +1,21 @@
+{
+  "effect": "preseter.analyzer",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Cascata": 0,
+        "Pausa": 0,
+        "Tamanho FFT": 2,
+        "Escala": 0,
+        "Padrão": 2,
+        "Alvo": -14,
+        "TP Ceiling": -1
+      }
+    }
+  ]
+}

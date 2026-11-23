@@ -127,8 +127,10 @@ export interface PatchFxOptions {
  */
 export function PATCH_FX (options: PatchFxOptions): CollectionPatchMeta {
   const auxPresets: Partial<Record<1 | 2 | 3 | 4, string>> = {};
-  if (options.r) auxPresets[1] = options.r.preset;
-  if (options.d) auxPresets[2] = options.d.preset;
+  // Aux usa sempre a versão `-aux` do preset (Seco −60 dB / Molhado 0 dB).
+  const auxId = (id: string) => (id.endsWith('-aux') ? id : `${id}-aux`);
+  if (options.r) auxPresets[1] = auxId(options.r.preset);
+  if (options.d) auxPresets[2] = auxId(options.d.preset);
 
   return {
     ...(options.inserts?.length ? { inserts: options.inserts } : {}),

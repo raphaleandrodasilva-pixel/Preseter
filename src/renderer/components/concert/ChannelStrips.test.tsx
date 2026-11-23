@@ -321,6 +321,51 @@ describe('ChannelStrips — aba Aux', () => {
     expect(screen.getByText(/Preseter Overdrive/)).toBeInTheDocument();
   });
 
+  it('agrupa os bundles calfNXT em Preseter e filtra pela busca', () => {
+    renderStrips({
+      auxBuses,
+      scannedPlugins: [
+        createPluginInfo({
+          id: 'vst3-reverb',
+          name: 'calfNXT Reverb',
+          path: 'C:/plugins/calfnxt/calfNXTReverb.vst3',
+          isInstrument: false,
+          manufacturer: 'calfNXT',
+        }),
+        createPluginInfo({
+          id: 'vst3-compressor',
+          name: 'calfNXT Compressor',
+          path: 'C:/plugins/calfnxt/calfNXTCompressor.vst3',
+          isInstrument: false,
+          manufacturer: 'calfNXT',
+        }),
+        createPluginInfo({
+          id: 'vst3-surge',
+          name: 'Surge XT Effects',
+          path: 'C:/plugins/surge-effects.vst3',
+          isInstrument: false,
+          manufacturer: 'Surge Synth Team',
+        }),
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aux 1–4' }));
+    const aux1 = screen.getByTestId('bus-strip-aux1');
+    fireEvent.click(within(aux1).getByText('＋ Adicionar efeito'));
+
+    expect(screen.getByText('Preseter (2)')).toBeInTheDocument();
+    expect(screen.getByText('Plugins (1)')).toBeInTheDocument();
+    expect(screen.getByText('Preseter Reverb')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Buscar efeito'), { target: { value: 'reverb' } });
+
+    expect(screen.getByText('Preseter (1)')).toBeInTheDocument();
+    expect(screen.getByText('Preseter Reverb')).toBeInTheDocument();
+    expect(screen.queryByText('Preseter Compressor')).toBeNull();
+    expect(screen.queryByText('Surge XT Effects')).toBeNull();
+    expect(screen.queryByText('Plugins (1)')).toBeNull();
+  });
+
   it('opens the Aux tab when a send knob is selected', () => {
     renderStrips({ auxBuses, focusedSendAux: 2 });
     expect(screen.getByRole('button', { name: 'Aux 1–4' })).toHaveAttribute('aria-pressed', 'true');

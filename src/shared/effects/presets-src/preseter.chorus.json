@@ -1,0 +1,101 @@
+{
+  "effect": "preseter.chorus",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Delay mínimo": 5,
+        "Prof. modulação": 6,
+        "Vel. modulação": 0.1,
+        "Fase estéreo": 180,
+        "Vozes": 4,
+        "Fase entre vozes": 64,
+        "Sobreposição": 0.75,
+        "Quantidade": -6,
+        "Seco": 0,
+        "LFO": 1,
+        "Resetar": 0,
+        "Freq. PA": 100,
+        "Freq. PB": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "subtle",
+      "label": "Sutil",
+      "values": {
+        "Delay mínimo": 8,
+        "Prof. modulação": 2,
+        "Vel. modulação": 0.3,
+        "Fase estéreo": 180,
+        "Vozes": 2,
+        "Fase entre vozes": 90,
+        "Sobreposição": 0.6,
+        "Quantidade": -9,
+        "Seco": 0
+      }
+    },
+    {
+      "id": "wide",
+      "label": "Largo",
+      "values": {
+        "Delay mínimo": 10,
+        "Prof. modulação": 4,
+        "Vel. modulação": 0.2,
+        "Fase estéreo": 200,
+        "Vozes": 4,
+        "Sobreposição": 0.8,
+        "Quantidade": -7,
+        "Seco": 0
+      }
+    },
+    {
+      "id": "ensemble",
+      "label": "Ensemble",
+      "values": {
+        "Delay mínimo": 10,
+        "Prof. modulação": 4,
+        "Vel. modulação": 0.5,
+        "Fase estéreo": 120,
+        "Vozes": 6,
+        "Fase entre vozes": 45,
+        "Sobreposição": 0.9,
+        "Quantidade": -7,
+        "Seco": 0
+      }
+    },
+    {
+      "id": "vintage",
+      "label": "Vintage",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Delay mínimo": 7,
+        "Prof. modulação": 3,
+        "Vel. modulação": 0.6,
+        "Fase estéreo": 180,
+        "Vozes": 1,
+        "Fase entre vozes": 64,
+        "Sobreposição": 0.75,
+        "Quantidade": -5,
+        "Seco": 0,
+        "LFO": 1,
+        "Resetar": 0,
+        "Freq. PA": 100,
+        "Freq. PB": 5000,
+        "Modo PA": 0,
+        "Modo PB": 0,
+        "Escuta": 0,
+        "Canal": 0
+      }
+    }
+  ]
+}

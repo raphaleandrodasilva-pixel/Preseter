@@ -1,0 +1,60 @@
+{
+  "effect": "preseter.flanger",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Delay mínimo": 0.5,
+        "Prof. modulação": 2,
+        "Vel. modulação": 0.1,
+        "Realimentação": 0.8,
+        "Fase estéreo": 90,
+        "Resetar": 0,
+        "Quantidade": -6,
+        "Seco": 0,
+        "LFO": 1,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "jet",
+      "label": "Jato",
+      "values": {
+        "Delay mínimo": 0.5,
+        "Prof. modulação": 4,
+        "Vel. modulação": 0.2,
+        "Realimentação": 0.7,
+        "Fase estéreo": 90,
+        "Quantidade": -6
+      }
+    },
+    {
+      "id": "subtle",
+      "label": "Sutil",
+      "values": {
+        "Delay mínimo": 2,
+        "Prof. modulação": 1.5,
+        "Vel. modulação": 0.25,
+        "Realimentação": 0.35,
+        "Fase estéreo": 180,
+        "Quantidade": -9
+      }
+    },
+    {
+      "id": "metallic",
+      "label": "Metálico",
+      "values": {
+        "Delay mínimo": 1,
+        "Prof. modulação": 5,
+        "Vel. modulação": 0.5,
+        "Realimentação": 0.8,
+        "Fase estéreo": 0,
+        "Quantidade": -7
+      }
+    }
+  ]
+}

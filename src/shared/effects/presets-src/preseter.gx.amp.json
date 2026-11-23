@@ -1,0 +1,131 @@
+{
+  "effect": "preseter.gx.amp",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Volume mestre": 0,
+        "Ganho de entrada": 0,
+        "Distorção": 19.999981,
+        "Drive": 0.25,
+        "Médios": 0.5,
+        "Graves": 0.5,
+        "Agudos": 0.5,
+        "Cabine": 9.999996,
+        "Presença": 5,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 1,
+        "Modelo de cabine": 0,
+        "Bypass": 0,
+        "High gain": 0,
+        "Ajuste pós": 1
+      }
+    },
+    {
+      "id": "clean",
+      "label": "Clean",
+      "values": {
+        "Volume mestre": 0,
+        "Ganho de entrada": 0,
+        "Distorção": 1,
+        "Drive": 0.15,
+        "Médios": 0.5,
+        "Graves": 0.5,
+        "Agudos": 0.55,
+        "Cabine": 9.999996,
+        "Presença": 5,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 23,
+        "Modelo de cabine": 6,
+        "Bypass": 0,
+        "High gain": 0,
+        "Ajuste pós": 1
+      }
+    },
+    {
+      "id": "crunch",
+      "label": "Crunch",
+      "values": {
+        "Volume mestre": -2,
+        "Ganho de entrada": 0,
+        "Distorção": 30,
+        "Drive": 0.45,
+        "Médios": 0.6,
+        "Graves": 0.55,
+        "Agudos": 0.55,
+        "Cabine": 9.999996,
+        "Presença": 6,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 11,
+        "Modelo de cabine": 8,
+        "Bypass": 0,
+        "High gain": 0,
+        "Ajuste pós": 1
+      }
+    },
+    {
+      "id": "lead",
+      "label": "Lead",
+      "values": {
+        "Volume mestre": -4,
+        "Ganho de entrada": 0,
+        "Distorção": 55,
+        "Drive": 0.7,
+        "Médios": 0.65,
+        "Graves": 0.5,
+        "Agudos": 0.55,
+        "Cabine": 9.999996,
+        "Presença": 7,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 4,
+        "Modelo de cabine": 8,
+        "Bypass": 0,
+        "High gain": 1,
+        "Ajuste pós": 1
+      }
+    },
+    {
+      "id": "highgain",
+      "label": "High gain",
+      "values": {
+        "Volume mestre": -5,
+        "Ganho de entrada": 0,
+        "Distorção": 75,
+        "Drive": 0.85,
+        "Médios": 0.5,
+        "Graves": 0.6,
+        "Agudos": 0.5,
+        "Cabine": 9.999996,
+        "Presença": 5,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 10,
+        "Modelo de cabine": 13,
+        "Bypass": 0,
+        "High gain": 1,
+        "Ajuste pós": 1
+      }
+    },
+    {
+      "id": "blues",
+      "label": "Blues",
+      "values": {
+        "Volume mestre": -1,
+        "Ganho de entrada": 0,
+        "Distorção": 15,
+        "Drive": 0.3,
+        "Médios": 0.6,
+        "Graves": 0.5,
+        "Agudos": 0.5,
+        "Cabine": 9.999996,
+        "Presença": 4,
+        "Modelo do amp": 0,
+        "Modelo do tonestack": 1,
+        "Modelo de cabine": 7,
+        "Bypass": 0,
+        "High gain": 0,
+        "Ajuste pós": 1
+      }
+    }
+  ]
+}

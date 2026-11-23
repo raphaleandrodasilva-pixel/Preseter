@@ -1,0 +1,54 @@
+{
+  "effect": "preseter.tamer",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Sidechain": 0,
+        "SC Listen": 0,
+        "Busca grave": 200,
+        "Busca agudo": 5000,
+        "HP Slope": 2,
+        "LP Slope": 2,
+        "Profundidade": 6,
+        "Nitidez": 0.083333,
+        "Limite": 6,
+        "Harmônicos": 0,
+        "Ataque": 5,
+        "Liberação": 80,
+        "Qualidade": 1,
+        "Espectro": 1,
+        "Escuta diff": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "vocal",
+      "label": "Voz",
+      "values": {
+        "Busca grave": 300,
+        "Busca agudo": 6000,
+        "Profundidade": 6,
+        "Limite": 8,
+        "Ataque": 10,
+        "Liberação": 120
+      }
+    },
+    {
+      "id": "master",
+      "label": "Master",
+      "values": {
+        "Busca grave": 60,
+        "Busca agudo": 12000,
+        "Profundidade": 4,
+        "Limite": 6,
+        "Ataque": 20,
+        "Liberação": 200
+      }
+    }
+  ]
+}

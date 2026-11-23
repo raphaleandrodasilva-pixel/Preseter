@@ -46,6 +46,7 @@ import { emitMidiActivity } from '../services/midi-activity';
 import { ConcertHistory } from '@shared/concert-history';
 import { materializeLayout, withoutLayoutGeometry } from '@shared/concert-layout';
 import { suggestPatchIcon } from '@shared/patch-icons';
+import { firstPlayablePreset } from '@shared/concert-navigation';
 import { buildExternalMidiLoadSteps, type ExternalMidiConfig } from '@shared/external-midi';
 
 /** Instantâneo do concert para o desfazer/refazer (Fase 2.5). */
@@ -624,6 +625,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConcertActive(
       options.active ?? (Boolean(state.path) || state.patches.length > 0 || state.sets.length > 0)
     );
+    // Outro concert: não deixa o patch do concert anterior selecionado.
+    setCurrentPreset(null);
     setPresets(state.patches.map((preset) => ({
       ...preset,
       layout: materializePatchLayout(preset, state.layout, state.mappings, state.sets),
@@ -891,6 +894,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } = {}
   ): Promise<boolean> => {
     const targetPreset = options.preset ?? presets.find((p) => p.id === presetId);
+    // Seleciona o patch na interface antes de carregar os plugins: se um plugin
+    // faltar, o patch continua visível/editável em vez de parecer "concert vazio".
+    if (targetPreset) {
+      const selected = {
+        ...targetPreset,
+        layout: materializePatchLayout(
+          targetPreset,
+          options.layout,
+          options.mappings,
+          options.sets
+        ),
+      };
+      setCurrentPreset(selected);
+      setLayoutState((previous) => previous ?? selected.layout);
+      setAppStatus((prev) => ({
+        ...prev,
+        currentPresetId: presetId,
+        currentProgramNumber: targetPreset.programNumber,
+      }));
+    }
     if (!options.silent) {
       setLoadProgress({
         active: true,
@@ -984,7 +1007,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     setLoadProgress((previous) => previous ? { ...previous, percent: 45, detail: 'Carregando patch inicial…' } : previous);
-    const first = [...state.patches].sort((a, b) => a.programNumber - b.programNumber)[0];
+    const first = firstPlayablePreset(state.patches);
     if (first) {
       try {
         await loadPreset(first.id, {

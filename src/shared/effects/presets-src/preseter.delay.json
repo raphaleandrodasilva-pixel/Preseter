@@ -1,0 +1,300 @@
+{
+  "effect": "preseter.delay",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Sincronizar": 0,
+        "BPM": 120,
+        "Tempo": 500,
+        "Subdivisão": 1,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Realimentação": 0.35,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 1,
+        "Mix Mode": 1,
+        "Freq. PA": 80,
+        "Freq. PB": 8000,
+        "Modo PA": 0,
+        "Modo PB": 2
+      }
+    },
+    {
+      "id": "slap",
+      "label": "Slap",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 440,
+        "Realimentação": 0.12,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 0.6,
+        "Freq. PA": 150,
+        "Freq. PB": 6500,
+        "Ativo": 1,
+        "BPM": 136.36,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "echo",
+      "label": "Eco",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1520,
+        "Realimentação": 0.35,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 1,
+        "Freq. PA": 200,
+        "Freq. PB": 5000,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 39.47,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "pingpong",
+      "label": "Ping-pong",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1200,
+        "Realimentação": 0.38,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 1,
+        "Mix Mode": 1,
+        "Freq. PA": 200,
+        "Freq. PB": 5500,
+        "Ativo": 1,
+        "BPM": 50,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1
+      }
+    },
+    {
+      "id": "dotted",
+      "label": "Colcheia pontuada",
+      "values": {
+        "Sincronizar": 1,
+        "BPM": 120,
+        "Subdivisão": 4,
+        "Realimentação": 0.35,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 1,
+        "Ativo": 1,
+        "Tempo": 500,
+        "Tempo L": 3,
+        "Tempo R": 3,
+        "Mix Mode": 0,
+        "Freq. PA": 200,
+        "Freq. PB": 5000
+      }
+    },
+    {
+      "id": "tape",
+      "label": "Tape",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1280,
+        "Realimentação": 0.4,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 0.8,
+        "Freq. PA": 250,
+        "Freq. PB": 3500,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 46.88,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "ambient",
+      "label": "Ambient",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1200,
+        "Realimentação": 0.5,
+        "Molhado": -10,
+        "Seco": 0,
+        "Largura": 1,
+        "Freq. PA": 250,
+        "Freq. PB": 3000,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 50,
+        "Subdivisão": 2,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "default-aux",
+      "label": "Padrão (Aux)",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Sincronizar": 0,
+        "BPM": 120,
+        "Tempo": 500,
+        "Subdivisão": 1,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Realimentação": 0.35,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 1,
+        "Mix Mode": 1,
+        "Freq. PA": 80,
+        "Freq. PB": 8000,
+        "Modo PA": 0,
+        "Modo PB": 2
+      }
+    },
+    {
+      "id": "slap-aux",
+      "label": "Slap (Aux)",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 440,
+        "Realimentação": 0.12,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 0.6,
+        "Freq. PA": 150,
+        "Freq. PB": 6500,
+        "Ativo": 1,
+        "BPM": 136.36,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "echo-aux",
+      "label": "Eco (Aux)",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1520,
+        "Realimentação": 0.35,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 1,
+        "Freq. PA": 200,
+        "Freq. PB": 5000,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 39.47,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "pingpong-aux",
+      "label": "Ping-pong (Aux)",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1200,
+        "Realimentação": 0.38,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 1,
+        "Mix Mode": 1,
+        "Freq. PA": 200,
+        "Freq. PB": 5500,
+        "Ativo": 1,
+        "BPM": 50,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1
+      }
+    },
+    {
+      "id": "dotted-aux",
+      "label": "Colcheia pontuada (Aux)",
+      "values": {
+        "Sincronizar": 1,
+        "BPM": 120,
+        "Subdivisão": 4,
+        "Realimentação": 0.35,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 1,
+        "Ativo": 1,
+        "Tempo": 500,
+        "Tempo L": 3,
+        "Tempo R": 3,
+        "Mix Mode": 0,
+        "Freq. PA": 200,
+        "Freq. PB": 5000
+      }
+    },
+    {
+      "id": "tape-aux",
+      "label": "Tape (Aux)",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1280,
+        "Realimentação": 0.4,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 0.8,
+        "Freq. PA": 250,
+        "Freq. PB": 3500,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 46.88,
+        "Subdivisão": 4,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    },
+    {
+      "id": "ambient-aux",
+      "label": "Ambient (Aux)",
+      "values": {
+        "Sincronizar": 0,
+        "Tempo": 1200,
+        "Realimentação": 0.5,
+        "Molhado": 0,
+        "Seco": -60,
+        "Largura": 1,
+        "Freq. PA": 250,
+        "Freq. PB": 3000,
+        "Modo PB": 2,
+        "Ativo": 1,
+        "BPM": 50,
+        "Subdivisão": 2,
+        "Tempo L": 1,
+        "Tempo R": 1,
+        "Mix Mode": 0
+      }
+    }
+  ],
+  "notes": "Tempo = duração de uma batida (ms); delay final = Tempo × Tempo L/R ÷ Subdivisão. Sync = 1 segue o BPM do concert."
+}

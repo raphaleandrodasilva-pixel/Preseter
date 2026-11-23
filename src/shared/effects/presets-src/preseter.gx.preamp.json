@@ -1,0 +1,53 @@
+{
+  "effect": "preseter.gx.preamp",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Brilho": 0,
+        "Volume": 0.5,
+        "Graves": 0.5,
+        "Médios": 0.5,
+        "Agudos": 0.5,
+        "Master": 0.5
+      }
+    },
+    {
+      "id": "bright",
+      "label": "Brilhante",
+      "values": {
+        "Brilho": 1,
+        "Volume": 0.5,
+        "Graves": 0.45,
+        "Médios": 0.55,
+        "Agudos": 0.6,
+        "Master": 0.5
+      }
+    },
+    {
+      "id": "warm",
+      "label": "Quente",
+      "values": {
+        "Brilho": 0,
+        "Volume": 0.55,
+        "Graves": 0.65,
+        "Médios": 0.45,
+        "Agudos": 0.4,
+        "Master": 0.55
+      }
+    },
+    {
+      "id": "crunch",
+      "label": "Crunch",
+      "values": {
+        "Brilho": 0,
+        "Volume": 0.8,
+        "Graves": 0.5,
+        "Médios": 0.6,
+        "Agudos": 0.55,
+        "Master": 0.45
+      }
+    }
+  ]
+}

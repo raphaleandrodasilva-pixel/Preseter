@@ -3,17 +3,19 @@ import type { EngineParameter } from '@shared/engine-protocol';
 import type { ConcertMapping, MidiBinding } from '@shared/types';
 import {
   clamp01,
-  formatParam,
   groupParams,
   isChoice,
   paramDefault,
+  paramNormalized,
   paramPosition,
+  paramReal,
   positionToNormalized,
   type EffectDefinition,
   type EffectParam,
   type EffectPreset,
 } from '@shared/effects/catalog';
 import { useAppContext } from '../../context/AppContext';
+import { knobArcBackground, useKnobInteraction } from './native-controls';
 
 interface PreseterEffectWindowProps {
   /** Dono do insert: layerId, `patch` ou `aux1`..`aux4`. */
@@ -45,34 +47,132 @@ function readUserPresets (effectId: string): EffectPreset[] {
 
 interface KnobProps {
   label: string;
+  /** Posição 0..1 do knob (já com a curva log do parâmetro). */
   value: number;
-  display: string;
+  /** Valor real do parâmetro, para o campo numérico editável. */
+  numeric: {
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+    decimals: number;
+    unit: string;
+    onChange: (real: number) => void;
+  };
   onChange: (value: number) => void;
+  /** Duplo clique volta ao padrão do catálogo. */
+  onReset?: () => void;
 }
 
-const Knob: React.FC<KnobProps> = ({ label, value, display, onChange }) => (
-  <div className="flex min-w-[68px] flex-col items-center gap-1">
-    <div className="relative h-12 w-12 rounded-full" style={{ background: `conic-gradient(#0A84FF ${Math.round(value * 300)}deg, #343438 0)` }}>
-      <div className="absolute inset-[4px] rounded-full" style={{ background: '#1C1C1E' }} />
+/** Unidades que não levam espaço antes (mesma regra de `formatParam`). */
+const TIGHT_UNITS = new Set(['%', '°', '×', ':1']);
+
+const unitGap = (unit: string): string =>
+  unit && !TIGHT_UNITS.has(unit) && !unit.startsWith(':') ? ' ' : '';
+
+const Knob: React.FC<KnobProps> = ({ label, value, numeric, onChange, onReset }) => {
+  const interaction = useKnobInteraction(value, onChange);
+
+  const formatValue = (real: number) => real.toFixed(numeric.decimals);
+  const [text, setText] = useState(() => formatValue(numeric.value));
+  const [editing, setEditing] = useState(false);
+  /** Escape durante a edição: o blur descarta em vez de confirmar. */
+  const cancelledRef = useRef(false);
+
+  // Fora da edição, o campo acompanha o valor que vem do motor/preset.
+  useEffect(() => {
+    if (!editing) setText(formatValue(numeric.value));
+  }, [numeric.value, numeric.decimals, editing]);
+
+  const commit = () => {
+    const parsed = Number(text.replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      setText(formatValue(numeric.value));
+      return;
+    }
+    const clamped = Math.max(numeric.min, Math.min(numeric.max, parsed));
+    numeric.onChange(clamped);
+    setText(formatValue(clamped));
+  };
+
+  return (
+    <div className="flex min-w-[68px] flex-col items-center gap-1">
       <div
-        className="absolute left-1/2 top-[6px] h-2.5 w-[2px] origin-bottom rounded"
-        style={{ background: '#E5E5EA', transform: `translateX(-50%) rotate(${-135 + value * 270}deg)`, transformOrigin: '50% 18px' }}
-      />
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.001}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={label}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      />
+        ref={interaction.containerRef}
+        className="relative h-12 w-12 cursor-ns-resize touch-none select-none rounded-full focus-within:ring-2 focus-within:ring-[#0A84FF]"
+        data-knob-arc={Math.round(value * 270)}
+        style={{ background: knobArcBackground(value) }}
+        title={onReset ? 'Arraste para cima/baixo · duplo clique volta ao padrão' : 'Arraste para cima/baixo'}
+        onPointerDown={interaction.onPointerDown}
+        onPointerMove={interaction.onPointerMove}
+        onPointerUp={interaction.onPointerUp}
+        onPointerCancel={interaction.onPointerUp}
+        onDoubleClick={onReset
+          ? (event) => { event.preventDefault(); event.stopPropagation(); onReset(); }
+          : undefined}
+      >
+        <div className="absolute inset-[4px] rounded-full" style={{ background: '#1C1C1E' }} />
+        <div
+          className="absolute left-1/2 top-[6px] h-2.5 w-[2px] origin-bottom rounded"
+          style={{ background: '#E5E5EA', transform: `translateX(-50%) rotate(${-135 + value * 270}deg)`, transformOrigin: '50% 18px' }}
+        />
+        <input
+          ref={interaction.inputRef}
+          type="range"
+          min={0}
+          max={1}
+          step={0.001}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          aria-label={label}
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+        />
+      </div>
+      <div className="flex items-baseline justify-center">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={text}
+          aria-label={`Valor de ${label}`}
+          title="Digite o valor (Enter confirma, Esc cancela)"
+          onChange={(event) => setText(event.target.value)}
+          onFocus={(event) => { setEditing(true); event.currentTarget.select(); }}
+          onBlur={() => {
+            setEditing(false);
+            if (cancelledRef.current) {
+              cancelledRef.current = false;
+              setText(formatValue(numeric.value));
+              return;
+            }
+            commit();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              event.currentTarget.blur();
+            } else if (event.key === 'Escape') {
+              cancelledRef.current = true;
+              event.currentTarget.blur();
+            } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              event.preventDefault();
+              const delta = (event.key === 'ArrowUp' ? 1 : -1) * numeric.step;
+              const next = Math.max(numeric.min, Math.min(numeric.max, numeric.value + delta));
+              numeric.onChange(next);
+              setText(formatValue(next));
+            }
+          }}
+          className="w-[52px] rounded bg-transparent px-0.5 py-0 text-center text-[10px] font-semibold tabular-nums text-white outline-none focus:bg-white/10"
+        />
+        {numeric.unit && (
+          <span className="text-[9px]" style={{ color: '#8E8E93' }}>
+            {unitGap(numeric.unit)}{numeric.unit}
+          </span>
+        )}
+      </div>
+      <span className="text-center text-[9px] leading-tight" style={{ color: '#8E8E93' }}>{label}</span>
     </div>
-    <span className="text-[10px] font-semibold tabular-nums text-white">{display}</span>
-    <span className="text-center text-[9px] leading-tight" style={{ color: '#8E8E93' }}>{label}</span>
-  </div>
-);
+  );
+};
 
 const Toggle: React.FC<{ label: string; active: boolean; onChange: (next: boolean) => void }> = ({ label, active, onChange }) => (
   <div className="flex min-w-[92px] flex-col items-center gap-1 py-2">
@@ -411,8 +511,17 @@ export const PreseterEffectWindow: React.FC<PreseterEffectWindowProps> = ({
                     <Knob
                       label={param.label}
                       value={paramPosition(param, normalized)}
-                      display={formatParam(param, normalized)}
+                      numeric={{
+                        value: paramReal(param, normalized),
+                        min: param.min,
+                        max: param.max,
+                        step: param.precision > 0 ? Math.pow(10, -param.precision) : 1,
+                        decimals: param.precision,
+                        unit: param.unit,
+                        onChange: (value) => void setValue(param, paramNormalized(param, value)),
+                      }}
                       onChange={(position) => void setValue(param, positionToNormalized(param, position))}
+                      onReset={() => void setValue(param, paramDefault(param))}
                     />
                   );
                 })}

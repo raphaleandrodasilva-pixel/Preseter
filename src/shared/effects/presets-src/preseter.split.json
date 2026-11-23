@@ -1,0 +1,35 @@
+{
+  "effect": "preseter.split",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Volume L": 0,
+        "Volume R": 0,
+        "Mudo L": 0,
+        "Mudo R": 0,
+        "Fase L": 0,
+        "Fase R": 0
+      }
+    },
+    {
+      "id": "stereo",
+      "label": "L/R",
+      "values": {
+        "Volume L": 0,
+        "Volume R": 0
+      }
+    },
+    {
+      "id": "left",
+      "label": "Só L",
+      "values": {
+        "Volume L": 0,
+        "Volume R": -60
+      }
+    }
+  ]
+}

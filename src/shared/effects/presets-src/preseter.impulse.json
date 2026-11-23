@@ -1,0 +1,109 @@
+{
+  "effect": "preseter.impulse",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Decaimento": 1,
+        "Pré-delay": 0,
+        "Freq. PA": 60,
+        "Freq. PB": 10000,
+        "Modo PA": 2,
+        "Modo PB": 0,
+        "Reverse": 0,
+        "Seco": 0,
+        "Molhado": -10,
+        "Fonte": 0,
+        "Shape": 4,
+        "Qualidade": 2
+      }
+    },
+    {
+      "id": "short",
+      "label": "Curto",
+      "values": {
+        "Decaimento": 0.35,
+        "Pré-delay": 0,
+        "Seco": 0,
+        "Molhado": -10
+      }
+    },
+    {
+      "id": "long",
+      "label": "Longo",
+      "values": {
+        "Decaimento": 0.85,
+        "Pré-delay": 30,
+        "Seco": 0,
+        "Molhado": -10
+      }
+    },
+    {
+      "id": "reverse",
+      "label": "Reverso",
+      "values": {
+        "Decaimento": 0.7,
+        "Pré-delay": 20,
+        "Reverse": 1,
+        "Seco": 0,
+        "Molhado": -10
+      }
+    },
+    {
+      "id": "default-aux",
+      "label": "Padrão (Aux)",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Decaimento": 1,
+        "Pré-delay": 0,
+        "Freq. PA": 60,
+        "Freq. PB": 10000,
+        "Modo PA": 2,
+        "Modo PB": 0,
+        "Reverse": 0,
+        "Seco": -60,
+        "Molhado": 0,
+        "Fonte": 0,
+        "Shape": 4,
+        "Qualidade": 2
+      }
+    },
+    {
+      "id": "short-aux",
+      "label": "Curto (Aux)",
+      "values": {
+        "Decaimento": 0.35,
+        "Pré-delay": 0,
+        "Seco": -60,
+        "Molhado": 0
+      }
+    },
+    {
+      "id": "long-aux",
+      "label": "Longo (Aux)",
+      "values": {
+        "Decaimento": 0.85,
+        "Pré-delay": 30,
+        "Seco": -60,
+        "Molhado": 0
+      }
+    },
+    {
+      "id": "reverse-aux",
+      "label": "Reverso (Aux)",
+      "values": {
+        "Decaimento": 0.7,
+        "Pré-delay": 20,
+        "Reverse": 1,
+        "Seco": -60,
+        "Molhado": 0
+      }
+    }
+  ]
+}

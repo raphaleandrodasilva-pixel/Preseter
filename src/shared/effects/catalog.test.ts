@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { COLLECTION_SETS } from '../collection-presets';
 import { effectKey, effectPresetValues, findEffect } from './catalog';
 
 describe('catálogo de efeitos', () => {
@@ -25,6 +26,39 @@ describe('catálogo de efeitos', () => {
     expect(effectPresetValues('C:/plugins/calfnxt/calfNXTReverb.vst3', 'nao-existe')).toEqual([]);
     expect(effectPresetValues('C:/plugins/outro/nada.vst3', 'hall')).toEqual([]);
     expect(effectPresetValues('C:/plugins/calfnxt/calfNXTReverb.vst3', undefined)).toEqual([]);
+  });
+
+  it('usa a versão -aux do preset em inserts de Aux', () => {
+    const path = 'C:/plugins/calfnxt/calfNXTReverb.vst3';
+    const valueOf = (values: Array<{ index: number; value: number }>, index: number) =>
+      values.find((entry) => entry.index === index)?.value;
+
+    const insert = effectPresetValues(path, 'hall');
+    const aux = effectPresetValues(path, 'hall', { aux: true });
+
+    // Seco (31) e Molhado (32): insert 0 / -10 dB; aux -60 / 0 dB.
+    expect(valueOf(insert, 31)).toBeCloseTo(60 / 72, 5);
+    expect(valueOf(insert, 32)).toBeCloseTo(50 / 72, 5);
+    expect(valueOf(aux, 31)).toBe(0);
+    expect(valueOf(aux, 32)).toBeCloseTo(60 / 72, 5);
+    // Um id já terminado em -aux não ganha outro sufixo.
+    expect(effectPresetValues(path, 'hall-aux', { aux: true })).toEqual(aux);
+  });
+
+  it('só cita presets existentes nos Aux da coleção', () => {
+    const byAux = new Map([[1, 'preseter.reverb'], [2, 'preseter.delay']]);
+    for (const [, patches] of COLLECTION_SETS) {
+      for (const [name, , meta] of patches) {
+        for (const [aux, presetId] of Object.entries(meta?.auxPresets ?? {})) {
+          const effect = findEffect(byAux.get(Number(aux))!);
+          expect(effect, `Aux ${aux} sem efeito`).toBeTruthy();
+          expect(
+            effect!.presets.some((preset) => preset.id === presetId),
+            `${name}: Aux ${aux} cita "${presetId}", que não existe em ${effect!.id}`
+          ).toBe(true);
+        }
+      }
+    }
   });
 
   it('casa o LV2 do Guitarix pela URI e pelo nome do plugin', () => {

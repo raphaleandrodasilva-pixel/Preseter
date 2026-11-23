@@ -426,14 +426,14 @@ describe('efeitos nativos na coleção', () => {
         'subtle',
         'slow',
       ]);
-      expect(rhodes?.auxPresets).toEqual({ 1: 'plate', 2: 'echo' });
+      expect(rhodes?.auxPresets).toEqual({ 1: 'plate-aux', 2: 'echo-aux' });
 
       const modern = file.patches.find((patch) => patch.name === 'Modern Synth Lead');
       expect(modern?.plugins?.[0]?.inserts?.[0]).toMatchObject({
         name: 'calfNXT Stereo',
         presetId: 'wide',
       });
-      expect(modern?.auxPresets).toEqual({ 1: 'plate', 2: 'pingpong' });
+      expect(modern?.auxPresets).toEqual({ 1: 'plate-aux', 2: 'pingpong-aux' });
 
       const deep = file.patches.find((patch) => patch.name === 'Deep Synth Bass');
       expect(deep?.plugins?.[0]?.inserts?.map((insert) => insert.name)).toEqual(['calfNXT Harmonics']);

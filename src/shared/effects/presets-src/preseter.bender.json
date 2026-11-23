@@ -1,0 +1,51 @@
+{
+  "effect": "preseter.bender",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Pitch": 0,
+        "Snap": 0,
+        "Qualidade": 2,
+        "Mix": 1,
+        "Glide": 8,
+        "Timbre": 0.8,
+        "Mono": 0
+      }
+    },
+    {
+      "id": "octave-down",
+      "label": "Oitava abaixo",
+      "values": {
+        "Pitch": -12,
+        "Snap": 0,
+        "Mix": 0.5,
+        "Glide": 20
+      }
+    },
+    {
+      "id": "fifth",
+      "label": "Quinta",
+      "values": {
+        "Pitch": 7,
+        "Snap": 0,
+        "Mix": 0.4,
+        "Glide": 10
+      }
+    },
+    {
+      "id": "detune",
+      "label": "Detune",
+      "values": {
+        "Pitch": 0.15,
+        "Snap": 0,
+        "Mix": 0.5,
+        "Glide": 40
+      }
+    }
+  ]
+}

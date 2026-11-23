@@ -342,7 +342,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               Layout deste patch · Ctrl+S salva o patch
             </span>
             <button
-              onClick={onSave}
+              onClick={() => onSave()}
               disabled={!draft || saving}
               className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
               style={{ background: '#0A84FF', color: '#FFFFFF' }}
@@ -365,7 +365,7 @@ export const Inspector: React.FC<InspectorProps> = ({
               </button>
             ))}
             <button
-              onClick={onSave}
+              onClick={() => onSave()}
               disabled={saving}
               className="ml-auto rounded-lg px-3 py-1 text-[11px] font-semibold hover:brightness-110 disabled:opacity-50"
               style={{ background: '#0A84FF', color: '#FFFFFF' }}

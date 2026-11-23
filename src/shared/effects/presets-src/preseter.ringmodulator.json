@@ -1,0 +1,59 @@
+{
+  "effect": "preseter.ringmodulator",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Forma de onda": 0,
+        "Frequência": 1000,
+        "Quantidade": 0.5,
+        "Fase": 0.5,
+        "Detune": 0,
+        "Escuta": 0,
+        "Freq Lin": 0,
+        "LFO 1 Wave": 0,
+        "LFO 1 Frequency": 0.1,
+        "LFO 1 Reset": 0,
+        "LFO1→Freq Min": 200,
+        "LFO1→Freq Max": 4000,
+        "LFO1→Freq": 1,
+        "LFO1→Detune Min": -100,
+        "LFO1→Detune Max": 100,
+        "LFO1→Detune": 0,
+        "LFO 2 Wave": 0,
+        "LFO 2 Frequency": 0.2,
+        "LFO 2 Reset": 0,
+        "LFO2→LFO1 Min": 0.05,
+        "LFO2→LFO1 Max": 0.5,
+        "LFO2→LFO1": 0,
+        "LFO2→Amount Min": 0.3,
+        "LFO2→Amount Max": 0.6,
+        "LFO2→Amount": 0,
+        "Canal": 0,
+        "Espectro": 1
+      }
+    },
+    {
+      "id": "bell",
+      "label": "Sino",
+      "values": {
+        "Forma de onda": 0,
+        "Frequência": 1200,
+        "Quantidade": 0.35
+      }
+    },
+    {
+      "id": "metallic",
+      "label": "Metálico",
+      "values": {
+        "Forma de onda": 1,
+        "Frequência": 640,
+        "Quantidade": 0.4
+      }
+    }
+  ]
+}

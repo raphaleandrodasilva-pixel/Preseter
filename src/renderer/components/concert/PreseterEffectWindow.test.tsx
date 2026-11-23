@@ -2,9 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EngineParameter } from '@shared/engine-protocol';
-import { findEffect, paramDefault } from '@shared/effects/catalog';
+import { findEffect, paramDefault, paramNormalized, paramPosition, positionToNormalized } from '@shared/effects/catalog';
 import { AppProvider } from '../../context/AppContext';
 import { PreseterEffectWindow } from './PreseterEffectWindow';
+import { knobArcBackground } from './native-controls';
 import { createConcertState } from '../../../test/fixtures';
 
 const effect = findEffect('calfNXTReverb.vst3')!;
@@ -88,6 +89,117 @@ describe('PreseterEffectWindow', () => {
     await waitFor(() => {
       expect(window.electronAPI.vstSetParam).toHaveBeenCalledWith('patch', '3', 0.5, 0);
     });
+  });
+
+  it('desenha o arco do knob a partir do mínimo (270°)', async () => {
+    renderWindow();
+    const param = effect.params.find((item) => item.label === 'Tamanho da sala')!;
+    const room = await screen.findByLabelText('Tamanho da sala');
+    const knob = room.parentElement as HTMLElement;
+    const degrees = Math.round(paramPosition(param, paramDefault(param)) * 270);
+
+    // jsdom não guarda `conic-gradient` no style: confere a geometria pela
+    // função compartilhada e o ângulo aplicado ao DOM.
+    expect(knobArcBackground(paramPosition(param, paramDefault(param)))).toContain('from -135deg');
+    expect(knob.dataset.knobArc).toBe(String(degrees));
+  });
+
+  it('volta ao padrão do catálogo no duplo clique', async () => {
+    renderWindow();
+    const param = effect.params.find((item) => item.label === 'Tamanho da sala')!;
+    const room = await screen.findByLabelText('Tamanho da sala');
+    fireEvent.change(room, { target: { value: '0.9' } });
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalledWith('patch', '3', 0.9, 0);
+    });
+    vi.mocked(window.electronAPI.vstSetParam).mockClear();
+
+    fireEvent.doubleClick(room);
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalledWith('patch', '3', paramDefault(param), 0);
+    });
+  });
+
+  it('ajusta o knob com a roda do mouse', async () => {
+    renderWindow();
+    const param = effect.params.find((item) => item.label === 'Tamanho da sala')!;
+    const room = await screen.findByLabelText('Tamanho da sala');
+    const expected = positionToNormalized(param, Math.min(1, paramPosition(param, paramDefault(param)) + 0.01));
+
+    fireEvent.wheel(room, { deltaY: -100 });
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalled();
+    });
+    const last = vi.mocked(window.electronAPI.vstSetParam).mock.calls.at(-1)!;
+    expect(last[0]).toBe('patch');
+    expect(last[1]).toBe('3');
+    expect(last[2]).toBeCloseTo(expected, 5);
+    expect(last[3]).toBe(0);
+  });
+
+  it('ajusta o knob arrastando para cima (Shift = fino)', async () => {
+    renderWindow();
+    const param = effect.params.find((item) => item.label === 'Tamanho da sala')!;
+    const room = await screen.findByLabelText('Tamanho da sala');
+    const knob = room.parentElement as HTMLElement;
+    const start = paramPosition(param, paramDefault(param));
+
+    fireEvent.pointerDown(knob, { clientY: 200, pointerId: 1 });
+    fireEvent.pointerMove(knob, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(knob, { clientY: 100, pointerId: 1 });
+
+    const afterDrag = Math.min(1, start + 100 / 150);
+    const expected = positionToNormalized(param, afterDrag);
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalled();
+    });
+    const last = vi.mocked(window.electronAPI.vstSetParam).mock.calls.at(-1)!;
+    expect(last[1]).toBe('3');
+    expect(last[2]).toBeCloseTo(expected, 5);
+
+    vi.mocked(window.electronAPI.vstSetParam).mockClear();
+    fireEvent.pointerDown(knob, { clientY: 200, pointerId: 2 });
+    fireEvent.pointerMove(knob, { clientY: 100, pointerId: 2, shiftKey: true });
+    fireEvent.pointerUp(knob, { clientY: 100, pointerId: 2 });
+
+    const fine = positionToNormalized(param, Math.min(1, afterDrag + (100 / 150) * 0.2));
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalled();
+    });
+    const lastFine = vi.mocked(window.electronAPI.vstSetParam).mock.calls.at(-1)!;
+    expect(lastFine[2]).toBeCloseTo(fine, 5);
+  });
+
+  it('aplica o valor digitado no campo numérico', async () => {
+    renderWindow();
+    const param = effect.params.find((item) => item.label === 'Tamanho da sala')!;
+    const field = await screen.findByLabelText('Valor de Tamanho da sala');
+
+    fireEvent.change(field, { target: { value: '20' } });
+    fireEvent.blur(field);
+
+    await waitFor(() => {
+      expect(window.electronAPI.vstSetParam).toHaveBeenCalledWith(
+        'patch',
+        '3',
+        paramNormalized(param, 20),
+        0
+      );
+    });
+  });
+
+  it('descarta o valor digitado ao apertar Esc', async () => {
+    renderWindow();
+    const field = await screen.findByLabelText('Valor de Tamanho da sala') as HTMLInputElement;
+
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: '20' } });
+    fireEvent.keyDown(field, { key: 'Escape' });
+    // jsdom não tira o foco sozinho: simula o blur disparado pelo Escape.
+    fireEvent.blur(field);
+
+    await waitFor(() => expect(field.value).toBe('12.0'));
+    expect(window.electronAPI.vstSetParam).not.toHaveBeenCalled();
   });
 
   it('salva o estado atual como preset do usuário', async () => {

@@ -3567,7 +3567,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : presets.length === 0 ? (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                   <div className="mb-2 text-4xl" style={{ color: '#0A84FF' }}>♫</div>
@@ -3576,6 +3576,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                   <button className="rounded-lg px-4 py-2 text-sm font-semibold" style={{ background: '#0A84FF', color: '#FFFFFF' }} onClick={() => onNewPatch(undefined)}>
                     Criar primeiro patch
                   </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <div className="mb-2 text-4xl" style={{ color: '#0A84FF' }}>♫</div>
+                  <div className="font-semibold text-white">
+                    {ctx.loadProgress?.active ? 'Carregando patch…' : 'Selecione um patch'}
+                  </div>
+                  <p className="my-2 text-xs" style={{ color: '#9A9AA0' }}>
+                    Escolha um patch na Patch List para abrir o palco.
+                  </p>
                 </div>
               </div>
             )}

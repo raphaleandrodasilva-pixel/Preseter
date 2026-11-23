@@ -1,0 +1,36 @@
+{
+  "effect": "preseter.elliptic",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Frequência": 80,
+        "Inclinação": 12,
+        "Quantidade": 1,
+        "Escuta": 0
+      }
+    },
+    {
+      "id": "low",
+      "label": "Corte grave",
+      "values": {
+        "Frequência": 80,
+        "Inclinação": 24,
+        "Quantidade": 1
+      }
+    },
+    {
+      "id": "high",
+      "label": "Corte agudo",
+      "values": {
+        "Frequência": 200,
+        "Inclinação": 24,
+        "Quantidade": 1
+      }
+    }
+  ]
+}

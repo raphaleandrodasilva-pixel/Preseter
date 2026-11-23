@@ -1,0 +1,101 @@
+{
+  "effect": "preseter.harmonics",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Drive": 2,
+        "Mistura": 0,
+        "Seco": 0,
+        "Molhado": -12,
+        "PA pré": 20,
+        "PB pré": 20000,
+        "Pre HP Mode": 0,
+        "Pre LP Mode": 0,
+        "PA pós": 20,
+        "PB pós": 20000,
+        "Post HP Mode": 0,
+        "Post LP Mode": 0,
+        "Escuta pré": 0,
+        "Escuta pós": 0,
+        "Oversampling": 2,
+        "Assimetria": 0,
+        "Timbre": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "wide",
+      "label": "Wide",
+      "values": {
+        "Drive": 7.5,
+        "Mistura": 0,
+        "Seco": -60,
+        "Molhado": 3,
+        "PA pré": 20,
+        "PB pré": 20000,
+        "Pre HP Mode": 0,
+        "Pre LP Mode": 0,
+        "PA pós": 20,
+        "PB pós": 20000,
+        "Post HP Mode": 0,
+        "Post LP Mode": 0,
+        "Escuta pré": 0,
+        "Escuta pós": 0,
+        "Oversampling": 2,
+        "Assimetria": 0,
+        "Timbre": 0
+      }
+    },
+    {
+      "id": "exciter",
+      "label": "Exciter",
+      "values": {
+        "Drive": 3,
+        "Mistura": 3,
+        "Seco": 0,
+        "Molhado": -9,
+        "PA pré": 3000,
+        "PB pré": 20000,
+        "Pre HP Mode": 2,
+        "Pre LP Mode": 0,
+        "PA pós": 5500,
+        "PB pós": 20000,
+        "Post HP Mode": 1,
+        "Post LP Mode": 0,
+        "Escuta pré": 0,
+        "Escuta pós": 0,
+        "Oversampling": 2,
+        "Assimetria": 0,
+        "Timbre": 0
+      }
+    },
+    {
+      "id": "bass",
+      "label": "Bass",
+      "values": {
+        "Drive": 3,
+        "Mistura": -3,
+        "Seco": 0,
+        "Molhado": -6,
+        "PA pré": 20,
+        "PB pré": 150,
+        "Pre HP Mode": 0,
+        "Pre LP Mode": 2,
+        "PA pós": 20,
+        "PB pós": 100,
+        "Post HP Mode": 0,
+        "Post LP Mode": 1,
+        "Escuta pré": 0,
+        "Escuta pós": 0,
+        "Oversampling": 2,
+        "Assimetria": 0,
+        "Timbre": 0
+      }
+    }
+  ]
+}

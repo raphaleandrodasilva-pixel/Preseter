@@ -1,0 +1,45 @@
+{
+  "effect": "preseter.gx.overdrive",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Nível": -10,
+        "Timbre": 400,
+        "Drive": 0.5,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "boost",
+      "label": "Boost",
+      "values": {
+        "Nível": -6,
+        "Timbre": 600,
+        "Drive": 0.15,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "crunch",
+      "label": "Crunch",
+      "values": {
+        "Nível": -9,
+        "Timbre": 650,
+        "Drive": 0.45,
+        "Bypass": 0
+      }
+    },
+    {
+      "id": "lead",
+      "label": "Lead",
+      "values": {
+        "Nível": -10,
+        "Timbre": 750,
+        "Drive": 0.7,
+        "Bypass": 0
+      }
+    }
+  ]
+}

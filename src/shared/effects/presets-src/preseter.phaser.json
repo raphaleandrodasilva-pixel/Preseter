@@ -1,0 +1,61 @@
+{
+  "effect": "preseter.phaser",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Ativo": 1,
+        "Freq. central": 1000,
+        "Prof. modulação": 4000,
+        "Vel. modulação": 0.1,
+        "Realimentação": 0.5,
+        "Estágios": 6,
+        "Fase estéreo": 180,
+        "Resetar": 0,
+        "Quantidade": -6,
+        "Seco": 0,
+        "LFO": 1,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "slow",
+      "label": "Lento",
+      "values": {
+        "Freq. central": 800,
+        "Prof. modulação": 3000,
+        "Vel. modulação": 0.12,
+        "Realimentação": 0.45,
+        "Estágios": 6,
+        "Quantidade": -6
+      }
+    },
+    {
+      "id": "fast",
+      "label": "Rápido",
+      "values": {
+        "Freq. central": 1200,
+        "Prof. modulação": 5000,
+        "Vel. modulação": 1,
+        "Realimentação": 0.55,
+        "Estágios": 6,
+        "Quantidade": -6
+      }
+    },
+    {
+      "id": "deep",
+      "label": "Profundo",
+      "values": {
+        "Freq. central": 500,
+        "Prof. modulação": 6000,
+        "Vel. modulação": 0.2,
+        "Realimentação": 0.7,
+        "Estágios": 8,
+        "Quantidade": -5
+      }
+    }
+  ]
+}

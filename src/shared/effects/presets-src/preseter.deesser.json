@@ -1,0 +1,49 @@
+{
+  "effect": "preseter.deesser",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Modo": 0,
+        "Detecção": 1,
+        "Inclinação": 24,
+        "Limite": -18,
+        "Taxa": 3,
+        "Laxidez": 15,
+        "Compensação": 0,
+        "Divisão": 4000,
+        "Q PA": 0.707,
+        "Pico": 4500,
+        "Ganho do pico": 12,
+        "Q do pico": 1,
+        "Escuta": 0,
+        "Alvo": 0,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "vocal",
+      "label": "Voz",
+      "values": {
+        "Limite": -30,
+        "Taxa": 4,
+        "Compensação": 2,
+        "Divisão": 6500
+      }
+    },
+    {
+      "id": "soft",
+      "label": "Suave",
+      "values": {
+        "Limite": -24,
+        "Taxa": 2,
+        "Compensação": 0,
+        "Divisão": 5000
+      }
+    }
+  ]
+}

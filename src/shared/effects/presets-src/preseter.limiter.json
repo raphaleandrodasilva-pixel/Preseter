@@ -1,0 +1,69 @@
+{
+  "effect": "preseter.limiter",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Limite": 0,
+        "Lookahead": 5,
+        "Liberação": 50,
+        "ASC": 1,
+        "Nível ASC": 0.5,
+        "Oversampling": 1,
+        "Nível automático": 1,
+        "Curva": 0,
+        "Teto suave": 0,
+        "Cor": 0,
+        "Timbre": 0.35,
+        "True peak": 0,
+        "Margem TP": 0.1,
+        "Escuta diff": 0,
+        "Hold": 0,
+        "Sustentação": 25,
+        "emphasis_enable": 0,
+        "emphasis": 0.4
+      }
+    },
+    {
+      "id": "safe",
+      "label": "Seguro",
+      "values": {
+        "Limite": -1,
+        "Lookahead": 5,
+        "Liberação": 100,
+        "ASC": 1,
+        "Nível automático": 1,
+        "True peak": 1
+      }
+    },
+    {
+      "id": "loud",
+      "label": "Alto",
+      "values": {
+        "Limite": -0.5,
+        "Lookahead": 3,
+        "Liberação": 60,
+        "ASC": 1,
+        "Oversampling": 4,
+        "Nível automático": 1,
+        "True peak": 1
+      }
+    },
+    {
+      "id": "transparent",
+      "label": "Transparente",
+      "values": {
+        "Limite": -1,
+        "Lookahead": 10,
+        "Liberação": 150,
+        "ASC": 0,
+        "Nível automático": 0,
+        "True peak": 1
+      }
+    }
+  ]
+}

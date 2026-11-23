@@ -1,0 +1,48 @@
+{
+  "effect": "preseter.denoiser",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Perfil": 1,
+        "Mistura": 250,
+        "Quantidade": 1,
+        "Piso": -20,
+        "Grave": 20,
+        "Incl. grave": 2,
+        "Agudo": 160,
+        "Incl. agudo": 2,
+        "Qualidade": 1,
+        "Espectro": 1,
+        "Escuta diff": 0,
+        "Escuta": 0,
+        "Mono": 0,
+        "Faixa": 12,
+        "Offset": 0,
+        "Detecção": 0,
+        "Oitava": 0,
+        "Modo perfil": 0
+      }
+    },
+    {
+      "id": "light",
+      "label": "Leve",
+      "values": {
+        "Quantidade": 0.4,
+        "Piso": -55
+      }
+    },
+    {
+      "id": "strong",
+      "label": "Forte",
+      "values": {
+        "Quantidade": 0.85,
+        "Piso": -45
+      }
+    }
+  ]
+}

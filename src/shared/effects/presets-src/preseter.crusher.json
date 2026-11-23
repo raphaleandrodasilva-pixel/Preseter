@@ -1,0 +1,47 @@
+{
+  "effect": "preseter.crusher",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Redução de bits": 4,
+        "Mix": 0.5,
+        "Logarítmico": 0,
+        "DC": 0,
+        "Anti-aliasing": 0.5,
+        "Canal": 0
+      }
+    },
+    {
+      "id": "soft",
+      "label": "Leve",
+      "values": {
+        "Redução de bits": 10,
+        "Mix": 0.3,
+        "Anti-aliasing": 0.6
+      }
+    },
+    {
+      "id": "lofi",
+      "label": "Lo-fi",
+      "values": {
+        "Redução de bits": 6,
+        "Mix": 0.5,
+        "Anti-aliasing": 0.75
+      }
+    },
+    {
+      "id": "destroy",
+      "label": "Destruído",
+      "values": {
+        "Redução de bits": 4,
+        "Mix": 0.6,
+        "Anti-aliasing": 0.4
+      }
+    }
+  ]
+}

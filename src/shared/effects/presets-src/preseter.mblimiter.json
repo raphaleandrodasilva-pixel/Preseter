@@ -1,0 +1,87 @@
+{
+  "effect": "preseter.mblimiter",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Padrão",
+      "values": {
+        "Entrada": 0,
+        "Saída": 0,
+        "Bypass": 0,
+        "Bandas": 4,
+        "Inclinação": 48,
+        "Xover 1": 200,
+        "Xover 2": 800,
+        "Xover 3": 3200,
+        "Xover 4": 8000,
+        "Xover 5": 12000,
+        "Limite": 0,
+        "Lookahead": 5,
+        "Liberação": 50,
+        "Min Release": 0,
+        "ASC": 1,
+        "Nível ASC": 0.5,
+        "Oversampling": 1,
+        "Nível automático": 1,
+        "Curva": 0,
+        "Teto suave": 0,
+        "Cor": 0,
+        "Timbre": 0.35,
+        "True peak": 0,
+        "Margem TP": 0.1,
+        "Escuta diff": 0,
+        "Hold": 0,
+        "Sustentação": 25,
+        "emphasis_enable": 0,
+        "emphasis": 0.4,
+        "B1 Listen": 0,
+        "B1 Weight": 0,
+        "B1 Release": 0.5,
+        "B2 Listen": 0,
+        "B2 Weight": 0,
+        "B2 Release": 0.2,
+        "B3 Listen": 0,
+        "B3 Weight": 0,
+        "B3 Release": -0.2,
+        "B4 Listen": 0,
+        "B4 Weight": 0,
+        "B4 Release": -0.5,
+        "B5 Listen": 0,
+        "B5 Weight": 0,
+        "B5 Release": -0.66,
+        "B6 Listen": 0,
+        "B6 Weight": 0,
+        "B6 Release": -0.75,
+        "Mono": 0,
+        "Escala": 0
+      }
+    },
+    {
+      "id": "master-1",
+      "label": "Master -1 dB",
+      "values": {
+        "Limite": -1,
+        "Oversampling": 4,
+        "True peak": 1
+      }
+    },
+    {
+      "id": "master-03",
+      "label": "Master -0.3 dB",
+      "values": {
+        "Limite": -0.3,
+        "Oversampling": 4,
+        "True peak": 1
+      }
+    },
+    {
+      "id": "soft",
+      "label": "Suave",
+      "values": {
+        "Limite": -2,
+        "Liberação": 120,
+        "True peak": 1
+      }
+    }
+  ]
+}
