@@ -6,6 +6,7 @@ import {
   LIBRARY_VERSION,
   PLUGIN_ID_TOKEN,
   PLUGIN_PATH_TOKEN,
+  isSafeRelativePath,
   parseLibraryFile,
   type LibraryConcert,
   type LibraryFile,
@@ -69,11 +70,23 @@ function replaceReferences (value: unknown, references: Map<string, string>): un
   );
 }
 
+const isWindowsPath = (value: string): boolean => /^[a-z]:[\\/]|^\\\\/i.test(value);
+
+/**
+ * Caminho relativo à pasta de sons. Não depende do sistema atual: um concert
+ * salvo no Windows pode ser exportado no Linux, e vice-versa.
+ */
 function relativeSamplePath (samplePath: string, soundsFolder: string): string | null {
-  if (!path.isAbsolute(samplePath)) return samplePath.replace(/\\/g, '/');
-  const relative = path.relative(soundsFolder, samplePath);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
-  return relative.split(path.sep).join('/');
+  const windows = isWindowsPath(samplePath);
+  if (!windows && !samplePath.startsWith('/')) {
+    const relative = samplePath.replace(/\\/g, '/');
+    return isSafeRelativePath(relative) ? relative : null;
+  }
+  if (windows !== isWindowsPath(soundsFolder)) return null;
+  const api = windows ? path.win32 : path.posix;
+  const relative = api.relative(soundsFolder, samplePath);
+  if (!relative || relative.startsWith('..') || api.isAbsolute(relative)) return null;
+  return relative.split(api.sep).join('/');
 }
 
 /** Remove o caminho local gravado no estado do sampler (o motor não o usa ao restaurar). */
@@ -144,7 +157,8 @@ export function buildLibraryFromConcert (document: PreseterConcertFile, environm
         if (relative) {
           layer.samplePath = relative;
         } else {
-          const base = path.basename(layer.samplePath);
+          // win32.basename aceita os dois tipos de barra.
+          const base = path.win32.basename(layer.samplePath);
           warnings.add(`Sample "${base}" está fora da pasta de sons; copie-o para Externos/ no outro computador.`);
           layer.samplePath = `Externos/${base}`;
         }

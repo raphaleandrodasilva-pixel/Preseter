@@ -172,6 +172,22 @@ describe('exportar concert como biblioteca', () => {
     expect(JSON.stringify(library)).not.toContain('Privado');
   });
 
+  it('converte o caminho do sample nos dois sistemas', () => {
+    const linux = concert();
+    linux.patches[0].plugins![0].samplePath = '/home/alguem/PreseterSons/Meu/piano.sf2';
+    const fromLinux = buildLibraryFromConcert(linux, {
+      plugins: [SYNTH, REVERB],
+      soundsFolder: '/home/alguem/PreseterSons',
+      homeDir: '/home/alguem',
+    }).library.concerts[0].snapshot as PreseterConcertFile;
+    expect(fromLinux.patches[0].plugins?.[0].samplePath).toBe('Meu/piano.sf2');
+
+    const unsafe = concert();
+    unsafe.patches[0].plugins![0].samplePath = '../fora/piano.sf2';
+    const fromUnsafe = exported(unsafe).library.concerts[0].snapshot as PreseterConcertFile;
+    expect(fromUnsafe.patches[0].plugins?.[0].samplePath).toBe('Externos/piano.sf2');
+  });
+
   it('recusa biblioteca que tenta carregar um plugin por caminho direto', () => {
     const { library } = exported();
     const snapshot = library.concerts[0].snapshot as PreseterConcertFile;
