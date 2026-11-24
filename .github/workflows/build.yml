@@ -183,8 +183,8 @@ jobs:
   release:
     name: Release
     needs: [windows, linux]
-    # Só publica em push (main ou tag); execuções manuais geram apenas artefatos.
-    if: github.event_name == 'push'
+    # Só publica a partir da main ou de uma tag; branches de teste geram apenas artefatos.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -199,12 +199,19 @@ jobs:
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
       # Tag manual manda; push na main publica quando a versão ainda não tem tag.
+      # Tags/versões de teste (teste-* ou com "-") viram prerelease e não limpam estáveis.
       - name: Definir tag do release
         id: tag
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            name="${{ github.ref_name }}"
+            echo "name=$name" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
+            if [[ "$name" == teste-* || "$name" == *-* ]]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            fi
           else
             name="v${{ steps.version.outputs.value }}"
             echo "name=$name" >> "$GITHUB_OUTPUT"
@@ -213,6 +220,7 @@ jobs:
             else
               echo "publish=true" >> "$GITHUB_OUTPUT"
             fi
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Baixar instaladores
@@ -229,6 +237,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.name }}
           name: Preseter ${{ steps.tag.outputs.name }}
           generate_release_notes: true
+          prerelease: ${{ steps.tag.outputs.prerelease }}
           files: |
             dist-release/*.exe
             dist-release/*.exe.blockmap
@@ -237,9 +246,9 @@ jobs:
             dist-release/latest.yml
             dist-release/latest-linux.yml
 
-      # Mantém o release recém-publicado e o anterior (para testar a atualização).
+      # Mantém o release estável recém-publicado e o anterior; tags de teste nunca são apagadas.
       - name: Remover releases antigos
-        if: steps.tag.outputs.publish == 'true'
+        if: steps.tag.outputs.publish == 'true' && steps.tag.outputs.prerelease == 'false'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -249,6 +258,11 @@ jobs:
           kept_previous=0
           for tag in "${tags[@]}"; do
             if [ -z "$tag" ] || [ "$tag" = "$KEEP_TAG" ]; then
+              continue
+            fi
+            # Só mexe em releases estáveis (v1.2.3); betas/testes ficam no ar.
+            if [[ "$tag" != v* || "$tag" == *-* ]]; then
+              echo "Mantendo release de teste: $tag"
               continue
             fi
             if [ "$kept_previous" -eq 0 ]; then
