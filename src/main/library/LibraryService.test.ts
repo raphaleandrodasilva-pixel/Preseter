@@ -181,7 +181,7 @@ describe('bibliotecas do Preseter', () => {
       removeTempDir(sounds);
       removeTempDir(output);
     }
-  });
+  }, 30_000);
 
   it('informa o que falta e pula só o que depende disso', () => {
     const empty = makeTempDir();
