@@ -87,6 +87,7 @@ import {
   MAX_AUX_BUSES,
   MAX_OUTPUT_BUSES,
   isNativeSamplerAssignment,
+  pickSamplerOptions,
 } from '../shared/types';
 import type { EngineInsertState } from '../shared/engine-protocol';
 import { resolveStrips } from '../shared/concert-strips';
@@ -1965,11 +1966,11 @@ class MainWindow {
           assignment.maxNote ?? 127,
           nativeSampler
             ? {
+                loop: true,
+                ...pickSamplerOptions(assignment.sampler),
                 samplePath,
                 programIndex: assignment.programIndex ?? 0,
                 bank: assignment.bank ?? 0,
-                loop: assignment.sampler?.loop ?? true,
-                ...(assignment.sampler ?? {}),
               }
             : nativeInstrument
               ? {

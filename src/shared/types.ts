@@ -511,6 +511,31 @@ export function isNativeSamplerAssignment(
   return assignment.sourceKind === 'sampler';
 }
 
+type SamplerOptions = NonNullable<PresetPluginAssignment['sampler']>;
+
+/** Ajustes aceitos do sampler nativo: número em cada campo numérico e `loop` booleano. */
+export const SAMPLER_NUMBER_OPTIONS = [
+  'polyphony', 'attack', 'decay', 'sustain', 'release', 'cutoff',
+  'resonance', 'velocity', 'transpose', 'fineTune', 'gain',
+] as const satisfies ReadonlyArray<keyof SamplerOptions>;
+
+/**
+ * Copia só os ajustes conhecidos do sampler. O objeto vem de arquivos (patch,
+ * biblioteca) e é enviado ao motor: um campo extra como `plugin` ou `path`
+ * trocaria o que o motor carrega.
+ */
+export function pickSamplerOptions(value: unknown): SamplerOptions {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const options: SamplerOptions = {};
+  for (const key of SAMPLER_NUMBER_OPTIONS) {
+    const item = source[key];
+    if (typeof item === 'number' && Number.isFinite(item)) options[key] = item;
+  }
+  if (typeof source.loop === 'boolean') options.loop = source.loop;
+  return options;
+}
+
 export type ArpMode = 'up' | 'down' | 'updown' | 'random' | 'played';
 export type ArpRate = '1/4' | '1/8' | '1/8T' | '1/16' | '1/16T' | '1/32';
 

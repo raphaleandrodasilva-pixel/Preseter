@@ -250,9 +250,10 @@ export class VstManager extends EventEmitter {
     const zyn = pluginPathOrId === 'preseter.zyn' || scanned?.id === 'preseter.zyn'
       ? { zynBankDir: this.zynBankDir, zynUserDir: this.zynUserDir }
       : {};
-    const request = scanned
-      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...factory, ...zyn, ...extra }
-      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...factory, ...zyn, ...extra };
+    // A identidade do plugin vem por último: `extra` nunca troca o que é carregado.
+    const identity = scanned ? { plugin: scanned.id } : { path: pluginPathOrId };
+    const { plugin: _plugin, path: _path, ...options } = extra;
+    const request = { ...factory, ...zyn, ...options, ...identity, layerId, minNote, maxNote, pinned };
 
     const requestLoad = () => this.engine.request(command, request, 60_000);
     let enginePlugin: EngineLoadedPlugin;

@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { isNativeSamplerAssignment } from './types';
+import { isNativeSamplerAssignment, pickSamplerOptions } from './types';
+
+describe('pickSamplerOptions', () => {
+  it('copia só os ajustes conhecidos do sampler', () => {
+    expect(pickSamplerOptions({
+      loop: false,
+      attack: 0.02,
+      cutoff: 8000,
+      plugin: 'C:/malicioso.vst3',
+      path: '/tmp/x.so',
+      samplePath: 'C:/segredo.sf2',
+      release: '2',
+      gain: Number.NaN,
+    })).toEqual({ loop: false, attack: 0.02, cutoff: 8000 });
+    expect(pickSamplerOptions(null)).toEqual({});
+    expect(pickSamplerOptions(['loop'])).toEqual({});
+  });
+});
 
 describe('isNativeSamplerAssignment', () => {
   it('reconhece o sampler pelo id ou caminho', () => {

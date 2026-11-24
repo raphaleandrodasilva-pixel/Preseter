@@ -10,8 +10,10 @@
 #include "Params/Controller.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -33,6 +35,25 @@ public:
 
 constexpr int kZynBlockSize = 32;
 
+/**
+ * Um instrumento completo do Zyn, com tudo de que o Part depende.
+ *
+ * Como no MiddleWare do Zyn original, um preset novo é montado fora da thread
+ * de áudio (carregar o XML, gerar as tabelas do PADsynth) e só depois troca de
+ * lugar com o instrumento que está tocando. Assim a thread de áudio nunca lê
+ * um Part pela metade. O Part é o último membro: é destruído primeiro.
+ */
+struct ZynInstance
+{
+    std::unique_ptr<zyn::SYNTH_T> synth;
+    std::unique_ptr<MallocAllocator> allocator;
+    std::unique_ptr<zyn::FFTwrapper> fft;
+    std::unique_ptr<zyn::Microtonal> microtonal;
+    std::unique_ptr<zyn::AbsTime> absTime;
+    std::unique_ptr<zyn::Sync> sync;
+    std::unique_ptr<zyn::Part> part;
+};
+
 class ZynProcessor final : public juce::AudioProcessor
 {
 public:
@@ -41,7 +62,9 @@ public:
           apvts (*this, nullptr, "ZYN", createLayout())
     {
         setRateAndBufferSizeDetails (44100.0, 256);
-        rebuild (44100.0);
+        auto fresh = createInstance (44100.0);
+        finishInstance (*fresh);
+        install (std::move (fresh));
     }
 
     ~ZynProcessor() override = default;
@@ -69,22 +92,29 @@ public:
         currentProgram = juce::jlimit (0, juce::jmax (0, (int) programs.size() - 1), currentProgram);
     }
 
-    int activeVoices() const { return part != nullptr ? part->activeVoices() : 0; }
+    int activeVoices() const { return voiceCount.load(); }
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override
     {
         juce::ignoreUnused (samplesPerBlock);
+        const double rate = sampleRate > 0.0 ? sampleRate : 44100.0;
+        if (instance != nullptr && rate == currentSampleRate)
+            return;
+
+        // A taxa mudou: monta o mesmo instrumento na taxa nova.
         const auto saved = captureInstrument();
-        rebuild (sampleRate > 0.0 ? sampleRate : 44100.0);
+        auto fresh = createInstance (rate);
         if (saved.isNotEmpty())
-            restoreInstrument (saved);
-        applyMacros (true);
+            readInstrument (*fresh->part, saved);
+        finishInstance (*fresh);
+        install (std::move (fresh));
     }
 
     void releaseResources() override
     {
-        if (part != nullptr)
-            part->AllNotesOff();
+        const juce::SpinLock::ScopedLockType lock (instanceLock);
+        if (instance != nullptr)
+            instance->part->AllNotesOff();
     }
 
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override
@@ -97,16 +127,23 @@ public:
     {
         juce::ScopedNoDenormals noDenormals;
         buffer.clear();
-        if (part == nullptr)
-            return;
 
-        applyMacros (false);
+        // Durante a troca de preset (só a troca de ponteiro) este bloco sai mudo.
+        const juce::SpinLock::ScopedTryLockType lock (instanceLock);
+        if (! lock.isLocked() || instance == nullptr)
+        {
+            midi.clear();
+            return;
+        }
+
+        auto& part = *instance->part;
+        applyMacros (part, false);
 
         auto* left = buffer.getWritePointer (0);
         auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : nullptr;
         const int numSamples = buffer.getNumSamples();
-        const float gain = part->gain;
-        const float pan = juce::jlimit (0.0f, 1.0f, part->panning);
+        const float gain = part.gain;
+        const float pan = juce::jlimit (0.0f, 1.0f, part.panning);
         const float gainL = gain * std::sqrt (1.0f - pan);
         const float gainR = gain * std::sqrt (pan);
 
@@ -114,30 +151,44 @@ public:
         auto it = midi.begin();
         const auto end = midi.end();
 
+        // O Zyn sempre calcula blocos de 32 amostras. O que sobra de um bloco
+        // fica guardado para o próximo buffer, então qualquer tamanho de buffer
+        // da placa funciona sem estalos.
         while (position < numSamples)
         {
-            const int chunk = juce::jmin (kZynBlockSize, numSamples - position);
-
-            for (; it != end; ++it)
+            if (pendingPos >= kZynBlockSize)
             {
-                const auto metadata = *it;
-                if (metadata.samplePosition >= position + chunk)
-                    break;
-                handleMidi (metadata.getMessage());
+                for (; it != end; ++it)
+                {
+                    const auto metadata = *it;
+                    if (metadata.samplePosition >= position + kZynBlockSize)
+                        break;
+                    handleMidi (part, metadata.getMessage());
+                }
+
+                part.ComputePartSmps();
+                ++(*instance->absTime); // o relógio do Zyn (LFOs com atraso e fade)
+                std::memcpy (pendingL, part.partoutl, sizeof (pendingL));
+                std::memcpy (pendingR, part.partoutr, sizeof (pendingR));
+                pendingPos = 0;
             }
 
-            part->ComputePartSmps();
-
-            for (int i = 0; i < chunk; ++i)
+            const int count = juce::jmin (kZynBlockSize - pendingPos, numSamples - position);
+            for (int i = 0; i < count; ++i)
             {
-                left[position + i] += part->partoutl[i] * gainL;
+                left[position + i] += pendingL[pendingPos + i] * gainL;
                 if (right != nullptr)
-                    right[position + i] += part->partoutr[i] * gainR;
+                    right[position + i] += pendingR[pendingPos + i] * gainR;
             }
-
-            position += chunk;
+            pendingPos += count;
+            position += count;
         }
 
+        // Eventos do fim do buffer valem para o próximo bloco do Zyn.
+        for (; it != end; ++it)
+            handleMidi (part, (*it).getMessage());
+
+        voiceCount.store (part.activeVoices());
         midi.clear();
     }
 
@@ -166,7 +217,6 @@ public:
 
         currentProgram = target;
         currentPath = programs[(size_t) target].path;
-        applyMacros (true);
     }
 
     const juce::String getProgramName (int index) override
@@ -209,7 +259,14 @@ public:
 
         const auto instrument = root.getProperty ("instrument").toString();
         if (instrument.isNotEmpty())
-            restoreInstrument (instrument);
+        {
+            auto fresh = createInstance (currentSampleRate);
+            if (readInstrument (*fresh->part, instrument))
+            {
+                finishInstance (*fresh);
+                install (std::move (fresh));
+            }
+        }
 
         const auto path = root.getProperty ("programPath").toString();
         int found = -1;
@@ -220,7 +277,7 @@ public:
         currentProgram = found >= 0 ? found
                                     : juce::jlimit (0, juce::jmax (0, (int) programs.size() - 1),
                                                     (int) root.getProperty ("program", 0));
-        applyMacros (true);
+        macrosDirty.store (true);
     }
 
 private:
@@ -248,13 +305,10 @@ private:
     };
 
     juce::AudioProcessorValueTreeState apvts;
-    std::unique_ptr<zyn::SYNTH_T> synth;
-    std::unique_ptr<MallocAllocator> allocator;
-    std::unique_ptr<zyn::FFTwrapper> fft;
-    std::unique_ptr<zyn::Microtonal> microtonal;
-    std::unique_ptr<zyn::AbsTime> absTime;
-    std::unique_ptr<zyn::Sync> sync;
-    std::unique_ptr<zyn::Part> part;
+
+    /** Instrumento que está tocando. Troca só sob `instanceLock`. */
+    std::unique_ptr<ZynInstance> instance;
+    juce::SpinLock instanceLock;
 
     int gzipCompression = 1;
     int interpolation = 0;
@@ -266,8 +320,16 @@ private:
     int currentProgram = 0;
     juce::String currentPath;
 
-    bool macrosInitialized = false;
+    // Só a thread de áudio usa (sob instanceLock).
     MacroState lastMacros;
+    float pendingL[kZynBlockSize] {};
+    float pendingR[kZynBlockSize] {};
+    int pendingPos = kZynBlockSize;
+
+    std::atomic<bool> macrosDirty { true };
+    std::atomic<int> voiceCount { 0 };
+    /** Posição atual da alavanca (-8192..8191), levada para o próximo preset. */
+    std::atomic<int> pitchWheel { 0 };
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     {
@@ -313,75 +375,100 @@ private:
         return state;
     }
 
-    void applyMacros (bool force)
+    static void writeMacros (zyn::Part& part, const MacroState& macros)
     {
-        if (part == nullptr)
-            return;
-
-        const auto macros = currentMacros();
-        if (! force && macrosInitialized && macros == lastMacros)
-            return;
-
-        lastMacros = macros;
-        macrosInitialized = true;
-
-        part->setVolumedB (macros.volume);
-        part->setPpanning ((char) juce::jlimit (0, 127, (int) std::lround ((macros.pan + 1.0f) * 63.5f)));
-        part->setvoicelimit ((unsigned char) juce::jlimit (0, 64, macros.voices));
-        part->Pkeyshift = (unsigned char) juce::jlimit (0, 127, 64 + macros.keyShift);
-        part->Ppolymode = ! macros.mono;
-        part->Plegatomode = false;
+        part.setVolumedB (macros.volume);
+        part.setPpanning ((char) juce::jlimit (0, 127, (int) std::lround ((macros.pan + 1.0f) * 63.5f)));
+        part.setvoicelimit ((unsigned char) juce::jlimit (0, 64, macros.voices));
+        part.Pkeyshift = (unsigned char) juce::jlimit (0, 127, 64 + macros.keyShift);
+        part.Ppolymode = ! macros.mono;
+        part.Plegatomode = false;
         for (int i = 0; i < 3; ++i)
-            part->Pefxbypass[i] = macros.fx[i];
+            part.Pefxbypass[i] = macros.fx[i];
     }
 
-    void rebuild (double sampleRate)
+    /** Thread de áudio: aplica os knobs do painel quando eles mudam. */
+    void applyMacros (zyn::Part& part, bool force)
     {
+        const auto macros = currentMacros();
+        if (! force && ! macrosDirty.exchange (false) && macros == lastMacros)
+            return;
+        lastMacros = macros;
+        writeMacros (part, macros);
+    }
+
+    /** Monta um instrumento novo (padrão do Zyn) fora da thread de áudio. */
+    std::unique_ptr<ZynInstance> createInstance (double sampleRate)
+    {
+        auto fresh = std::make_unique<ZynInstance>();
+
+        fresh->synth = std::make_unique<zyn::SYNTH_T>();
+        fresh->synth->samplerate = (unsigned int) std::lround (sampleRate);
+        fresh->synth->buffersize = kZynBlockSize;
+        fresh->synth->oscilsize = 1024;
+        fresh->synth->alias();
+
+        fresh->allocator = std::make_unique<MallocAllocator>();
+        // FFT própria: a área de trabalho da FFT nunca é dividida com a thread de áudio.
+        fresh->fft = std::make_unique<zyn::FFTwrapper> (fresh->synth->oscilsize);
+        fresh->microtonal = std::make_unique<zyn::Microtonal> (gzipCompression);
+        fresh->absTime = std::make_unique<zyn::AbsTime> (*fresh->synth);
+        fresh->sync = std::make_unique<zyn::Sync>();
+        fresh->part = std::make_unique<zyn::Part> (*fresh->allocator, *fresh->synth, *fresh->absTime,
+                                                   fresh->sync.get(), gzipCompression, interpolation,
+                                                   fresh->microtonal.get(), fresh->fft.get(),
+                                                   nullptr, nullptr);
+        fresh->part->Penabled = true;
+        fresh->part->Pnoteon = true;
+        fresh->part->defaultsinstrument();
         currentSampleRate = sampleRate;
+        return fresh;
+    }
 
-        synth = std::make_unique<zyn::SYNTH_T>();
-        synth->samplerate = (unsigned int) std::lround (sampleRate);
-        synth->buffersize = kZynBlockSize;
-        synth->oscilsize = 1024;
-        synth->alias();
+    /**
+     * Deixa o instrumento pronto para tocar, como o MiddleWare do Zyn faz ao
+     * carregar um preset: gera as tabelas do PADsynth (sem elas o PADsynth
+     * fica mudo), inicia os efeitos, aplica os knobs e a alavanca atual.
+     */
+    void finishInstance (ZynInstance& fresh)
+    {
+        fresh.part->applyparameters();
+        fresh.part->initialize_rt();
+        writeMacros (*fresh.part, currentMacros());
+        fresh.part->ctl.setpitchwheel (pitchWheel.load());
+    }
 
-        allocator = std::make_unique<MallocAllocator>();
-        fft = std::make_unique<zyn::FFTwrapper> (synth->oscilsize);
-        microtonal = std::make_unique<zyn::Microtonal> (gzipCompression);
-        absTime = std::make_unique<zyn::AbsTime> (*synth);
-        sync = std::make_unique<zyn::Sync>();
-        part = std::make_unique<zyn::Part> (*allocator, *synth, *absTime, sync.get(),
-                                             gzipCompression, interpolation,
-                                             microtonal.get(), fft.get(), nullptr, nullptr);
-        part->Penabled = true;
-        part->Pnoteon = true;
-        part->defaultsinstrument();
-        part->initialize_rt();
-        macrosInitialized = false;
+    /** Coloca o instrumento novo para tocar; o antigo é destruído fora da trava. */
+    void install (std::unique_ptr<ZynInstance> fresh)
+    {
+        {
+            const juce::SpinLock::ScopedLockType lock (instanceLock);
+            std::swap (instance, fresh);
+            lastMacros = currentMacros();
+            pendingPos = kZynBlockSize;
+        }
+        fresh.reset();
     }
 
     bool loadPreset (const juce::String& path)
     {
-        if (part == nullptr)
+        auto fresh = createInstance (currentSampleRate);
+        if (fresh->part->loadXMLinstrument (path.toRawUTF8()) != 0)
             return false;
 
-        part->AllNotesOff();
-        const auto result = part->loadXMLinstrument (path.toRawUTF8());
-        if (result != 0)
-            return false;
-
-        part->initialize_rt();
+        finishInstance (*fresh);
+        install (std::move (fresh));
         return true;
     }
 
     juce::String captureInstrument() const
     {
-        if (part == nullptr)
+        if (instance == nullptr)
             return {};
 
         zyn::XMLwrapper xml;
         xml.beginbranch ("PRESETER_INSTRUMENT");
-        part->add2XMLinstrument (xml);
+        instance->part->add2XMLinstrument (xml);
         xml.endbranch();
 
         char* data = xml.getXMLdata();
@@ -393,9 +480,9 @@ private:
         return text;
     }
 
-    bool restoreInstrument (const juce::String& text)
+    static bool readInstrument (zyn::Part& part, const juce::String& text)
     {
-        if (part == nullptr || text.isEmpty())
+        if (text.isEmpty())
             return false;
 
         zyn::XMLwrapper xml;
@@ -405,9 +492,8 @@ private:
         if (! xml.enterbranch ("PRESETER_INSTRUMENT"))
             return false;
 
-        part->getfromXMLinstrument (xml);
+        part.getfromXMLinstrument (xml);
         xml.exitbranch();
-        part->initialize_rt();
         return true;
     }
 
@@ -448,7 +534,7 @@ private:
     void scanPrograms()
     {
         programs.clear();
-        scanInto (factoryDir, juce::String::fromUTF8 ("F\u00E1brica"));
+        scanInto (factoryDir, juce::String::fromUTF8 ("Fábrica"));
         scanInto (userDir, "Meus presets");
 
         // Evita duplicar o mesmo arquivo se as pastas se sobrepuserem.
@@ -463,27 +549,33 @@ private:
         }), programs.end());
     }
 
-    void handleMidi (const juce::MidiMessage& message)
+    void handleMidi (zyn::Part& part, const juce::MidiMessage& message)
     {
-        if (part == nullptr)
-            return;
-
         if (message.isNoteOn())
-            part->NoteOn (message.getNoteNumber(), (unsigned char) message.getVelocity(), 0);
+            part.NoteOn (message.getNoteNumber(), (unsigned char) message.getVelocity(), 0);
         else if (message.isNoteOff())
-            part->NoteOff (message.getNoteNumber());
+            part.NoteOff (message.getNoteNumber());
         else if (message.isPitchWheel())
-            part->SetController (zyn::C_pitchwheel, message.getPitchWheelValue());
+        {
+            // O MIDI vai de 0 a 16383 com centro em 8192; o Zyn espera -8192..8191.
+            const int bend = message.getPitchWheelValue() - 8192;
+            pitchWheel.store (bend);
+            part.SetController (zyn::C_pitchwheel, bend);
+        }
         else if (message.isController())
         {
             const int controller = message.getControllerNumber();
             if (controller == 120 || controller == 123)
-                part->AllNotesOff();
+                part.AllNotesOff();
             else
-                part->SetController ((unsigned int) controller, message.getControllerValue());
+            {
+                if (controller == 121)
+                    pitchWheel.store (0);
+                part.SetController ((unsigned int) controller, message.getControllerValue());
+            }
         }
         else if (message.isAllNotesOff() || message.isAllSoundOff())
-            part->AllNotesOff();
+            part.AllNotesOff();
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ZynProcessor)

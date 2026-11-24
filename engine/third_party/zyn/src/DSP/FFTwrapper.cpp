@@ -53,8 +53,10 @@ void FFTwrapper::smps2freqs_noconst_input(FFTsampleBuffer smps, FFTfreqBuffer fr
 
     fft->performRealOnlyForwardTransform(scratch.getData(), false);
 
+    // Como o FFTW (r2c), entrega só as frequências 0..N/2. A área de trabalho
+    // tem N números complexos: ler o índice N passaria do fim dela.
     const auto* bins = reinterpret_cast<const std::complex<float>*>(scratch.getData());
-    for (int i = 0; i <= m_fftsize; ++i)
+    for (int i = 0; i <= m_fftsize / 2; ++i)
         freqs.data[i] = bins[i];
 }
 

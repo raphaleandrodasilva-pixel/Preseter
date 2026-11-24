@@ -202,6 +202,17 @@ describe('exportar concert como biblioteca', () => {
     const third = exported().library;
     (third.concerts[0].snapshot as PreseterConcertFile).patches[0].plugins![0].samplePath = '../../segredo.sf2';
     expect(() => parseLibraryFile(JSON.stringify(third))).toThrow(/sample/i);
+
+    // Os ajustes do sampler vão para o motor: um `plugin` ali trocaria o que é carregado.
+    const fourth = exported().library;
+    (fourth.concerts[0].snapshot as PreseterConcertFile).patches[0].plugins![0].sampler =
+      { loop: true, plugin: 'C:\\malicioso\\plugin.vst3' } as never;
+    expect(() => parseLibraryFile(JSON.stringify(fourth))).toThrow(/sampler/i);
+
+    const fifth = exported().library;
+    (fifth.concerts[0].snapshot as PreseterConcertFile).patches[0].plugins![0].sampler =
+      { loop: false, attack: 0.01, cutoff: 9000 };
+    expect(() => parseLibraryFile(JSON.stringify(fifth))).not.toThrow();
   });
 
   it('recusa concert vazio', () => {

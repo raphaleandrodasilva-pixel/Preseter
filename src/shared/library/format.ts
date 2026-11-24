@@ -6,7 +6,7 @@ import type {
 } from '../collection-presets';
 import { SAMPLE_LIBRARY_FILES } from '../collection-presets';
 import { findEffect } from '../effects/catalog';
-import { MAX_AUX_BUSES, MAX_INSERTS, SEND_OFF_DB } from '../types';
+import { MAX_AUX_BUSES, MAX_INSERTS, SAMPLER_NUMBER_OPTIONS, SEND_OFF_DB } from '../types';
 
 /**
  * Formato de biblioteca do Preseter: um arquivo só de dados, sem código, que o
@@ -317,6 +317,15 @@ function checkPatch (
   }
 }
 
+const SAMPLER_NUMBER_KEYS = new Set<string>(SAMPLER_NUMBER_OPTIONS);
+
+/** Ajustes do sampler: nenhum campo além dos conhecidos (um `plugin` trocaria o que o motor carrega). */
+function isSamplerSettings (value: unknown): boolean {
+  if (!isObject(value)) return false;
+  return Object.entries(value).every(([key, item]) =>
+    key === 'loop' ? typeof item === 'boolean' : SAMPLER_NUMBER_KEYS.has(key) && typeof item === 'number' && Number.isFinite(item));
+}
+
 /**
  * Concert exportado: plugin só pode ser nativo ou referência declarada. Assim um
  * arquivo de biblioteca nunca manda o motor carregar uma DLL por caminho direto.
@@ -369,6 +378,9 @@ function checkSnapshot (
       if (!layer.externalMidi) checkPlugin(layer, layerAt);
       if (layer.samplePath !== undefined && layer.samplePath !== '' && !isSafeRelativePath(layer.samplePath)) {
         problems.add(layerAt, 'samplePath precisa ser relativo à pasta de sons');
+      }
+      if (layer.sampler !== undefined && !isSamplerSettings(layer.sampler)) {
+        problems.add(layerAt, 'sampler só aceita os ajustes do sampler (números e loop)');
       }
       checkInserts(layer.inserts, `${layerAt} inserts`);
     });
