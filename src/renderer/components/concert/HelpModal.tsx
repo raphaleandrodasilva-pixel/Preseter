@@ -10,7 +10,7 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
     title: 'Começando',
     items: [
       'Ao abrir, o app pode mostrar os templates. Escolha um ou comece vazio.',
-      'O template Guitarra já traz três patches (Clean, Crunch e Lead) com a cadeia Guitarix no Master; adicione seu VST/sampler de guitarra.',
+      'O template Guitarra traz 12 patches de pedaleira (Clean, Crunch, Lead, Blues, High Gain, Funk, Ambient, Vintage, Jet, Violão, Baixo e Afinador) com Guitarix e efeitos Preseter no Master; ligue a guitarra na entrada de áudio.',
       'Use Arquivo → Novo Concert (Ctrl+N) para abrir o seletor novamente.',
       'Arquivo → Salvar (Ctrl+S) grava o concert; o título mostra um ponto quando há alterações.',
     ],

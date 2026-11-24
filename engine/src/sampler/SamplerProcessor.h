@@ -124,9 +124,13 @@ private:
     void syncParameters();
     int findFreeVoice();
     void resetVoices();
+    /** Troca o instrumento sob `instrumentLock` (a thread de áudio nunca o vê pela metade). */
+    void installInstrument (std::shared_ptr<sampler::Instrument> loaded);
     const sampler::Sample* voiceRegionSample (const Voice& voice) const;
 
     std::shared_ptr<sampler::Instrument> instrument;
+    /** Protege `instrument` e as vozes durante a troca de arquivo ou preset. */
+    juce::SpinLock instrumentLock;
     std::vector<Voice> voices;
     juce::uint32 voiceOrder = 0;
 

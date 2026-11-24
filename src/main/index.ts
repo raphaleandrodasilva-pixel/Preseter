@@ -284,7 +284,7 @@ class MainWindow {
       this.createSplash();
       this.createWindow();
       this.buildMenu();
-      setupUpdater();
+      setupUpdater(() => this.performanceMode.getStatus().enabled);
       scheduleStartupUpdateCheck();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
@@ -1624,6 +1624,10 @@ class MainWindow {
           console.warn('[Preseter] Não foi possível escanear os plugins do Full Set:', error);
         }
       }
+      // Os efeitos Preseter da pedaleira acompanham o app; garante que estão no scan.
+      const templatePlugins = templateId === 'guitarra'
+        ? (await this.libraryEnvironment()).plugins
+        : plugins;
       try {
         await this.patchLoadQueue;
         await this.vstManager.unloadAll();
@@ -1632,7 +1636,7 @@ class MainWindow {
       }
       this.lastLoadedPresetId = null;
       const state = this.concertManager.newConcert(templateId, {
-        plugins,
+        plugins: templatePlugins,
         soundsFolder: this.soundsFolder(),
       });
       this.preloadConcertSamplers();

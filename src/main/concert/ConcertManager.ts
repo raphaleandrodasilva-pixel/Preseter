@@ -173,7 +173,7 @@ export class ConcertManager extends EventEmitter {
         soundsFolder: options.soundsFolder,
       }).file;
     } else {
-      this.file = buildTemplateConcert(templateId);
+      this.file = buildTemplateConcert(templateId, { plugins: options.plugins });
     }
     this.filePath = null;
     this.savedSignature = signature(this.file);

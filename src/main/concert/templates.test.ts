@@ -115,7 +115,8 @@ describe('concert templates', () => {
     const stomps = guitar.layout.elements.filter(
       (element) => element.type === 'pedal' && element.pedalKind === 'stomp'
     );
-    expect(stomps.length).toBe(3);
+    // Sem scan, só o Guitarix (URI fixa) entra: Preamp e Cab.
+    expect(stomps.length).toBe(2);
     expect(stomps.every((element) => element.stompOwner === 'patch')).toBe(true);
     expect(guitar.layout.elements.some((element) => element.type === 'keyboard')).toBe(false);
     expect(guitar.audioInput).toMatchObject({ enabled: true, destination: 'patch', mode: 'mono' });
@@ -136,30 +137,52 @@ describe('concert templates', () => {
     expect(file.patches.map((patch) => patch.icon)).toEqual(['pad', 'pad-bright', 'piano', 'generic']);
   });
 
-  it('builds the guitar template with the Guitarix master chain', () => {
-    const file = buildTemplateConcert('guitarra');
+  it('builds the guitar template with Guitarix and the Preseter effects', () => {
+    const effectNames = ['Chorus', 'Reverb', 'Delay', 'Expander', 'Compressor', 'Filter', 'Phaser',
+      'Flanger', 'Equalizer', 'Octaver', 'Tuner'];
+    const plugins = effectNames.map((name) => ({
+      id: `VST3-calfNXT ${name}`,
+      name: `calfNXT ${name}`,
+      path: `C:/Preseter/plugins/calfNXT${name}.vst3`,
+      isInstrument: false,
+    }));
+    const file = buildTemplateConcert('guitarra', { plugins });
     expect(file.concert.name).toBe('Meu Concert de Guitarra');
-    expect(file.sets.map((set) => set.name)).toEqual(['Guitarra']);
+    expect(file.sets.map((set) => set.name)).toEqual(['Guitarra', 'Violão e Baixo']);
     expect(file.patches.map((patch) => patch.name)).toEqual([
-      'Guitarra Clean',
-      'Guitarra Crunch',
-      'Guitarra Lead',
+      'Guitarra Clean', 'Guitarra Crunch', 'Guitarra Lead', 'Guitarra Blues', 'Guitarra High Gain',
+      'Guitarra Funk', 'Guitarra Ambient', 'Guitarra Vintage', 'Guitarra Jet',
+      'Violão', 'Baixo', 'Afinador',
     ]);
 
-    const [clean, crunch, lead] = file.patches;
+    const byName = new Map(file.patches.map((patch) => [patch.name, patch]));
+    const clean = byName.get('Guitarra Clean')!;
     expect(clean.master?.inserts.map((insert) => insert.path)).toEqual([
       'http://guitarix.sourceforge.net/plugins/gx_studiopre#studiopre',
       'http://guitarix.sourceforge.net/plugins/gx_cabinet#CABINET',
-      'http://guitarix.sourceforge.net/plugins/gx_tremolo#_tremolo',
+      'C:/Preseter/plugins/calfNXTChorus.vst3',
+      'C:/Preseter/plugins/calfNXTReverb.vst3',
     ]);
-    expect(clean.master?.inserts.map((insert) => insert.presetId)).toEqual(['bright', 'open', 'subtle']);
-    expect(crunch.master?.inserts.map((insert) => insert.presetId)).toEqual(['crunch', 'crunch']);
-    expect(lead.master?.inserts.map((insert) => insert.presetId)).toEqual(['lead', 'lead']);
+    expect(clean.master?.inserts.map((insert) => insert.presetId)).toEqual(['bright', 'open', 'subtle', 'room']);
+    expect(byName.get('Guitarra Crunch')!.master?.inserts.map((insert) => insert.presetId))
+      .toEqual(['crunch', 'crunch', 'default', 'room']);
+    expect(byName.get('Guitarra Lead')!.master?.inserts.map((insert) => insert.presetId))
+      .toEqual(['lead', 'lead', 'closed', 'echo']);
+    expect(byName.get('Violão')!.master?.inserts[0].path).toBe('C:/Preseter/plugins/calfNXTEqualizer.vst3');
+    expect(byName.get('Afinador')!.master?.inserts.map((insert) => insert.path))
+      .toEqual(['C:/Preseter/plugins/calfNXTTuner.vst3']);
+    for (const patch of file.patches) {
+      expect(patch.master?.inserts.length, patch.name).toBeLessThanOrEqual(4);
+      expect(patch.master?.inserts.map((insert) => insert.slot), patch.name)
+        .toEqual(patch.master?.inserts.map((_, index) => index));
+      expect(patch.audioInput, patch.name).toMatchObject({ enabled: true, destination: 'patch' });
+    }
     expect(file.patches.every((patch) => patch.layout.elements.every((element) => element.type !== 'keyboard'))).toBe(true);
     expect(file.patches[0].layout.elements.some((element) => element.type === 'audio-input')).toBe(true);
     expect(file.patches[0].layout.elements.filter(
       (element) => element.pedalKind === 'stomp'
-    ).map((element) => element.label)).toEqual(['Preamp', 'Cab', 'Tremolo']);
+    )).toHaveLength(4);
+    expect(file.patches[0].notes).toBe('Preamp → Cab → Chorus → Reverb. Plugar a fonte na entrada de áudio.');
     expect(file.patches[0].layout.elements.some((element) => element.type === 'midi-activity')).toBe(false);
     expect(file.patches[0].layout.elements.some((element) => element.label === 'Modulação')).toBe(false);
     expect(file.patches[0].layout.elements.some((element) => element.patchSendAux !== undefined)).toBe(false);

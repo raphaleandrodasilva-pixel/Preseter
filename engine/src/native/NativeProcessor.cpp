@@ -692,6 +692,19 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                 continue;
             }
 
+            // Pedal de expressão (CC11) e reset de controladores (CC121): o
+            // swell do setBfree recebe o knob de volume vezes o pedal.
+            if (message.isController() && message.getControllerNumber() == 11)
+            {
+                organExpression = (float) message.getControllerValue() / 127.0f;
+                continue;
+            }
+            if (message.isResetAllControllers())
+            {
+                organExpression = 1.0f;
+                continue;
+            }
+
             SetBfreeMidiEvent event;
             event.samplePosition = metadata.samplePosition;
             event.size = 3;
@@ -946,7 +959,7 @@ void NativeProcessor::updateOrganParameters()
     setBfree->setOverdrive (parameter ("organ_overdrive"));
     setBfree->setReverb (parameter ("organ_reverb"));
     setBfree->setKeyClick (parameter ("organ_key_click"));
-    setBfree->setVolume (parameter ("organ_volume"));
+    setBfree->setVolume (parameter ("organ_volume") * organExpression);
 }
 
 void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamples)

@@ -203,6 +203,8 @@ private:
     bool delegatedPrepared = false;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
+    /** Pedal de expressão do órgão (CC11), 0..1. Só a thread de áudio usa. */
+    float organExpression = 1.0f;
     std::atomic<int> lastLeslieParam { -1 };
     std::atomic<int> pendingLeslieFromMidi { -1 };
     float organOutputGain = 1.0f;

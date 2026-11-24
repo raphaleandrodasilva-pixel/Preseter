@@ -3,7 +3,8 @@
  * novo; cada template monta sets e patches prontos para receber instrumentos.
  */
 
-import { AudioInputSettings, ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, SEND_OFF_DB } from '../../shared/types';
+import { findEffectPlugin, type CollectionPlugin } from '../collection/generateCollection';
+import { AudioInputSettings, ConcertTemplateSummary, Insert, MAX_AUX_BUSES, MAX_INSERTS, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, SEND_OFF_DB } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
@@ -46,8 +47,8 @@ interface PatchSpec {
     programIndex?: number;
     label?: string;
   };
-  /** Inserts do Master do Patch com a cadeia Guitarix embutida. */
-  masterInserts?: GuitarInsertSpec[];
+  /** Inserts do Master do Patch (Guitarix embutido e efeitos Preseter), até 4. */
+  masterInserts?: TemplateInsertSpec[];
   /** Layout de pedaleira (sem teclado): pedais para os inserts do Master. */
   pedalboard?: boolean;
   /** Entrada de áudio do patch (pedaleira ao vivo). */
@@ -92,6 +93,40 @@ const GX = {
 
 function gx(id: keyof typeof GX, preset?: string): GuitarInsertSpec {
   return { ...GX[id], ...(preset ? { preset } : {}) };
+}
+
+/**
+ * Efeito Preseter (calfNXT) pelo nome do catálogo. O arquivo do plugin muda de
+ * computador para computador, então ele é achado no scan ao criar o concert.
+ */
+interface EffectInsertSpec {
+  effect: string;
+  preset?: string;
+}
+
+type TemplateInsertSpec = GuitarInsertSpec | EffectInsertSpec;
+
+function fx(effect: string, preset?: string): EffectInsertSpec {
+  return { effect, ...(preset ? { preset } : {}) };
+}
+
+const isEffectInsert = (spec: TemplateInsertSpec): spec is EffectInsertSpec => 'effect' in spec;
+
+/** Rótulo curto do efeito para as notas do patch ("Preseter Chorus" → "Chorus"). */
+const insertLabel = (spec: TemplateInsertSpec): string =>
+  (isEffectInsert(spec) ? spec.effect : spec.name).replace(/^Preseter\s+/, '');
+
+/** Patch de pedaleira: entrada de áudio ligada e a cadeia no Master do Patch. */
+function pedalboardPatch (name: string, setName: string, chain: TemplateInsertSpec[]): PatchSpec {
+  return {
+    name,
+    setName,
+    withKeyboard: false,
+    pedalboard: true,
+    notes: `${chain.map(insertLabel).join(' → ')}. Plugar a fonte na entrada de áudio.`,
+    masterInserts: chain,
+    audioInput: audioInputForPedalboard(),
+  };
 }
 
 /** Entrada de áudio habilitada e roteada pelo Master do Patch (pedaleira ao vivo). */
@@ -292,29 +327,36 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'guitarra',
     name: 'Guitarra',
-    description: 'Pedaleira para entrada ao vivo (guitarra, microfone, baixo, violão): a cadeia Guitarix (Preseter Overdrive, Preamp, Cab, Amp e Tremolo) já vem no Master do Patch, com a entrada de áudio habilitada e roteada para os pedais.',
+    description: 'Pedaleira para entrada ao vivo (guitarra, violão, baixo): 12 patches com a cadeia Guitarix (Overdrive, Preamp, Amp, Cab e Tremolo) e os efeitos Preseter (Chorus, Delay, Reverb, Phaser, Flanger, Filter, Compressor, Gate, Octaver, EQ e Afinador) no Master do Patch, com a entrada de áudio habilitada e roteada para os pedais.',
     concertName: 'Meu Concert de Guitarra',
     tempo: 100,
-    sets: ['Guitarra'],
+    sets: ['Guitarra', 'Violão e Baixo'],
+    // Guitarix (mono) primeiro, efeitos estéreo depois; no máximo 4 por patch.
     patches: [
-      {
-        name: 'Guitarra Clean', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
-        notes: 'Preamp → Cab → Tremolo. Plugar a fonte na entrada de áudio.',
-        masterInserts: [gx('preamp', 'bright'), gx('cab', 'open'), gx('tremolo', 'subtle')],
-        audioInput: audioInputForPedalboard(),
-      },
-      {
-        name: 'Guitarra Crunch', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
-        notes: 'Overdrive → Amp (Crunch). Plugar a fonte na entrada de áudio.',
-        masterInserts: [gx('overdrive', 'crunch'), gx('amp', 'crunch')],
-        audioInput: audioInputForPedalboard(),
-      },
-      {
-        name: 'Guitarra Lead', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
-        notes: 'Overdrive → Amp (Lead). Plugar a fonte na entrada de áudio.',
-        masterInserts: [gx('overdrive', 'lead'), gx('amp', 'lead')],
-        audioInput: audioInputForPedalboard(),
-      },
+      pedalboardPatch('Guitarra Clean', 'Guitarra',
+        [gx('preamp', 'bright'), gx('cab', 'open'), fx('Preseter Chorus', 'subtle'), fx('Preseter Reverb', 'room')]),
+      pedalboardPatch('Guitarra Crunch', 'Guitarra',
+        [gx('overdrive', 'crunch'), gx('amp', 'crunch'), gx('cab', 'default'), fx('Preseter Reverb', 'room')]),
+      pedalboardPatch('Guitarra Lead', 'Guitarra',
+        [gx('overdrive', 'lead'), gx('amp', 'lead'), gx('cab', 'closed'), fx('Preseter Delay', 'echo')]),
+      pedalboardPatch('Guitarra Blues', 'Guitarra',
+        [gx('overdrive', 'boost'), gx('amp', 'blues'), gx('cab', 'default'), fx('Preseter Reverb', 'plate')]),
+      pedalboardPatch('Guitarra High Gain', 'Guitarra',
+        [fx('Preseter Expander', 'guitar-gate'), gx('amp', 'highgain'), gx('cab', 'closed'), fx('Preseter Delay', 'slap')]),
+      pedalboardPatch('Guitarra Funk', 'Guitarra',
+        [fx('Preseter Compressor', 'default'), fx('Preseter Filter', 'envelope'), gx('amp', 'clean'), fx('Preseter Phaser', 'slow')]),
+      pedalboardPatch('Guitarra Ambient', 'Guitarra',
+        [gx('preamp', 'warm'), gx('cab', 'open'), fx('Preseter Delay', 'ambient'), fx('Preseter Reverb', 'hall')]),
+      pedalboardPatch('Guitarra Vintage', 'Guitarra',
+        [gx('amp', 'clean'), gx('cab', 'default'), gx('tremolo', 'classic'), fx('Preseter Reverb', 'plate')]),
+      pedalboardPatch('Guitarra Jet', 'Guitarra',
+        [gx('overdrive', 'crunch'), gx('amp', 'crunch'), gx('cab', 'default'), fx('Preseter Flanger', 'jet')]),
+      pedalboardPatch('Violão', 'Violão e Baixo',
+        [fx('Preseter EQ', 'guitarra'), fx('Preseter Compressor', 'default'), fx('Preseter Chorus', 'subtle'), fx('Preseter Reverb', 'room')]),
+      pedalboardPatch('Baixo', 'Violão e Baixo',
+        [fx('Preseter Compressor', 'bass'), fx('Preseter Octaver', 'sub'), fx('Preseter EQ', 'baixo')]),
+      pedalboardPatch('Afinador', 'Violão e Baixo',
+        [fx('Preseter Tuner', 'default')]),
     ],
   },
   {
@@ -451,8 +493,36 @@ export function listTemplates(): ConcertTemplateSummary[] {
   return CONCERT_TEMPLATES.map(({ id, name, description }) => ({ id, name, description }));
 }
 
+/** Insert do Master: Guitarix pela URI fixa; efeito Preseter pelo scan (ausente = fica de fora). */
+function resolveInsert (spec: TemplateInsertSpec, plugins: CollectionPlugin[]): Omit<Insert, 'slot'> | null {
+  if (!isEffectInsert(spec)) {
+    return {
+      pluginId: spec.pluginId,
+      name: spec.name,
+      path: spec.uri,
+      bypass: false,
+      ...(spec.preset ? { presetId: spec.preset } : {}),
+    };
+  }
+  const found = findEffectPlugin(plugins, spec.effect);
+  if (!found) return null;
+  return {
+    pluginId: found.id,
+    name: found.name,
+    path: found.path ?? found.id,
+    bypass: false,
+    ...(spec.preset ? { presetId: spec.preset } : {}),
+  };
+}
+
+export interface TemplateOptions {
+  /** Plugins do scan, para achar os efeitos Preseter do computador. */
+  plugins?: CollectionPlugin[];
+}
+
 /** Monta um concert novo a partir de um template. Template desconhecido = vazio. */
-export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile {
+export function buildTemplateConcert(templateId = 'vazio', options: TemplateOptions = {}): PreseterConcertFile {
+  const plugins = options.plugins ?? [];
   const template = CONCERT_TEMPLATES.find((item) => item.id === templateId) ?? CONCERT_TEMPLATES[0];
   const now = Date.now();
 
@@ -484,14 +554,11 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     }
     usedSlugs.add(slug);
     const assignment = templateAssignment(spec, slug);
-    const masterInserts: Insert[] = (spec.masterInserts ?? []).map((item, slot) => ({
-      slot,
-      pluginId: item.pluginId,
-      name: item.name,
-      path: item.uri,
-      bypass: false,
-      ...(item.preset ? { presetId: item.preset } : {}),
-    }));
+    const masterInserts: Insert[] = (spec.masterInserts ?? [])
+      .map((item) => resolveInsert(item, plugins))
+      .filter((item): item is Omit<Insert, 'slot'> => item !== null)
+      .slice(0, MAX_INSERTS)
+      .map((item, slot) => ({ slot, ...item }));
     return {
       id: nextId('preset'),
       name: spec.name,

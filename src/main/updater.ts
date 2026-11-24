@@ -21,7 +21,11 @@ const show = async (
 ): Promise<Electron.MessageBoxReturnValue> =>
   win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options);
 
-export function setupUpdater (): void {
+/**
+ * `isPerformanceMode`: com o modo Performance ligado (show), o aviso de
+ * "atualização pronta" não aparece por cima do palco; ela é instalada ao fechar.
+ */
+export function setupUpdater (isPerformanceMode: () => boolean = () => false): void {
   // Sem app empacotado (dev/testes) o electron-updater não tem instância do
   // Electron; a checagem manual já avisa que só funciona no app instalado.
   if (!app.isPackaged) return;
@@ -62,7 +66,9 @@ export function setupUpdater (): void {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    const wasManual = manualCheck;
     manualCheck = false;
+    if (!wasManual && isPerformanceMode()) return;
     void show(BrowserWindow.getFocusedWindow(), {
       type: 'info',
       title: 'Atualização pronta',

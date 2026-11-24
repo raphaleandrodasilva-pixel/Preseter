@@ -282,10 +282,21 @@ void SamplerProcessor::setCurrentProgram (int index)
     if (loaded == nullptr)
         return;
 
-    instrument = loaded;
     currentBank = bank;
     currentProgram = loaded->getSelectedProgram();
-    resetVoices();
+    installInstrument (std::move (loaded));
+}
+
+void SamplerProcessor::installInstrument (std::shared_ptr<sampler::Instrument> loaded)
+{
+    std::shared_ptr<sampler::Instrument> previous;
+    {
+        const juce::SpinLock::ScopedLockType lock (instrumentLock);
+        previous = std::move (instrument);
+        instrument = std::move (loaded);
+        resetVoices();
+    }
+    // `previous` é liberado aqui, fora da trava.
 }
 
 const juce::String SamplerProcessor::getProgramName (int index)
@@ -301,8 +312,7 @@ void SamplerProcessor::changeProgramName (int, const juce::String&) {}
 
 bool SamplerProcessor::loadFile (const juce::File& file, int bank, int program, juce::String& error)
 {
-    resetVoices();
-
+    // Carrega fora da trava (pode ler o disco); só a troca acontece sob ela.
     juce::String cacheError;
     auto loaded = sampler::InstrumentCache::get().load (file, bank, program, cacheError);
     if (loaded == nullptr)
@@ -312,9 +322,9 @@ bool SamplerProcessor::loadFile (const juce::File& file, int bank, int program, 
         return false;
     }
 
-    instrument = loaded;
     currentBank = bank;
-    currentProgram = instrument->getSelectedProgram();
+    currentProgram = loaded->getSelectedProgram();
+    installInstrument (std::move (loaded));
     return true;
 }
 
@@ -629,6 +639,14 @@ void SamplerProcessor::processBlock (juce::AudioBuffer<float>& audio, juce::Midi
 {
     juce::ScopedNoDenormals noDenormals;
     audio.clear();
+
+    // Durante a troca de instrumento (só a troca de ponteiro) este bloco sai mudo.
+    const juce::SpinLock::ScopedTryLockType lock (instrumentLock);
+    if (! lock.isLocked())
+    {
+        midi.clear();
+        return;
+    }
 
     syncParameters();
 

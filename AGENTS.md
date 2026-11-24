@@ -18,7 +18,13 @@ Corrige o porte do ZynAddSubFX (1.3.0) e fecha uma falha de segurança no arquiv
 | Leitura fora da memória na FFT | Copia só as frequências 0..N/2, como o FFTW | `engine/third_party/zyn/src/DSP/FFTwrapper.cpp` |
 | Biblioteca podia carregar DLL pelo campo `sampler` | Valida `sampler` e põe a identidade do plugin por último | `src/shared/library/format.ts`, `src/shared/types.ts`, `src/main/index.ts`, `src/main/vst/VstManager.ts` |
 
-O Dexed foi analisado e não precisou de correção.
+| Sampler: troca de arquivo/preset disputava o áudio | Instrumento novo carregado fora e trocado sob trava | `engine/src/sampler/SamplerProcessor.*` |
+| Órgão ignorava o pedal de expressão | CC11 multiplica o volume (swell do setBfree); CC121 volta a 100% | `engine/src/native/NativeProcessor.*` |
+| Template Guitarra só com 3 patches e 5 efeitos | 12 patches com Guitarix + efeitos Preseter achados no scan | `src/main/concert/templates.ts`, `ConcertManager.ts`, `index.ts` |
+| Aviso de atualização por cima do show | Não aparece com o modo Performance ligado; instala ao fechar | `src/main/updater.ts`, `index.ts` |
+| Workflow podia apagar a última estável | **Pendente**: alteração pronta, mas o token não tem o escopo `workflow` | `.github/workflows/build.yml` (local) |
+
+O Dexed e os outros instrumentos nativos foram analisados e não precisaram de correção.
 
 ## Regras
 
@@ -36,6 +42,10 @@ O Dexed foi analisado e não precisou de correção.
 - Tempo de carga dos presets com PADsynth.
 - Buffer da placa em tamanho que não é múltiplo de 32 (ex.: 441).
 - CPU com vários layers de Zyn.
+- Trocar o preset do sampler (SF2) no painel enquanto toca.
+- Pedal de expressão no órgão.
+- Template Guitarra: criar o concert, conferir os 12 patches, os pedais e o som com guitarra real.
+- Aviso de atualização com o modo Performance ligado e desligado.
 
 ## Como verificar
 
