@@ -93,6 +93,7 @@ export const NATIVE_INSTRUMENT_NAMES: Record<
   dx: 'Preseter DX10',
   jx: 'Preseter JX10',
   dexed: 'Preseter Dexed',
+  zyn: 'Preseter Zyn',
   synth2: 'Preseter Synth2',
   drums: 'Preseter Drums',
 };

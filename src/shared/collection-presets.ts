@@ -65,7 +65,7 @@ export interface CollectionLayerSpec {
    * `piano` existe no motor, mas **não** substitui o sampler nos pianos
    * acústicos: só pode entrar como camada extra, com aprovação.
    */
-  nativeInstrument?: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2' | 'drums';
+  nativeInstrument?: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'zyn' | 'synth2' | 'drums';
   /** Quando presente, o layer usa o sampler nativo (SF2/SFZ). */
   sample?: SampleSpec;
 }

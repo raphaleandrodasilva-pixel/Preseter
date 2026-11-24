@@ -216,6 +216,10 @@ class MainWindow {
       ? path.join(process.resourcesPath, 'synth2-presets')
       : path.join(app.getAppPath(), 'presets', 'synth2');
     this.vstManager.setSynth2FactoryDir(synth2FactoryDir);
+    const zynBankDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'zyn', 'banks')
+      : path.join(app.getAppPath(), 'vendor', 'zyn', 'banks');
+    this.vstManager.setZynBankDirs(zynBankDir, path.join(app.getPath('userData'), 'Zyn', 'Presets'));
     this.vstPresetLibrary = new VstPresetLibrary(
       app.getPath('userData'),
       app.getPath('documents'),
@@ -1002,6 +1006,35 @@ class MainWindow {
         return {
           ok: false as const,
           error: error instanceof Error ? error.message : 'Falha ao importar o cartucho.',
+        };
+      }
+    });
+
+    ipcMain.handle('zyn-import-preset', async (_event, layerId: string) => {
+      const picked = await dialog.showOpenDialog({
+        title: 'Importar preset do Zyn',
+        filters: [{ name: 'Preset ZynAddSubFX (.xiz)', extensions: ['xiz'] }],
+        properties: ['openFile'],
+      });
+      const source = picked.filePaths[0];
+      if (picked.canceled || !source) return { ok: false as const };
+      if (path.extname(source).toLowerCase() !== '.xiz') {
+        return { ok: false as const, error: 'Escolha um arquivo .xiz.' };
+      }
+      try {
+        const presetDir = path.join(app.getPath('userData'), 'Zyn', 'Presets');
+        fs.mkdirSync(presetDir, { recursive: true });
+        const destination = path.join(presetDir, path.basename(source));
+        if (path.resolve(source) !== path.resolve(destination)) {
+          fs.copyFileSync(source, destination);
+        }
+        const plugin = await this.vstManager.reloadZynBank(layerId);
+        if (!plugin) return { ok: false as const, error: 'O Preseter Zyn não está carregado neste layer.' };
+        return { ok: true as const, plugin };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : 'Falha ao importar o preset.',
         };
       }
     });

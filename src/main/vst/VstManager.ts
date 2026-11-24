@@ -46,6 +46,9 @@ export class VstManager extends EventEmitter {
   private loadQueue: Promise<unknown> = Promise.resolve();
   /** Pasta dos .sy1 de fábrica usados pelos programas internos do Synth2. */
   private synth2FactoryDir = '';
+  /** Pastas de presets .xiz do Preseter Zyn (fábrica e usuário). */
+  private zynBankDir = '';
+  private zynUserDir = '';
   /** Serializa varreduras de VST3 (startup, watcher e botão manual). */
   private scanPromise: Promise<VstPluginInfo[]> | null = null;
   private scanReport: VstScanReport = {
@@ -83,6 +86,11 @@ export class VstManager extends EventEmitter {
   /** Informa de onde o motor lê os programas de fábrica do Synth2. */
   setSynth2FactoryDir(dir: string): void {
     this.synth2FactoryDir = dir;
+  }
+
+  setZynBankDirs(factoryDir: string, userDir: string): void {
+    this.zynBankDir = factoryDir;
+    this.zynUserDir = userDir;
   }
 
   async scanDefaultDirectories(): Promise<VstPluginInfo[]> {
@@ -239,9 +247,12 @@ export class VstManager extends EventEmitter {
     const factory = isSynth2 && this.synth2FactoryDir
       ? { factoryPatches: this.synth2FactoryDir }
       : {};
+    const zyn = pluginPathOrId === 'preseter.zyn' || scanned?.id === 'preseter.zyn'
+      ? { zynBankDir: this.zynBankDir, zynUserDir: this.zynUserDir }
+      : {};
     const request = scanned
-      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...factory, ...extra }
-      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...factory, ...extra };
+      ? { plugin: scanned.id, layerId, minNote, maxNote, pinned, ...factory, ...zyn, ...extra }
+      : { path: pluginPathOrId, layerId, minNote, maxNote, pinned, ...factory, ...zyn, ...extra };
 
     const requestLoad = () => this.engine.request(command, request, 60_000);
     let enginePlugin: EngineLoadedPlugin;
@@ -588,6 +599,15 @@ export class VstManager extends EventEmitter {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return null;
     const result = await this.engine.request('dexedReload', { layerId: plugin.layerId }, 30_000);
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return this.loadedPlugins.get(plugin.layerId) ?? null;
+  }
+
+  /** Preseter Zyn: relê os presets .xiz e atualiza a lista de programas. */
+  async reloadZynBank(layerOrPluginId: string): Promise<VstPluginInfo | null> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return null;
+    const result = await this.engine.request('zynReload', { layerId: plugin.layerId }, 60_000);
     await this.refreshLoadedPlugin(plugin.layerId, result);
     return this.loadedPlugins.get(plugin.layerId) ?? null;
   }

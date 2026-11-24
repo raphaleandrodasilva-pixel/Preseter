@@ -261,7 +261,8 @@ void CommandRouter::handleLine (const juce::String& line)
 
         if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
             || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx"
-            || key == "preseter.dexed" || key == "preseter.synth2" || key == "preseter.drums")
+            || key == "preseter.dexed" || key == "preseter.zyn"
+            || key == "preseter.synth2" || key == "preseter.drums")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -359,7 +360,8 @@ void CommandRouter::handleLine (const juce::String& line)
 
         if (key == "preseter.organ" || key == "preseter.tines" || key == "preseter.reeds"
             || key == "preseter.piano" || key == "preseter.dx" || key == "preseter.jx"
-            || key == "preseter.dexed" || key == "preseter.synth2" || key == "preseter.drums")
+            || key == "preseter.dexed" || key == "preseter.zyn"
+            || key == "preseter.synth2" || key == "preseter.drums")
         {
             engine.loadNative (key, layerId, minNote, maxNote, message,
                                [this, id] (juce::var result, juce::String error)
@@ -694,6 +696,15 @@ void CommandRouter::handleLine (const juce::String& line)
     {
         juce::var result;
         const auto error = engine.reloadDexedBank (message["layerId"].toString(), result);
+        if (error.isNotEmpty()) fail (id, error);
+        else                    ok (id, result);
+        return;
+    }
+
+    if (cmd == "zynReload")
+    {
+        juce::var result;
+        const auto error = engine.reloadZynBank (message["layerId"].toString(), result);
         if (error.isNotEmpty()) fail (id, error);
         else                    ok (id, result);
         return;

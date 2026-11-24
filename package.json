@@ -1,6 +1,6 @@
 {
   "name": "preseter",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
   "main": "dist/main/index.js",
   "scripts": {
@@ -163,6 +163,26 @@
         {
           "from": "vendor/guitarix/UPSTREAM.md",
           "to": "licenses/guitarix-UPSTREAM.md"
+        },
+        {
+          "from": "vendor/zyn/banks",
+          "to": "zyn/banks"
+        },
+        {
+          "from": "engine/third_party/zyn/COPYING",
+          "to": "licenses/zyn-COPYING.txt"
+        },
+        {
+          "from": "engine/third_party/zyn/UPSTREAM.md",
+          "to": "licenses/zyn-UPSTREAM.md"
+        },
+        {
+          "from": "engine/third_party/zyn/rtosc/LICENSE",
+          "to": "licenses/zyn-rtosc-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/zyn/mxml/LICENSE",
+          "to": "licenses/zyn-mxml-LICENSE.txt"
         }
       ]
     },
@@ -243,6 +263,26 @@
         {
           "from": "vendor/guitarix/UPSTREAM.md",
           "to": "licenses/guitarix-UPSTREAM.md"
+        },
+        {
+          "from": "vendor/zyn/banks",
+          "to": "zyn/banks"
+        },
+        {
+          "from": "engine/third_party/zyn/COPYING",
+          "to": "licenses/zyn-COPYING.txt"
+        },
+        {
+          "from": "engine/third_party/zyn/UPSTREAM.md",
+          "to": "licenses/zyn-UPSTREAM.md"
+        },
+        {
+          "from": "engine/third_party/zyn/rtosc/LICENSE",
+          "to": "licenses/zyn-rtosc-LICENSE.txt"
+        },
+        {
+          "from": "engine/third_party/zyn/mxml/LICENSE",
+          "to": "licenses/zyn-mxml-LICENSE.txt"
         }
       ]
     },

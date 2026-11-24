@@ -34,6 +34,7 @@ enum class NativeKind
     mdaDx10,
     mdaJx10,
     dexed,
+    zyn,
     synth2,
     drums
 };
@@ -102,6 +103,10 @@ public:
 
     /** Preseter Dexed: relê os cartuchos .syx do disco. */
     bool reloadDexedBank();
+
+    /** Preseter Zyn: define as pastas de presets e relê o banco. */
+    void setZynBankDirs (const juce::String& factoryDir, const juce::String& userDir);
+    bool reloadZynBank();
 
     /** D4: liga o sequenciador ao relógio mestre. */
     void setMasterClock (const MasterClock* clockToUse);

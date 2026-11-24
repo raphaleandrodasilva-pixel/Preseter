@@ -99,6 +99,7 @@ export function createElectronApiMock(): ElectronApiMock {
     samplerPickFile: vi.fn(async () => null),
     vstSetProgram: vi.fn(async () => null),
     dexedImportCartridge: vi.fn(async () => ({ ok: false })),
+    zynImportPreset: vi.fn(async () => ({ ok: false })),
     vstVoices: vi.fn(async () => 0),
     collectionStatus: vi.fn(async () => []),
     collectionReadiness: vi.fn(async () => ({

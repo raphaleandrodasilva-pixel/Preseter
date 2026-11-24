@@ -6,8 +6,9 @@ import { ChoiceButton, Knob, NumberField, ParamKnob } from './native-controls';
 import { Synth2Panel } from './Synth2Panel';
 import { DrumMachinePanel } from './DrumMachinePanel';
 import { DexedPanel } from './DexedPanel';
+import { ZynPanel } from './ZynPanel';
 
-export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2' | 'drums';
+export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'zyn' | 'synth2' | 'drums';
 
 interface NativeInstrumentWindowProps {
   kind: NativeInstrumentKind;
@@ -43,6 +44,7 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
   piano: { name: 'Preseter Piano', badge: 'MDA PIANO', subtitle: 'Piano acústico por samples · 12 parâmetros' },
   dx: { name: 'Preseter DX10', badge: 'MDA DX10', subtitle: 'FM de 2 operadores · 16 parâmetros' },
   dexed: { name: 'Preseter Dexed', badge: 'DEXED', subtitle: 'FM de 6 operadores estilo DX7 · cartuchos .syx' },
+  zyn: { name: 'Preseter Zyn', badge: 'ZYN', subtitle: 'Additive · subtrativo · PADsynth · presets .xiz' },
   jx: { name: 'Preseter JX10', badge: 'MDA JX10', subtitle: 'Sintetizador analógico · 24 parâmetros' },
   synth2: { name: 'Preseter Synth2', badge: 'OXO SYNTH2', subtitle: 'Recriação do Synth1 · motor Oxo Synth2 (MIT)' },
   drums: { name: 'Preseter Drums', badge: 'PADS E SEQUENCIADOR', subtitle: 'Bateria nativa · até 16 pads, sequenciador e sample por pad' },
@@ -52,6 +54,7 @@ const CREDITS: Partial<Record<NativeInstrumentKind, string>> = {
   piano: 'Baseado em mda Piano · Paul Kellett',
   dx: 'Baseado em mda DX10 · Paul Kellett',
   dexed: 'Motor: Dexed 1.1.0 · Pascal Gauthier · GPL-3.0',
+  zyn: 'Motor: ZynAddSubFX 3.0.7 · Nasca Octavian Paul · GPL-2.0-or-later',
   jx: 'Baseado em mda JX10 · Paul Kellett',
   synth2: 'Motor: Oxo Synth2 · François Chabloz (chab) · MIT',
 };
@@ -426,6 +429,8 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [dexedNames, setDexedNames] = useState<string[]>([]);
   const [dexedProgram, setDexedProgram] = useState(0);
+  const [zynNames, setZynNames] = useState<string[]>([]);
+  const [zynProgram, setZynProgram] = useState(0);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [box, setBox] = useState({ x: 80, y: 80, w: 980, h: 640 });
@@ -436,13 +441,16 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const program = plugin?.program ?? assignment.programIndex ?? 0;
   const mdaKind = kind === 'piano' || kind === 'dx' || kind === 'jx';
   const programCount = plugin?.programCount
-    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : kind === 'dexed' ? 32 : kind === 'drums' ? 1 : 4);
+    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : kind === 'dexed' ? 32 : kind === 'zyn' ? 1 : kind === 'drums' ? 1 : 4);
 
   useEffect(() => {
-    if (kind !== 'dexed') return;
-    if (plugin?.programNames?.length) {
+    if (kind === 'dexed' && plugin?.programNames?.length) {
       setDexedNames(plugin.programNames);
       setDexedProgram(plugin.program ?? assignment.programIndex ?? 0);
+    }
+    if (kind === 'zyn' && plugin?.programNames?.length) {
+      setZynNames(plugin.programNames);
+      setZynProgram(plugin.program ?? assignment.programIndex ?? 0);
     }
   }, [kind, plugin?.programNames, plugin?.program, assignment.programIndex]);
 
@@ -473,7 +481,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   // Vozes ativas dos instrumentos MDA: o rodapé mostra quantas estão soando.
   useEffect(() => {
-    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx' && kind !== 'dexed' && kind !== 'synth2') return;
+    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx' && kind !== 'dexed' && kind !== 'zyn' && kind !== 'synth2') return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -517,6 +525,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     try {
       await window.electronAPI.vstSetProgram(layerId, index);
       if (kind === 'dexed') setDexedProgram(index);
+      if (kind === 'zyn') setZynProgram(index);
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao trocar o preset.');
@@ -527,16 +536,23 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     setImporting(true);
     setImportMessage(null);
     try {
-      const result = await window.electronAPI.dexedImportCartridge(layerId);
+      const result = kind === 'zyn'
+        ? await window.electronAPI.zynImportPreset(layerId)
+        : await window.electronAPI.dexedImportCartridge(layerId);
       if (!result.ok) {
-        setImportMessage(`Erro: ${result.error ?? 'não foi possível importar o cartucho.'}`);
+        setImportMessage(`Erro: ${result.error ?? 'não foi possível importar o arquivo.'}`);
         return;
       }
       if (result.plugin?.programNames?.length) {
-        setDexedNames(result.plugin.programNames);
-        setDexedProgram(result.plugin.program ?? 0);
+        if (kind === 'zyn') {
+          setZynNames(result.plugin.programNames);
+          setZynProgram(result.plugin.program ?? 0);
+        } else {
+          setDexedNames(result.plugin.programNames);
+          setDexedProgram(result.plugin.program ?? 0);
+        }
       }
-      setImportMessage('Cartucho importado.');
+      setImportMessage(kind === 'zyn' ? 'Preset importado.' : 'Cartucho importado.');
       await refresh();
     } catch (cause) {
       setImportMessage(`Erro: ${cause instanceof Error ? cause.message : 'falha ao importar.'}`);
@@ -550,15 +566,16 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   const programNames = useMemo(() => {
     if (kind === 'dexed' && dexedNames.length > 0) return dexedNames;
+    if (kind === 'zyn' && zynNames.length > 0) return zynNames;
     if (plugin?.programNames?.length) return plugin.programNames;
     if (kind === 'organ') return ['Jazz', 'Gospel', 'Rock', 'Combo'];
     if (kind === 'tines') return ['Suitcase', 'Stage', 'Mellow', 'Bark'];
     if (kind === 'reeds') return ['Clássico', 'Suitcase', 'Stage', 'Bark'];
     if (kind === 'drums') return ['Kit vazio'];
     return Array.from({ length: programCount }, (_, index) => `Preset ${index + 1}`);
-  }, [kind, dexedNames, plugin?.programNames, programCount]);
+  }, [kind, dexedNames, zynNames, plugin?.programNames, programCount]);
 
-  const displayedProgram = kind === 'dexed' ? dexedProgram : program;
+  const displayedProgram = kind === 'dexed' ? dexedProgram : kind === 'zyn' ? zynProgram : program;
 
   const polyphonyMax = kind === 'piano'
     ? Math.round(8 + 24 * valueOf('Polyphony'))
@@ -566,7 +583,9 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
       ? 8
       : kind === 'dexed'
         ? 16
-        : kind === 'tines'
+        : kind === 'zyn'
+          ? 32
+          : kind === 'tines'
         ? Math.round(valueOf('Polyphony'))
         : kind === 'synth2'
           ? Math.round(1 + 31 * valueOf('polyphony'))
@@ -606,7 +625,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
             </div>
             <div className="truncate text-[10px]" style={{ color: '#8E8E93' }}>{title.subtitle}</div>
           </div>
-          {kind === 'dexed' ? (
+          {kind === 'dexed' || kind === 'zyn' ? (
             <span className="max-w-[260px] truncate text-[10px]" style={{ color: '#C6C6CB' }} title={programNames[displayedProgram]}>
               {programNames[displayedProgram] ?? 'Programa'}
             </span>
@@ -749,6 +768,17 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
             </div>
           ) : kind === 'dexed' ? (
             <DexedPanel
+              params={params}
+              program={displayedProgram}
+              programNames={programNames}
+              onChange={setNamed}
+              onProgram={changeProgram}
+              onImport={importCartridge}
+              importBusy={importing}
+              importMessage={importMessage}
+            />
+          ) : kind === 'zyn' ? (
+            <ZynPanel
               params={params}
               program={displayedProgram}
               programNames={programNames}

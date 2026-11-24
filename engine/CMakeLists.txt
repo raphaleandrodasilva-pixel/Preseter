@@ -82,6 +82,52 @@ else()
     target_compile_definitions(PreseterEngine PRIVATE HAVE_MEMSTREAM=1)
 endif()
 
+set(PRESETER_ZYN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn")
+file(GLOB_RECURSE PRESETER_ZYN_SOURCES CONFIGURE_DEPENDS
+    "${PRESETER_ZYN_DIR}/src/DSP/*.cpp"
+    "${PRESETER_ZYN_DIR}/src/Params/*.cpp"
+    "${PRESETER_ZYN_DIR}/src/Synth/*.cpp"
+    "${PRESETER_ZYN_DIR}/src/Effects/*.cpp"
+    "${PRESETER_ZYN_DIR}/src/Containers/*.cpp"
+    "${PRESETER_ZYN_DIR}/src/Misc/*.cpp")
+list(REMOVE_ITEM PRESETER_ZYN_SOURCES "${PRESETER_ZYN_DIR}/src/Misc/Stereo.cpp")
+
+file(GLOB PRESETER_MXML_SOURCES CONFIGURE_DEPENDS
+    "${PRESETER_ZYN_DIR}/mxml/mxml-*.c")
+
+add_library(preseter_rtosc STATIC
+    "${PRESETER_ZYN_DIR}/rtosc/src/rtosc.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/dispatch.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/rtosc-time.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/version.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/ports.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/ports-runtime.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/default-value.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/savefile.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/port-checker.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/pretty-format.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/arg-ext.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/arg-val.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/arg-val-math.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/arg-val-cmp.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/arg-val-itr.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/util.c"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/miditable.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/automations.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/midimapper.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/thread-link.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/undo-history.cpp"
+    "${PRESETER_ZYN_DIR}/rtosc/src/cpp/subtree-serialize.cpp")
+target_include_directories(preseter_rtosc PUBLIC
+    "${PRESETER_ZYN_DIR}/rtosc/include")
+target_compile_features(preseter_rtosc PUBLIC cxx_std_17)
+set_target_properties(preseter_rtosc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_options(preseter_rtosc PRIVATE /wd4244 /wd4267 /wd4305 /wd4996)
+else()
+    target_compile_options(preseter_rtosc PRIVATE -Wno-unused-parameter -Wno-sign-compare)
+endif()
+
 target_sources(PreseterEngine PRIVATE
     src/Main.cpp
     src/Engine.cpp
@@ -94,6 +140,11 @@ target_sources(PreseterEngine PRIVATE
     src/native/MdaDxFactory.cpp
     src/native/MdaJxFactory.cpp
     src/native/DexedFactory.cpp
+    src/native/ZynFactory.cpp
+    ${PRESETER_ZYN_SOURCES}
+    ${PRESETER_ZYN_DIR}/src/globals.cpp
+    ${PRESETER_ZYN_DIR}/src/version.cpp
+    ${PRESETER_MXML_SOURCES}
     third_party/mda-piano/PluginProcessor.cpp
     third_party/mda-dx10/PluginProcessor.cpp
     third_party/mda-jx10/PluginProcessor.cpp
@@ -126,6 +177,8 @@ target_sources(PreseterEngine PRIVATE
     third_party/dexed/source/parameter/Preference.cpp
     third_party/dexed/mts-esp/libMTSClient.cpp
 
+    "${PRESETER_ZYN_DIR}/tlsf/tlsf.c"
+
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
     src/drums/DrumKitEngine.cpp
@@ -142,6 +195,9 @@ target_include_directories(PreseterEngine PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/source"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/tuning-library/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/mts-esp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/mxml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/rtosc/include"
     "${PRESETER_SETBFREE_DIR}/src"
     "${PRESETER_SETBFREE_DIR}/b_whirl"
     "${PRESETER_SETBFREE_DIR}/b_overdrive"
@@ -211,7 +267,7 @@ set_target_properties(openwurli_capi PROPERTIES
     IMPORTED_LOCATION "${OPENWURLI_STATIC_LIB}")
 
 add_dependencies(PreseterEngine openwurli_capi_build)
-target_link_libraries(PreseterEngine PRIVATE openwurli_capi)
+target_link_libraries(PreseterEngine PRIVATE openwurli_capi preseter_rtosc)
 
 # Recursos embutidos do Dexed (cartuchos de fábrica em builtin_pgm.zip).
 juce_add_binary_data(DexedResources SOURCES
@@ -220,6 +276,7 @@ target_link_libraries(PreseterEngine PRIVATE DexedResources)
 
 target_compile_definitions(PreseterEngine PRIVATE
     DEXED_ID=\"1.1.0\"
+    HAVE_CPP_STD_COMPLEX=1
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0)
 
@@ -457,6 +514,7 @@ target_link_libraries(PreseterEngine
         juce::juce_audio_devices
         juce::juce_audio_processors
         juce::juce_audio_basics
+        juce::juce_dsp
         juce::juce_events
         juce::juce_gui_basics
         juce::juce_data_structures

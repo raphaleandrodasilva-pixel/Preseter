@@ -1,0 +1,6 @@
+# Presets e cartuchos são arquivos binários (gzip/sysex); nunca converter EOL.
+*.xiz -text
+*.syx -text
+*.zip -text
+*.sf2 -text
+*.sfz -text

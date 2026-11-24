@@ -4,6 +4,7 @@
 #include "drums/DrumSequencer.h"
 #include "MdaFactories.h"
 #include "DexedFactory.h"
+#include "ZynFactory.h"
 
 #include "EngineCore/InitPatch.hpp"
 #include "EngineCore/ParamFormat.hpp"
@@ -132,6 +133,7 @@ juce::String kindName (NativeKind kind)
     if (kind == NativeKind::mdaDx10) return "Preseter DX10";
     if (kind == NativeKind::mdaJx10) return "Preseter JX10";
     if (kind == NativeKind::dexed) return "Preseter Dexed";
+    if (kind == NativeKind::zyn) return "Preseter Zyn";
     if (kind == NativeKind::synth2) return "Preseter Synth2";
     if (kind == NativeKind::drums) return "Preseter Drums";
     return "Preseter Wurly";
@@ -159,6 +161,7 @@ std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id)
     if (id == "preseter.dx") return std::make_unique<NativeProcessor> (NativeKind::mdaDx10, id, kindName (NativeKind::mdaDx10));
     if (id == "preseter.jx") return std::make_unique<NativeProcessor> (NativeKind::mdaJx10, id, kindName (NativeKind::mdaJx10));
     if (id == "preseter.dexed") return std::make_unique<NativeProcessor> (NativeKind::dexed, id, kindName (NativeKind::dexed));
+    if (id == "preseter.zyn") return std::make_unique<NativeProcessor> (NativeKind::zyn, id, kindName (NativeKind::zyn));
     if (id == "preseter.synth2") return std::make_unique<NativeProcessor> (NativeKind::synth2, id, kindName (NativeKind::synth2));
     if (id == "preseter.drums") return std::make_unique<NativeProcessor> (NativeKind::drums, id, kindName (NativeKind::drums));
     return nullptr;
@@ -217,6 +220,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout NativeProcessor::createLayou
     // D2: o Preseter Drums ainda não tem parâmetros (o kit e o sequenciador
     // entram nas próximas tarefas). Layout vazio, estado vazio serializável.
     if (kind == NativeKind::drums)
+        return layout;
+
+    if (kind == NativeKind::zyn)
         return layout;
 
     const auto add = [&layout] (const char* id, const char* name, float minimum, float maximum,
@@ -305,6 +311,8 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
         delegatedProcessor = createMdaJx10();
     else if (kind == NativeKind::dexed)
         delegatedProcessor = createDexed();
+    else if (kind == NativeKind::zyn)
+        delegatedProcessor = createZyn();
     else if (kind == NativeKind::synth2)
         synth2 = std::make_unique<Synth2Dsp>();
     else if (kind == NativeKind::drums)
@@ -435,6 +443,8 @@ int NativeProcessor::getActiveVoices() const noexcept
         voices = mdaJxActiveVoices (delegatedProcessor.get());
     else if (kind == NativeKind::dexed)
         voices = dexedActiveVoices (delegatedProcessor.get());
+    else if (kind == NativeKind::zyn)
+        voices = zynActiveVoices (delegatedProcessor.get());
 
     return juce::jlimit (0, 64, voices);
 }
@@ -1447,6 +1457,19 @@ bool NativeProcessor::reloadDexedBank()
     if (kind != NativeKind::dexed || delegatedProcessor == nullptr)
         return false;
     return native::reloadDexedBank (delegatedProcessor.get());
+}
+
+void NativeProcessor::setZynBankDirs (const juce::String& factoryDir, const juce::String& userDir)
+{
+    if (kind == NativeKind::zyn && delegatedProcessor != nullptr)
+        native::setZynBankDirs (delegatedProcessor.get(), factoryDir, userDir);
+}
+
+bool NativeProcessor::reloadZynBank()
+{
+    if (kind != NativeKind::zyn || delegatedProcessor == nullptr)
+        return false;
+    return native::reloadZynBank (delegatedProcessor.get());
 }
 
 void NativeProcessor::setMasterClock (const MasterClock* clockToUse)

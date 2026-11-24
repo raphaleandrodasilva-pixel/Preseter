@@ -3136,6 +3136,10 @@ void Engine::loadNative (const juce::String& nativeId, const juce::String& reque
         if (nativeId == "preseter.synth2")
             processor->loadSynth2FactoryPrograms (options.getProperty ("factoryPatches", "").toString());
 
+        if (nativeId == "preseter.zyn")
+            processor->setZynBankDirs (options.getProperty ("zynBankDir", "").toString(),
+                                       options.getProperty ("zynUserDir", "").toString());
+
         const int program = (int) options.getProperty ("programIndex", 0);
         processor->setCurrentProgram (program);
     }
@@ -3227,6 +3231,20 @@ juce::String Engine::reloadDexedBank (const juce::String& layerId, juce::var& re
     auto* native = layers[(size_t) index].native;
     if (! native->reloadDexedBank())
         return utf8 ("Este instrumento não é um Preseter Dexed.");
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+}
+
+juce::String Engine::reloadZynBank (const juce::String& layerId, juce::var& result)
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0 || layers[(size_t) index].native == nullptr)
+        return utf8 ("Nenhum instrumento nativo carregado neste layer.");
+
+    auto* native = layers[(size_t) index].native;
+    if (! native->reloadZynBank())
+        return utf8 ("Este instrumento não é um Preseter Zyn.");
 
     result = describeLoadedPlugin (layerId);
     return {};

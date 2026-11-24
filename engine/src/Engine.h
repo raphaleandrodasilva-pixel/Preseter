@@ -181,6 +181,8 @@ public:
                                 int bank, int program, const juce::var& options, juce::var& result);
     /** Relê os cartuchos .syx de um Dexed nativo e devolve o layer atualizado. */
     juce::String reloadDexedBank (const juce::String& layerId, juce::var& result);
+    /** Relê os presets .xiz de um Zyn nativo e devolve o layer atualizado. */
+    juce::String reloadZynBank (const juce::String& layerId, juce::var& result);
     /** Efetiva a troca de patch: ativa os layers encadeados e silencia (ou drena) o patch anterior. */
     juce::var commitPatchSwap (bool silencePrevious);
     bool unloadPlugin (const juce::String& layerId = {});

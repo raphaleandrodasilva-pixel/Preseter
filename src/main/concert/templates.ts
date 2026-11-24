@@ -26,7 +26,7 @@ interface PatchLayerSpec {
   programIndex?: number;
   /** Camada nativa carregada pelo template (além das sugestões de VST). */
   native?: {
-    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2';
+    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'zyn' | 'synth2';
     programIndex?: number;
   };
 }
@@ -42,7 +42,7 @@ interface PatchSpec {
   layers?: PatchLayerSpec[];
   /** Instrumento nativo que o template carrega no patch (tocável). */
   native?: {
-    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2';
+    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'zyn' | 'synth2';
     programIndex?: number;
     label?: string;
   };

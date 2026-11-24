@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('sampler-reload', layerId, samplePath, options),
   vstSetProgram: (layerId: string, index: number) => ipcRenderer.invoke('vst-set-program', layerId, index),
   dexedImportCartridge: (layerId: string) => ipcRenderer.invoke('dexed-import-cartridge', layerId),
+  zynImportPreset: (layerId: string) => ipcRenderer.invoke('zyn-import-preset', layerId),
   vstVoices: (layerId: string) => ipcRenderer.invoke('vst-voices', layerId),
   vstUnload: (pluginId: string) => ipcRenderer.invoke('vst-unload', pluginId),
   vstSetParam: (pluginId: string, paramId: string, value: number, slot?: number) =>
