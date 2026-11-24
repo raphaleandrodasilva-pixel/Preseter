@@ -237,7 +237,7 @@ jobs:
             dist-release/latest.yml
             dist-release/latest-linux.yml
 
-      # Mantém no GitHub somente o release recém-publicado.
+      # Mantém o release recém-publicado e o anterior (para testar a atualização).
       - name: Remover releases antigos
         if: steps.tag.outputs.publish == 'true'
         continue-on-error: true
@@ -245,9 +245,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           KEEP_TAG: ${{ steps.tag.outputs.name }}
         run: |
-          gh release list --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
-            if [ -n "$tag" ] && [ "$tag" != "$KEEP_TAG" ]; then
-              echo "Removendo release antigo: $tag"
-              gh release delete "$tag" --yes --cleanup-tag
+          mapfile -t tags < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
+          kept_previous=0
+          for tag in "${tags[@]}"; do
+            if [ -z "$tag" ] || [ "$tag" = "$KEEP_TAG" ]; then
+              continue
             fi
+            if [ "$kept_previous" -eq 0 ]; then
+              kept_previous=1
+              echo "Mantendo release anterior: $tag"
+              continue
+            fi
+            echo "Removendo release antigo: $tag"
+            gh release delete "$tag" --yes --cleanup-tag || true
           done
