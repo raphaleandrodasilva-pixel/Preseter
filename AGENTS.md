@@ -24,6 +24,7 @@ Corrige o porte do ZynAddSubFX (1.3.0) e fecha uma falha de segurança no arquiv
 | Aviso de atualização por cima do show | Não aparece com o modo Performance ligado; instala ao fechar | `src/main/updater.ts`, `index.ts` |
 | Piano/EP com teclas estreitas na tela | Teclado de 61 teclas (C2–C7), igual ao do órgão | `src/shared/collection-layouts.ts` |
 | Bibliotecas antigas (Factory 40, Workstation) | Substituídas pela **Factory 64**: 8 sets × 8, baterias no Preseter Drums, synths do Zyn (bancos Mysterious) | `libraries/factory-64/biblioteca.json` |
+| Aba Presets sem os nativos | Zyn (1318), Dexed (1056), JX10, DX10, Piano, órgão, Tines e Wurly por categoria; 130 **Preseter Sounds** (programa + efeitos + envios) | `src/main/vst/nativePresets.ts`, `src/shared/vst-presets.ts`, `src/shared/preseter-sounds.ts`, `ChannelStripLibrary.tsx`, `ConcertShell.tsx` |
 | Workflow podia apagar a última estável | **Pendente**: alteração pronta, mas o token não tem o escopo `workflow` | `.github/workflows/build.yml` (local) |
 
 O Dexed e os outros instrumentos nativos foram analisados e não precisaram de correção.
@@ -51,6 +52,8 @@ O Dexed e os outros instrumentos nativos foram analisados e não precisaram de c
 - Factory 64: gerar pela tela **Gerar Biblioteca** e ouvir os 64 patches. Os presets do Zyn são
   escolhidos pelo índice, então é preciso conferir se o nome que aparece no painel bate com o patch.
 - Teclado de 61 teclas no piano, no Rhodes e no Wurlitzer.
+- Aba Presets: aplicar presets do Zyn/Dexed/JX pela categoria e conferir se o painel mostra o mesmo nome.
+- Preseter Sounds: efeitos entram no strip; envios só quando o Aux 1/2 do concert tem efeito.
 
 ## Como verificar
 

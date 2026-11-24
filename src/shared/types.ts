@@ -60,7 +60,7 @@ export interface VstPluginInfo {
 }
 
 /** De onde veio um preset de VST exibido nos Timbres. */
-export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot' | 'fxp' | 'sy1';
+export type VstPresetSource = 'program' | 'vstpreset' | 'snapshot' | 'fxp' | 'sy1' | 'native' | 'sound';
 
 /** Preset de um VST3 indexado pelo Preseter. */
 export interface VstPreset {
@@ -72,8 +72,17 @@ export interface VstPreset {
   pluginId: string;
   pluginName: string;
   pluginPath: string;
-  /** Programa interno (source = program). */
+  /** Programa interno (source = program, native ou sound). */
   programIndex?: number;
+  /**
+   * Nome do programa como o instrumento nativo informa (source = native/sound).
+   * Ao aplicar, o índice é conferido por este nome no layer carregado.
+   */
+  programName?: string;
+  /** Som pronto (source = sound): efeitos do strip, na ordem dos slots. */
+  effects?: Array<{ effect: string; preset?: string }>;
+  /** Som pronto (source = sound): envios para Reverb (Aux 1) e Delay (Aux 2), em dB. */
+  sends?: { reverb?: number; delay?: number };
   /** Arquivo .vstpreset ou .fxp (source = vstpreset/fxp). */
   filePath?: string;
   /** Nome do arquivo de estado capturado pelo Preseter (source = snapshot). */

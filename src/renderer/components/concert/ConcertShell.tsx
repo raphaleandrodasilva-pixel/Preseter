@@ -53,7 +53,7 @@ import { SettingsModal, type SettingsTab } from './SettingsModal';
 import { SamplerWindow } from './SamplerWindow';
 import { NativeInstrumentWindow, type NativeInstrumentKind } from './NativeInstrumentWindow';
 import { PreseterEffectWindow } from './PreseterEffectWindow';
-import { findEffect, type EffectDefinition } from '@shared/effects/catalog';
+import { effectPresetValues, findEffect, type EffectDefinition } from '@shared/effects/catalog';
 import { AssignmentsMappingsTable } from './AssignmentsMappingsTable';
 import { PatchLibraryModal } from './PatchLibraryModal';
 import { TunerModal } from './TunerModal';
@@ -1432,6 +1432,74 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         item.name === preset.pluginName
     ) ?? (nativeInstrumentEntry(preset.pluginId) as VstPluginInfo | null);
 
+  /**
+   * Preseter Sound: troca a cadeia de efeitos do strip pela do som (com os
+   * presets do catálogo) e aplica os envios de Reverb/Delay quando o Aux do
+   * concert tem efeito. Devolve o que deve ser gravado no layer do patch.
+   */
+  const loadSoundChain = async (
+    layerId: string,
+    preset: VstPreset,
+    previous: Insert[] = []
+  ): Promise<Pick<PresetPluginAssignment, 'inserts' | 'sends' | 'programIndex'>> => {
+    const result: Pick<PresetPluginAssignment, 'inserts' | 'sends' | 'programIndex'> = {};
+    if (preset.source !== 'native' && preset.source !== 'sound') return result;
+    if (preset.programIndex !== undefined) result.programIndex = preset.programIndex;
+    if (preset.source !== 'sound') return result;
+
+    for (const insert of previous) {
+      await window.electronAPI.vstInsertRemove(layerId, insert.slot).catch(() => undefined);
+    }
+    const inserts: Insert[] = [];
+    for (const ref of preset.effects ?? []) {
+      if (inserts.length >= 4) break;
+      const wanted = findEffect(ref.effect);
+      const plugin = wanted
+        ? scannedPlugins.find((item) => !item.isInstrument && findEffect(item.path || item.name)?.id === wanted.id)
+        : undefined;
+      if (!plugin) continue;
+      const slot = inserts.length;
+      try {
+        await window.electronAPI.vstInsertSet(layerId, slot, plugin.path, false);
+      } catch {
+        continue;
+      }
+      for (const { index, value } of effectPresetValues(plugin.path, ref.preset)) {
+        await window.electronAPI.vstSetParam(layerId, String(index), value, slot).catch(() => false);
+      }
+      inserts.push({
+        slot,
+        pluginId: plugin.id,
+        name: plugin.name,
+        path: plugin.path,
+        bypass: false,
+        ...(ref.preset ? { presetId: ref.preset } : {}),
+      });
+    }
+    result.inserts = inserts;
+
+    // Send para Aux vazio somaria sinal seco: só envia se o Aux tem efeito.
+    const auxBuses = concertSettings?.buses.aux ?? [];
+    const levels = [preset.sends?.reverb, preset.sends?.delay];
+    if (levels.some((level, index) => level !== undefined && (auxBuses[index]?.inserts?.length ?? 0) > 0)) {
+      const sends = Array.from({ length: MAX_AUX_BUSES }, () => SEND_OFF_DB);
+      for (const [index, level] of levels.entries()) {
+        if (level === undefined || (auxBuses[index]?.inserts?.length ?? 0) === 0) continue;
+        sends[index] = level;
+        await setVstSend(layerId, index + 1, level);
+      }
+      result.sends = sends;
+    }
+    return result;
+  };
+
+  /** Mensagem extra quando o som pronto não achou algum efeito. */
+  const soundNotice = (preset: VstPreset, chain: Pick<PresetPluginAssignment, 'inserts'>): string => {
+    if (preset.source !== 'sound') return '';
+    const missing = (preset.effects?.length ?? 0) - (chain.inserts?.length ?? 0);
+    return missing > 0 ? ` ${missing} efeito(s) não encontrado(s): reescaneie os plugins.` : '';
+  };
+
   /** Carrega um preset criando um timbre novo. */
   const performPresetLoad = async (
     preset: VstPreset,
@@ -1460,6 +1528,7 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
         message: error instanceof Error ? error.message : 'Falha ao aplicar o preset.',
       };
     }
+    const chain = await loadSoundChain(layerId, preset);
 
     const assignment: PresetPluginAssignment = {
       pluginId: plugin.id,
@@ -1470,15 +1539,18 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       minNote: 0,
       maxNote: 127,
       patchSendDb: 0,
+      ...chain,
     };
-    onDraftChange({
+    const next: Preset = {
       ...patch,
       plugins: [...(patch.plugins ?? []), assignment],
       updatedAt: Date.now(),
-    });
+    };
+    draftRef.current = next;
+    onDraftChange(next);
     setFocusLayerId(layerId);
     if (mode !== 'edit') onModeChange('edit');
-    return { ok: true, message: `Preset "${preset.name}" carregado.` };
+    return { ok: true, message: `Preset "${preset.name}" carregado.${soundNotice(preset, chain)}` };
   };
 
   const loadPresetAsNewStrip = (preset: VstPreset): Promise<PresetLoadResult> => {
@@ -1538,11 +1610,29 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
       if (!applied) {
         return { ok: false, message: 'O preset não pôde ser aplicado.' };
       }
+      // Nativos guardam o programa no patch; o Preseter Sound troca também os
+      // efeitos e os envios do strip.
+      const current = draftRef.current;
+      const currentAssignment = current?.plugins?.find(
+        (item, index) => (item.layerId ?? `${current.id}:layer:${index}`) === selectedLayerId
+      );
+      const chain = await loadSoundChain(selectedLayerId, preset, currentAssignment?.inserts ?? []);
+      if (current && Object.keys(chain).length > 0) {
+        const next: Preset = {
+          ...current,
+          plugins: (current.plugins ?? []).map((item, index) =>
+            (item.layerId ?? `${current.id}:layer:${index}`) === selectedLayerId ? { ...item, ...chain } : item
+          ),
+          updatedAt: Date.now(),
+        };
+        draftRef.current = next;
+        onDraftChange(next);
+      }
       return {
         ok: true,
-        message: samePlugin
+        message: (samePlugin
           ? `Preset "${preset.name}" aplicado.`
-          : `VST substituído e preset "${preset.name}" aplicado.`,
+          : `VST substituído e preset "${preset.name}" aplicado.`) + soundNotice(preset, chain),
       };
     } catch (error) {
       return {

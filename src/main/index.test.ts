@@ -101,10 +101,10 @@ describe('main process IPC wiring', () => {
     expect(call('vst-list')).toEqual([]);
     expect(call('vst-loaded')).toEqual([]);
     expect(call('concert-recent')).toEqual([]);
-    expect(call('vst-presets-list')).toMatchObject({
-      presets: [],
-      status: { scanning: false, scanned: 0, total: 0 },
-    });
+    const presetList = call('vst-presets-list') as { presets: Array<{ source: string }>; status: unknown };
+    expect(presetList.status).toMatchObject({ scanning: false, scanned: 0, total: 0 });
+    // Sem VST escaneado, só aparecem os instrumentos nativos e os Preseter Sounds.
+    expect(presetList.presets.every((preset) => preset.source === 'native' || preset.source === 'sound')).toBe(true);
     expect(call('concert-get')).toMatchObject({ name: expect.any(String) });
     expect(call('app-status-get')).toMatchObject({ tempo: 120 });
     expect(call('preferences-get')).toMatchObject({

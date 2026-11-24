@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { VstPluginInfo, VstPreset, VstPresetLibraryStatus, VstPresetListResult } from '@shared/types';
-import { VST_PRESET_CATEGORIES } from '@shared/vst-presets';
+import { PRESETER_SOUNDS_COLLECTION, VST_PRESET_CATEGORIES } from '@shared/vst-presets';
+
+/** Nome curto do instrumento mostrado em cada preset ("Zyn", "Dexed", "JX10"…). */
+const instrumentTag = (preset: VstPreset): string =>
+  preset.pluginName.replace(/^Preseter\s+/, '');
+
+/** Preseter Sounds primeiro; depois por nome. */
+const soundFirst = (a: VstPreset, b: VstPreset): number =>
+  Number(b.source === 'sound') - Number(a.source === 'sound') || a.name.localeCompare(b.name);
 
 interface ChannelStripLibraryProps {
   selectedLayerId: string | null;
@@ -47,7 +55,8 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
 }) => {
   const [result, setResult] = useState<VstPresetListResult>({ presets: [], status: EMPTY_STATUS });
   const [category, setCategory] = useState('Todos');
-  const [allPlugins, setAllPlugins] = useState(false);
+  // Abre mostrando todos os instrumentos: a navegação é por categoria de som.
+  const [allPlugins, setAllPlugins] = useState(true);
   const [collection, setCollection] = useState<string>('Todos');
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<string[]>(loadRecent);
@@ -75,7 +84,6 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
     setSelectedId(null);
     setCollection('Todos');
     setCategory('Todos');
-    setAllPlugins(false);
     setReplacePrompt(null);
   }, [selectedPlugin?.id]);
 
@@ -132,7 +140,9 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
 
   const collections = useMemo(() => {
     const values = new Set(byCategory.map((preset) => preset.collection || preset.pluginName || 'Outros'));
-    return ['Todos', ...[...values].sort((a, b) => a.localeCompare(b))];
+    const sorted = [...values].sort((a, b) =>
+      Number(b === PRESETER_SOUNDS_COLLECTION) - Number(a === PRESETER_SOUNDS_COLLECTION) || a.localeCompare(b));
+    return ['Todos', ...sorted];
   }, [byCategory]);
 
   useEffect(() => {
@@ -149,7 +159,7 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
         (a, b) => recent.indexOf(a.id) - recent.indexOf(b.id)
       );
     }
-    return filtered.sort((a, b) => a.name.localeCompare(b.name));
+    return filtered.sort(soundFirst);
   }, [byCategory, collection, category, recent]);
 
   const selected = rows.find((preset) => preset.id === selectedId) ?? null;
@@ -600,6 +610,18 @@ export const ChannelStripLibrary: React.FC<ChannelStripLibraryProps> = ({
               >
                 {preset.name}
               </button>
+              {preset.source === 'sound' && (
+                <span
+                  className="shrink-0 rounded px-1 text-[9px] font-semibold"
+                  style={{ background: 'rgba(10,132,255,0.22)', color: '#64D2FF' }}
+                  title={`Som pronto: ${(preset.effects ?? []).map((item) => item.effect.replace(/^Preseter /, '')).join(', ') || 'sem efeitos'}`}
+                >
+                  FX
+                </span>
+              )}
+              {allPlugins && (
+                <span className="shrink-0 text-[9px]" style={{ color: '#8E8E93' }}>{instrumentTag(preset)}</span>
+              )}
               <button
                 onClick={(event) => {
                   event.stopPropagation();

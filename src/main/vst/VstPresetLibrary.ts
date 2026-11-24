@@ -9,6 +9,8 @@ import type {
   VstPresetListResult,
 } from '../../shared/types';
 import type { VstManager } from './VstManager';
+import { categorizePreset } from '../../shared/vst-presets';
+import { buildNativePresets, resolveNativeProgram } from './nativePresets';
 
 /** Fontes de preset aceitas pela biblioteca. */
 const SUPPORTED_SOURCES = new Set(['program', 'vstpreset', 'snapshot', 'fxp', 'sy1']);
@@ -71,23 +73,6 @@ const EMPTY_INDEX: IndexFile = {
   overrides: {},
 };
 
-const CATEGORY_KEYWORDS: { category: string; terms: string[] }[] = [
-  { category: 'Piano', terms: ['piano', 'grand', 'upright', 'acoustic piano'] },
-  { category: 'E-Piano', terms: ['electric piano', 'e-piano', 'epiano', 'rhodes', 'wurlitzer', 'wurli', 'suitcase', 'clavinet', 'clav'] },
-  { category: 'Organ', terms: ['organ', 'b3', 'hammond', 'drawbar', 'church organ'] },
-  { category: 'Strings', terms: ['string', 'violin', 'viola', 'cello', 'ensemble', 'orchestra'] },
-  { category: 'Brass', terms: ['brass', 'trumpet', 'trombone', 'horn', 'tuba'] },
-  { category: 'Woodwinds', terms: ['flute', 'clarinet', 'oboe', 'bassoon', 'sax'] },
-  { category: 'Guitar', terms: ['guitar', 'nylon', 'steel string', 'amp'] },
-  { category: 'Bass', terms: ['bass', 'sub bass', 'upright bass', 'bass guitar'] },
-  { category: 'Synth Bass', terms: ['synth bass', 'acid', 'reese', 'wobble'] },
-  { category: 'Synth Lead', terms: ['lead', 'solo', 'mono synth', 'supersaw'] },
-  { category: 'Synth Pad', terms: ['pad', 'atmosphere', 'ambient', 'texture', 'drone'] },
-  { category: 'Arp', terms: ['arp', 'arpeggio', 'sequence', 'sequencer'] },
-  { category: 'Drums', terms: ['drum', 'kick', 'snare', 'hat', 'percussion', 'perc', 'kit'] },
-  { category: 'FX', terms: ['fx', 'effect', 'noise', 'riser', 'impact', 'sweep'] },
-];
-
 const PLUGIN_CATEGORY_MAP: { match: RegExp; category: string }[] = [
   { match: /piano/i, category: 'Piano' },
   { match: /organ/i, category: 'Organ' },
@@ -107,11 +92,7 @@ function normalize(value: string): string {
 }
 
 function categoryFromText(text: string, fallback = 'Outros'): string {
-  const normalized = normalize(text);
-  for (const { category, terms } of CATEGORY_KEYWORDS) {
-    if (terms.some((term) => normalized.includes(term))) return category;
-  }
-  return fallback;
+  return categorizePreset(text, fallback);
 }
 
 function categoryFromPlugin(plugin: VstPluginInfo): string {
@@ -173,6 +154,12 @@ export class VstPresetLibrary extends EventEmitter {
   private index: IndexFile = { ...EMPTY_INDEX, plugins: {}, presets: [], overrides: {} };
   private status: VstPresetLibraryStatus = { scanning: false, scanned: 0, total: 0 };
   private scanPromise: Promise<void> | null = null;
+  /**
+   * Programas dos instrumentos nativos e Preseter Sounds. Ficam só na memória
+   * (são refeitos ao abrir o app); favoritos e categorias vão para `overrides`.
+   */
+  private nativePresets: VstPreset[] = [];
+  private zynDirs: { factory: string; user: string } | null = null;
 
   constructor(userDataPath: string, documentsPath: string, factorySynth2Dir = '') {
     super();
@@ -230,17 +217,40 @@ export class VstPresetLibrary extends EventEmitter {
 
   listResult(): VstPresetListResult {
     return {
-      presets: this.index.presets
-        .filter((preset) => {
-          if (preset.source === 'snapshot') return true;
-          if (preset.source === 'vstpreset' || preset.source === 'fxp' || preset.source === 'sy1') {
-            return fileExists(preset.filePath);
-          }
-          return true;
-        })
-        .map((preset) => this.applyOverride(preset)),
+      presets: [
+        ...this.nativePresets.map((preset) => this.applyOverride(preset)),
+        ...this.index.presets
+          .filter((preset) => {
+            if (preset.source === 'snapshot') return true;
+            if (preset.source === 'vstpreset' || preset.source === 'fxp' || preset.source === 'sy1') {
+              return fileExists(preset.filePath);
+            }
+            return true;
+          })
+          .map((preset) => this.applyOverride(preset)),
+      ],
       status: { ...this.status },
     };
+  }
+
+  /** Lê os programas dos nativos (Zyn do disco; os outros são fixos) e os Preseter Sounds. */
+  setNativeSources(zynFactoryDir: string, zynUserDir = ''): void {
+    this.zynDirs = { factory: zynFactoryDir, user: zynUserDir };
+    this.refreshNativePresets();
+  }
+
+  private refreshNativePresets(): void {
+    try {
+      this.nativePresets = buildNativePresets(this.zynDirs?.factory ?? '', this.zynDirs?.user ?? '');
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível montar os presets dos instrumentos nativos:', error);
+      this.nativePresets = [];
+    }
+  }
+
+  private findPreset(presetId: string): VstPreset | undefined {
+    return this.index.presets.find((item) => item.id === presetId)
+      ?? this.nativePresets.find((item) => item.id === presetId);
   }
 
   getStatus(): VstPresetLibraryStatus {
@@ -532,6 +542,7 @@ export class VstPresetLibrary extends EventEmitter {
 
   /** Reindexa os patches .sy1 (chamado na abertura e ao adicionar pasta). */
   scanSynth2(): VstPresetListResult {
+    this.refreshNativePresets();
     this.replaceSynth2Entries();
     this.save();
     this.emitChange();
@@ -728,8 +739,17 @@ export class VstPresetLibrary extends EventEmitter {
   }
 
   async applyPreset(presetId: string, layerId: string, vst: VstManager): Promise<boolean> {
-    const preset = this.index.presets.find((item) => item.id === presetId);
+    const preset = this.findPreset(presetId);
     if (!preset) throw new Error('Preset não encontrado.');
+
+    if (preset.source === 'native' || preset.source === 'sound') {
+      // Os efeitos e envios do som pronto são aplicados pela interface, que
+      // também os grava no patch; aqui só o programa do instrumento.
+      const loaded = vst.getLoadedPlugins().find((item) => item.layerId === layerId);
+      const index = resolveNativeProgram(preset, loaded?.programNames);
+      if (index === undefined) throw new Error('Programa do instrumento inválido.');
+      return vst.setPluginProgram(layerId, index);
+    }
 
     if (preset.source === 'sy1') {
       // Banco de fábrica: usa o programa interno do Synth2 (mantém o seletor
@@ -774,7 +794,19 @@ export class VstPresetLibrary extends EventEmitter {
     patch: { category?: string; favorite?: boolean }
   ): VstPreset | null {
     const index = this.index.presets.findIndex((preset) => preset.id === presetId);
-    if (index < 0) return null;
+    if (index < 0) {
+      // Nativos e Preseter Sounds: só o override é gravado.
+      const native = this.nativePresets.find((preset) => preset.id === presetId);
+      if (!native) return null;
+      this.index.overrides[presetId] = {
+        ...(this.index.overrides[presetId] ?? {}),
+        ...(patch.category !== undefined ? { category: patch.category } : {}),
+        ...(patch.favorite !== undefined ? { favorite: patch.favorite } : {}),
+      };
+      this.save();
+      this.emitChange();
+      return this.applyOverride(native);
+    }
     const current = this.index.presets[index];
     const next: VstPreset = {
       ...current,

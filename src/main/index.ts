@@ -220,12 +220,16 @@ class MainWindow {
     const zynBankDir = app.isPackaged
       ? path.join(process.resourcesPath, 'zyn', 'banks')
       : path.join(app.getAppPath(), 'vendor', 'zyn', 'banks');
-    this.vstManager.setZynBankDirs(zynBankDir, path.join(app.getPath('userData'), 'Zyn', 'Presets'));
+    const zynUserDir = path.join(app.getPath('userData'), 'Zyn', 'Presets');
+    this.vstManager.setZynBankDirs(zynBankDir, zynUserDir);
     this.vstPresetLibrary = new VstPresetLibrary(
       app.getPath('userData'),
       app.getPath('documents'),
       synth2FactoryDir
     );
+    // Zyn, Dexed, JX10, DX10, Piano, órgão, Tines, Wurly e os Preseter Sounds
+    // entram na aba Presets por categoria.
+    this.vstPresetLibrary.setNativeSources(zynBankDir, zynUserDir);
     this.vstPresetLibrary.scanSynth2();
     this.presetManager = new PresetManager();
     this.layoutManager = new LayoutManager();
