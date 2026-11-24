@@ -24,6 +24,11 @@ interface PatchLayerSpec {
   label: string;
   /** Programa interno sugerido, quando o instrumento expõe programas (ex.: GM/SF2). */
   programIndex?: number;
+  /** Camada nativa carregada pelo template (além das sugestões de VST). */
+  native?: {
+    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2';
+    programIndex?: number;
+  };
 }
 
 interface PatchSpec {
@@ -37,7 +42,7 @@ interface PatchSpec {
   layers?: PatchLayerSpec[];
   /** Instrumento nativo que o template carrega no patch (tocável). */
   native?: {
-    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'synth2';
+    id: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2';
     programIndex?: number;
     label?: string;
   };
@@ -132,25 +137,53 @@ function templateLayerSpecs(spec: PatchSpec): CollectionLayerSpec[] {
     min: item.minNote ?? 0,
     max: item.maxNote ?? 127,
     label: item.label,
+    ...(item.programIndex !== undefined ? { programIndex: item.programIndex } : {}),
+    ...(item.native
+      ? { nativeInstrument: item.native.id, programIndex: item.native.programIndex ?? 0 }
+      : {}),
   }));
 }
 
 /** Instrumento nativo pronto para tocar (o template deixa de ser só estrutura). */
 function templateAssignment(spec: PatchSpec, slug: string): PresetPluginAssignment | null {
-  if (!spec.native) return null;
-  const id = `preseter.${spec.native.id}`;
+  if (spec.native) {
+    const id = `preseter.${spec.native.id}`;
+    const info = nativeInstrumentInfo(id);
+    return {
+      pluginId: id,
+      layerId: `${slug}:layer:0`,
+      name: info?.name ?? spec.name,
+      path: id,
+      role: 'instrument',
+      programIndex: spec.native.programIndex ?? 0,
+      minNote: 0,
+      maxNote: 127,
+      mix: {
+        volumeDb: 0,
+        pan: 0,
+        muted: false,
+        solo: false,
+      },
+    };
+  }
+
+  const index = (spec.layers ?? []).findIndex((item) => item.native);
+  if (index < 0) return null;
+  const item = (spec.layers ?? [])[index];
+  if (!item.native) return null;
+  const id = `preseter.${item.native.id}`;
   const info = nativeInstrumentInfo(id);
   return {
     pluginId: id,
-    layerId: `${slug}:layer:0`,
-    name: info?.name ?? spec.name,
+    layerId: `${slug}:layer:${index}`,
+    name: item.label || info?.name || spec.name,
     path: id,
     role: 'instrument',
-    programIndex: spec.native.programIndex ?? 0,
-    minNote: 0,
-    maxNote: 127,
+    programIndex: item.native.programIndex ?? 0,
+    minNote: item.minNote ?? 0,
+    maxNote: item.maxNote ?? 127,
     mix: {
-      volumeDb: 0,
+      volumeDb: item.db ?? 0,
       pan: 0,
       muted: false,
       solo: false,
@@ -287,7 +320,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'fullset',
     name: 'Full Set',
-    description: 'Set completo com 40 patches em 8 famílias, usando instrumentos livres (Sforzando/FSVR/Surge/Dexed/Odin/Helm/MDA)',
+    description: 'Set completo com 40 patches em 8 famílias, usando instrumentos livres (Sforzando/FSVR/Surge/Dexed nativo/Odin/Helm/MDA)',
     concertName: 'Full Set — 40 Patches',
     tempo: 100,
     sets: [
@@ -309,11 +342,11 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       { name: 'Piano + Pad', setName: 'Pianos', withKeyboard: true, layers: [layer('Sforzando', 'Piano', { programIndex: 0 }), layer('Surge XT', 'Pad quente', { db: -12 })] },
 
       // 2. Teclas elétricas
-      { name: 'Elétrico Clássico', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Dexed', 'E.Piano', { db: -6 })] },
-      { name: 'Elétrico Suave', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Dexed', 'E.Piano release longo', { db: -6 })] },
+      { name: 'Elétrico Clássico', setName: 'Teclas elétricas', withKeyboard: true, native: { id: 'dexed', programIndex: 87 } },
+      { name: 'Elétrico Suave', setName: 'Teclas elétricas', withKeyboard: true, native: { id: 'dexed', programIndex: 483 } },
       { name: 'Elétrico com Tremolo', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('MDA ePiano', 'ePiano + tremolo', { db: -6 })] },
       { name: 'Clavinet', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Surge XT', 'Clavinet', { db: -6 })] },
-      { name: 'Sinos Elétricos', setName: 'Teclas elétricas', withKeyboard: true, layers: [layer('Dexed', 'Bell', { db: -6 })] },
+      { name: 'Sinos Elétricos', setName: 'Teclas elétricas', withKeyboard: true, native: { id: 'dexed', programIndex: 667 } },
 
       // 3. Órgãos
       { name: 'Órgão Tonewheel', setName: 'Órgãos', withKeyboard: true, layers: [layer('Sforzando', 'Tonewheel', { db: -6, programIndex: 16 })] },
@@ -360,7 +393,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
         name: 'Split Baixo + Elétrico', setName: 'Layers e splits', withKeyboard: true,
         layers: [
           layer('Surge XT', 'Sub bass', { db: -6, minNote: 0, maxNote: 53 }),
-          layer('Dexed', 'E.Piano', { db: -6, minNote: 54, maxNote: 127 }),
+          { instrument: 'Dexed', label: 'E.Piano', db: -6, minNote: 54, maxNote: 127, native: { id: 'dexed', programIndex: 87 } },
         ],
       },
       {
@@ -380,7 +413,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
       {
         name: 'Elétrico + Pad', setName: 'Layers e splits', withKeyboard: true,
         layers: [
-          layer('Dexed', 'E.Piano', { db: -6 }),
+          { instrument: 'Dexed', label: 'E.Piano', db: -6, native: { id: 'dexed', programIndex: 87 } },
           layer('Surge XT', 'Pad', { db: -12 }),
         ],
       },
@@ -437,7 +470,11 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
     const orderKey = spec.setName ?? '';
     const setOrder = orderInSet.get(orderKey) ?? 0;
     orderInSet.set(orderKey, setOrder + 1);
-    const notes = spec.notes ?? (spec.layers?.length ? layerNotes(spec.layers) : undefined);
+    const notes = spec.notes ?? (spec.layers?.length
+      ? layerNotes(spec.layers)
+      : spec.native
+        ? `${nativeInstrumentInfo(`preseter.${spec.native.id}`)?.name ?? spec.native.id} · cartucho de fábrica`
+        : undefined);
     const baseSlug = slugify(spec.name) || 'patch';
     let slug = baseSlug;
     if (usedSlugs.has(slug)) {

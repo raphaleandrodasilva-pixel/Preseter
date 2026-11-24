@@ -3,6 +3,7 @@
 #include "drums/DrumKitEngine.h"
 #include "drums/DrumSequencer.h"
 #include "MdaFactories.h"
+#include "DexedFactory.h"
 
 #include "EngineCore/InitPatch.hpp"
 #include "EngineCore/ParamFormat.hpp"
@@ -130,6 +131,7 @@ juce::String kindName (NativeKind kind)
     if (kind == NativeKind::mdaPiano) return "Preseter Piano";
     if (kind == NativeKind::mdaDx10) return "Preseter DX10";
     if (kind == NativeKind::mdaJx10) return "Preseter JX10";
+    if (kind == NativeKind::dexed) return "Preseter Dexed";
     if (kind == NativeKind::synth2) return "Preseter Synth2";
     if (kind == NativeKind::drums) return "Preseter Drums";
     return "Preseter Wurly";
@@ -156,6 +158,7 @@ std::unique_ptr<NativeProcessor> createNativeProcessor (const juce::String& id)
     if (id == "preseter.piano") return std::make_unique<NativeProcessor> (NativeKind::mdaPiano, id, kindName (NativeKind::mdaPiano));
     if (id == "preseter.dx") return std::make_unique<NativeProcessor> (NativeKind::mdaDx10, id, kindName (NativeKind::mdaDx10));
     if (id == "preseter.jx") return std::make_unique<NativeProcessor> (NativeKind::mdaJx10, id, kindName (NativeKind::mdaJx10));
+    if (id == "preseter.dexed") return std::make_unique<NativeProcessor> (NativeKind::dexed, id, kindName (NativeKind::dexed));
     if (id == "preseter.synth2") return std::make_unique<NativeProcessor> (NativeKind::synth2, id, kindName (NativeKind::synth2));
     if (id == "preseter.drums") return std::make_unique<NativeProcessor> (NativeKind::drums, id, kindName (NativeKind::drums));
     return nullptr;
@@ -295,11 +298,13 @@ NativeProcessor::NativeProcessor (NativeKind kindToUse, juce::String stable, juc
     else if (kind == NativeKind::reeds)
         wurli = std::make_unique<WurliProcessor>();
     else if (kind == NativeKind::mdaPiano)
-        mdaProcessor = createMdaPiano();
+        delegatedProcessor = createMdaPiano();
     else if (kind == NativeKind::mdaDx10)
-        mdaProcessor = createMdaDx10();
+        delegatedProcessor = createMdaDx10();
     else if (kind == NativeKind::mdaJx10)
-        mdaProcessor = createMdaJx10();
+        delegatedProcessor = createMdaJx10();
+    else if (kind == NativeKind::dexed)
+        delegatedProcessor = createDexed();
     else if (kind == NativeKind::synth2)
         synth2 = std::make_unique<Synth2Dsp>();
     else if (kind == NativeKind::drums)
@@ -334,11 +339,11 @@ void NativeProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
         return;
     }
 
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        mdaProcessor->setRateAndBufferSizeDetails (sampleRate, samplesPerBlock);
-        mdaProcessor->prepareToPlay (sampleRate, samplesPerBlock);
-        mdaPrepared = true;
+        delegatedProcessor->setRateAndBufferSizeDetails (sampleRate, samplesPerBlock);
+        delegatedProcessor->prepareToPlay (sampleRate, samplesPerBlock);
+        delegatedPrepared = true;
         return;
     }
 
@@ -392,8 +397,8 @@ void NativeProcessor::resetDsp()
 
 void NativeProcessor::releaseResources()
 {
-    if (mdaProcessor)
-        mdaProcessor->releaseResources();
+    if (delegatedProcessor)
+        delegatedProcessor->releaseResources();
 }
 
 bool NativeProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -406,7 +411,7 @@ double NativeProcessor::getTailLengthSeconds() const
 {
     if (kind == NativeKind::drums) return 2.5;
     if (kind == NativeKind::synth2) return 4.5;
-    return mdaProcessor ? mdaProcessor->getTailLengthSeconds() : 2.0;
+    return delegatedProcessor ? delegatedProcessor->getTailLengthSeconds() : 2.0;
 }
 
 int NativeProcessor::getActiveVoices() const noexcept
@@ -418,16 +423,18 @@ int NativeProcessor::getActiveVoices() const noexcept
 
     // Os portes do MDA inicializam o contador de vozes em prepareToPlay/reset
     // (o construtor do JX10 não o inicializa). Antes disso o valor é lixo.
-    if (mdaProcessor == nullptr || !mdaPrepared)
+    if (delegatedProcessor == nullptr || !delegatedPrepared)
         return 0;
 
     int voices = 0;
     if (kind == NativeKind::mdaPiano)
-        voices = mdaPianoActiveVoices (mdaProcessor.get());
+        voices = mdaPianoActiveVoices (delegatedProcessor.get());
     else if (kind == NativeKind::mdaDx10)
-        voices = mdaDxActiveVoices (mdaProcessor.get());
+        voices = mdaDxActiveVoices (delegatedProcessor.get());
     else if (kind == NativeKind::mdaJx10)
-        voices = mdaJxActiveVoices (mdaProcessor.get());
+        voices = mdaJxActiveVoices (delegatedProcessor.get());
+    else if (kind == NativeKind::dexed)
+        voices = dexedActiveVoices (delegatedProcessor.get());
 
     return juce::jlimit (0, 64, voices);
 }
@@ -585,10 +592,10 @@ void NativeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         return;
     }
 
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
         buffer.clear();
-        mdaProcessor->processBlock (buffer, midi);
+        delegatedProcessor->processBlock (buffer, midi);
         return;
     }
 
@@ -1035,7 +1042,7 @@ void NativeProcessor::renderModal (juce::AudioBuffer<float>& buffer, int numSamp
 
 int NativeProcessor::getNumPrograms()
 {
-    if (mdaProcessor) return mdaProcessor->getNumPrograms();
+    if (delegatedProcessor) return delegatedProcessor->getNumPrograms();
     if (kind == NativeKind::synth2)
         return synth2Programs.empty() ? 1 : (int) synth2Programs.size();
     if (kind == NativeKind::drums) return 1; // D2: "Kit vazio"; os kits entram na D3/D8.
@@ -1046,16 +1053,16 @@ int NativeProcessor::getNumPrograms()
 
 int NativeProcessor::getCurrentProgram()
 {
-    if (mdaProcessor) return mdaProcessor->getCurrentProgram();
+    if (delegatedProcessor) return delegatedProcessor->getCurrentProgram();
     return currentProgram;
 }
 
 void NativeProcessor::setCurrentProgram (int index)
 {
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        mdaProcessor->setCurrentProgram (index);
-        currentProgram = mdaProcessor->getCurrentProgram();
+        delegatedProcessor->setCurrentProgram (index);
+        currentProgram = delegatedProcessor->getCurrentProgram();
         return;
     }
     applyProgram (juce::jlimit (0, getNumPrograms() - 1, index));
@@ -1063,11 +1070,11 @@ void NativeProcessor::setCurrentProgram (int index)
 
 void NativeProcessor::applyProgram (int index)
 {
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        const int count = juce::jmax (1, mdaProcessor->getNumPrograms());
+        const int count = juce::jmax (1, delegatedProcessor->getNumPrograms());
         currentProgram = juce::jlimit (0, count - 1, index);
-        mdaProcessor->setCurrentProgram (currentProgram);
+        delegatedProcessor->setCurrentProgram (currentProgram);
         return;
     }
 
@@ -1219,8 +1226,8 @@ void NativeProcessor::applyProgram (int index)
 
 const juce::String NativeProcessor::getProgramName (int index)
 {
-    if (mdaProcessor)
-        return mdaProcessor->getProgramName (index);
+    if (delegatedProcessor)
+        return delegatedProcessor->getProgramName (index);
     if (kind == NativeKind::synth2)
     {
         if (synth2Programs.empty())
@@ -1247,9 +1254,9 @@ const juce::String NativeProcessor::getProgramName (int index)
 
 void NativeProcessor::changeProgramName (int index, const juce::String& newName)
 {
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        mdaProcessor->changeProgramName (index, newName);
+        delegatedProcessor->changeProgramName (index, newName);
         return;
     }
     juce::ignoreUnused (index, newName);
@@ -1257,9 +1264,9 @@ void NativeProcessor::changeProgramName (int index, const juce::String& newName)
 
 void NativeProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        mdaProcessor->getStateInformation (destData);
+        delegatedProcessor->getStateInformation (destData);
         return;
     }
 
@@ -1299,9 +1306,9 @@ void NativeProcessor::getStateInformation (juce::MemoryBlock& destData)
 
 void NativeProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (mdaProcessor)
+    if (delegatedProcessor)
     {
-        mdaProcessor->setStateInformation (data, sizeInBytes);
+        delegatedProcessor->setStateInformation (data, sizeInBytes);
         return;
     }
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
@@ -1433,6 +1440,13 @@ void NativeProcessor::clearDrumPadSource (int pad)
 juce::String NativeProcessor::describeDrumKit() const
 {
     return drumKit != nullptr ? drumKit->describe() : juce::String();
+}
+
+bool NativeProcessor::reloadDexedBank()
+{
+    if (kind != NativeKind::dexed || delegatedProcessor == nullptr)
+        return false;
+    return native::reloadDexedBank (delegatedProcessor.get());
 }
 
 void NativeProcessor::setMasterClock (const MasterClock* clockToUse)
@@ -1737,8 +1751,8 @@ juce::String NativeProcessor::exportSynth2Patch (const juce::String& name) const
 
 juce::AudioProcessorEditor* NativeProcessor::createEditor()
 {
-    if (mdaProcessor)
-        return mdaProcessor->createEditorIfNeeded();
+    if (delegatedProcessor != nullptr && delegatedProcessor->hasEditor())
+        return delegatedProcessor->createEditorIfNeeded();
     return new juce::GenericAudioProcessorEditor (this);
 }
 

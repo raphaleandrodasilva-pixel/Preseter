@@ -11,6 +11,7 @@ type Family =
   | 'reeds'
   | 'dx'
   | 'jx'
+  | 'dexed'
   | 'synth2'
   | 'sampler'
   | 'bass'
@@ -43,6 +44,7 @@ const KEY_RANGES: Record<Family, [number, number]> = {
   reeds: [28, 103],
   dx: [36, 96],
   jx: [36, 96],
+  dexed: [36, 96],
   synth2: [36, 96],
   sampler: [36, 96],
   bass: [28, 67],
@@ -92,6 +94,12 @@ const NATIVE_CONTROLS: Partial<Record<Family, NativeControl[]>> = {
     { index: 3, label: 'Coarse' },
     { index: 10, label: 'Vibrato' },
     { index: 15, label: 'LFO Rate' },
+  ],
+  dexed: [
+    { index: 0, label: 'Output' },
+    { index: 1, label: 'Cutoff' },
+    { index: 2, label: 'Resonance' },
+    { index: 3, label: 'Algoritmo' },
   ],
   jx: [
     { index: 0, label: 'OSC Mix' },
@@ -182,7 +190,7 @@ function detectFamily (setName: string, patchName: string, layers: CollectionLay
   const native = layers.map((layer) => layer.nativeInstrument).find(Boolean);
   if (native) {
     if (native === 'organ' || native === 'tines' || native === 'reeds' || native === 'piano'
-      || native === 'dx' || native === 'jx' || native === 'synth2' || native === 'drums') {
+      || native === 'dx' || native === 'jx' || native === 'dexed' || native === 'synth2' || native === 'drums') {
       return native;
     }
   }
@@ -510,7 +518,7 @@ export function buildPedalboardLayout (input: PedalboardLayoutInput): LayoutConf
 }
 
 const NATIVE_LAYER_IDS: Array<NonNullable<CollectionLayerSpec['nativeInstrument']>> = [
-  'organ', 'tines', 'reeds', 'piano', 'dx', 'jx', 'synth2', 'drums',
+  'organ', 'tines', 'reeds', 'piano', 'dx', 'jx', 'dexed', 'synth2', 'drums',
 ];
 
 /** Traduz o assignment salvo do patch para a especificação usada pelo layout. */

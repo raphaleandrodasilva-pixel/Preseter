@@ -141,7 +141,7 @@ export interface LibraryGenerateResult {
 // ---- Validação --------------------------------------------------------------
 
 const INSTRUMENTS = new Set(['NATIVE', 'FSVR', 'SURGE', 'DEXED', 'ODIN', 'HELM', 'MDA', 'MDA_EP', 'MDA_JX']);
-const NATIVE = new Set(['organ', 'tines', 'reeds', 'piano', 'dx', 'jx', 'synth2', 'drums']);
+const NATIVE = new Set(['organ', 'tines', 'reeds', 'piano', 'dx', 'jx', 'dexed', 'synth2', 'drums']);
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

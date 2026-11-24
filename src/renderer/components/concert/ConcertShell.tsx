@@ -405,11 +405,13 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
               ? 'dx'
               : assignment?.pluginId === 'preseter.jx'
                 ? 'jx'
-                : assignment?.pluginId === 'preseter.synth2'
-                  ? 'synth2'
-                  : assignment?.pluginId === 'preseter.drums'
-                    ? 'drums'
-                    : null;
+                : assignment?.pluginId === 'preseter.dexed'
+                  ? 'dexed'
+                  : assignment?.pluginId === 'preseter.synth2'
+                    ? 'synth2'
+                    : assignment?.pluginId === 'preseter.drums'
+                      ? 'drums'
+                      : null;
     if (nativeKind) {
       if (!draft && activePreset) onEditPreset(activePreset);
       setNativeWindow((current) => (current?.layerId === layerId ? null : { layerId, kind: nativeKind }));

@@ -19,6 +19,7 @@ export const NATIVE_INSTRUMENTS: NativeInstrumentInfo[] = [
   { id: 'preseter.piano', name: 'Preseter Piano', category: 'Piano acústico' },
   { id: 'preseter.dx', name: 'Preseter DX10', category: 'Sintetizador FM' },
   { id: 'preseter.jx', name: 'Preseter JX10', category: 'Sintetizador analógico' },
+  { id: 'preseter.dexed', name: 'Preseter Dexed', category: 'Sintetizador FM' },
   { id: 'preseter.synth2', name: 'Preseter Synth2', category: 'Sintetizador subtrativo' },
   { id: 'preseter.drums', name: 'Preseter Drums', category: 'Bateria' },
 ];

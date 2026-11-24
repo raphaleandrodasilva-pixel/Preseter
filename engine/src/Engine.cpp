@@ -3218,6 +3218,20 @@ juce::String Engine::reloadSampler (const juce::String& layerId, const juce::Str
     return {};
 }
 
+juce::String Engine::reloadDexedBank (const juce::String& layerId, juce::var& result)
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0 || layers[(size_t) index].native == nullptr)
+        return utf8 ("Nenhum instrumento nativo carregado neste layer.");
+
+    auto* native = layers[(size_t) index].native;
+    if (! native->reloadDexedBank())
+        return utf8 ("Este instrumento não é um Preseter Dexed.");
+
+    result = describeLoadedPlugin (layerId);
+    return {};
+}
+
 juce::var Engine::commitPatchSwap (bool silencePrevious)
 {
     for (auto& layer : layers)

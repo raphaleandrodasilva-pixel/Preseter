@@ -94,12 +94,12 @@
         "pianos elétricos",
         "sinos"
       ],
-      "essential": true,
+      "essential": false,
       "defaultSelected": true,
       "thumbnail": {
         "kind": "generated"
       },
-      "notes": "Presets de fábrica em .syx podem ser carregados no editor do plugin.",
+      "notes": "O Preseter já inclui o Preseter Dexed nativo. Instale este VST só se quiser o plugin externo.",
       "format": "VST3",
       "approxBytes": 15000000,
       "variants": [

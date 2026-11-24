@@ -81,6 +81,7 @@ export interface ElectronAPI {
   samplerInfo: (layerId: string) => Promise<Record<string, unknown>>;
   samplerReload: (layerId: string, samplePath: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   vstSetProgram: (layerId: string, index: number) => Promise<VstPluginInfo | null>;
+  dexedImportCartridge: (layerId: string) => Promise<{ ok: boolean; error?: string; plugin?: VstPluginInfo | null }>;
   /** Vozes ativas do instrumento nativo (painel do instrumento). */
   vstVoices: (layerId: string) => Promise<number>;
   vstUnload: (pluginId: string) => Promise<boolean>;

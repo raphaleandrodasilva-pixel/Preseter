@@ -201,7 +201,15 @@ describe('concert templates', () => {
     expect(file.patches.map((patch) => patch.programNumber)).toEqual(
       Array.from({ length: 40 }, (_, index) => index)
     );
-    expect(file.patches.every((patch) => patch.plugins?.length === 0)).toBe(true);
+    const nativePatches = file.patches.filter((patch) => (patch.plugins?.length ?? 0) > 0);
+    expect(nativePatches.map((patch) => patch.name)).toEqual([
+      'Elétrico Clássico',
+      'Elétrico Suave',
+      'Sinos Elétricos',
+      'Split Baixo + Elétrico',
+      'Elétrico + Pad',
+    ]);
+    expect(nativePatches.every((patch) => patch.plugins?.every((plugin) => plugin.pluginId === 'preseter.dexed'))).toBe(true);
     expect(file.patches.every((patch) => patch.notes)).toBe(true);
     expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
     expect(file.layout.elements.filter((element) => element.patchSendAux !== undefined).map((element) => element.patchSendAux))

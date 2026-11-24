@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Tipo de build" FORCE)
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -93,10 +93,39 @@ target_sources(PreseterEngine PRIVATE
     src/native/MdaPianoFactory.cpp
     src/native/MdaDxFactory.cpp
     src/native/MdaJxFactory.cpp
+    src/native/DexedFactory.cpp
     third_party/mda-piano/PluginProcessor.cpp
     third_party/mda-dx10/PluginProcessor.cpp
     third_party/mda-jx10/PluginProcessor.cpp
     third_party/mda-epiano/MdaEPianoDsp.cpp
+
+    third_party/dexed/source/PluginProcessor.cpp
+    third_party/dexed/source/PluginData.cpp
+    third_party/dexed/source/PluginFx.cpp
+    third_party/dexed/source/Tuning.cpp
+    third_party/dexed/source/core/Cartridge.cpp
+    third_party/dexed/source/core/Program.cpp
+    third_party/dexed/source/engine/EngineMkI.cpp
+    third_party/dexed/source/engine/EngineOpl.cpp
+    third_party/dexed/source/midi/PluginMidi.cpp
+    third_party/dexed/source/midi/SysexComm.cpp
+    third_party/dexed/source/msfa/dx7note.cc
+    third_party/dexed/source/msfa/env.cc
+    third_party/dexed/source/msfa/exp2.cc
+    third_party/dexed/source/msfa/fm_core.cc
+    third_party/dexed/source/msfa/fm_op_kernel.cc
+    third_party/dexed/source/msfa/freqlut.cc
+    third_party/dexed/source/msfa/lfo.cc
+    third_party/dexed/source/msfa/pitchenv.cc
+    third_party/dexed/source/msfa/sin.cc
+    third_party/dexed/source/msfa/tuning.cc
+    third_party/dexed/source/msfa/porta.cpp
+    third_party/dexed/source/parameter/DexedApvts.cpp
+    third_party/dexed/source/parameter/ParametersMapper.cpp
+    third_party/dexed/source/parameter/State.cpp
+    third_party/dexed/source/parameter/Preference.cpp
+    third_party/dexed/mts-esp/libMTSClient.cpp
+
     src/sampler/SamplerInstrument.cpp
     src/sampler/SamplerProcessor.cpp
     src/drums/DrumKitEngine.cpp
@@ -110,6 +139,9 @@ target_include_directories(PreseterEngine PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-dx10"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-jx10"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mda-epiano"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/source"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/tuning-library/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/mts-esp"
     "${PRESETER_SETBFREE_DIR}/src"
     "${PRESETER_SETBFREE_DIR}/b_whirl"
     "${PRESETER_SETBFREE_DIR}/b_overdrive"
@@ -180,6 +212,16 @@ set_target_properties(openwurli_capi PROPERTIES
 
 add_dependencies(PreseterEngine openwurli_capi_build)
 target_link_libraries(PreseterEngine PRIVATE openwurli_capi)
+
+# Recursos embutidos do Dexed (cartuchos de fábrica em builtin_pgm.zip).
+juce_add_binary_data(DexedResources SOURCES
+    third_party/dexed/assets/builtin_pgm.zip)
+target_link_libraries(PreseterEngine PRIVATE DexedResources)
+
+target_compile_definitions(PreseterEngine PRIVATE
+    DEXED_ID=\"1.1.0\"
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0)
 
 if(WIN32)
     target_link_libraries(PreseterEngine PRIVATE advapi32 userenv ws2_32 ntdll bcrypt synchronization)

@@ -583,6 +583,15 @@ export class VstManager extends EventEmitter {
     return true;
   }
 
+  /** Preseter Dexed: relê os cartuchos .syx e atualiza a lista de programas. */
+  async reloadDexedBank(layerOrPluginId: string): Promise<VstPluginInfo | null> {
+    const plugin = this.findLoadedPlugin(layerOrPluginId);
+    if (!plugin?.layerId) return null;
+    const result = await this.engine.request('dexedReload', { layerId: plugin.layerId }, 30_000);
+    await this.refreshLoadedPlugin(plugin.layerId, result);
+    return this.loadedPlugins.get(plugin.layerId) ?? null;
+  }
+
   /** Preseter Synth2: aplica um patch .sy1 (texto) e recarrega os parâmetros. */
   async loadSynth2Patch(layerOrPluginId: string, text: string, name = 'INIT'): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);

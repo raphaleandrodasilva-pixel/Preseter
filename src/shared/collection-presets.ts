@@ -65,7 +65,7 @@ export interface CollectionLayerSpec {
    * `piano` existe no motor, mas **não** substitui o sampler nos pianos
    * acústicos: só pode entrar como camada extra, com aprovação.
    */
-  nativeInstrument?: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'synth2' | 'drums';
+  nativeInstrument?: 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2' | 'drums';
   /** Quando presente, o layer usa o sampler nativo (SF2/SFZ). */
   sample?: SampleSpec;
 }
@@ -256,7 +256,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       d: { preset: 'slap', db: -22 },
     })],
     ['FM Electric Piano', [
-      N('dx', -3, 0, 127, 'Piano elétrico FM', 0),
+      N('dexed', -3, 0, 127, 'Piano elétrico FM', 87),
     ], PATCH_FX({
       inserts: [FX('calfNXT Chorus', 'subtle')],
       r: { preset: 'plate', db: -16 },
@@ -492,7 +492,7 @@ export const COLLECTION_SETS: CollectionSet[] = [
       r: { preset: 'hall', db: -10 },
     })],
     ['Digital Bell', [
-      N('dx', -3, 0, 127, 'Sino digital', 4),
+      N('dexed', -3, 0, 127, 'Sino digital', 667),
     ], PATCH_FX({
       r: { preset: 'hall', db: -12 },
       d: { preset: 'echo', db: -20 },

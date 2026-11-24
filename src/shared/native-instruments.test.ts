@@ -26,7 +26,7 @@ describe('catálogo de instrumentos nativos', () => {
   });
 
   it('mantém os instrumentos já existentes no catálogo', () => {
-    for (const id of ['preseter.organ', 'preseter.tines', 'preseter.reeds', 'preseter.piano', 'preseter.dx', 'preseter.jx', 'preseter.synth2']) {
+    for (const id of ['preseter.organ', 'preseter.tines', 'preseter.reeds', 'preseter.piano', 'preseter.dx', 'preseter.jx', 'preseter.dexed', 'preseter.synth2']) {
       expect(isNativeInstrumentId(id)).toBe(true);
     }
     expect(isNativeInstrumentId('preseter.nao-existe')).toBe(false);

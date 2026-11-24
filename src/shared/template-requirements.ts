@@ -30,7 +30,7 @@ export interface TemplateReadiness {
 
 const REQUIREMENTS: Record<string, TemplateRequirements> = {
   fullset: {
-    storeIds: ['sforzando', 'surge-xt', 'dexed', 'mda', 'odin2', 'helm', 'musescore-general'],
+    storeIds: ['sforzando', 'surge-xt', 'mda', 'odin2', 'helm', 'musescore-general'],
   },
 };
 

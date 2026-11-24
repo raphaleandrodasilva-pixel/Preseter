@@ -33,6 +33,7 @@ enum class NativeKind
     mdaPiano,
     mdaDx10,
     mdaJx10,
+    dexed,
     synth2,
     drums
 };
@@ -58,7 +59,7 @@ public:
     void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
 
     /** Processador delegado (MDA): fonte dos parâmetros reais, se houver. */
-    juce::AudioProcessor* getParameterProcessor() const noexcept { return mdaProcessor.get(); }
+    juce::AudioProcessor* getParameterProcessor() const noexcept { return delegatedProcessor.get(); }
 
     /** Vozes em uso no instrumento delegado (0 nos instrumentos próprios). */
     int getActiveVoices() const noexcept;
@@ -98,6 +99,9 @@ public:
     void clearDrumPadSource (int pad);
     /** Preseter Drums: descrição do kit carregado (para logs/interface). */
     juce::String describeDrumKit() const;
+
+    /** Preseter Dexed: relê os cartuchos .syx do disco. */
+    bool reloadDexedBank();
 
     /** D4: liga o sequenciador ao relógio mestre. */
     void setMasterClock (const MasterClock* clockToUse);
@@ -169,8 +173,8 @@ private:
     std::atomic<bool> synth2ForceParams { true };
     /** Pede o fade/limpeza de delay antes de aplicar um patch novo. */
     std::atomic<bool> synth2PatchReload { false };
-    /** Instrumentos do MDA rodam o AudioProcessor original do porte (MIT). */
-    std::unique_ptr<juce::AudioProcessor> mdaProcessor;
+    /** Instrumentos do MDA/Dexed rodam o AudioProcessor original do porte. */
+    std::unique_ptr<juce::AudioProcessor> delegatedProcessor;
     /** Preseter Drums: motor de pads (D3). */
     std::unique_ptr<drums::DrumKitEngine> drumKit;
     /** Preseter Drums: sequenciador (D4) e relógio mestre. */
@@ -191,7 +195,7 @@ private:
     /** Volume geral do Drums (dB), salvo no estado. */
     float drumGainDb = 0.0f;
     /** prepareToPlay já rodou no delegado (contador de vozes confiável). */
-    bool mdaPrepared = false;
+    bool delegatedPrepared = false;
     std::array<SetBfreeMidiEvent, 1024> organEvents {};
     int organEventCount = 0;
     std::atomic<int> lastLeslieParam { -1 };

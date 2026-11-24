@@ -5,8 +5,9 @@ import { useAppContext } from '../../context/AppContext';
 import { ChoiceButton, Knob, NumberField, ParamKnob } from './native-controls';
 import { Synth2Panel } from './Synth2Panel';
 import { DrumMachinePanel } from './DrumMachinePanel';
+import { DexedPanel } from './DexedPanel';
 
-export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'synth2' | 'drums';
+export type NativeInstrumentKind = 'organ' | 'tines' | 'reeds' | 'piano' | 'dx' | 'jx' | 'dexed' | 'synth2' | 'drums';
 
 interface NativeInstrumentWindowProps {
   kind: NativeInstrumentKind;
@@ -41,6 +42,7 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
   reeds: { name: 'Preseter Wurly', badge: 'OPENWURLI', subtitle: 'Wurlitzer 200A — modelagem física (OpenWurli)' },
   piano: { name: 'Preseter Piano', badge: 'MDA PIANO', subtitle: 'Piano acústico por samples · 12 parâmetros' },
   dx: { name: 'Preseter DX10', badge: 'MDA DX10', subtitle: 'FM de 2 operadores · 16 parâmetros' },
+  dexed: { name: 'Preseter Dexed', badge: 'DEXED', subtitle: 'FM de 6 operadores estilo DX7 · cartuchos .syx' },
   jx: { name: 'Preseter JX10', badge: 'MDA JX10', subtitle: 'Sintetizador analógico · 24 parâmetros' },
   synth2: { name: 'Preseter Synth2', badge: 'OXO SYNTH2', subtitle: 'Recriação do Synth1 · motor Oxo Synth2 (MIT)' },
   drums: { name: 'Preseter Drums', badge: 'PADS E SEQUENCIADOR', subtitle: 'Bateria nativa · até 16 pads, sequenciador e sample por pad' },
@@ -49,6 +51,7 @@ const TITLES: Record<NativeInstrumentKind, { name: string; badge: string; subtit
 const CREDITS: Partial<Record<NativeInstrumentKind, string>> = {
   piano: 'Baseado em mda Piano · Paul Kellett',
   dx: 'Baseado em mda DX10 · Paul Kellett',
+  dexed: 'Motor: Dexed 1.1.0 · Pascal Gauthier · GPL-3.0',
   jx: 'Baseado em mda JX10 · Paul Kellett',
   synth2: 'Motor: Oxo Synth2 · François Chabloz (chab) · MIT',
 };
@@ -421,6 +424,10 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const [params, setParams] = useState<EngineParameter[]>([]);
   const [activeVoices, setActiveVoices] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dexedNames, setDexedNames] = useState<string[]>([]);
+  const [dexedProgram, setDexedProgram] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   const [box, setBox] = useState({ x: 80, y: 80, w: 980, h: 640 });
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
   const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -429,7 +436,15 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const program = plugin?.program ?? assignment.programIndex ?? 0;
   const mdaKind = kind === 'piano' || kind === 'dx' || kind === 'jx';
   const programCount = plugin?.programCount
-    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : kind === 'drums' ? 1 : 4);
+    ?? (kind === 'piano' ? 8 : kind === 'dx' ? 32 : kind === 'jx' ? 52 : kind === 'dexed' ? 32 : kind === 'drums' ? 1 : 4);
+
+  useEffect(() => {
+    if (kind !== 'dexed') return;
+    if (plugin?.programNames?.length) {
+      setDexedNames(plugin.programNames);
+      setDexedProgram(plugin.program ?? assignment.programIndex ?? 0);
+    }
+  }, [kind, plugin?.programNames, plugin?.program, assignment.programIndex]);
 
   const refresh = async () => {
     try {
@@ -458,7 +473,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
 
   // Vozes ativas dos instrumentos MDA: o rodapé mostra quantas estão soando.
   useEffect(() => {
-    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx' && kind !== 'synth2') return;
+    if (kind !== 'piano' && kind !== 'dx' && kind !== 'jx' && kind !== 'dexed' && kind !== 'synth2') return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -501,9 +516,32 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     if (index < 0) return;
     try {
       await window.electronAPI.vstSetProgram(layerId, index);
+      if (kind === 'dexed') setDexedProgram(index);
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao trocar o preset.');
+    }
+  };
+
+  const importCartridge = async () => {
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const result = await window.electronAPI.dexedImportCartridge(layerId);
+      if (!result.ok) {
+        setImportMessage(`Erro: ${result.error ?? 'não foi possível importar o cartucho.'}`);
+        return;
+      }
+      if (result.plugin?.programNames?.length) {
+        setDexedNames(result.plugin.programNames);
+        setDexedProgram(result.plugin.program ?? 0);
+      }
+      setImportMessage('Cartucho importado.');
+      await refresh();
+    } catch (cause) {
+      setImportMessage(`Erro: ${cause instanceof Error ? cause.message : 'falha ao importar.'}`);
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -511,19 +549,24 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const drawbarMode = kind === 'organ';
 
   const programNames = useMemo(() => {
+    if (kind === 'dexed' && dexedNames.length > 0) return dexedNames;
     if (plugin?.programNames?.length) return plugin.programNames;
     if (kind === 'organ') return ['Jazz', 'Gospel', 'Rock', 'Combo'];
     if (kind === 'tines') return ['Suitcase', 'Stage', 'Mellow', 'Bark'];
     if (kind === 'reeds') return ['Clássico', 'Suitcase', 'Stage', 'Bark'];
     if (kind === 'drums') return ['Kit vazio'];
     return Array.from({ length: programCount }, (_, index) => `Preset ${index + 1}`);
-  }, [kind, plugin?.programNames, programCount]);
+  }, [kind, dexedNames, plugin?.programNames, programCount]);
+
+  const displayedProgram = kind === 'dexed' ? dexedProgram : program;
 
   const polyphonyMax = kind === 'piano'
     ? Math.round(8 + 24 * valueOf('Polyphony'))
     : kind === 'dx' || kind === 'jx'
       ? 8
-      : kind === 'tines'
+      : kind === 'dexed'
+        ? 16
+        : kind === 'tines'
         ? Math.round(valueOf('Polyphony'))
         : kind === 'synth2'
           ? Math.round(1 + 31 * valueOf('polyphony'))
@@ -563,17 +606,23 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
             </div>
             <div className="truncate text-[10px]" style={{ color: '#8E8E93' }}>{title.subtitle}</div>
           </div>
-          <select
-            value={program}
-            onChange={(event) => void changeProgram(Number(event.target.value))}
-            className="hw-inset max-w-[220px] px-2 py-1 text-[10px] text-white"
-            aria-label="Preset do instrumento"
-          >
-            {kind === 'synth2' && program < 0 && <option value={-1}>Patch atual (.sy1)</option>}
-            {programNames.slice(0, programCount).map((name, index) => (
-              <option key={`${name}-${index}`} value={index}>{name}</option>
-            ))}
-          </select>
+          {kind === 'dexed' ? (
+            <span className="max-w-[260px] truncate text-[10px]" style={{ color: '#C6C6CB' }} title={programNames[displayedProgram]}>
+              {programNames[displayedProgram] ?? 'Programa'}
+            </span>
+          ) : (
+            <select
+              value={displayedProgram}
+              onChange={(event) => void changeProgram(Number(event.target.value))}
+              className="hw-inset max-w-[220px] px-2 py-1 text-[10px] text-white"
+              aria-label="Preset do instrumento"
+            >
+              {kind === 'synth2' && program < 0 && <option value={-1}>Patch atual (.sy1)</option>}
+              {programNames.slice(0, programCount).map((name, index) => (
+                <option key={`${name}-${index}`} value={index}>{name}</option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             className="rounded-lg px-3 py-1.5 text-[10px] font-semibold"
@@ -698,6 +747,17 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
               </div>
             </details>
             </div>
+          ) : kind === 'dexed' ? (
+            <DexedPanel
+              params={params}
+              program={displayedProgram}
+              programNames={programNames}
+              onChange={setNamed}
+              onProgram={changeProgram}
+              onImport={importCartridge}
+              importBusy={importing}
+              importMessage={importMessage}
+            />
           ) : kind === 'tines' ? (
             <div className="space-y-3">
               <section className="hw-inset p-3">

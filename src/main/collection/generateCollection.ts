@@ -92,6 +92,7 @@ export const NATIVE_INSTRUMENT_NAMES: Record<
   piano: 'Preseter Piano',
   dx: 'Preseter DX10',
   jx: 'Preseter JX10',
+  dexed: 'Preseter Dexed',
   synth2: 'Preseter Synth2',
   drums: 'Preseter Drums',
 };

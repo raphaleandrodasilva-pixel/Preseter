@@ -977,6 +977,35 @@ class MainWindow {
       return this.vstManager.getLoadedPlugins().find((item) => item.layerId === layerId) ?? null;
     });
 
+    ipcMain.handle('dexed-import-cartridge', async (_event, layerId: string) => {
+      const picked = await dialog.showOpenDialog({
+        title: 'Importar cartucho do Dexed',
+        filters: [{ name: 'Cartucho DX7 (.syx)', extensions: ['syx'] }],
+        properties: ['openFile'],
+      });
+      const source = picked.filePaths[0];
+      if (picked.canceled || !source) return { ok: false as const };
+      if (path.extname(source).toLowerCase() !== '.syx') {
+        return { ok: false as const, error: 'Escolha um arquivo .syx.' };
+      }
+      try {
+        const cartDir = path.join(app.getPath('userData'), 'Dexed', 'Cartridges');
+        fs.mkdirSync(cartDir, { recursive: true });
+        const destination = path.join(cartDir, path.basename(source));
+        if (path.resolve(source) !== path.resolve(destination)) {
+          fs.copyFileSync(source, destination);
+        }
+        const plugin = await this.vstManager.reloadDexedBank(layerId);
+        if (!plugin) return { ok: false as const, error: 'O Preseter Dexed não está carregado neste layer.' };
+        return { ok: true as const, plugin };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : 'Falha ao importar o cartucho.',
+        };
+      }
+    });
+
     ipcMain.handle('vst-voices', async (_event, layerId: string) => {
       return this.vstManager.getActiveVoices(layerId);
     });

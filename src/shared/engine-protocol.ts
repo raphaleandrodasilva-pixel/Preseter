@@ -297,6 +297,8 @@ export interface EngineCommands {
   };
   /** Troca o programa interno de um layer carregado. */
   setProgram: { args: { layerId?: string; index: number }; result: EngineLoadedPlugin };
+  /** Preseter Dexed: relê os cartuchos .syx e devolve o layer atualizado. */
+  dexedReload: { args: { layerId?: string }; result: EngineLoadedPlugin };
   /** Preseter Synth2: aplica um patch .sy1 (texto) no layer. */
   synth2LoadPatch: { args: { layerId?: string; data: string; name?: string }; result: EngineLoadedPlugin };
   /** Preseter Synth2: exporta os valores atuais como .sy1 (texto). */
