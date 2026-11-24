@@ -85,6 +85,19 @@ beforeEach(() => {
 });
 
 describe('StoreSettings', () => {
+  it('não mostra mais a aba Factory 40', async () => {
+    vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot());
+    vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
+    render(
+      <AppProvider>
+        <StoreSettings />
+      </AppProvider>
+    );
+
+    expect(await screen.findAllByText('Plugin Alfa 1.0')).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Factory 40' })).toBeNull();
+  });
+
   it('lists the catalog and filters by category and search', async () => {
     vi.mocked(window.electronAPI.storeList).mockResolvedValue(
       snapshot([
@@ -230,59 +243,6 @@ describe('StoreSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: /Não instalados \(1\)/ }));
     expect(await screen.findAllByText('Plugin Faltando')).not.toHaveLength(0);
     expect(screen.queryAllByText('Plugin Instalado')).toHaveLength(0);
-  });
-
-  it('opens Factory 40 from the store card', async () => {
-    vi.mocked(window.electronAPI.storeList).mockResolvedValue(
-      snapshot([
-        storeItem({
-          id: 'preseter-factory-40',
-          name: 'Preseter Factory 40',
-          source: 'official',
-          tier: 'verified',
-          license: 'AGPL-3.0',
-          licenseKind: 'open-source',
-          format: 'Preset',
-          approxBytes: 0,
-          availableFormats: ['Preset'],
-          variant: {
-            ...variant,
-            format: 'Preset',
-            kind: 'manual',
-            url: undefined,
-            page: 'https://github.com/raphaleandrodasilva-pixel/Preseter',
-            manualReason: 'Gerado pelo próprio Preseter no modo Factory 40.',
-          },
-        }),
-      ])
-    );
-    vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
-    render(
-      <AppProvider>
-        <StoreSettings />
-      </AppProvider>
-    );
-
-    expect(await screen.findAllByText('Preseter Factory 40')).not.toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Abrir Factory 40' }));
-
-    expect(await screen.findByText('Prontidão da Factory 40')).toBeInTheDocument();
-  });
-
-  it('opens Factory 40 with the collection downloader', async () => {
-    vi.mocked(window.electronAPI.storeList).mockResolvedValue(snapshot());
-    vi.mocked(window.electronAPI.collectionStatus).mockResolvedValue([]);
-    render(
-      <AppProvider>
-        <StoreSettings />
-      </AppProvider>
-    );
-
-    expect(await screen.findAllByText('Plugin Alfa 1.0')).not.toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Factory 40' }));
-
-    expect(await screen.findByText('Prontidão da Factory 40')).toBeInTheDocument();
-    expect(await screen.findAllByText('Factory 40')).not.toHaveLength(0);
   });
 
   it('shows the license warning and filters by provider', async () => {

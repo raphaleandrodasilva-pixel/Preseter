@@ -116,6 +116,7 @@ jobs:
           path: |
             release/*.exe
             release/*.exe.blockmap
+            release/latest.yml
           if-no-files-found: error
           retention-days: 14
 
@@ -175,6 +176,7 @@ jobs:
           path: |
             release/*.AppImage
             release/*.deb
+            release/latest-linux.yml
           if-no-files-found: error
           retention-days: 14
 
@@ -232,10 +234,13 @@ jobs:
             dist-release/*.exe.blockmap
             dist-release/*.AppImage
             dist-release/*.deb
+            dist-release/latest.yml
+            dist-release/latest-linux.yml
 
       # Mantém no GitHub somente o release recém-publicado.
       - name: Remover releases antigos
         if: steps.tag.outputs.publish == 'true'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP_TAG: ${{ steps.tag.outputs.name }}

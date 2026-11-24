@@ -9,12 +9,14 @@ import { PresetManager } from './preset/PresetManager';
 import { LayoutManager } from './layout/LayoutManager';
 import { ConcertManager, LegacyConcertPayload } from './concert/ConcertManager';
 import { listTemplates } from './concert/templates';
+import { templateRequirements, type TemplateReadiness } from '../shared/template-requirements';
+import { checkForUpdates, scheduleStartupUpdateCheck, setupUpdater } from './updater';
 import { serializeConcertFile } from './concert/ConcertFile';
 import { COLLECTION_CATALOG, resolveCollectionItems, type CollectionItem } from '../shared/collection';
 import { STORE_CHECK_INTERVAL_MS } from '../shared/store';
 import { CollectionInstaller } from './collection/CollectionInstaller';
 import { StoreService } from './store/StoreService';
-import { buildCollectionConcert, analyzeCollectionConcert } from './collection/generateCollection';
+import { analyzeCollectionConcert } from './collection/generateCollection';
 import { buildLibraryFromConcert } from './library/exportLibrary';
 import {
   describeMissing,
@@ -277,6 +279,8 @@ class MainWindow {
       this.createSplash();
       this.createWindow();
       this.buildMenu();
+      setupUpdater();
+      scheduleStartupUpdateCheck();
       // Inicializa o engine, restaura áudio salvo e escaneia VSTs em segundo plano.
       setImmediate(() => {
         this.performanceMode.initialize(this.readPreferences().performanceMode);
@@ -1057,7 +1061,6 @@ class MainWindow {
       return error === '';
     });
 
-    ipcMain.handle('collection-generate', () => this.generateCollectionConcert());
 
     // === Bibliotecas (Arquivo → Gerar Biblioteca…) ===
 
@@ -1182,7 +1185,6 @@ class MainWindow {
       return true;
     });
 
-    ipcMain.handle('store-generate', () => this.generateCollectionConcert());
 
     ipcMain.handle('vst-get-state', (_event, pluginId: string) => {
       return this.vstManager.getPluginState(pluginId);
@@ -1575,6 +1577,7 @@ class MainWindow {
     });
 
     ipcMain.handle('concert-templates', () => listTemplates());
+    ipcMain.handle('template-readiness', (_event, templateId: string) => this.templateReadiness(templateId));
 
     ipcMain.handle('concert-open', () => this.openConcertDialog());
 
@@ -2565,6 +2568,10 @@ class MainWindow {
             click: () => this.sendMenuAction({ action: 'help' }),
           },
           {
+            label: 'Verificar atualizações…',
+            click: () => { void checkForUpdates(true); },
+          },
+          {
             label: 'Sobre o Preseter',
             click: () => this.sendMenuAction({ action: 'about' }),
           },
@@ -2705,33 +2712,29 @@ class MainWindow {
     );
   }
 
-  /** Gera o concert de 40 patches usado pelo Kit essencial e pela Loja. */
-  private async generateCollectionConcert(): Promise<{
-    path: string;
-    sets: number;
-    patches: number;
-    skipped: string[];
-    missing: string[];
-  } | null> {
-    const { plugins, soundsFolder } = await this.libraryEnvironment();
-    const { file, skipped, missing: missingLabels } = buildCollectionConcert(plugins, {
-      tempo: 100,
-      soundsFolder,
-    });
-    const { missing } = describeMissing(missingLabels);
-    const result = await dialog.showSaveDialog({
-      title: 'Salvar concert da coleção',
-      defaultPath: path.join(app.getPath('documents'), 'Colecao.pst'),
-      filters: [{ name: 'Concert do Preseter', extensions: ['pst', 'preseter'] }],
-    });
-    if (result.canceled || !result.filePath) return null;
-    fs.writeFileSync(result.filePath, serializeConcertFile(file), 'utf8');
+  /** O que falta instalar para um template (plugins/samples da Loja). */
+  private templateReadiness (templateId: string): TemplateReadiness {
+    const requirements = templateRequirements(templateId);
+    const items = this.collectionItems();
+    const statuses = this.collectionInstaller.status(items);
+    const statusOf = (id: string) => statuses.find((status) => status.id === id)?.status ?? 'missing';
+    const wanted = requirements.storeIds
+      .map((id) => items.find((item) => item.id === id))
+      .filter((item): item is CollectionItem => Boolean(item));
+    const missing = wanted.filter((item) => statusOf(item.id) !== 'installed');
     return {
-      path: result.filePath,
-      sets: file.sets.length,
-      patches: file.patches.length,
-      skipped,
-      missing,
+      templateId,
+      total: wanted.length,
+      ready: wanted.length - missing.length,
+      missing: missing.map((item) => ({
+        id: item.id,
+        name: item.name,
+        kind: item.kind,
+        approxBytes: item.approxBytes ?? 0,
+        status: statusOf(item.id),
+      })),
+      missingIds: missing.map((item) => item.id),
+      approxBytes: missing.reduce((sum, item) => sum + (item.approxBytes ?? 0), 0),
     };
   }
 

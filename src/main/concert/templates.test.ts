@@ -112,9 +112,13 @@ describe('concert templates', () => {
 
     const guitar = buildTemplateConcert('guitarra').patches[0];
     expect(guitar.plugins).toEqual([]);
-    expect(guitar.layout.elements.some(
-      (element) => element.paramOwner === 'patch' && element.paramSlot !== undefined
-    )).toBe(true);
+    const stomps = guitar.layout.elements.filter(
+      (element) => element.type === 'pedal' && element.pedalKind === 'stomp'
+    );
+    expect(stomps.length).toBe(3);
+    expect(stomps.every((element) => element.stompOwner === 'patch')).toBe(true);
+    expect(guitar.layout.elements.some((element) => element.type === 'keyboard')).toBe(false);
+    expect(guitar.audioInput).toMatchObject({ enabled: true, destination: 'patch', mode: 'mono' });
   });
 
   it('builds the worship template at 72 BPM', () => {
@@ -151,7 +155,17 @@ describe('concert templates', () => {
     expect(clean.master?.inserts.map((insert) => insert.presetId)).toEqual(['bright', 'open', 'subtle']);
     expect(crunch.master?.inserts.map((insert) => insert.presetId)).toEqual(['crunch', 'crunch']);
     expect(lead.master?.inserts.map((insert) => insert.presetId)).toEqual(['lead', 'lead']);
-    expect(file.layout.elements.some((element) => element.type === 'keyboard')).toBe(true);
+    expect(file.patches.every((patch) => patch.layout.elements.every((element) => element.type !== 'keyboard'))).toBe(true);
+    expect(file.patches[0].layout.elements.some((element) => element.type === 'audio-input')).toBe(true);
+    expect(file.patches[0].layout.elements.filter(
+      (element) => element.pedalKind === 'stomp'
+    ).map((element) => element.label)).toEqual(['Preamp', 'Cab', 'Tremolo']);
+    expect(file.patches[0].layout.elements.some((element) => element.type === 'midi-activity')).toBe(false);
+    expect(file.patches[0].layout.elements.some((element) => element.label === 'Modulação')).toBe(false);
+    expect(file.patches[0].layout.elements.some((element) => element.patchSendAux !== undefined)).toBe(false);
+    expect(file.patches[0].layout.elements.some(
+      (element) => element.type === 'pedal' && element.pedalKind !== 'stomp'
+    )).toBe(false);
   });
 
   it('builds the MIDI external template with one set, one patch and keyboard', () => {

@@ -53,6 +53,21 @@ describe('palette', () => {
     expect(findPaletteItem(null)).toBeNull();
     expect(PALETTE_ITEMS.length).toBeGreaterThan(10);
   });
+
+  it('offers the effect pedal with the stomp size and defaults', () => {
+    const item = findPaletteItem('stomp')!;
+    expect(item).toMatchObject({ type: 'pedal', pedalKind: 'stomp', isMomentary: false });
+    const element = makeElement('pedal', 0, 0, 'Pedal de efeito', 'vertical', item);
+    expect(element).toMatchObject({
+      width: 210,
+      height: 280,
+      pedalKind: 'stomp',
+      stompOwner: 'patch',
+      stompSlot: 0,
+      isMomentary: false,
+      value: 1,
+    });
+  });
 });
 
 describe('makeElement', () => {

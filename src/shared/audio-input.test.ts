@@ -17,6 +17,7 @@ describe('defaultAudioInput', () => {
       muted: false,
       feedbackProtection: true,
       output: 1,
+      destination: 'output',
     });
   });
 
@@ -52,6 +53,7 @@ describe('normalizeAudioInput', () => {
       muted: true,
       feedbackProtection: false,
       output: 1,
+      destination: 'output',
     });
   });
 
@@ -75,7 +77,17 @@ describe('normalizeAudioInput', () => {
       muted: false,
       feedbackProtection: true,
       output: 4,
+      destination: 'output',
     });
+  });
+
+  it('aceita o destino Master do Patch (pedaleira) e ignora valores inválidos', () => {
+    expect(normalizeAudioInput({ enabled: true, destination: 'patch' })).toMatchObject({
+      enabled: true,
+      destination: 'patch',
+    });
+    expect(normalizeAudioInput({ destination: 'bad' }).destination).toBe('output');
+    expect(normalizeAudioInputState({ destination: 'patch' }).destination).toBe('patch');
   });
 });
 
@@ -90,6 +102,7 @@ describe('normalizeAudioInputState', () => {
       muted: false,
       feedbackProtection: true,
       output: 1,
+      destination: 'output',
       peakDb: -100,
       pitchHz: 0,
       feedback: false,

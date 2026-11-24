@@ -128,6 +128,22 @@ export const AudioInputControl: React.FC<AudioInputControlProps> = ({
         </select>
       </label>
 
+      <label className="mt-1 block text-[8px]" style={{ color: '#9A9AA0' }} onPointerDown={stop}>
+        DESTINO
+        <select
+          className="mt-0.5 w-full rounded px-1 py-0.5 text-[8px] outline-none disabled:opacity-60"
+          style={{ border: '1px solid #3A3A3C', background: '#1F1F21', color: '#E5E5EA' }}
+          value={settings.destination ?? 'output'}
+          disabled={locked}
+          onClick={stop}
+          onChange={(event) => onChange?.({ destination: event.target.value === 'patch' ? 'patch' : 'output' })}
+          title="Output do concert ou Master do Patch (pedaleira)"
+        >
+          <option value="output">Output {settings.output} (direto)</option>
+          <option value="patch">Master do Patch (pedaleira)</option>
+        </select>
+      </label>
+
       <div className="mt-1.5 flex items-center justify-center gap-2">
         <div
           className="relative h-16 w-2 overflow-hidden rounded-sm bg-black/70"

@@ -8,10 +8,10 @@ import {
   type StoreSnapshot,
   type StoreSource,
 } from '@shared/store';
-import { CollectionSettings } from './CollectionSettings';
+
 import { StoreAddresses } from './StoreAddresses';
 
-type StoreMode = 'store' | 'essential';
+
 type TypeFilter = 'all' | 'plugin' | 'library';
 
 const statusLabel: Record<CollectionItemStatus['status'], string> = {
@@ -159,9 +159,8 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
   </div>
 );
 
-/** Substitui a antiga aba Coleção: Loja de plugins/samples + Kit essencial. */
+/** Loja de plugins/samples + endereços. */
 export const StoreSettings: React.FC = () => {
-  const [mode, setMode] = useState<StoreMode>('store');
   const [view, setView] = useState<'catalog' | 'addresses'>('catalog');
   const [snapshot, setSnapshot] = useState<StoreSnapshot | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -514,33 +513,22 @@ export const StoreSettings: React.FC = () => {
             <button
               type="button"
               className="rounded-md px-3 py-1 text-[11px] font-semibold"
-              style={mode === 'store'
+              style={view === 'catalog'
                 ? { background: '#0A84FF', color: '#FFFFFF' }
                 : { color: '#9A9AA0' }}
-              onClick={() => { setMode('store'); setView('catalog'); }}
-              aria-pressed={mode === 'store'}
+              onClick={() => setView('catalog')}
+              aria-pressed={view === 'catalog'}
             >
               Loja
             </button>
             <button
               type="button"
               className="rounded-md px-3 py-1 text-[11px] font-semibold"
-              style={mode === 'essential'
-                ? { background: '#FF9F0A', color: '#1A1A1A' }
-                : { color: '#9A9AA0' }}
-              onClick={() => setMode('essential')}
-              aria-pressed={mode === 'essential'}
-            >
-              Factory 40
-            </button>
-            <button
-              type="button"
-              className="rounded-md px-3 py-1 text-[11px] font-semibold"
-              style={mode === 'store' && view === 'addresses'
+              style={view === 'addresses'
                 ? { background: '#30D158', color: '#0B1A10' }
                 : { color: '#9A9AA0' }}
-              onClick={() => { setMode('store'); setView('addresses'); }}
-              aria-pressed={mode === 'store' && view === 'addresses'}
+              onClick={() => setView('addresses')}
+              aria-pressed={view === 'addresses'}
             >
               Endereços
             </button>
@@ -559,20 +547,7 @@ export const StoreSettings: React.FC = () => {
         )}
       </section>
 
-      {mode === 'essential' ? (
-        <div className="space-y-3">
-          <section className="hw-inset space-y-2 p-3">
-            <h4 className="hw-label">Factory 40 · 40 timbres</h4>
-            <p className="text-[11px] leading-relaxed" style={{ color: '#9A9AA0' }}>
-              A biblioteca de fábrica criada a partir da especificação
-              Preseter_Biblioteca_40_Patches.md. Inclui os 40 timbres de palco,
-              download em lote das dependências e o gerador do concert completo.
-              Use a Loja para descobrir e instalar itens individuais.
-            </p>
-          </section>
-          <CollectionSettings />
-        </div>
-      ) : view === 'addresses' ? (
+      {view === 'addresses' ? (
         <StoreAddresses snapshot={snapshot} onSnapshot={setSnapshot} />
       ) : (
         <div className="grid gap-3 xl:grid-cols-[190px_minmax(0,1fr)_310px]">
@@ -919,16 +894,6 @@ export const StoreSettings: React.FC = () => {
                 )}
 
                 <div className="space-y-1.5">
-                  {detail.id === 'preseter-factory-40' && (
-                    <button
-                      type="button"
-                      className="w-full rounded px-3 py-2 text-[11px] font-semibold"
-                      style={{ background: '#FF9F0A', color: '#1A1A1A' }}
-                      onClick={() => setMode('essential')}
-                    >
-                      Abrir Factory 40
-                    </button>
-                  )}
                   {detail.compatible && detail.variant?.kind !== 'manual' && (
                     <button
                       type="button"

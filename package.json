@@ -1,6 +1,6 @@
 {
   "name": "preseter",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Aplicativo de performance ao vivo estilo Mainstage e Gig Performer - controle de presets MIDI e carregamento de VST",
   "main": "dist/main/index.js",
   "scripts": {
@@ -35,6 +35,7 @@
   "author": "Preseter Team",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "extract-zip": "^2.0.1",
     "ffmpeg-static": "^5.2.0",
     "react": "^18.2.0",
@@ -67,6 +68,13 @@
       "output": "release",
       "buildResources": "build"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "raphaleandrodasilva-pixel",
+        "repo": "Preseter"
+      }
+    ],
     "files": [
       "dist/**/*",
       "store/**/*",

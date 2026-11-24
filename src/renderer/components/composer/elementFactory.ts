@@ -30,6 +30,10 @@ export interface PaletteItem {
   midiCommand?: MidiBinding;
   isMomentary?: boolean;
   pedalKind?: UiElement['pedalKind'];
+  /** Pedal de efeito: insert vinculado ao footswitch. */
+  stompOwner?: string;
+  stompSlot?: number;
+  stompParams?: UiElement['stompParams'];
   value?: number;
   minValue?: number;
   maxValue?: number;
@@ -56,6 +60,11 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   { key: 'pad', type: 'pad', label: 'Drum Pad', hint: 'Nota MIDI', category: 'panel' },
   { key: 'pedal', type: 'pedal', label: 'Pedal', hint: 'Momentâneo', category: 'panel' },
   {
+    key: 'stomp', type: 'pedal', label: 'Pedal de efeito', hint: 'Footswitch + knobs do insert',
+    category: 'panel', pedalKind: 'stomp', isMomentary: false, value: 1, color: '#E0A526',
+    stompOwner: 'patch', stompSlot: 0,
+  },
+  {
     key: 'sustain', type: 'pedal', label: 'Sustain', hint: 'Momentâneo · CC64', category: 'panel',
     midiCommand: { type: 'cc', channel: 0, controllerNumber: 64 }, isMomentary: true,
     pedalKind: 'sustain', value: 0, color: '#30D158',
@@ -66,8 +75,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
     pedalKind: 'expression', value: 0.5, color: '#0A84FF',
   },
   {
-    key: 'volume-pedal', type: 'pedal', label: 'Volume', hint: 'Contínuo · CC7', category: 'panel',
-    midiCommand: { type: 'cc', channel: 0, controllerNumber: 7 }, isMomentary: false,
+    key: 'volume-pedal', type: 'pedal', label: 'Volume', hint: 'Contínuo · CC7', category: 'panel',    midiCommand: { type: 'cc', channel: 0, controllerNumber: 7 }, isMomentary: false,
     pedalKind: 'volume', value: 0.5, color: '#FF9F0A',
   },
   { key: 'keyboard', type: 'keyboard', label: 'Keyboard', hint: 'Toca com mouse e MIDI', category: 'panel' },
@@ -155,7 +163,7 @@ export function makeElement(
   orientation?: 'horizontal' | 'vertical',
   palette?: PaletteItem
 ): UiElement {
-  const size = DEFAULT_SIZES[type];
+  const size = palette?.pedalKind === 'stomp' ? { width: 210, height: 280 } : DEFAULT_SIZES[type];
   const isDrawbar = type === 'drawbar';
   return {
     id: `element_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -173,6 +181,9 @@ export function makeElement(
     value: palette?.value ?? (isDrawbar ? 0 : 0.5),
     ...(palette?.midiCommand ? { midiCommand: palette.midiCommand } : {}),
     ...(palette?.pedalKind ? { pedalKind: palette.pedalKind } : {}),
+    ...(palette?.stompOwner ? { stompOwner: palette.stompOwner } : {}),
+    ...(palette?.stompSlot !== undefined ? { stompSlot: palette.stompSlot } : {}),
+    ...(palette?.stompParams ? { stompParams: palette.stompParams } : {}),
     ...(palette?.patchSendAux !== undefined ? { patchSendAux: palette.patchSendAux } : {}),
   };
 }

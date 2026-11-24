@@ -12,32 +12,61 @@ const messageOf = (error: unknown, fallback: string): string => {
   return text.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 };
 
+const formatBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes >= 1024 ** 3) return `~${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  return `~${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
+};
+
 /** Arquivo → Gerar Biblioteca…: transforma um arquivo de instruções em concerts. */
 export const LibraryGeneratorModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { downloadCollection, collectionProgress, openConcertPath } = useAppContext();
+  const { downloadCollection, collectionProgress, openConcertPath, rescanVstPlugins } = useAppContext();
   const [libraries, setLibraries] = useState<LibrarySummary[]>([]);
   const [source, setSource] = useState('');
   const [inspection, setInspection] = useState<LibraryInspection | null>(null);
+  const [missingBytes, setMissingBytes] = useState(0);
   const [folder, setFolder] = useState('');
   const [busy, setBusy] = useState<'inspect' | 'download' | 'generate' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LibraryGenerateResult | null>(null);
+
+  /** Soma o tamanho aproximado dos itens que faltam (catálogo da Loja). */
+  const updateMissingBytes = useCallback(async (next: LibraryInspection) => {
+    if (next.missingIds.length === 0) {
+      setMissingBytes(0);
+      return;
+    }
+    try {
+      const statuses = await window.electronAPI.collectionStatus();
+      const wanted = new Set(next.missingIds);
+      setMissingBytes(
+        statuses
+          .filter((status) => wanted.has(status.id))
+          .reduce((sum, status) => sum + (status.approxBytes ?? 0), 0)
+      );
+    } catch {
+      setMissingBytes(0);
+    }
+  }, []);
 
   const inspect = useCallback(async (next: string) => {
     setSource(next);
     setResult(null);
     setError(null);
     setInspection(null);
+    setMissingBytes(0);
     if (!next) return;
     setBusy('inspect');
     try {
-      setInspection(await window.electronAPI.libraryInspect(next));
+      const inspected = await window.electronAPI.libraryInspect(next);
+      setInspection(inspected);
+      await updateMissingBytes(inspected);
     } catch (failure) {
       setError(messageOf(failure, 'Não foi possível ler a biblioteca.'));
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [updateMissingBytes]);
 
   useEffect(() => {
     let active = true;
@@ -65,9 +94,11 @@ export const LibraryGeneratorModal: React.FC<{ onClose: () => void }> = ({ onClo
       setResult(null);
       setSource(EXTERNAL_LIBRARY_SOURCE);
       setInspection(picked);
+      await updateMissingBytes(picked);
     } catch (failure) {
       setSource(EXTERNAL_LIBRARY_SOURCE);
       setInspection(null);
+      setMissingBytes(0);
       setError(messageOf(failure, 'Não foi possível ler o arquivo.'));
     }
   };
@@ -83,8 +114,17 @@ export const LibraryGeneratorModal: React.FC<{ onClose: () => void }> = ({ onClo
     setError(null);
     try {
       const downloaded = await downloadCollection(inspection.missingIds);
+      const installers = (downloaded?.statuses ?? []).filter((status) => status.filePath);
       if (!downloaded?.ok) setError('Alguns itens não foram baixados.');
-      setInspection(await window.electronAPI.libraryInspect(source));
+      if (installers.length > 0) {
+        setError('Instaladores baixados: ' + installers.map((status) => status.name).join(', ')
+          + '. Abra cada instalador pela Loja para concluir.');
+      }
+      // Plugins novos só aparecem depois de um novo scan.
+      await rescanVstPlugins();
+      const inspected = await window.electronAPI.libraryInspect(source);
+      setInspection(inspected);
+      await updateMissingBytes(inspected);
     } catch (failure) {
       setError(messageOf(failure, 'Falha ao baixar o que falta.'));
     } finally {
@@ -168,6 +208,7 @@ export const LibraryGeneratorModal: React.FC<{ onClose: () => void }> = ({ onClo
                 <div className="space-y-1">
                   <p style={{ color: '#FFB74D' }}>
                     Faltando: {inspection.missing.join(', ')}
+                    {missingBytes > 0 ? ` (${formatBytes(missingBytes)})` : ''}
                   </p>
                   {partial && (
                     <p style={{ color: '#FFB74D' }}>

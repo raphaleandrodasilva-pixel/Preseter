@@ -139,3 +139,26 @@ describe('ControlInspector — monitor MIDI', () => {
     expect(screen.queryByText('Assign (MIDI Learn)')).not.toBeInTheDocument();
   });
 });
+
+describe('ControlInspector — pedal de efeito', () => {
+  it('vincula o pedal a um insert e preenche os knobs do catálogo', () => {
+    const onUpdate = vi.fn();
+    renderInspector(
+      createElement({ id: 's1', type: 'pedal', pedalKind: 'stomp', label: 'Pedal' }),
+      onUpdate
+    );
+
+    const select = screen.getByLabelText('Efeito (insert)');
+    fireEvent.change(select, { target: { value: 'patch|0' } });
+
+    expect(onUpdate).toHaveBeenCalledWith('s1', expect.objectContaining({
+      stompOwner: 'patch',
+      stompSlot: 0,
+      label: 'Reverb',
+      stompParams: expect.arrayContaining([
+        expect.objectContaining({ label: 'Decay' }),
+        expect.objectContaining({ label: 'Wet' }),
+      ]),
+    }));
+  });
+});

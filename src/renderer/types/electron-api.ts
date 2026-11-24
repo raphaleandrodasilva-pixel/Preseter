@@ -1,3 +1,4 @@
+import type { TemplateReadiness } from '@shared/template-requirements';
 import type {
   AudioDeviceSnapshot,
   AudioInputSettings,
@@ -31,7 +32,6 @@ import type {
 import type { EngineParameter } from '@shared/engine-protocol';
 import type {
   CollectionDownloadResult,
-  CollectionGenerateResult,
   CollectionItemStatus,
   CollectionProgress,
   CollectionReadiness,
@@ -92,7 +92,6 @@ export interface ElectronAPI {
   collectionCancel: () => Promise<boolean>;
   collectionOpenFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   collectionOpenInstaller: (filePath: string) => Promise<boolean>;
-  collectionGenerate: () => Promise<CollectionGenerateResult | null>;
   libraryList: () => Promise<{ libraries: LibrarySummary[]; defaultFolder: string }>;
   libraryInspect: (source: string) => Promise<LibraryInspection>;
   libraryPickFile: () => Promise<LibraryInspection | null>;
@@ -130,7 +129,6 @@ export interface ElectronAPI {
   storeOpenFolder: (kind?: 'sounds' | 'plugins' | 'downloads') => Promise<boolean>;
   storeOpenInstaller: (filePath: string) => Promise<boolean>;
   storeOpenUrl: (url: string) => Promise<boolean>;
-  storeGenerate: () => Promise<CollectionGenerateResult | null>;
   onStoreProgress: (callback: (progress: CollectionProgress) => void) => () => void;
   onStoreCatalogUpdated: (callback: (result: StoreUpdateResult) => void) => () => void;
   onStoreImagesUpdated: (callback: (snapshot: StoreSnapshot) => void) => () => void;
@@ -255,6 +253,7 @@ export interface ElectronAPI {
   concertGet: () => Promise<ConcertState>;
   concertNew: (templateId?: string) => Promise<ConcertState>;
   concertTemplates: () => Promise<ConcertTemplateSummary[]>;
+  templateReadiness: (templateId: string) => Promise<TemplateReadiness>;
   concertOpen: () => Promise<ConcertState | null>;
   concertOpenRecent: (filePath: string) => Promise<ConcertState>;
   concertSave: (asNew?: boolean) => Promise<ConcertState | null>;

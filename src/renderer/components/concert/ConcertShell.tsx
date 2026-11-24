@@ -3204,6 +3204,12 @@ export const ConcertShell: React.FC<ConcertShellProps> = ({
                     onSetVstParameter={onSetVstParameter}
                     onSetPatchSend={changePatchSend}
                     onSetMappedParameter={setMappedParameter}
+                    onSetInsertBypass={(owner, slot, bypass) => {
+                      void window.electronAPI.vstInsertBypass(owner, slot, bypass);
+                    }}
+                    onSetStompParameter={(owner, slot, parameterId, value) => {
+                      void setVstParameter(owner, parameterId, value, slot);
+                    }}
                     keyboardZones={keyboardZones}
                     selectedZoneId={selectedLayerId}
                     onZoneClick={selectZone}

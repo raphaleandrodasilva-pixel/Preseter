@@ -1138,7 +1138,8 @@ public:
     void setStateInformation (const void*, int) override {}
 
     void configure (bool shouldBeEnabled, int channel, bool shouldBeMono, float volume,
-                    float panPosition, bool shouldBeMuted, bool protect, int outputBus)
+                    float panPosition, bool shouldBeMuted, bool protect, int outputBus,
+                    bool patchDestination = false)
     {
         enabled.store (shouldBeEnabled);
         inputChannel.store (juce::jmax (0, channel));
@@ -1148,6 +1149,7 @@ public:
         muted.store (shouldBeMuted);
         feedbackProtection.store (protect);
         output.store (juce::jlimit (1, 4, outputBus));
+        toPatch.store (patchDestination);
         if (! shouldBeEnabled)
         {
             analysisCount = 0;
@@ -1165,6 +1167,7 @@ public:
     bool isMono() const { return mono.load(); }
     int getInputChannel() const { return inputChannel.load(); }
     int getOutput() const { return output.load(); }
+    bool isPatchDestination() const { return toPatch.load(); }
     bool isMuted() const { return muted.load(); }
     bool isFeedbackProtection() const { return feedbackProtection.load(); }
     bool hasFeedback() const { return feedbackDetected.load(); }
@@ -1185,6 +1188,8 @@ private:
     std::atomic<float> peakLevel { 0.0f };
     std::atomic<float> pitchHz { 0.0f };
     std::atomic<int> output { 1 };
+    /** true = entrada processada pelo bus do patch (Master do Patch). */
+    std::atomic<bool> toPatch { false };
     double sampleRate = 44100.0;
     int loudBlocks = 0;
     std::array<float, 2048> analysisBuffer {};
@@ -2326,8 +2331,10 @@ juce::String Engine::setAudioInput (const juce::var& options, juce::var& result)
     const int output = options.hasProperty ("output")
         ? juce::jlimit (1, 4, (int) options["output"])
         : 1;
+    const bool toPatch = options.hasProperty ("destination")
+        && options["destination"].toString() == "patch";
 
-    input->configure (enabled, channel, mono, volume, panPosition, muted, protect, output);
+    input->configure (enabled, channel, mono, volume, panPosition, muted, protect, output, toPatch);
     if (options.hasProperty ("resetFeedback") && (bool) options["resetFeedback"])
         input->resetFeedback();
 
@@ -2353,6 +2360,7 @@ juce::var Engine::describeAudioInput() const
         .set ("muted", input->isMuted())
         .set ("feedbackProtection", input->isFeedbackProtection())
         .set ("output", input->getOutput())
+        .set ("destination", input->isPatchDestination() ? "patch" : "output")
         .set ("peakDb", (double) juce::Decibels::gainToDecibels (input->getPeak(), -100.0f))
         .set ("pitchHz", (double) input->getPitchHz())
         .set ("feedback", input->hasFeedback());
@@ -4864,7 +4872,14 @@ void Engine::rebuildConnections()
             if (! input->isMono() && start + 1 < graphIn)
                 graph.addConnection ({ { audioInNode->nodeID, start + 1 }, { audioInputNode->nodeID, 1 } }, Graph::UpdateKind::none);
 
-            if (const int outIndex = findBus (outputBusId (input->getOutput())); outIndex >= 0)
+            if (input->isPatchDestination())
+            {
+                // Pedaleira ao vivo: a entrada passa pelos inserts do Master do
+                // Patch (cadeia de efeitos do patch atual) antes de ir à saída.
+                if (const int patchIndex = findBus ("patch"); patchIndex >= 0)
+                    connectToBus (audioInputNode, buses[(size_t) patchIndex]);
+            }
+            else if (const int outIndex = findBus (outputBusId (input->getOutput())); outIndex >= 0)
                 connectToBus (audioInputNode, buses[(size_t) outIndex]);
         }
     }

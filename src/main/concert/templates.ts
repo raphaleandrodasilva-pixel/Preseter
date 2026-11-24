@@ -3,13 +3,13 @@
  * novo; cada template monta sets e patches prontos para receber instrumentos.
  */
 
-import { ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, SEND_OFF_DB } from '../../shared/types';
+import { AudioInputSettings, ConcertTemplateSummary, Insert, MAX_AUX_BUSES, Preset, PresetPluginAssignment, PresetSet, PreseterConcertFile, SEND_OFF_DB } from '../../shared/types';
 import { CONCERT_FILE_FORMAT, CONCERT_FILE_VERSION, DEFAULT_TEMPO } from '../../shared/constants';
 import { createDefaultConcertSettings, createEmptyLayout } from './ConcertFile';
 import { migrateConcertLayout } from '../../shared/concert-layout';
 import { createDefaultKeyboardLayout, ensureDefaultPedals } from '../../shared/default-layout';
 import type { CollectionLayerSpec } from '../../shared/collection-presets';
-import { buildPatchLayout } from '../../shared/collection-layouts';
+import { buildPatchLayout, buildPedalboardLayout } from '../../shared/collection-layouts';
 import { nativeInstrumentInfo } from '../../shared/native-instruments';
 import { suggestPatchIcon } from '../../shared/patch-icons';
 
@@ -43,6 +43,10 @@ interface PatchSpec {
   };
   /** Inserts do Master do Patch com a cadeia Guitarix embutida. */
   masterInserts?: GuitarInsertSpec[];
+  /** Layout de pedaleira (sem teclado): pedais para os inserts do Master. */
+  pedalboard?: boolean;
+  /** Entrada de áudio do patch (pedaleira ao vivo). */
+  audioInput?: AudioInputSettings;
 }
 
 /** Efeito de guitarra embutido (URI estável do bundle LV2). */
@@ -83,6 +87,21 @@ const GX = {
 
 function gx(id: keyof typeof GX, preset?: string): GuitarInsertSpec {
   return { ...GX[id], ...(preset ? { preset } : {}) };
+}
+
+/** Entrada de áudio habilitada e roteada pelo Master do Patch (pedaleira ao vivo). */
+function audioInputForPedalboard (): AudioInputSettings {
+  return {
+    enabled: true,
+    inputChannel: 0,
+    mode: 'mono',
+    volumeDb: 0,
+    pan: 0,
+    muted: false,
+    feedbackProtection: true,
+    output: 1,
+    destination: 'patch',
+  };
 }
 
 function slugify (text: string): string {
@@ -240,25 +259,28 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'guitarra',
     name: 'Guitarra',
-    description: 'Set "Guitarra" com Clean, Crunch e Lead: a cadeia Guitarix (Preseter Overdrive, Preamp, Cab, Amp e Tremolo) já vem no Master do Patch. Adicione seu VST/sampler de guitarra.',
+    description: 'Pedaleira para entrada ao vivo (guitarra, microfone, baixo, violão): a cadeia Guitarix (Preseter Overdrive, Preamp, Cab, Amp e Tremolo) já vem no Master do Patch, com a entrada de áudio habilitada e roteada para os pedais.',
     concertName: 'Meu Concert de Guitarra',
     tempo: 100,
     sets: ['Guitarra'],
     patches: [
       {
-        name: 'Guitarra Clean', setName: 'Guitarra', withKeyboard: true,
-        notes: 'Preamp → Cab → Tremolo. Adicione um VST/sampler de guitarra.',
+        name: 'Guitarra Clean', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
+        notes: 'Preamp → Cab → Tremolo. Plugar a fonte na entrada de áudio.',
         masterInserts: [gx('preamp', 'bright'), gx('cab', 'open'), gx('tremolo', 'subtle')],
+        audioInput: audioInputForPedalboard(),
       },
       {
-        name: 'Guitarra Crunch', setName: 'Guitarra', withKeyboard: true,
-        notes: 'Overdrive → Amp (Crunch). Adicione um VST/sampler de guitarra.',
+        name: 'Guitarra Crunch', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
+        notes: 'Overdrive → Amp (Crunch). Plugar a fonte na entrada de áudio.',
         masterInserts: [gx('overdrive', 'crunch'), gx('amp', 'crunch')],
+        audioInput: audioInputForPedalboard(),
       },
       {
-        name: 'Guitarra Lead', setName: 'Guitarra', withKeyboard: true,
-        notes: 'Overdrive → Amp (Lead). Adicione um VST/sampler de guitarra.',
+        name: 'Guitarra Lead', setName: 'Guitarra', withKeyboard: false, pedalboard: true,
+        notes: 'Overdrive → Amp (Lead). Plugar a fonte na entrada de áudio.',
         masterInserts: [gx('overdrive', 'lead'), gx('amp', 'lead')],
+        audioInput: audioInputForPedalboard(),
       },
     ],
   },
@@ -444,6 +466,7 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
       midiChannel: 0,
       plugins: assignment ? [assignment] : [],
       vstStates: {},
+      ...(spec.audioInput ? { audioInput: spec.audioInput } : {}),
       ...(masterInserts.length > 0
         ? {
             master: {
@@ -455,18 +478,26 @@ export function buildTemplateConcert(templateId = 'vazio'): PreseterConcertFile 
             },
           }
         : {}),
-      layout: spec.withKeyboard === false
-        ? { elements: [], background: null, tempo: template.tempo }
-        : buildPatchLayout({
+      layout: spec.pedalboard
+        ? buildPedalboardLayout({
             slug,
             title: notes ?? spec.name,
             tempo: template.tempo,
-            setName: spec.setName ?? '',
-            patchName: spec.name,
-            layers: templateLayerSpecs(spec),
-            layerId: assignment?.layerId,
-            masterInserts,
-          }),
+            owner: 'patch',
+            inserts: masterInserts,
+          })
+        : spec.withKeyboard === false
+          ? { elements: [], background: null, tempo: template.tempo }
+          : buildPatchLayout({
+              slug,
+              title: notes ?? spec.name,
+              tempo: template.tempo,
+              setName: spec.setName ?? '',
+              patchName: spec.name,
+              layers: templateLayerSpecs(spec),
+              layerId: assignment?.layerId,
+              masterInserts,
+            }),
       createdAt: now,
       updatedAt: now,
     };

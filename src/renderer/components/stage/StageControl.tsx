@@ -18,6 +18,7 @@ import {
   SliderFace,
   ToggleFace,
 } from './faces';
+import { StompFace } from './StompFace';
 
 interface StageControlProps {
   element: UiElement;
@@ -31,6 +32,10 @@ interface StageControlProps {
   onSetPatchSend?: (aux: number, levelDb: number) => void;
   /** Parâmetro mapeado por owner/slot (inserts e layers). */
   onSetMappedParameter?: (element: UiElement, value: number) => void;
+  /** Footswitch de pedal de efeito (bypass do insert). */
+  onSetInsertBypass?: (owner: string, slot: number, bypass: boolean) => void;
+  /** Knob dentro do pedal de efeito (parâmetro do mesmo insert). */
+  onSetStompParameter?: (owner: string, slot: number, parameterId: string, value: number) => void;
   /** Fader especial de volume do master. */
   onSetMasterVolume?: (volumeDb: number) => void;
   keyboardZones?: KeyboardZone[];
@@ -61,6 +66,7 @@ function normOf(value: number, min: number, max: number): number {
   return Math.max(0, Math.min(1, (value - min) / span));
 }
 
+
 export const StageControl: React.FC<StageControlProps> = ({
   element,
   channel,
@@ -70,6 +76,8 @@ export const StageControl: React.FC<StageControlProps> = ({
   onSetVstParameter,
   onSetPatchSend,
   onSetMappedParameter,
+  onSetInsertBypass,
+  onSetStompParameter,
   onSetMasterVolume,
   keyboardZones,
   selectedZoneId,
@@ -294,7 +302,21 @@ export const StageControl: React.FC<StageControlProps> = ({
         </FaceButton>
       )}
       {element.type === 'pedal' && (
-        element.isMomentary ? (
+        element.pedalKind === 'stomp' ? (
+          <StompFace
+            element={element}
+            onToggle={(on) => {
+              if (element.stompOwner && element.stompSlot !== undefined) {
+                onSetInsertBypass?.(element.stompOwner, element.stompSlot, !on);
+              }
+            }}
+            onParam={(parameterId, value) => {
+              if (element.stompOwner && element.stompSlot !== undefined) {
+                onSetStompParameter?.(element.stompOwner, element.stompSlot, parameterId, value);
+              }
+            }}
+          />
+        ) : element.isMomentary ? (
           <FaceButton
             title={element.label}
             onActivate={activate}

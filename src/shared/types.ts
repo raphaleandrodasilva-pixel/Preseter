@@ -220,8 +220,14 @@ export interface AudioInputSettings {
   muted: boolean;
   /** Silencia o canal quando detecta feedback (Fase 3.5). */
   feedbackProtection: boolean;
-  /** Saída (Output 1..4). */
+  /** Saída (Output 1..4). Ignorado quando `destination` é `patch`. */
   output: number;
+  /**
+   * Para onde o sinal vai: um Output do concert ou o bus do patch (Master do
+   * Patch). `patch` é o modo pedaleira: a entrada passa pela cadeia de efeitos
+   * do patch atual.
+   */
+  destination?: 'output' | 'patch';
 }
 
 /** Estado do plugin Playback (Fase 6.4). */
@@ -1029,7 +1035,12 @@ export interface UiElement {
   keyboardUpperColor?: string;
   keyboardChannel?: number;
   /** Tipo de pedal contínuo/momentâneo (Sustain, Expression, Volume). */
-  pedalKind?: 'sustain' | 'expression' | 'volume';
+  pedalKind?: 'sustain' | 'expression' | 'volume' | 'stomp';
+  /** Pedal de efeito (`stomp`): dono e slot do insert controlado pelo footswitch. */
+  stompOwner?: string;
+  stompSlot?: number;
+  /** Knobs dentro do pedal: parâmetro do mesmo insert, rótulo e faixa. */
+  stompParams?: Array<{ parameterId: string; label: string; min: number; max: number; value?: number }>;
   /** Knob de send do bus do patch: 1 a `MAX_AUX_BUSES` (Master do Patch como bus). */
   patchSendAux?: number;
 }

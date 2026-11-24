@@ -5,6 +5,7 @@ import { AudioInputControl } from '../stage/AudioInputControl';
 import { KeyboardControl } from '../stage/KeyboardControl';
 import type { KeyboardZone } from '../stage/KeyboardControl';
 import { ActivityFace, ButtonFace, DrawbarFace, FaderFace, KnobFace, LabelFace, MeterFace, PadFace, PedalFace, PlaybackFace, SliderFace, ToggleFace } from '../stage/faces';
+import { StompFace } from '../stage/StompFace';
 import { DRAG_MIME } from './ControlPalette';
 import { snap8 } from './elementFactory';
 
@@ -103,7 +104,9 @@ function PreviewShape({
     case 'slider':
       return <SliderFace label={element.label} norm={norm} valueText={sendValueText} />;
     case 'pedal':
-      return <PedalFace label={element.label} active={isOn} />;
+      return element.pedalKind === 'stomp'
+        ? <StompFace element={element} interactive={false} />
+        : <PedalFace label={element.label} active={isOn} />;
     case 'toggle':
       return <ToggleFace label={element.label} on={isOn} />;
     case 'pad':

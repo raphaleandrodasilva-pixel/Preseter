@@ -117,7 +117,6 @@ export function createElectronApiMock(): ElectronApiMock {
     collectionCancel: vi.fn(async () => true),
     collectionOpenFolder: vi.fn(async () => true),
     collectionOpenInstaller: vi.fn(async () => true),
-    collectionGenerate: vi.fn(async () => null),
     libraryList: vi.fn(async () => ({ libraries: [], defaultFolder: 'C:/Documentos/Preseter' })),
     libraryInspect: vi.fn(async () => {
       throw new Error('libraryInspect sem mock');
@@ -181,7 +180,6 @@ export function createElectronApiMock(): ElectronApiMock {
     storeOpenFolder: vi.fn(async () => true),
     storeOpenInstaller: vi.fn(async () => true),
     storeOpenUrl: vi.fn(async () => true),
-    storeGenerate: vi.fn(async () => null),
     onCollectionProgress: vi.fn(() => () => undefined),
     vstGetState: vi.fn(async () => null),
     vstSetState: vi.fn(async () => true),
@@ -438,6 +436,7 @@ export function createElectronApiMock(): ElectronApiMock {
     concertGet: vi.fn(async () => createConcertState()),
     concertNew: vi.fn(async () => createConcertState()),
     concertTemplates: vi.fn(async () => []),
+    templateReadiness: vi.fn(async (templateId: string) => ({ templateId, total: 0, ready: 0, missing: [], missingIds: [], approxBytes: 0 })),
     concertOpen: vi.fn(async () => null),
     concertOpenRecent: vi.fn(async () => createConcertState()),
     concertSave: vi.fn(async () => createConcertState()),

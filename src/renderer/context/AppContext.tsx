@@ -36,7 +36,6 @@ import {
 import type { EngineParameter } from '@shared/engine-protocol';
 import type {
   CollectionDownloadResult,
-  CollectionGenerateResult,
   CollectionItemStatus,
   CollectionProgress,
 } from '@shared/collection';
@@ -221,7 +220,6 @@ export interface AppContextType {
   cancelCollectionDownload: () => Promise<boolean>;
   openCollectionFolder: (kind?: 'sounds' | 'plugins') => Promise<boolean>;
   openCollectionInstaller: (filePath: string) => Promise<boolean>;
-  generateCollectionConcert: () => Promise<CollectionGenerateResult | null>;
   /** Abre um concert pelo caminho (usado pelo concert gerado da coleção). */
   openConcertPath: (filePath: string) => Promise<boolean>;
   openVstEditor: (pluginId: string) => Promise<boolean>;
@@ -1907,15 +1905,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const generateCollectionConcert = useCallback(async (): Promise<CollectionGenerateResult | null> => {
-    try {
-      return await window.electronAPI.collectionGenerate();
-    } catch (error) {
-      setMidiError(error instanceof Error ? error.message : 'Falha ao gerar o concert da coleção.');
-      return null;
-    }
-  }, []);
-
   const openConcertPath = useCallback(async (filePath: string): Promise<boolean> => {
     try {
       setLoadProgress({
@@ -2448,7 +2437,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cancelCollectionDownload,
     openCollectionFolder,
     openCollectionInstaller,
-    generateCollectionConcert,
     openConcertPath,
     openVstEditor,
     closeVstEditor,

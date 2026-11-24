@@ -157,6 +157,36 @@ describe('StageControl value controls', () => {
     expect(onSetVstParameter).not.toHaveBeenCalled();
   });
 
+  it('liga/desliga o pedal de efeito e ajusta os knobs do insert', () => {
+    const onSetInsertBypass = vi.fn();
+    const onSetStompParameter = vi.fn();
+    renderControl(
+      {
+        type: 'pedal',
+        pedalKind: 'stomp',
+        label: 'Amp',
+        value: 1,
+        stompOwner: 'patch',
+        stompSlot: 2,
+        stompParams: [{ parameterId: '4', label: 'Gain', min: 0, max: 1, value: 0.5 }],
+      },
+      { onSetInsertBypass, onSetStompParameter }
+    );
+
+    expect(screen.getByText('Amp')).toBeInTheDocument();
+    expect(screen.getByText('Gain')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ON' }));
+    expect(onSetInsertBypass).toHaveBeenCalledWith('patch', 2, true);
+    fireEvent.click(screen.getByRole('button', { name: 'OFF' }));
+    expect(onSetInsertBypass).toHaveBeenLastCalledWith('patch', 2, false);
+
+    const knob = screen.getByTitle(/Gain — arraste/);
+    fireEvent.pointerDown(knob, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(knob, { clientY: 40, pointerId: 1 });
+    expect(onSetStompParameter).toHaveBeenCalledWith('patch', 2, '4', expect.any(Number));
+  });
+
   it('sends the patch bus level when a send knob turns', () => {
     const onSetPatchSend = vi.fn();
     renderControl(

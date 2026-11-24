@@ -5,6 +5,7 @@ import { useAppContext } from '../../context/AppContext';
 import type { RawMidiEvent } from '../../services/WebMidiService';
 import { armParameterLearn } from '../../services/parameter-learn';
 import { noteName } from './elementFactory';
+import { stompDefinition } from '@shared/collection-layouts';
 
 interface ControlInspectorProps {
   /** Layout: hardware/MIDI e aparência. Edit: mapeamento. All: editor legado. */
@@ -435,6 +436,47 @@ export const ControlInspector: React.FC<ControlInspectorProps> = ({
             )}
           </>
         )}
+      </section>
+      )}
+
+      {element.type === 'pedal' && element.pedalKind === 'stomp' && (
+      <section className="space-y-2">
+        <h3 className={classTitle}>Pedal de efeito</h3>
+        <label className={classLabel}>Efeito (insert)
+          <select
+            className={`${classInput} mt-1`}
+            value={element.stompOwner ? `${element.stompOwner}|${element.stompSlot ?? ''}` : ''}
+            onChange={(event) => {
+              const target = paramTargets.find((item) => item.key === event.target.value);
+              if (!target) {
+                onUpdate(element.id, {
+                  stompOwner: undefined,
+                  stompSlot: undefined,
+                  stompParams: undefined,
+                });
+                return;
+              }
+              const definition = stompDefinition(target.path, target.label);
+              onUpdate(element.id, {
+                stompOwner: target.owner,
+                stompSlot: target.slot,
+                stompParams: definition.params,
+                label: definition.label || element.label,
+              });
+            }}
+          >
+            <option value="">Nenhum</option>
+            {paramTargets
+              .filter((target) => target.slot !== undefined)
+              .map((target) => (
+                <option key={target.key} value={target.key}>{target.label}</option>
+              ))}
+          </select>
+        </label>
+        <p className="text-[11px] leading-relaxed text-slate-500">
+          O footswitch liga/desliga esse insert. Os knobs vêm do catálogo do efeito (Drive/Tone,
+          Gain/Presence…). Adicione o efeito nos inserts do Master do Patch ou do layer primeiro.
+        </p>
       </section>
       )}
 

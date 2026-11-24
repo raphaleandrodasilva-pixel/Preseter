@@ -409,6 +409,106 @@ export function buildPatchLayout (input: PatchLayoutInput): LayoutConfig {
   };
 }
 
+export interface StompDefinition {
+  label: string;
+  params: NonNullable<UiElement['stompParams']>;
+}
+
+/**
+ * Knobs de um pedal de efeito a partir do catálogo (Drive/Tone, Gain/Presence…).
+ * Usado pela template e pelo inspetor ao vincular o pedal a um insert.
+ */
+export function stompDefinition (pathOrName: string, fallbackLabel = ''): StompDefinition {
+  const effect = findEffect(pathOrName);
+  if (!effect) return { label: fallbackLabel, params: [] };
+  const wanted = EFFECT_CONTROLS[effect.shortName] ?? [];
+  const params = wanted.slice(0, 3).flatMap((entry) => {
+    const param = effectParam(effect, entry.name);
+    return param
+      ? [{ parameterId: String(param.index), label: entry.label, min: 0, max: 1, value: 0.5 }]
+      : [];
+  });
+  return { label: effect.shortName, params };
+}
+
+export interface PedalboardLayoutInput {
+  /** Id estável do patch (para os ids dos elementos). */
+  slug: string;
+  title: string;
+  tempo: number;
+  /** Dono dos inserts (normalmente `patch`, o Master do Patch). */
+  owner: string;
+  /** Inserts que viram pedais, na ordem dos slots. */
+  inserts: Insert[];
+  /** Inclui o controle de entrada de áudio (padrão true). */
+  audioInput?: boolean;
+}
+
+/**
+ * Layout de pedaleira: sem teclado, um pedal por insert do Master do Patch e
+ * o controle da entrada de áudio. Usado pela template Guitarra (entrada ao
+ * vivo: microfone, guitarra, baixo, violão).
+ */
+export function buildPedalboardLayout (input: PedalboardLayoutInput): LayoutConfig {
+  const base = createDefaultKeyboardLayout(input.tempo, {
+    title: input.title,
+    keyboardLow: 0,
+    keyboardHigh: 127,
+  });
+  const elements = base.elements.filter((element) => {
+    if (element.type === 'keyboard' || element.type === 'midi-activity') return false;
+    // Pedaleira não usa os pedais físicos de teclado (Expression/Sustain).
+    if (element.type === 'pedal' && element.pedalKind !== 'stomp') return false;
+    if (element.id.includes('_modulation')) return false;
+    // Sem knobs de Aux: a template não configura Reverb/Delay nos Aux.
+    if (element.patchSendAux !== undefined) return false;
+    return true;
+  });
+
+  if (input.audioInput !== false) {
+    elements.push({
+      id: elementId(input.slug, 'audio_input'),
+      type: 'audio-input',
+      label: 'Entrada',
+      x: 16,
+      y: 250,
+      width: 190,
+      height: 240,
+      color: '#FF9F0A',
+      minValue: 0,
+      maxValue: 1,
+      orientation: 'vertical',
+      isMomentary: false,
+    });
+  }
+
+  const inserts = [...input.inserts].sort((a, b) => a.slot - b.slot);
+  inserts.forEach((insert, index) => {
+    const definition = stompDefinition(insert.path, insert.name);
+    elements.push({
+      id: elementId(input.slug, `stomp_${insert.slot}`),
+      type: 'pedal',
+      pedalKind: 'stomp',
+      label: definition.label || insert.name,
+      x: 220 + index * 235,
+      y: 250,
+      width: 210,
+      height: 280,
+      color: findEffect(insert.path)?.source === 'guitarix' ? '#E0A526' : '#0A84FF',
+      minValue: 0,
+      maxValue: 1,
+      orientation: 'vertical',
+      isMomentary: false,
+      value: 1,
+      stompOwner: input.owner,
+      stompSlot: insert.slot,
+      ...(definition.params.length > 0 ? { stompParams: definition.params } : {}),
+    });
+  });
+
+  return { ...base, elements };
+}
+
 const NATIVE_LAYER_IDS: Array<NonNullable<CollectionLayerSpec['nativeInstrument']>> = [
   'organ', 'tines', 'reeds', 'piano', 'dx', 'jx', 'synth2', 'drums',
 ];

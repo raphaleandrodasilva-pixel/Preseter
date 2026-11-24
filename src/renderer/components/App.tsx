@@ -11,6 +11,8 @@ import { TemplatePicker } from './concert/TemplatePicker';
 import { AboutModal } from './concert/AboutModal';
 import { HelpModal } from './concert/HelpModal';
 import { LibraryGeneratorModal } from './concert/LibraryGeneratorModal';
+import { TemplatePrepareModal } from './concert/TemplatePrepareModal';
+import type { TemplateReadiness } from '@shared/template-requirements';
 import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
@@ -56,6 +58,23 @@ const AppContent: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** Template aguardando a preparação das dependências. */
+  const [pendingTemplate, setPendingTemplate] = useState<{ id: string; readiness: TemplateReadiness } | null>(null);
+
+  /** Confere as dependências da Loja antes de criar um concert de template. */
+  const prepareTemplate = async (templateId: string) => {
+    try {
+      const readiness = await window.electronAPI.templateReadiness(templateId);
+      if (readiness.missingIds.length === 0) {
+        await chooseTemplate(templateId);
+        return;
+      }
+      setPendingTemplate({ id: templateId, readiness });
+    } catch {
+      // Sem a análise, cria o concert como antes.
+      await chooseTemplate(templateId);
+    }
+  };
 
   // Concert novo/aberto: descarta o rascunho em edição e a seleção.
   useEffect(() => {
@@ -363,8 +382,21 @@ const AppContent: React.FC = () => {
             const next = await updatePreferences({ externalMidiEnabled: true });
             return next?.externalMidiEnabled === true;
           }}
-          onPick={(templateId) => void chooseTemplate(templateId)}
+          onPick={(templateId) => { void prepareTemplate(templateId); }}
           onOpenFile={() => void openConcertFile()}
+        />
+      )}
+      {pendingTemplate && (
+        <TemplatePrepareModal
+          templateId={pendingTemplate.id}
+          templateName={concertTemplates.find((item) => item.id === pendingTemplate.id)?.name}
+          readiness={pendingTemplate.readiness}
+          onClose={() => setPendingTemplate(null)}
+          onProceed={() => {
+            const id = pendingTemplate.id;
+            setPendingTemplate(null);
+            void chooseTemplate(id);
+          }}
         />
       )}
       <AppLoadingOverlay />

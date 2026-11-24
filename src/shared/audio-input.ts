@@ -20,6 +20,7 @@ export function defaultAudioInput(): AudioInputSettings {
     muted: false,
     feedbackProtection: true,
     output: 1,
+    destination: 'output',
   };
 }
 
@@ -48,6 +49,7 @@ export function normalizeAudioInput(value: unknown): AudioInputSettings {
     muted: input.muted === true,
     feedbackProtection: input.feedbackProtection !== false,
     output: isNumber(input.output) ? clamp(Math.round(input.output), 1, 4) : defaults.output,
+    destination: input.destination === 'patch' ? 'patch' : 'output',
   };
 }
 

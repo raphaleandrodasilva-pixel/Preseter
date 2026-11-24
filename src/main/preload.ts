@@ -63,7 +63,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('collection-open-folder', kind),
   collectionOpenInstaller: (filePath: string) =>
     ipcRenderer.invoke('collection-open-installer', filePath),
-  collectionGenerate: () => ipcRenderer.invoke('collection-generate'),
   libraryList: () => ipcRenderer.invoke('library-list'),
   libraryInspect: (source: string) => ipcRenderer.invoke('library-inspect', source),
   libraryPickFile: () => ipcRenderer.invoke('library-pick-file'),
@@ -88,7 +87,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   storeOpenInstaller: (filePath: string) =>
     ipcRenderer.invoke('store-open-installer', filePath),
   storeOpenUrl: (url: string) => ipcRenderer.invoke('store-open-url', url),
-  storeGenerate: () => ipcRenderer.invoke('store-generate'),
   vstGetState: (pluginId: string) => ipcRenderer.invoke('vst-get-state', pluginId),
   vstSetState: (pluginId: string, state: any) =>
     ipcRenderer.invoke('vst-set-state', pluginId, state),
@@ -205,6 +203,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   concertGet: () => ipcRenderer.invoke('concert-get'),
   concertNew: (templateId?: string) => ipcRenderer.invoke('concert-new', templateId),
   concertTemplates: () => ipcRenderer.invoke('concert-templates'),
+  templateReadiness: (templateId: string) => ipcRenderer.invoke('template-readiness', templateId),
   concertOpen: () => ipcRenderer.invoke('concert-open'),
   concertOpenRecent: (filePath: string) => ipcRenderer.invoke('concert-open-recent', filePath),
   concertSave: (asNew?: boolean) => ipcRenderer.invoke('concert-save', asNew),
