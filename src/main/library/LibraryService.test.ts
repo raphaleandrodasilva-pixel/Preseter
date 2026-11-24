@@ -55,14 +55,6 @@ function makeSounds (): string {
   return sounds;
 }
 
-/** Remove ids e horários, que mudam a cada geração. */
-const stable = (file: ReturnType<typeof buildCollectionConcert>['file']) => JSON.parse(
-  JSON.stringify({ sets: file.sets, patches: file.patches })
-    .replace(/"(id|setId)":"(set|preset)_[^"]+"/g, '"$1":"x"')
-    .replace(/"(createdAt|updatedAt)":\d+/g, '"$1":0')
-    .replace(/element_default_([a-z0-9]+)_[a-z0-9]+_[a-z0-9]+/g, 'element_default_$1')
-);
-
 const minimal = (patch: Record<string, unknown> = {}): Record<string, unknown> => ({
   format: LIBRARY_FORMAT,
   version: 1,
@@ -84,76 +76,65 @@ const minimal = (patch: Record<string, unknown> = {}): Record<string, unknown> =
 });
 
 describe('bibliotecas do Preseter', () => {
-  it('lista as bibliotecas prontas, todas válidas', () => {
+  it('lista só a Factory 64, válida', () => {
     const list = listLibraries(ROOT);
-    expect(list.map((item) => item.id).sort()).toEqual(['factory-40', 'factory-40-efeitos', 'workstation']);
-    expect(list.every((item) => !item.error)).toBe(true);
-    expect(list.find((item) => item.id === 'factory-40')?.patches).toBe(40);
-    expect(list.find((item) => item.id === 'factory-40-efeitos')?.patches).toBe(40);
-    expect(list.find((item) => item.id === 'workstation')?.patches).toBe(896);
+    expect(list.map((item) => item.id)).toEqual(['factory-64']);
+    expect(list[0].error).toBeFalsy();
+    expect(list[0].patches).toBe(64);
   });
 
-  it('a Factory 40 pelo arquivo gera o mesmo concert do gerador atual', () => {
+  it('a Factory 64 tem 8 sets de 8, Program Change de 0 a 63 e nomes únicos', () => {
+    const concert = load('factory-64').concerts[0];
+    expect(concert.sets).toHaveLength(8);
+    expect(concert.sets.every((set) => set.patches.length === 8)).toBe(true);
+    const patches = concert.sets.flatMap((set) => set.patches);
+    expect(patches.map((patch) => patch.programNumber)).toEqual(Array.from({ length: 64 }, (_, index) => index));
+    expect(new Set(patches.map((patch) => patch.name)).size).toBe(64);
+    // Os 40 timbres originais continuam com o mesmo nome.
+    const names = new Set(patches.map((patch) => patch.name));
+    for (const [, original] of COLLECTION_SETS) {
+      for (const [name] of original) expect(names.has(name), name).toBe(true);
+    }
+  });
+
+  it('a Factory 64 usa o Preseter Drums nas baterias e índices válidos do Zyn', () => {
+    const patches = load('factory-64').concerts[0].sets.flatMap((set) => set.patches);
+    const drums = patches.filter((patch) => patch.layers.some((layer) => layer.nativeInstrument === 'drums'));
+    expect(drums.map((patch) => patch.name)).toEqual(['Acoustic Rock Kit', 'Electronic Drum Kit', 'Orchestral Percussion']);
+    expect(drums.every((patch) => patch.layers[0].drums?.enabled)).toBe(true);
+    const zyn = patches.flatMap((patch) => patch.layers).filter((layer) => layer.nativeInstrument === 'zyn');
+    expect(zyn.length).toBeGreaterThan(0);
+    for (const layer of zyn) expect(layer.programIndex).toBeLessThan(1318);
+  });
+
+  it('mantém as regras de áudio na Factory 64', () => {
+    for (const concert of load('factory-64').concerts) {
+      for (const patch of concert.sets.flatMap((set) => set.patches)) {
+        if (patch.layers.length > 1) expect(patch.inserts ?? [], patch.name).toEqual([]);
+        const chain = [...(patch.inserts ?? []), ...(patch.master ?? [])];
+        if (patch.layers.some((layer) => layer.nativeInstrument === 'organ')) {
+          expect(chain.some((ref) => findEffect(ref.effect)?.source === 'guitarix'), patch.name).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('a Factory 64 monta os 64 patches com os efeitos e sends pedidos', () => {
     const sounds = makeSounds();
     try {
-      const library = load('factory-40');
-      const fromFile = buildCollectionConcert(plugins, {
+      const library = load('factory-64');
+      const result = buildCollectionConcert(plugins, {
         tempo: 100,
         soundsFolder: sounds,
         sets: concertToCollectionSets(library.concerts[0]),
       });
-      const current = buildCollectionConcert(plugins, { tempo: 100, soundsFolder: sounds });
-      expect(fromFile.skipped).toEqual(current.skipped);
-      expect(fromFile.missing).toEqual(current.missing);
-      expect(stable(fromFile.file)).toEqual(stable(current.file));
-      expect(COLLECTION_SETS.flatMap(([, patches]) => patches)).toHaveLength(40);
+      expect(result.skipped).toEqual([]);
+      expect(result.missing).toEqual([]);
+      expect(result.file.patches).toHaveLength(64);
+      const grand = result.file.patches.find((patch) => patch.name === 'Concert Grand');
+      expect(grand?.plugins?.[0].inserts?.length).toBeGreaterThan(0);
     } finally {
       removeTempDir(sounds);
-    }
-  });
-
-  it('a Workstation tem 128 Performances com várias camadas e nomes únicos', () => {
-    const performances = load('workstation').concerts.find((concert) => concert.id === 'performances');
-    const patches = performances?.sets.flatMap((set) => set.patches) ?? [];
-    expect(patches).toHaveLength(128);
-    expect(new Set(patches.map((patch) => patch.name)).size).toBe(128);
-    expect(patches.map((patch) => patch.programNumber)).toEqual(Array.from({ length: 128 }, (_, index) => index));
-    for (const patch of patches) {
-      expect(patch.layers.length, patch.name).toBeGreaterThan(1);
-      expect(patch.name).not.toMatch(/yamaha|motif/i);
-    }
-  });
-
-  it('a Workstation tem 6 bancos com Program Change de 0 a 127, sem repetir receita', () => {
-    const library = load('workstation');
-    const banks = library.concerts.filter((concert) => concert.id !== 'performances');
-    expect(banks.map((concert) => concert.name)).toEqual(
-      ['PRE1', 'PRE2', 'PRE3', 'PRE4', 'PRE5', 'PRE6'].map((bank) => `Workstation ${bank}`)
-    );
-    const signatures = new Set<string>();
-    for (const concert of banks) {
-      const patches = concert.sets.flatMap((set) => set.patches);
-      expect(patches.map((patch) => patch.programNumber).sort((a, b) => a - b))
-        .toEqual(Array.from({ length: 128 }, (_, index) => index));
-      for (const { name: _name, programNumber: _program, description: _description, ...recipe } of patches) {
-        signatures.add(JSON.stringify(recipe));
-        expect(_name).not.toMatch(/yamaha|motif/i);
-      }
-    }
-    expect(signatures.size).toBe(768);
-  });
-
-  it('mantém as regras de áudio nas bibliotecas', () => {
-    for (const id of ['factory-40-efeitos', 'workstation']) {
-      for (const concert of load(id).concerts) {
-        for (const patch of concert.sets.flatMap((set) => set.patches)) {
-          if (patch.layers.length > 1) expect(patch.inserts ?? [], patch.name).toEqual([]);
-          const chain = [...(patch.inserts ?? []), ...(patch.master ?? [])];
-          if (patch.layers.some((layer) => layer.nativeInstrument === 'organ')) {
-            expect(chain.some((ref) => findEffect(ref.effect)?.source === 'guitarix'), patch.name).toBe(false);
-          }
-        }
-      }
     }
   });
 
@@ -161,16 +142,14 @@ describe('bibliotecas do Preseter', () => {
     const sounds = makeSounds();
     const output = makeTempDir();
     try {
-      const library = load('workstation');
+      const library = load('factory-64');
       const environment = { plugins, soundsFolder: sounds };
-      expect(inspectLibrary(library, 'workstation', environment)).toMatchObject({ total: 896, ready: 896, missing: [] });
+      expect(inspectLibrary(library, 'factory-64', environment)).toMatchObject({ total: 64, ready: 64, missing: [] });
 
       const first = generateLibrary(library, environment, output);
-      expect(first.patches).toBe(896);
-      expect(first.concerts).toHaveLength(7);
-      for (const concert of first.concerts) {
-        expect(parseConcertFile(fs.readFileSync(concert.path, 'utf8')).patches).toHaveLength(128);
-      }
+      expect(first.patches).toBe(64);
+      expect(first.concerts).toHaveLength(1);
+      expect(parseConcertFile(fs.readFileSync(first.concerts[0].path, 'utf8')).patches).toHaveLength(64);
 
       const original = fs.readFileSync(first.concerts[0].path, 'utf8');
       const second = generateLibrary(library, environment, output);
@@ -186,10 +165,10 @@ describe('bibliotecas do Preseter', () => {
   it('informa o que falta e pula só o que depende disso', () => {
     const empty = makeTempDir();
     try {
-      const status = inspectLibrary(load('factory-40'), 'factory-40', { plugins, soundsFolder: empty });
+      const status = inspectLibrary(load('factory-64'), 'factory-64', { plugins, soundsFolder: empty });
       expect(status.ready).toBeGreaterThan(0);
-      expect(status.ready).toBeLessThan(40);
-      expect(status.skipped).toHaveLength(40 - status.ready);
+      expect(status.ready).toBeLessThan(64);
+      expect(status.skipped).toHaveLength(64 - status.ready);
       expect(status.missing).toEqual(expect.arrayContaining(['Salamander Grand Piano V3']));
     } finally {
       removeTempDir(empty);
@@ -246,7 +225,7 @@ describe('bibliotecas do Preseter', () => {
     try {
       const withoutEffects = plugins.filter((plugin) => !plugin.name.startsWith('calfNXT'));
       const askedToDownload: string[] = [];
-      const status = inspectLibrary(load('factory-40'), 'factory-40', { plugins: withoutEffects, soundsFolder: sounds }, (labels) => {
+      const status = inspectLibrary(load('factory-64'), 'factory-64', { plugins: withoutEffects, soundsFolder: sounds }, (labels) => {
         askedToDownload.push(...labels);
         return [];
       });

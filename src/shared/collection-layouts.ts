@@ -39,10 +39,12 @@ export interface PatchLayoutInput {
 }
 
 const KEY_RANGES: Record<Family, [number, number]> = {
+  // Teclados no padrão do órgão (61 teclas, C2–C7): com 88 teclas no mesmo
+  // espaço as teclas ficavam estreitas demais. É só a tela: o MIDI toca a extensão toda.
   organ: [36, 96],
-  piano: [21, 108],
-  tines: [28, 103],
-  reeds: [28, 103],
+  piano: [36, 96],
+  tines: [36, 96],
+  reeds: [36, 96],
   dx: [36, 96],
   jx: [36, 96],
   dexed: [36, 96],

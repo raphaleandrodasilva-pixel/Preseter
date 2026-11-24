@@ -22,6 +22,8 @@ Corrige o porte do ZynAddSubFX (1.3.0) e fecha uma falha de segurança no arquiv
 | Órgão ignorava o pedal de expressão | CC11 multiplica o volume (swell do setBfree); CC121 volta a 100% | `engine/src/native/NativeProcessor.*` |
 | Template Guitarra só com 3 patches e 5 efeitos | 12 patches com Guitarix + efeitos Preseter achados no scan | `src/main/concert/templates.ts`, `ConcertManager.ts`, `index.ts` |
 | Aviso de atualização por cima do show | Não aparece com o modo Performance ligado; instala ao fechar | `src/main/updater.ts`, `index.ts` |
+| Piano/EP com teclas estreitas na tela | Teclado de 61 teclas (C2–C7), igual ao do órgão | `src/shared/collection-layouts.ts` |
+| Bibliotecas antigas (Factory 40, Workstation) | Substituídas pela **Factory 64**: 8 sets × 8, baterias no Preseter Drums, synths do Zyn (bancos Mysterious) | `libraries/factory-64/biblioteca.json` |
 | Workflow podia apagar a última estável | **Pendente**: alteração pronta, mas o token não tem o escopo `workflow` | `.github/workflows/build.yml` (local) |
 
 O Dexed e os outros instrumentos nativos foram analisados e não precisaram de correção.
@@ -46,6 +48,9 @@ O Dexed e os outros instrumentos nativos foram analisados e não precisaram de c
 - Pedal de expressão no órgão.
 - Template Guitarra: criar o concert, conferir os 12 patches, os pedais e o som com guitarra real.
 - Aviso de atualização com o modo Performance ligado e desligado.
+- Factory 64: gerar pela tela **Gerar Biblioteca** e ouvir os 64 patches. Os presets do Zyn são
+  escolhidos pelo índice, então é preciso conferir se o nome que aparece no painel bate com o patch.
+- Teclado de 61 teclas no piano, no Rhodes e no Wurlitzer.
 
 ## Como verificar
 

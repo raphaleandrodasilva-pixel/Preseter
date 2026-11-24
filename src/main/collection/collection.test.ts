@@ -258,9 +258,10 @@ describe('efeitos nativos na coleção', () => {
       expect(organ?.layout.elements.find((element) => element.type === 'keyboard'))
         .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
 
+      // Piano no mesmo padrão de teclado do órgão (61 teclas).
       const grand = file.patches.find((patch) => patch.name === 'Concert Grand');
       expect(grand?.layout.elements.find((element) => element.type === 'keyboard'))
-        .toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+        .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
 
       // P6: os 40 patches com ids únicos, sem sobreposição e com parâmetros reais.
       expect(file.patches).toHaveLength(40);

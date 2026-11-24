@@ -103,7 +103,7 @@ describe('concert templates', () => {
       'preseter.jx',
     ]);
     expect(file.patches[0].layout.elements.find((element) => element.type === 'keyboard'))
-      .toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+      .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
 
     const electric = file.patches[1];
     expect(electric.layout.elements.some(

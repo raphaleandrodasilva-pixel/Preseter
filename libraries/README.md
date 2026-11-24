@@ -6,11 +6,14 @@ ou mais concerts `.pst`. Para criar outra biblioteca, não é preciso alterar o 
 
 ```text
 libraries/
-  factory-40/biblioteca.json
-  factory-40-efeitos/biblioteca.json
-  workstation/biblioteca.json
+  factory-64/biblioteca.json
   minha-biblioteca/biblioteca.json
 ```
+
+A **Factory 64** tem 8 sets de 8 timbres: Grand Pianos, Electric Keys, Organs & Reeds,
+Strings & Choir, Brass & Sax, Winds & Mallets, Guitars, Bass & Drums (baterias no Preseter
+Drums) e Synths & Pads (Dexed, JX e ZynAddSubFX, incluindo os bancos Mysterious). Os
+presets do Zyn são escolhidos pelo índice no banco de fábrica: confira de ouvido ao mudar o banco.
 
 As pastas daqui acompanham o instalador. Um arquivo em qualquer outro lugar pode ser aberto
 com **Escolher arquivo…**.
@@ -104,7 +107,7 @@ Fluxo sugerido: rascunho em `biblioteca.json` → **Gerar** → acerto de ouvido
 | `min`, `max` | Faixa de notas (split), de 0 a 127 |
 | `velocityMin`, `velocityMax` | Troca por velocity, de 1 a 127 |
 | `pan` | De -1 a 1 |
-| `nativeInstrument` | `organ`, `tines`, `reeds`, `piano`, `dx`, `jx`, `synth2` ou `drums` |
+| `nativeInstrument` | `organ`, `tines`, `reeds`, `piano`, `dx`, `jx`, `dexed`, `zyn`, `synth2` ou `drums` |
 | `programIndex` | Programa do instrumento nativo |
 | `sample` | `library` (`musescore`, `sonatina`, `salamander` ou uma declarada), `bank`, `program`, `loop`, envelope, filtro |
 | `arp`, `drums` | Arpejador e sequenciador do layer |

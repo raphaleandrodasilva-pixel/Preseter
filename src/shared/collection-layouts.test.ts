@@ -49,7 +49,7 @@ describe('buildPatchLayout', () => {
     expect(keyboard).toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
   });
 
-  it('usa 88 teclas no piano e mapeia os parâmetros reais do sampler', () => {
+  it('usa o teclado de 61 teclas do órgão no piano e mapeia os parâmetros reais do sampler', () => {
     const layout = buildPatchLayout({
       slug: 'piano-test',
       title: 'Piano',
@@ -62,7 +62,7 @@ describe('buildPatchLayout', () => {
     });
 
     const keyboard = layout.elements.find((element) => element.type === 'keyboard');
-    expect(keyboard).toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+    expect(keyboard).toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
 
     // Sampler confirmado na P0: 4 Filtro, 3 Release, 6 Velocity, 10 Ganho.
     const samplerControls = layout.elements.filter(
@@ -238,7 +238,7 @@ describe('buildPresetLayout', () => {
     );
     expect(tines.map((element) => element.parameterId)).toEqual(['1', '2', '3', '4', '6', '7']);
     expect(layout.elements.find((element) => element.type === 'keyboard'))
-      .toMatchObject({ keyboardLow: 28, keyboardHigh: 103 });
+      .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
     expect(layout.tempo).toBe(92);
   });
 
@@ -260,7 +260,7 @@ describe('buildPresetLayout', () => {
     }), { setName: 'Pianos & Keys' });
 
     expect(layout.elements.find((element) => element.type === 'keyboard'))
-      .toMatchObject({ keyboardLow: 21, keyboardHigh: 108 });
+      .toMatchObject({ keyboardLow: 36, keyboardHigh: 96 });
     expect(layout.elements.some(
       (element) => element.paramOwner === 'grand:layer:0' && element.parameterId === '4'
     )).toBe(true);
