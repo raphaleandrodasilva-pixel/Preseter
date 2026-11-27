@@ -252,3 +252,32 @@ estão nas seções 3.2–3.4: os macros exigem reload/fade e o PAD exige `apply
 **a confirmar:** o som de cada controle no app (o teste prova que o Part recebe o valor, não
 que o timbre muda como esperado), o Legato em presets polifônicos e o custo dos FX internos
 com o pool de 8 MB.
+
+## 8. Z4b–d implementado (montagem)
+
+Os controles abaixo **não** são aplicados na thread de áudio. Eles entram na montagem do
+instrumento (`finishInstance`), sobre uma **cópia limpa do preset** (`baseInstrument`, o XML
+como saiu do `.xiz`). Mudar um deles pede uma remontagem; o Loader espera 250 ms sem mudanças
+(arrastar um knob não remonta a cada passo), remonta e troca com o fade de 8 ms do Z2.
+
+| Grupo | Parâmetro (id) | Faixa | Efeito |
+|---|---|---|---|
+| Som | `cutoff`, `resonance` | -64…64 | ±4 oitavas no `basefreq` / ±4 dobras no `baseq` dos filtros globais de AD/SUB/PAD e dos filtros de voz do AD |
+| Som | `attack`, `decay`, `release` | -64…64 | ×1/16…×16 nos tempos do envelope de amplitude (ADSR ou envelope livre) |
+| Som | `sustain` | -64…64 | ±128 no nível de sustain do envelope de amplitude |
+| Motores | `padEngine` | -1/0/1 | PADsynth: Preset / Desligado / Ligado (as tabelas são geradas no `applyparameters`) |
+| Motores | `adVolume`, `subVolume`, `padVolume` | -24…+12 dB | Offset no volume de cada motor (PAD: 0,625 dB por passo do `PVolume`) |
+| Efeitos | `fx1Type`…`fx3Type` | -1…10 | -1 = preset; 0 = nenhum; 1–10 = Reverb, Echo, Chorus, Phaser, Alienwah, Distortion, EQ, DynFilter, Sympathetic, Reverse |
+| Efeitos | `fx1Mix`…`fx3Mix` | -1…127 | -1 = preset; senão, parâmetro 0 (volume/mix) do efeito |
+
+- **Correção de travamento:** no Z4a, `AD Engine`/`SUB Engine` = Ligado eram aplicados na
+  thread de áudio em todos os itens do kit. Num preset sem `SUB_SYNTH_PARAMETERS`,
+  `kit[0].subpars` é nulo e o `NoteOn` seguinte usava o ponteiro nulo. Agora os motores
+  entram na montagem, alocam os parâmetros que faltam (som padrão do motor) e um motor nunca
+  fica ligado sem parâmetros.
+- O estado do patch guarda o **preset original** e os parâmetros; ao abrir, os ajustes são
+  aplicados uma vez só. Patches da 1.3.2 continuam abrindo (o instrumento salvo vira a base).
+- Os ids novos ficam no fim do layout: os índices dos parâmetros antigos (mapeamentos MIDI e
+  layouts salvos) não mudam.
+- Teste: `ZynPanel.sound.test.tsx`. **Não testado no motor** (sem CMake nesta máquina): a
+  compilação é validada pelo workflow Build; o som de cada ajuste precisa ser conferido de ouvido.

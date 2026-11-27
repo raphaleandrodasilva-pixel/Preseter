@@ -94,6 +94,70 @@ const EngineSelect: React.FC<{
   );
 };
 
+/** Valor inteiro do parâmetro: o texto do motor, ou a conta a partir do normalizado. */
+const intOf = (item: EngineParameter, min: number, max: number): number => {
+  const parsed = Number(item.text);
+  return Number.isFinite(parsed) ? parsed : Math.round(min + item.value * (max - min));
+};
+
+/** Select de um parâmetro inteiro (min..max) com rótulos próprios. */
+const RangeSelect: React.FC<{
+  name: string;
+  label: string;
+  min: number;
+  max: number;
+  options: Array<[number, string]>;
+  param: (name: string) => EngineParameter | undefined;
+  onChange: (name: string, value: number) => void | Promise<void>;
+}> = ({ name, label, min, max, options, param, onChange }) => {
+  const item = param(name);
+  if (!item) return null;
+  return (
+    <label className="text-[10px]" style={{ color: '#9A9AA0' }}>
+      {label}
+      <select
+        aria-label={label}
+        className="hw-inset mt-1 w-full px-2 py-1 text-[11px] text-white"
+        value={String(intOf(item, min, max))}
+        onChange={(event) => void onChange(name, (Number(event.target.value) - min) / (max - min))}
+      >
+        {options.map(([value, text]) => (
+          <option key={value} value={value}>{text}</option>
+        ))}
+      </select>
+    </label>
+  );
+};
+
+/** Tipos dos efeitos internos do Zyn (`EffectMgr`), na ordem do motor. */
+export const ZYN_EFFECT_TYPES: Array<[number, string]> = [
+  [-1, 'Preset'],
+  [0, 'Nenhum'],
+  [1, 'Reverb'],
+  [2, 'Echo'],
+  [3, 'Chorus'],
+  [4, 'Phaser'],
+  [5, 'Alienwah'],
+  [6, 'Distortion'],
+  [7, 'EQ'],
+  [8, 'DynFilter'],
+  [9, 'Sympathetic'],
+  [10, 'Reverse'],
+];
+
+/** "+12", "0", "-8" para os macros bipolares. */
+const signed = (parameter: EngineParameter): string => {
+  const value = Number(parameter.text);
+  if (!Number.isFinite(value)) return displayOf(parameter);
+  return value > 0 ? `+${value}` : String(value);
+};
+
+const decibels = (parameter: EngineParameter): string => `${signed(parameter)} dB`;
+
+/** -1 = valor do preset. */
+const presetOr = (parameter: EngineParameter): string =>
+  Number(parameter.text) < 0 ? 'Preset' : displayOf(parameter);
+
 /** Painel do Preseter Zyn: presets, parte e efeitos. */
 export const ZynPanel: React.FC<ZynPanelProps> = ({
   params,
@@ -336,19 +400,60 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
         </div>
       </details>
 
-      <details className="hw-inset p-3">
-        <summary className="hw-label cursor-pointer select-none">Motores</summary>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <EngineSelect name="AD Engine" label="ADsynth" param={param} onChange={onChange} />
-          <EngineSelect name="SUB Engine" label="SUBsynth" param={param} onChange={onChange} />
+      <details className="hw-inset p-3" open>
+        <summary className="hw-label cursor-pointer select-none">Som</summary>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['Cutoff', 'Resonance', 'Attack', 'Decay', 'Sustain', 'Release'].map((name) => {
+            const item = param(name);
+            return item ? <ZynKnob key={name} param={item} onChange={onChange} format={signed} /> : null;
+          })}
         </div>
         <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
-          “Preset” mantém o que veio no .xiz. PADsynth e os macros de som entram na próxima leva.
+          Ajustes sobre o preset (0 = como veio no .xiz), em todos os motores. Ao soltar o knob o
+          instrumento é remontado com fade; em presets com PADsynth isso pode levar alguns segundos.
         </p>
       </details>
 
       <details className="hw-inset p-3">
-        <summary className="hw-label cursor-pointer select-none">Modo e efeitos</summary>
+        <summary className="hw-label cursor-pointer select-none">Motores</summary>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <EngineSelect name="AD Engine" label="ADsynth" param={param} onChange={onChange} />
+          <EngineSelect name="SUB Engine" label="SUBsynth" param={param} onChange={onChange} />
+          <EngineSelect name="PAD Engine" label="PADsynth" param={param} onChange={onChange} />
+        </div>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['AD Volume', 'SUB Volume', 'PAD Volume'].map((name) => {
+            const item = param(name);
+            return item ? <ZynKnob key={name} param={item} onChange={onChange} format={decibels} /> : null;
+          })}
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          “Preset” mantém o que veio no .xiz. Ligar um motor que o preset não usa cria o som
+          padrão dele.
+        </p>
+      </details>
+
+      <details className="hw-inset p-3">
+        <summary className="hw-label cursor-pointer select-none">Efeitos internos</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map((slot) => {
+            const mix = param(`FX${slot} Mix`);
+            return (
+              <div key={slot} className="space-y-2">
+                <RangeSelect
+                  name={`FX${slot} Type`}
+                  label={`FX${slot}`}
+                  min={-1}
+                  max={10}
+                  options={ZYN_EFFECT_TYPES}
+                  param={param}
+                  onChange={onChange}
+                />
+                {mix && <ZynKnob param={mix} onChange={onChange} format={presetOr} />}
+              </div>
+            );
+          })}
+        </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {['FX1 Bypass', 'FX2 Bypass', 'FX3 Bypass'].map((name) => {
             const item = param(name);
@@ -365,6 +470,9 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             );
           })}
         </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          Trocar o tipo começa no preset padrão do efeito. Mix “Preset” mantém o do .xiz.
+        </p>
       </details>
 
       <p className="px-1 text-[9px] leading-relaxed" style={{ color: '#6E6E73' }}>

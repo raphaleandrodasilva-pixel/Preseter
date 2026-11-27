@@ -7,7 +7,13 @@
 #include "Misc/Sync.h"
 #include "Misc/XMLwrapper.h"
 #include "DSP/FFTwrapper.h"
+#include "Effects/EffectMgr.h"
+#include "Params/ADnoteParameters.h"
 #include "Params/Controller.h"
+#include "Params/EnvelopeParams.h"
+#include "Params/FilterParams.h"
+#include "Params/PADnoteParameters.h"
+#include "Params/SUBnoteParameters.h"
 #include "Output.h"
 #include "tlsf.h"
 
@@ -190,6 +196,22 @@ private:
 constexpr int kZynBlockSize = 32;
 
 /**
+ * Parâmetros aplicados na montagem do instrumento (fora da thread de áudio):
+ * mexem nos parâmetros dos motores, alocam motores que o preset não tinha ou
+ * trocam o tipo dos efeitos internos. Mudar um deles remonta o instrumento a
+ * partir do preset original, com o fade da troca de preset.
+ */
+const char* const kZynBuildParameterIds[] = {
+    "adEngine", "subEngine", "padEngine",
+    "adVolume", "subVolume", "padVolume",
+    "cutoff", "resonance", "attack", "decay", "sustain", "release",
+    "fx1Type", "fx2Type", "fx3Type", "fx1Mix", "fx2Mix", "fx3Mix",
+};
+
+/** Espera este tempo sem mudanças antes de remontar (arrastar um knob não remonta a cada passo). */
+constexpr juce::uint32 kZynRebuildDebounceMs = 250;
+
+/**
  * Um instrumento completo do Zyn, com tudo de que o Part depende.
  *
  * Como no MiddleWare do Zyn original, um preset novo é montado fora da thread
@@ -208,7 +230,8 @@ struct ZynInstance
     std::unique_ptr<zyn::Part> part;
 };
 
-class ZynProcessor final : public juce::AudioProcessor
+class ZynProcessor final : public juce::AudioProcessor,
+                            private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     ZynProcessor()
@@ -225,6 +248,9 @@ public:
         finishInstance (*fresh);
         install (std::move (fresh));
 
+        for (const auto* id : kZynBuildParameterIds)
+            apvts.addParameterListener (id, this);
+
         loader = std::make_unique<Loader> (*this);
         if (! loader->startThread (juce::Thread::Priority::low))
             loader.reset();
@@ -234,6 +260,8 @@ public:
     {
         if (loader != nullptr)
             loader->stopThread (5000);
+        for (const auto* id : kZynBuildParameterIds)
+            apvts.removeParameterListener (id, this);
     }
 
     void setBankDirs (const juce::String& factory, const juce::String& user)
@@ -276,8 +304,10 @@ public:
             return;
         }
 
-        // A taxa mudou: monta o mesmo instrumento na taxa nova.
-        const auto saved = captureInstrument();
+        // A taxa mudou: monta o mesmo instrumento na taxa nova, a partir do
+        // preset original (os ajustes de montagem são aplicados de novo).
+        const juce::ScopedLock build (buildLock);
+        const auto saved = baseInstrumentCopy();
         auto fresh = createInstance (rate);
         if (saved.isNotEmpty())
             readInstrument (*fresh->part, saved);
@@ -486,7 +516,12 @@ public:
         root.setProperty ("programPath", currentPath, nullptr);
         root.appendChild (apvts.copyState(), nullptr);
 
-        const auto instrument = captureInstrument();
+        // Guarda o preset original: os ajustes de montagem (macros, motores, FX)
+        // estão nos parâmetros e são aplicados de novo ao abrir. Salvar o
+        // instrumento já ajustado faria o ajuste valer duas vezes.
+        auto instrument = baseInstrumentCopy();
+        if (instrument.isEmpty())
+            instrument = captureInstrument();
         root.setProperty ("instrument", instrument, nullptr);
 
         if (auto xml = root.createXml())
@@ -503,21 +538,35 @@ public:
         if (! root.hasType ("PreseterZyn"))
             return;
 
+        // Os parâmetros entram sem pedir remontagem: o instrumento é montado logo
+        // abaixo, uma vez só, já com eles.
         auto parameters = root.getChildWithName (apvts.state.getType());
         if (parameters.isValid())
+        {
+            suppressRebuild.store (true);
             apvts.replaceState (parameters);
+            suppressRebuild.store (false);
+        }
 
         const auto instrument = root.getProperty ("instrument").toString();
         if (instrument.isNotEmpty())
         {
+            const juce::ScopedLock build (buildLock);
             auto fresh = createInstance (currentSampleRate);
             if (readInstrument (*fresh->part, instrument))
             {
+                setBaseInstrument (instrument);
                 finishInstance (*fresh);
                 prewarmInstance (*fresh);
                 applyHeldNotes (*fresh);
                 install (std::move (fresh));
+                rebuildRequested.store (false);
             }
+        }
+        else
+        {
+            // Estado sem instrumento: monta o padrão com os ajustes restaurados.
+            requestRebuild();
         }
 
         const auto path = root.getProperty ("programPath").toString();
@@ -657,10 +706,6 @@ private:
         bool expressionReceive = true;
         bool sustainReceive = true;
 
-        /** -1 = manter o que veio no preset; 0 = desligar; 1 = ligar. */
-        int adEngine = -1;
-        int subEngine = -1;
-
         bool operator== (const MacroState& other) const
         {
             return volume == other.volume && pan == other.pan && voices == other.voices
@@ -674,9 +719,37 @@ private:
                 && filterCutoffDepth == other.filterCutoffDepth
                 && filterQDepth == other.filterQDepth
                 && expressionReceive == other.expressionReceive
-                && sustainReceive == other.sustainReceive
-                && adEngine == other.adEngine && subEngine == other.subEngine;
+                && sustainReceive == other.sustainReceive;
         }
+    };
+
+    /**
+     * Ajustes aplicados na montagem (ver `kZynBuildParameterIds`). Todos têm um
+     * valor neutro que deixa o preset como veio no .xiz.
+     */
+    struct BuildMacros
+    {
+        /** -1 = manter o que veio no preset; 0 = desligar; 1 = ligar. */
+        int adEngine = -1;
+        int subEngine = -1;
+        int padEngine = -1;
+
+        /** Offset em dB do volume de cada motor (0 = como no preset). */
+        int adVolume = 0;
+        int subVolume = 0;
+        int padVolume = 0;
+
+        /** -64..64, 0 = como no preset. Cutoff/ressonância: ±4 oitavas/dobras; envelope: ×1/16..×16. */
+        int cutoff = 0;
+        int resonance = 0;
+        int attack = 0;
+        int decay = 0;
+        int sustain = 0;
+        int release = 0;
+
+        /** Efeitos internos: -1 = como no preset. Tipo 0 = sem efeito, 1..10 = Reverb..Reverse. */
+        int fxType[3] = { -1, -1, -1 };
+        int fxMix[3] = { -1, -1, -1 };
     };
 
     /** Carrega presets numa thread de baixa prioridade; a message thread
@@ -710,16 +783,20 @@ private:
 
             while (! threadShouldExit())
             {
-                if (! wake.wait (100))
+                if (! wake.wait (50))
+                {
+                    owner.serviceRebuild(); // knobs de montagem (macros, motores, FX)
                     continue;
+                }
                 wake.reset();
 
                 const int index = pending.exchange (-1, std::memory_order_relaxed);
-                if (index < 0)
-                    continue;
-
-                result.store (owner.loadProgramOnWorker (index), std::memory_order_relaxed);
-                done.signal();
+                if (index >= 0)
+                {
+                    result.store (owner.loadProgramOnWorker (index), std::memory_order_relaxed);
+                    done.signal();
+                }
+                owner.serviceRebuild();
             }
         }
 
@@ -743,6 +820,15 @@ private:
     std::unique_ptr<ZynInstance> instance;
     juce::SpinLock instanceLock;
     std::unique_ptr<Loader> loader;
+
+    /** Uma montagem por vez (Loader, troca de taxa e abertura de patch). Nunca na thread de áudio. */
+    juce::CriticalSection buildLock;
+    /** Preset atual como veio do .xiz/estado, sem os ajustes de montagem. */
+    juce::String baseInstrument;
+    juce::CriticalSection baseLock;
+    std::atomic<bool> rebuildRequested { false };
+    std::atomic<juce::uint32> rebuildStamp { 0 };
+    std::atomic<bool> suppressRebuild { false };
 
     /** Fade de 8 ms na troca: 0 = parado, 1 = saindo, 2 = entrando. */
     std::atomic<int> fadeState { 0 };
@@ -825,6 +911,24 @@ private:
         addBool ("sustainReceive", "Sustain Receive", true);
         addInt ("adEngine", "AD Engine", -1, 1, -1);
         addInt ("subEngine", "SUB Engine", -1, 1, -1);
+
+        // Z4b–d (sempre no fim: os índices dos parâmetros antigos não mudam).
+        addInt ("padEngine", "PAD Engine", -1, 1, -1);
+        addInt ("adVolume", "AD Volume", -24, 12, 0);
+        addInt ("subVolume", "SUB Volume", -24, 12, 0);
+        addInt ("padVolume", "PAD Volume", -24, 12, 0);
+        addInt ("cutoff", "Cutoff", -64, 64, 0);
+        addInt ("resonance", "Resonance", -64, 64, 0);
+        addInt ("attack", "Attack", -64, 64, 0);
+        addInt ("decay", "Decay", -64, 64, 0);
+        addInt ("sustain", "Sustain", -64, 64, 0);
+        addInt ("release", "Release", -64, 64, 0);
+        addInt ("fx1Type", "FX1 Type", -1, 10, -1);
+        addInt ("fx2Type", "FX2 Type", -1, 10, -1);
+        addInt ("fx3Type", "FX3 Type", -1, 10, -1);
+        addInt ("fx1Mix", "FX1 Mix", -1, 127, -1);
+        addInt ("fx2Mix", "FX2 Mix", -1, 127, -1);
+        addInt ("fx3Mix", "FX3 Mix", -1, 127, -1);
         return layout;
     }
 
@@ -860,9 +964,250 @@ private:
         state.filterQDepth = (int) std::lround (value ("filterQDepth"));
         state.expressionReceive = value ("expressionReceive") >= 0.5f;
         state.sustainReceive = value ("sustainReceive") >= 0.5f;
-        state.adEngine = (int) std::lround (value ("adEngine"));
-        state.subEngine = (int) std::lround (value ("subEngine"));
         return state;
+    }
+
+    int intValue (const char* id) const { return (int) std::lround (value (id)); }
+
+    BuildMacros currentBuildMacros() const
+    {
+        BuildMacros macros;
+        macros.adEngine = intValue ("adEngine");
+        macros.subEngine = intValue ("subEngine");
+        macros.padEngine = intValue ("padEngine");
+        macros.adVolume = intValue ("adVolume");
+        macros.subVolume = intValue ("subVolume");
+        macros.padVolume = intValue ("padVolume");
+        macros.cutoff = intValue ("cutoff");
+        macros.resonance = intValue ("resonance");
+        macros.attack = intValue ("attack");
+        macros.decay = intValue ("decay");
+        macros.sustain = intValue ("sustain");
+        macros.release = intValue ("release");
+        const char* const types[] = { "fx1Type", "fx2Type", "fx3Type" };
+        const char* const mixes[] = { "fx1Mix", "fx2Mix", "fx3Mix" };
+        for (int i = 0; i < 3; ++i)
+        {
+            macros.fxType[i] = intValue (types[i]);
+            macros.fxMix[i] = intValue (mixes[i]);
+        }
+        return macros;
+    }
+
+    /** Desloca cutoff e ressonância de um filtro (só quando o macro sai do neutro). */
+    static void shiftFilter (zyn::FilterParams* filter, int cutoff, int resonance)
+    {
+        if (filter == nullptr)
+            return;
+        if (cutoff != 0)
+            filter->basefreq = juce::jlimit (20.0f, 32000.0f,
+                                             filter->basefreq * std::pow (2.0f, (float) cutoff / 16.0f));
+        if (resonance != 0)
+            filter->baseq = juce::jlimit (0.1f, 1000.0f,
+                                          filter->baseq * std::pow (2.0f, (float) resonance / 16.0f));
+        filter->changed = true;
+    }
+
+    /** Estica os tempos e desloca o sustain de um envelope de amplitude. */
+    static void scaleEnvelope (zyn::EnvelopeParams* envelope, const BuildMacros& macros)
+    {
+        if (envelope == nullptr)
+            return;
+        if (macros.attack == 0 && macros.decay == 0 && macros.release == 0 && macros.sustain == 0)
+            return;
+
+        const auto factor = [] (int amount) { return std::pow (2.0f, (float) amount / 16.0f); };
+        const auto clampTime = [] (float seconds) { return juce::jlimit (0.0f, 41.0f, seconds); };
+        const float attack = factor (macros.attack);
+        const float decay = factor (macros.decay);
+        const float release = factor (macros.release);
+        const int sustainOffset = macros.sustain * 2;
+
+        if (! envelope->Pfreemode)
+        {
+            // Modo ADSR: o Envelope recalcula os pontos a partir destes campos em cada nota.
+            envelope->A_dt = clampTime (envelope->A_dt * attack);
+            envelope->D_dt = clampTime (envelope->D_dt * decay);
+            envelope->R_dt = clampTime (envelope->R_dt * release);
+            envelope->PS_val = (unsigned char) juce::jlimit (0, 127, (int) envelope->PS_val + sustainOffset);
+            return;
+        }
+
+        // Envelope livre: ponto 1 = ataque, até o sustain = decaimento, depois = liberação.
+        const int points = juce::jlimit (0, (int) MAX_ENVELOPE_POINTS, (int) envelope->Penvpoints);
+        const int sustainPoint = (int) envelope->Penvsustain;
+        for (int i = 1; i < points; ++i)
+        {
+            float amount = decay;
+            if (i == 1)
+                amount = attack;
+            else if (sustainPoint < points && i > sustainPoint)
+                amount = release;
+            envelope->envdt[i] = clampTime (envelope->envdt[i] * amount);
+        }
+        if (sustainPoint > 0 && sustainPoint < points)
+            envelope->Penvval[sustainPoint] = (unsigned char) juce::jlimit (
+                0, 127, (int) envelope->Penvval[sustainPoint] + sustainOffset);
+    }
+
+    /**
+     * Antes do `applyparameters`: liga/desliga motores (alocando os parâmetros
+     * que o preset não tinha) e aplica volume, filtro e envelope. Nunca deixa
+     * um motor ligado sem parâmetros: o NoteOn usaria um ponteiro nulo.
+     */
+    static void applyBuildMacros (ZynInstance& fresh, const BuildMacros& macros)
+    {
+        auto& part = *fresh.part;
+        for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+        {
+            auto& item = part.kit[n];
+            if (n > 0 && ! item.Penabled)
+                continue;
+
+            if (macros.adEngine == 1 && item.adpars == nullptr)
+                item.adpars = new zyn::ADnoteParameters (*fresh.synth, fresh.fft.get(), fresh.absTime.get());
+            if (macros.subEngine == 1 && item.subpars == nullptr)
+                item.subpars = new zyn::SUBnoteParameters (fresh.absTime.get());
+            if (macros.padEngine == 1 && item.padpars == nullptr)
+                item.padpars = new zyn::PADnoteParameters (*fresh.synth, fresh.fft.get(), fresh.absTime.get());
+
+            if (macros.adEngine >= 0)
+                item.Padenabled = macros.adEngine == 1;
+            if (macros.subEngine >= 0)
+                item.Psubenabled = macros.subEngine == 1;
+            if (macros.padEngine >= 0)
+                item.Ppadenabled = macros.padEngine == 1;
+
+            item.Padenabled = item.Padenabled && item.adpars != nullptr;
+            item.Psubenabled = item.Psubenabled && item.subpars != nullptr;
+            item.Ppadenabled = item.Ppadenabled && item.padpars != nullptr;
+
+            if (auto* ad = item.adpars)
+            {
+                auto& global = ad->GlobalPar;
+                if (macros.adVolume != 0)
+                    global.Volume = juce::jlimit (-47.9588f, 32.0412f, global.Volume + (float) macros.adVolume);
+                if (macros.cutoff != 0 || macros.resonance != 0)
+                {
+                    shiftFilter (global.GlobalFilter, macros.cutoff, macros.resonance);
+                    for (auto& voice : ad->VoicePar)
+                        if (voice.Enabled && voice.PFilterEnabled)
+                            shiftFilter (voice.VoiceFilter, macros.cutoff, macros.resonance);
+                }
+                scaleEnvelope (global.AmpEnvelope, macros);
+            }
+
+            if (auto* sub = item.subpars)
+            {
+                if (macros.subVolume != 0)
+                    sub->Volume = juce::jlimit (-60.0f, 20.0f, sub->Volume + (float) macros.subVolume);
+                if (macros.cutoff != 0 || macros.resonance != 0)
+                    shiftFilter (sub->GlobalFilter, macros.cutoff, macros.resonance);
+                scaleEnvelope (sub->AmpEnvelope, macros);
+            }
+
+            if (auto* pad = item.padpars)
+            {
+                // PVolume: 96 = 0 dB, cada passo = 0,625 dB (PADnote.cpp).
+                if (macros.padVolume != 0)
+                    pad->PVolume = (unsigned char) juce::jlimit (
+                        0, 127, (int) pad->PVolume + (int) std::lround ((float) macros.padVolume / 0.625f));
+                if (macros.cutoff != 0 || macros.resonance != 0)
+                    shiftFilter (pad->GlobalFilter, macros.cutoff, macros.resonance);
+                scaleEnvelope (pad->AmpEnvelope, macros);
+            }
+        }
+    }
+
+    /**
+     * Depois do `initialize_rt` e antes de instalar: troca o tipo e o mix dos
+     * efeitos internos. O instrumento ainda não está tocando, então as funções
+     * "rt" do Zyn rodam aqui sem disputar a thread de áudio.
+     */
+    static void applyEffectMacros (zyn::Part& part, const BuildMacros& macros)
+    {
+        for (int i = 0; i < NUM_PART_EFX; ++i)
+        {
+            auto* effect = part.partefx[i];
+            if (effect == nullptr)
+                continue;
+            const int type = macros.fxType[i];
+            if (type >= 0 && type <= 10 && type != effect->geteffect())
+                effect->changeeffectrt (type);
+            // Parâmetro 0 = volume/mix em todos os efeitos do Zyn.
+            if (macros.fxMix[i] >= 0 && effect->geteffect() != 0)
+                effect->seteffectparrt (0, (unsigned char) juce::jlimit (0, 127, macros.fxMix[i]));
+        }
+    }
+
+    // ---- Preset original e remontagem ---------------------------------------
+
+    juce::String baseInstrumentCopy() const
+    {
+        const juce::ScopedLock lock (baseLock);
+        return baseInstrument;
+    }
+
+    void setBaseInstrument (const juce::String& text)
+    {
+        const juce::ScopedLock lock (baseLock);
+        baseInstrument = text;
+    }
+
+    void requestRebuild()
+    {
+        rebuildStamp.store (juce::Time::getMillisecondCounter(), std::memory_order_relaxed);
+        rebuildRequested.store (true, std::memory_order_relaxed);
+    }
+
+    /** Pode vir de qualquer thread: só marca a remontagem (sem trava nem alocação). */
+    void parameterChanged (const juce::String&, float) override
+    {
+        if (! suppressRebuild.load())
+            requestRebuild();
+    }
+
+    /** Thread do Loader: remonta quando os knobs de montagem pararam de mexer. */
+    void serviceRebuild()
+    {
+        if (! rebuildRequested.load (std::memory_order_relaxed))
+            return;
+        const auto now = juce::Time::getMillisecondCounter();
+        if (now - rebuildStamp.load (std::memory_order_relaxed) < kZynRebuildDebounceMs)
+            return;
+        rebuildRequested.store (false, std::memory_order_relaxed);
+        rebuildFromBase();
+    }
+
+    /** Monta de novo o preset atual (original + ajustes) e troca com fade. */
+    void rebuildFromBase()
+    {
+        const juce::ScopedLock build (buildLock);
+        const auto base = baseInstrumentCopy();
+        auto fresh = createInstance (currentSampleRate);
+        if (base.isNotEmpty() && ! readInstrument (*fresh->part, base))
+            return;
+        finishInstance (*fresh);
+        prewarmInstance (*fresh);
+        applyHeldNotes (*fresh);
+        install (std::move (fresh));
+    }
+
+    /** Preset do instrumento como saiu do .xiz, antes dos ajustes de montagem. */
+    static juce::String capturePart (zyn::Part& part)
+    {
+        zyn::XMLwrapper xml;
+        xml.beginbranch ("PRESETER_INSTRUMENT");
+        part.add2XMLinstrument (xml);
+        xml.endbranch();
+
+        char* data = xml.getXMLdata();
+        if (data == nullptr)
+            return {};
+
+        const auto text = juce::String::fromUTF8 (data);
+        std::free (data);
+        return text;
     }
 
     void writeMacros (zyn::Part& part, const MacroState& macros)
@@ -903,14 +1248,9 @@ private:
         part.ctl.expression.receive = macros.expressionReceive;
         part.ctl.setexpression();
         part.ctl.sustain.receive = macros.sustainReceive;
-
-        // -1 = preserva o que veio no preset; 0/1 desliga/liga o motor no kit inteiro.
-        if (macros.adEngine >= 0)
-            for (int n = 0; n < NUM_KIT_ITEMS; ++n)
-                part.kit[n].Padenabled = macros.adEngine == 1;
-        if (macros.subEngine >= 0)
-            for (int n = 0; n < NUM_KIT_ITEMS; ++n)
-                part.kit[n].Psubenabled = macros.subEngine == 1;
+        // Os motores (AD/SUB/PAD) não são ligados aqui: esta função roda na thread
+        // de áudio e ligar um motor sem parâmetros alocados derrubava o NoteOn.
+        // Eles entram na montagem (`applyBuildMacros`).
     }
 
     /** Thread de áudio: aplica os knobs do painel quando eles mudam. */
@@ -958,6 +1298,9 @@ private:
      */
     void finishInstance (ZynInstance& fresh, ZynLoadProfile* profile = nullptr)
     {
+        const auto build = currentBuildMacros();
+        applyBuildMacros (fresh, build);
+
         const auto applyStart = diagTicksNow();
         fresh.part->applyparameters();
         if (profile != nullptr)
@@ -968,6 +1311,7 @@ private:
         if (profile != nullptr)
             profile->initializeRtMs = diagElapsedMs (initStart);
 
+        applyEffectMacros (*fresh.part, build);
         writeMacros (*fresh.part, currentMacros());
         fresh.part->ctl.setpitchwheel (pitchWheel.load());
     }
@@ -1043,6 +1387,7 @@ private:
 
     bool loadPreset (const juce::String& path, int index = -1)
     {
+        const juce::ScopedLock build (buildLock);
         ZynLoadProfile profile;
         profile.path = path;
         profile.index = index;
@@ -1066,6 +1411,9 @@ private:
             return false;
         }
 
+        // Cópia limpa do preset (antes dos ajustes): é dela que o instrumento é
+        // remontado quando um macro muda e é ela que vai para o estado do patch.
+        setBaseInstrument (capturePart (*fresh->part));
         finishInstance (*fresh, &profile);
         prewarmInstance (*fresh, &profile);
         applyHeldNotes (*fresh);

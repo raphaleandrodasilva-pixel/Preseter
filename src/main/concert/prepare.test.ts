@@ -16,7 +16,9 @@ function assignment(
   };
 }
 
-const sounds = 'C:/Sons';
+// Absoluto em qualquer sistema: "C:/Sons" não é absoluto no Linux e o
+// path.resolve do código prefixaria a pasta atual (falhava no CI).
+const sounds = path.resolve(path.sep, 'Sons');
 
 describe('collectConcertPrepareItems', () => {
   it('deduplica programas de sampler e resolve caminho relativo', () => {
