@@ -54,6 +54,29 @@ describe('collectConcertPrepareItems', () => {
     });
   });
 
+  it('normaliza caminhos Windows mesmo simulando Linux', () => {
+    const original = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    try {
+      const plan = collectConcertPrepareItems(
+        [
+          createPreset({
+            plugins: [
+              assignment({ samplePath: 'Piano.sf2' }),
+              assignment({ samplePath: 'C:/Sons/Piano.sf2' }),
+            ],
+          }),
+        ],
+        sounds
+      );
+
+      expect(plan.samplerFiles).toBe(1);
+      expect(plan.items[0]).toMatchObject({ path: 'C:/Sons/Piano.sf2' });
+    } finally {
+      Object.defineProperty(process, 'platform', { value: original, configurable: true });
+    }
+  });
+
   it('coloca os nativos depois dos samplers e sem repetir', () => {
     const presets: Preset[] = [
       createPreset({

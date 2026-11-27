@@ -53,7 +53,24 @@ export function collectConcertPrepareItems(
   const natives = new Map<string, NativePrepareItem>();
   let patchCount = 0;
 
-  const resolveSamplePath = (file: string): string => path.resolve(soundsFolder, file);
+  // Concertos criados no Windows podem trazer caminhos "C:/..." mesmo quando
+  // a preparação roda no Linux (CI/testes). `path.resolve` trataria "C:/Sons"
+  // como relativo e criaria "/home/runner/.../C:/Sons"; normaliza pelo win32.
+  const isWindowsAbsolute = (value: string): boolean =>
+    /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
+
+  const windowsStyle = (value: string): string => {
+    const normalized = path.win32.normalize(value);
+    return process.platform === 'win32' ? normalized : normalized.replace(/\\/g, '/');
+  };
+
+  const resolveSamplePath = (file: string): string => {
+    if (isWindowsAbsolute(file))
+      return windowsStyle(file);
+    if (isWindowsAbsolute(soundsFolder))
+      return windowsStyle(path.win32.join(soundsFolder, file));
+    return path.resolve(soundsFolder, file);
+  };
 
   const addSampler = (label: string, file: string, bank: number, program: number): void => {
     const resolved = resolveSamplePath(file);
