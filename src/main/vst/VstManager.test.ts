@@ -935,6 +935,82 @@ describe('VstManager plugin operations', () => {
     }, 60_000);
   });
 
+  it('carrega insert em modo staged, sem reconstruir o grafo ainda', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'setInsert') return { layerId: 'layer-1', slot: 0, loaded: true };
+      return undefined;
+    });
+
+    expect(await manager.stageInsert('layer-1', 1, 'C:/fx.vst3')).toMatchObject({ loaded: true });
+    expect(request).toHaveBeenCalledWith(
+      'setInsert',
+      { layerId: 'layer-1', slot: 1, path: 'C:/fx.vst3', bypass: false, stage: true },
+      60_000
+    );
+  });
+
+  it('prepara sampler, nativo e cache na abertura do concert', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'samplerPrepare') {
+        return {
+          ok: true,
+          cacheHit: true,
+          ms: 3,
+          name: 'Piano',
+          format: 'SF2',
+          regions: 1,
+          samples: 2,
+          bytes: 10,
+          error: '',
+        };
+      }
+      if (command === 'nativePrepare') {
+        return { ok: true, ms: 2, name: 'Preseter Zyn', error: '' };
+      }
+      if (command === 'samplerCacheReserve') {
+        return { files: 1, entries: 1, maxFiles: 3, maxEntries: 9 };
+      }
+      if (command === 'samplerCacheStats') {
+        return { files: 1, entries: 1, maxFiles: 3, maxEntries: 9, hits: 1, misses: 0, evictions: 0 };
+      }
+      return undefined;
+    });
+
+    await expect(
+      manager.prepareSampler({ path: 'C:/p.sf2', bank: 2, program: 5 })
+    ).resolves.toMatchObject({ cacheHit: true, name: 'Piano' });
+    expect(request).toHaveBeenCalledWith(
+      'samplerPrepare',
+      { path: 'C:/p.sf2', bank: 2, program: 5 },
+      1_800_000
+    );
+
+    await expect(manager.prepareNative('preseter.zyn')).resolves.toMatchObject({ ok: true });
+    expect(request).toHaveBeenCalledWith(
+      'nativePrepare',
+      {
+        plugin: 'preseter.zyn',
+        factoryPatches: '',
+        zynBankDir: '',
+        zynUserDir: '',
+      },
+      120_000
+    );
+
+    await expect(manager.reserveSamplerCache(4, 8)).resolves.toMatchObject({ maxFiles: 3 });
+    await expect(manager.samplerCacheStats()).resolves.toMatchObject({ hits: 1 });
+  });
+
+  it('pede ao engine as estatísticas da troca de patch (T0)', async () => {
+    const { manager, request } = await loadedManager((command) => {
+      if (command === 'swapStats') return { ops: [], midi: {}, xruns: 0 };
+      return undefined;
+    });
+
+    expect(await manager.swapStats(true)).toMatchObject({ xruns: 0 });
+    expect(request).toHaveBeenCalledWith('swapStats', { reset: true });
+  });
+
   it('uses a parameter snapshot when insert state cannot be read (LV2)', async () => {
     const { manager } = await loadedManager((command) => {
       if (command === 'getState') throw new Error('not loaded');

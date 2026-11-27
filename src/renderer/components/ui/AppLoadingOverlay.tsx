@@ -70,7 +70,7 @@ export const AppLoadingOverlay: React.FC = () => {
               />
             </div>
             <div className="mt-1 text-[10px]" style={{ color: '#6E6E73' }}>
-              O áudio continua disponível durante o carregamento.
+              O patch atual continua soando até a troca.
             </div>
           </>
         )}

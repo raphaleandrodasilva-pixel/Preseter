@@ -28,8 +28,9 @@ afterAll(() => {
 
 describe('main process IPC wiring', () => {
   it('registers the complete renderer contract', () => {
-    expect(handlers.size).toBe(141);
+    expect(handlers.size).toBe(142);
     for (const channel of [
+      'concert-prepare-cancel',
       'get-app-version',
       'midi-program-change',
       'vst-scan',

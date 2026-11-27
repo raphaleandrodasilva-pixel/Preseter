@@ -251,14 +251,21 @@ std::shared_ptr<Instrument> InstrumentCache::load (const juce::File& file, int b
         const juce::ScopedLock scopedLock (lock);
         for (const auto& entry : entries)
             if (entry.key == key)
+            {
+                ++hits;
                 return entry.instrument;
+            }
         for (const auto& entry : files)
             if (entry.key == fileKey)
             {
                 auto instrument = entry.instrument->cloneForProgram (bank, program);
                 entries.push_back ({ key, instrument });
-                if ((int) entries.size() > kMaxEntries)
+                ++hits;
+                if ((int) entries.size() > maxEntries)
+                {
                     entries.erase (entries.begin());
+                    ++evictions;
+                }
                 return instrument;
             }
     }
@@ -270,7 +277,10 @@ std::shared_ptr<Instrument> InstrumentCache::load (const juce::File& file, int b
     const juce::ScopedLock scopedLock (lock);
     for (const auto& entry : entries)
         if (entry.key == key)
+        {
+            ++hits;
             return entry.instrument;
+        }
 
     std::shared_ptr<Instrument> instrument;
     for (const auto& entry : files)
@@ -283,15 +293,84 @@ std::shared_ptr<Instrument> InstrumentCache::load (const juce::File& file, int b
     if (instrument == nullptr)
     {
         files.push_back ({ fileKey, base });
-        if ((int) files.size() > kMaxFiles)
+        if ((int) files.size() > maxFiles)
+        {
             files.erase (files.begin());
+            ++evictions;
+        }
         instrument = base->cloneForProgram (bank, program);
     }
 
     entries.push_back ({ key, instrument });
-    if ((int) entries.size() > kMaxEntries)
+    ++misses;
+    if ((int) entries.size() > maxEntries)
+    {
         entries.erase (entries.begin());
+        ++evictions;
+    }
     return instrument;
+}
+
+bool InstrumentCache::prepare (const juce::File& file, int bank, int program,
+                               PrepareResult& result)
+{
+    const auto started = juce::Time::getMillisecondCounterHiRes();
+    const auto fileKey = file.getFullPathName()
+                       + "|" + juce::String (file.getSize())
+                       + "|" + juce::String (file.getLastModificationTime().toMilliseconds());
+    const auto key = fileKey + "|" + juce::String (bank) + ":" + juce::String (program);
+
+    {
+        const juce::ScopedLock scopedLock (lock);
+        for (const auto& entry : entries)
+            if (entry.key == key)
+                result.cacheHit = true;
+        if (! result.cacheHit)
+            for (const auto& entry : files)
+                if (entry.key == fileKey)
+                    result.cacheHit = true;
+    }
+
+    juce::String error;
+    auto instrument = load (file, bank, program, error);
+    result.ms = juce::Time::getMillisecondCounterHiRes() - started;
+    result.fileBytes = file.getSize();
+    if (instrument == nullptr)
+    {
+        result.ok = false;
+        result.error = error.isNotEmpty() ? error
+                                          : juce::String ("Nao foi possivel carregar o instrumento.");
+        return false;
+    }
+
+    result.ok = true;
+    result.error = {};
+    result.name = instrument->getName();
+    result.format = instrument->getFormat();
+    result.regions = instrument->getRegionCount();
+    result.samples = instrument->getSampleCount();
+    return true;
+}
+
+void InstrumentCache::reserve (int filesNeeded, int programsNeeded)
+{
+    const juce::ScopedLock scopedLock (lock);
+    maxFiles = juce::jmax (maxFiles, filesNeeded + 2);
+    maxEntries = juce::jmax (maxEntries, programsNeeded + 8);
+}
+
+InstrumentCache::Stats InstrumentCache::stats() const
+{
+    const juce::ScopedLock scopedLock (lock);
+    Stats result;
+    result.files = (int) files.size();
+    result.entries = (int) entries.size();
+    result.maxFiles = maxFiles;
+    result.maxEntries = maxEntries;
+    result.hits = hits;
+    result.misses = misses;
+    result.evictions = evictions;
+    return result;
 }
 
 void InstrumentCache::preloadAsync (const juce::File& file, int bank, int program)
@@ -345,6 +424,9 @@ void InstrumentCache::clear()
         const juce::ScopedLock scopedLock (lock);
         entries.clear();
         files.clear();
+        hits = 0;
+        misses = 0;
+        evictions = 0;
     }
     const juce::ScopedLock scopedLock (preloadLock);
     preloadQueue.clear();

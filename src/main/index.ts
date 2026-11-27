@@ -36,6 +36,7 @@ import {
   type LibrarySummary,
 } from '../shared/library/format';
 import { SAMPLE_LIBRARY_FILES } from '../shared/collection-presets';
+import { collectConcertPrepareItems } from './concert/prepare';
 import { findFactoryDrumPattern, toEngineDrumPattern } from '../shared/drum-patterns';
 import { PerformanceMode } from './performance/PerformanceMode';
 import {
@@ -184,6 +185,10 @@ class MainWindow {
   private lastLoadedPresetId: string | null = null;
   /** Fila para não carregar patches concorrentemente. */
   private patchLoadQueue: Promise<unknown> = Promise.resolve();
+  /** Preparação do concert (instrumentos prontos antes de liberar o palco). */
+  private concertPreparePromise: Promise<void> | null = null;
+  private concertPrepareToken = 0;
+  private concertPrepareCancelled = false;
   /** Serializa start/stop/restart de áudio: uma abertura por vez. */
   private audioOperationQueue: Promise<unknown> = Promise.resolve();
   private patchLoadInFlight: { id: string; promise: Promise<boolean> } | null = null;
@@ -1643,8 +1648,13 @@ class MainWindow {
         plugins: templatePlugins,
         soundsFolder: this.soundsFolder(),
       });
-      this.preloadConcertSamplers();
-      return state;
+      await this.beginConcertPrepare();
+      return this.concertManager.getState();
+    });
+
+    ipcMain.handle('concert-prepare-cancel', () => {
+      this.concertPrepareCancelled = true;
+      return { cancelled: true };
     });
 
     ipcMain.handle('concert-templates', () => listTemplates());
@@ -1922,6 +1932,25 @@ class MainWindow {
     const preset = this.concertManager.getPreset(presetId);
     if (!preset) return false;
 
+    // Abrir um concert prepara todos os instrumentos. Se um patch for pedido
+    // durante essa preparação (atalho, clique, restauração), espera terminar:
+    // o palco só toca com os instrumentos prontos.
+    if (this.concertPreparePromise) {
+      try {
+        await this.concertPreparePromise;
+      } catch {
+        /* a preparação já registra os próprios erros */
+      }
+    }
+
+    // T0: zera os contadores do engine para medir esta troca.
+    const swapStartedAt = Date.now();
+    try {
+      await this.vstManager.swapStats(true);
+    } catch {
+      /* diagnóstico não pode impedir a troca */
+    }
+
     this.lastLoadedPresetId = preset.id;
     this.concertManager.setLastPatchId(preset.id);
 
@@ -1933,6 +1962,8 @@ class MainWindow {
     // Carrega o patch novo em modo encadeado, reaproveitando instâncias iguais, e só
     // depois troca o grafo de uma vez. O patch anterior segue soando até as caudas acabarem.
     const restoredStateKeys = new Set<string>();
+    /** Medição (T0): quanto cada `stageLoad` levou nesta troca. */
+    const layerLoadMs: Array<{ name: string; ms: number }> = [];
     /** Layers cujo estado do instrumento foi restaurado (não recebem o padrão de fábrica). */
     const restoredLayers = new Set<string>();
     /** Layers de Drums que caíram no sampler (motor antigo sem o nativo). */
@@ -1966,6 +1997,7 @@ class MainWindow {
         : samplePath;
 
       let plugin: VstPluginInfo;
+      const stageStartedAt = Date.now();
       try {
         plugin = await this.vstManager.stageLoad(
           nativeSampler ? 'preseter.sampler' : assignment.path,
@@ -2015,6 +2047,7 @@ class MainWindow {
         );
         drumsFallback.add(layerId);
       }
+      layerLoadMs.push({ name: assignment.name, ms: Date.now() - stageStartedAt });
       activeLayerIds.add(layerId);
       await this.vstManager.setLayerMix(layerId, assignment.mix ?? {});
       // Antes da troca: camadas por velocity não podem soar juntas na primeira nota.
@@ -2067,24 +2100,16 @@ class MainWindow {
       }
     }
 
-    await this.vstManager.commitPatchSwap(silencePrevious);
-
-    // Depois da troca de áudio, o restante é configuração independente. Rodar em
-    // paralelo evita segurar a interface em 90% enquanto cada CC é aplicado.
-    await Promise.all([
-      this.applyCurrentTranspose(preset),
-      this.applyCurrentAudioInput(preset),
-      this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false }),
-    ]);
-
-    // Inserts (efeitos) por channel strip: carrega depois da troca e restaura o estado (Fase 3.1).
+    // Inserts (efeitos) por channel strip do patch novo: entram em modo staged,
+    // antes do commit. Sem reconstruir o grafo a cada slot; o commit faz uma
+    // única reconstrução e o patch já fica completo.
     for (const [index, assignment] of assignments.entries()) {
       const layerId = assignment.layerId ?? `${preset.id}:layer:${index}`;
       if (assignment.externalMidi || !activeLayerIds.has(layerId)) continue;
       const inserts = [...(assignment.inserts ?? [])].sort((a, b) => a.slot - b.slot);
       for (const insert of inserts) {
         try {
-          await this.vstManager.setInsert(layerId, insert.slot, insert.path, insert.bypass ?? false);
+          await this.vstManager.stageInsert(layerId, insert.slot, insert.path, insert.bypass ?? false);
         } catch (error) {
           console.warn(`[Preseter] Não foi possível carregar o efeito "${insert.name}":`, error);
           continue;
@@ -2098,6 +2123,18 @@ class MainWindow {
         }
       }
     }
+
+    const commitStartedAt = Date.now();
+    await this.vstManager.commitPatchSwap(silencePrevious);
+    const commitMs = Date.now() - commitStartedAt;
+
+    // Depois da troca de áudio, o restante é configuração independente. Rodar em
+    // paralelo evita segurar a interface em 90% enquanto cada CC é aplicado.
+    await Promise.all([
+      this.applyCurrentTranspose(preset),
+      this.applyCurrentAudioInput(preset),
+      this.vstManager.setMasterMix(preset.masterMix ?? { volumeDb: 0, muted: false }),
+    ]);
 
     // Sends (Aux) e saída (Output) de cada channel strip (Fase 3.2).
     await Promise.all(
@@ -2199,6 +2236,35 @@ class MainWindow {
       name: preset.name,
       programNumber: preset.programNumber,
     });
+
+    // T0: uma linha por troca no audio-session.log.
+    try {
+      const stats = await this.vstManager.swapStats(false);
+      const ops = Array.isArray(stats.ops) ? stats.ops : [];
+      const worst = ops.reduce<{ name?: string; holdMaxMs?: number; waitMaxMs?: number }>(
+        (acc, item) => {
+          const entry = item as { name?: string; holdMaxMs?: number; waitMaxMs?: number };
+          const total = (entry.holdMaxMs ?? 0) + (entry.waitMaxMs ?? 0);
+          const current = (acc.holdMaxMs ?? 0) + (acc.waitMaxMs ?? 0);
+          return total > current ? entry : acc;
+        },
+        {}
+      );
+      this.audioLog('patch-switch', {
+        presetId,
+        presetName: preset.name,
+        layers: assignments.length,
+        inserts: assignments.reduce((sum, item) => sum + (item.inserts?.length ?? 0), 0),
+        silencePrevious,
+        stageLoad: layerLoadMs,
+        commitMs,
+        totalMs: Date.now() - swapStartedAt,
+        worst,
+        stats,
+      });
+    } catch {
+      /* diagnóstico nunca atrapalha a troca */
+    }
 
     return true;
   }
@@ -2467,11 +2533,11 @@ class MainWindow {
       // Grava a migração para não repeti-la na próxima abertura.
       try {
         const saved = this.concertManager.saveTo(this.defaultConcertPath(state.name));
-        this.preloadConcertSamplers();
+        void this.beginConcertPrepare();
         return saved;
       } catch (error) {
         console.warn('[Preseter] Não foi possível gravar o concert migrado:', error);
-        this.preloadConcertSamplers();
+        void this.beginConcertPrepare();
         return state;
       }
     }
@@ -2479,7 +2545,7 @@ class MainWindow {
     // Usa o template vazio como padrão inicial. O usuário pode escolher outro
     // ao criar um novo concert pelo seletor de templates.
     const state = this.concertManager.newConcert('vazio');
-    this.preloadConcertSamplers();
+    void this.beginConcertPrepare();
     return state;
   }
 
@@ -2499,10 +2565,14 @@ class MainWindow {
     return this.openConcertPath(result.filePaths[0]);
   }
 
-  private openConcertPath(filePath: string): ConcertState {
-    const state = this.concertManager.openFromPath(filePath);
-    this.preloadConcertSamplers();
-    return state;
+  private async openConcertPath(filePath: string): Promise<ConcertState> {
+    this.concertManager.openFromPath(filePath);
+    // Espera um patch que já estava carregando terminar; depois prepara o novo
+    // concert com o palco antigo ainda no ar.
+    await this.patchLoadQueue.catch(() => undefined);
+    await this.beginConcertPrepare();
+    // Se outro concert foi aberto no meio, devolve o estado atual (o mais novo).
+    return this.concertManager.getState();
   }
 
   /** Salva o concert (pedindo o caminho quando necessário). null = cancelado. */
@@ -3301,40 +3371,143 @@ class MainWindow {
   }
 
   /**
-   * Pré-carrega em segundo plano todos os instrumentos do sampler usados pelo
-   * concert. Depois desse aquecimento, a troca de patch vira cache hit.
+   * Prepara o concert inteiro antes de liberar o palco: todo instrumento de
+   * sampler (o que pesa na troca) e os bancos dos nativos, um por vez.
+   *
+   * A interface recebe o progresso por eventos e só libera a troca de patch no
+   * fim (ou no cancelamento). A promise é aguardada por `loadPresetNow`, então
+   * mesmo um carregamento pedido no meio espera os instrumentos ficarem prontos.
    */
-  private preloadConcertSamplers(): void {
-    const items = new Map<string, { path: string; bank: number; program: number }>();
-    const presets = [...this.concertManager.getPresets()].sort(
-      (a, b) => a.programNumber - b.programNumber
-    );
-    for (const preset of presets) {
-      for (const assignment of preset.plugins ?? []) {
-        if (!isNativeSamplerAssignment(assignment) || !assignment.samplePath) continue;
-        const filePath = path.isAbsolute(assignment.samplePath)
-          ? assignment.samplePath
-          : path.join(this.soundsFolder(), assignment.samplePath);
-        const bank = assignment.bank ?? 0;
-        const program = assignment.programIndex ?? 0;
-        const key = `${filePath}|${bank}|${program}`;
-        if (!items.has(key)) items.set(key, { path: filePath, bank, program });
-      }
+  private beginConcertPrepare(): Promise<void> {
+    const token = ++this.concertPrepareToken;
+    this.concertPrepareCancelled = false;
+    const run = this.runConcertPrepare(token).catch((error) => {
+      // A preparação nunca pode impedir o concert de abrir: registra e segue.
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('[Preseter] Falha ao preparar o concert:', error);
+      this.sendToRenderer('concert-prepare-done', {
+        total: 0,
+        done: 0,
+        elapsedMs: 0,
+        cacheHits: 0,
+        errors: [{ name: 'Preparação do concert', error: message }],
+        cache: null,
+      });
+      this.audioLog('concert-prepare-error', { message });
+    });
+    this.concertPreparePromise = run;
+    void run
+      .finally(() => {
+        if (this.concertPrepareToken === token) this.concertPreparePromise = null;
+      })
+      .catch(() => undefined);
+    return run;
+  }
+
+  private async runConcertPrepare(token: number): Promise<void> {
+    const plan = collectConcertPrepareItems(this.concertManager.getPresets(), this.soundsFolder());
+    if (plan.items.length === 0) return;
+
+    const total = plan.items.length;
+    const startedAt = Date.now();
+    const errors: Array<{ name: string; error: string }> = [];
+    let done = 0;
+    let cacheHits = 0;
+
+    this.sendToRenderer('concert-prepare-start', {
+      total,
+      patches: plan.patchCount,
+      samplers: plan.samplerPrograms,
+      natives: total - plan.samplerPrograms,
+    });
+
+    try {
+      await this.vstManager.reserveSamplerCache(plan.samplerFiles, plan.samplerPrograms);
+    } catch (error) {
+      console.warn('[Preseter] Não foi possível dimensionar o cache de samplers:', error);
     }
-    if (items.size === 0) return;
-    const timer = setTimeout(() => {
-      void this.vstManager
-        .preloadSamplers([...items.values()])
-        .then((queued) => {
-          if (queued > 0) {
-            console.log(`[Preseter] Pré-carregando ${queued} instrumento(s) do sampler.`);
+
+    for (const item of plan.items) {
+      if (token !== this.concertPrepareToken || this.concertPrepareCancelled) {
+        this.sendToRenderer('concert-prepare-cancelled', { done, total });
+        this.audioLog('concert-prepare-cancelled', { done, total });
+        return;
+      }
+
+      this.sendToRenderer('concert-prepare-progress', {
+        done,
+        total,
+        name: item.label,
+        kind: item.kind,
+        phase: 'loading',
+      });
+
+      try {
+        if (item.kind === 'sampler') {
+          const result = await this.vstManager.prepareSampler({
+            path: item.path,
+            bank: item.bank,
+            program: item.program,
+          });
+          if (result.cacheHit) cacheHits += 1;
+          if (!result.ok) {
+            errors.push({
+              name: item.label,
+              error: result.error?.trim() || 'Não foi possível carregar o instrumento.',
+            });
           }
-        })
-        .catch((error) => {
-          console.warn('[Preseter] Falha ao pré-carregar os samplers do concert:', error);
+        } else {
+          const result = await this.vstManager.prepareNative(item.plugin);
+          if (!result.ok) {
+            errors.push({
+              name: item.label,
+              error: result.error?.trim() || 'Não foi possível preparar o instrumento.',
+            });
+          }
+        }
+      } catch (error) {
+        errors.push({
+          name: item.label,
+          error: error instanceof Error ? error.message : String(error),
         });
-    }, 1200);
-    timer.unref?.();
+      }
+
+      done += 1;
+      this.sendToRenderer('concert-prepare-progress', {
+        done,
+        total,
+        name: item.label,
+        kind: item.kind,
+        phase: 'done',
+      });
+    }
+
+    let cache: unknown = null;
+    try {
+      cache = await this.vstManager.samplerCacheStats();
+    } catch {
+      /* diagnóstico opcional */
+    }
+
+    if (token !== this.concertPrepareToken) return;
+
+    const elapsedMs = Date.now() - startedAt;
+    this.sendToRenderer('concert-prepare-done', {
+      total,
+      done,
+      elapsedMs,
+      cacheHits,
+      errors,
+      cache,
+    });
+    this.audioLog('concert-prepare', {
+      total,
+      done,
+      elapsedMs,
+      cacheHits,
+      errors: errors.length,
+      patches: plan.patchCount,
+    });
   }
 
   /** Pasta das gravações: preferência do usuário ou Música (fallback Documentos). */

@@ -80,6 +80,14 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "swapStats")
+    {
+        if (boolArg (message, "reset", false))
+            engine.resetSwapStats();
+        ok (id, engine.describeSwapStats());
+        return;
+    }
+
     if (cmd == "audioControlPanel")
     {
         if (auto error = engine.showAudioControlPanel(); error.isNotEmpty())
@@ -311,6 +319,99 @@ void CommandRouter::handleLine (const juce::String& line)
             }
         }
         ok (id, Obj().set ("queued", queued));
+        return;
+    }
+
+    if (cmd == "samplerPrepare")
+    {
+        const auto path = message["path"].toString();
+        if (path.isEmpty())
+        {
+            fail (id, "Informe \"path\" do instrumento.");
+            return;
+        }
+
+        sampler::InstrumentCache::PrepareResult prepared;
+        sampler::InstrumentCache::get().prepare (
+            juce::File (path), intArg (message, "bank", 0), intArg (message, "program", 0),
+            prepared);
+
+        ok (id, Obj()
+                    .set ("ok", prepared.ok)
+                    .set ("cacheHit", prepared.cacheHit)
+                    .set ("ms", prepared.ms)
+                    .set ("name", prepared.name)
+                    .set ("format", prepared.format)
+                    .set ("regions", prepared.regions)
+                    .set ("samples", prepared.samples)
+                    .set ("bytes", (juce::int64) prepared.fileBytes)
+                    .set ("error", prepared.error));
+        return;
+    }
+
+    if (cmd == "samplerCacheReserve")
+    {
+        sampler::InstrumentCache::get().reserve (intArg (message, "files", 0),
+                                                 intArg (message, "programs", 0));
+        const auto stats = sampler::InstrumentCache::get().stats();
+        ok (id, Obj()
+                    .set ("files", stats.files)
+                    .set ("entries", stats.entries)
+                    .set ("maxFiles", stats.maxFiles)
+                    .set ("maxEntries", stats.maxEntries));
+        return;
+    }
+
+    if (cmd == "samplerCacheStats")
+    {
+        const auto stats = sampler::InstrumentCache::get().stats();
+        ok (id, Obj()
+                    .set ("files", stats.files)
+                    .set ("entries", stats.entries)
+                    .set ("maxFiles", stats.maxFiles)
+                    .set ("maxEntries", stats.maxEntries)
+                    .set ("hits", (juce::int64) stats.hits)
+                    .set ("misses", (juce::int64) stats.misses)
+                    .set ("evictions", (juce::int64) stats.evictions));
+        return;
+    }
+
+    if (cmd == "nativePrepare")
+    {
+        const auto key = message["plugin"].toString();
+        if (key.isEmpty())
+        {
+            fail (id, "Informe \"plugin\" do instrumento nativo.");
+            return;
+        }
+
+        const auto started = juce::Time::getMillisecondCounterHiRes();
+        juce::String error;
+        juce::String name;
+
+        {
+            auto processor = native::createNativeProcessor (key);
+            if (processor == nullptr)
+            {
+                error = "Instrumento nativo desconhecido: " + key;
+            }
+            else
+            {
+                name = processor->getName();
+                // Aquece os bancos que o patch vai precisar (mesmas pastas do stageLoad).
+                if (key == "preseter.synth2")
+                    processor->loadSynth2FactoryPrograms (message["factoryPatches"].toString());
+                if (key == "preseter.zyn")
+                    processor->setZynBankDirs (message["zynBankDir"].toString(),
+                                               message["zynUserDir"].toString());
+            }
+        }
+
+        ok (id, Obj()
+                    .set ("ok", error.isEmpty())
+                    .set ("ms", juce::Time::getMillisecondCounterHiRes() - started)
+                    .set ("name", name)
+                    .set ("error", error));
         return;
     }
 
@@ -710,6 +811,47 @@ void CommandRouter::handleLine (const juce::String& line)
         return;
     }
 
+    if (cmd == "zynDiag")
+    {
+        const auto action = message["action"].toString();
+        const auto layerId = message["layerId"].toString();
+
+        if (action == "programs")
+        {
+            ok (id, engine.describeZynPrograms (layerId));
+            return;
+        }
+
+        if (action == "stats" || action == "last")
+        {
+            ok (id, engine.describeZynDiagnostics (layerId));
+            return;
+        }
+
+        if (action == "reset")
+        {
+            engine.resetZynDiagnostics (layerId);
+            ok (id, Obj().set ("reset", true));
+            return;
+        }
+
+        if (action == "loadPath")
+        {
+            juce::var result;
+            juce::ignoreUnused (engine.loadZynPresetForDiagnostics (layerId,
+                                                                   message["path"].toString(),
+                                                                   result));
+            if (result.isVoid())
+                fail (id, "O layer informado não é um Preseter Zyn.");
+            else
+                ok (id, result); // inclui ok=false e o perfil quando a carga falha
+            return;
+        }
+
+        fail (id, "Ação de diagnóstico inválida. Use programs, stats, reset ou loadPath.");
+        return;
+    }
+
     if (cmd == "synth2LoadPatch")
     {
         juce::var result;
@@ -823,12 +965,13 @@ void CommandRouter::handleLine (const juce::String& line)
 
         const int slot = intArg (message, "slot", -1);
         const bool bypass = boolArg (message, "bypass", false);
+        const bool stage = boolArg (message, "stage", false);
         engine.setInsert (message["layerId"].toString(), slot, key, bypass,
                           [this, id] (juce::var result, juce::String error)
                           {
                               if (error.isNotEmpty()) fail (id, error);
                               else                    ok (id, result);
-                          });
+                          }, ! stage);
         return;
     }
 

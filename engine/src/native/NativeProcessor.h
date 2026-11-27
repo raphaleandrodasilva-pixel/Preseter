@@ -108,6 +108,12 @@ public:
     void setZynBankDirs (const juce::String& factoryDir, const juce::String& userDir);
     bool reloadZynBank();
 
+    /** Preseter Zyn: diagnóstico Z0 (lista, carga por caminho e contadores). */
+    juce::var describeZynPrograms() const;
+    juce::var describeZynDiagnostics() const;
+    bool loadZynPresetForDiagnostics (const juce::String& path, juce::var& result);
+    void resetZynDiagnostics();
+
     /** D4: liga o sequenciador ao relógio mestre. */
     void setMasterClock (const MasterClock* clockToUse);
 

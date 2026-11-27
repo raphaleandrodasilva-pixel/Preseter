@@ -105,6 +105,38 @@ export interface EngineParameter {
 
 export interface EngineDevices extends AudioDeviceSnapshot {}
 
+/** Resultado de preparar um instrumento de sampler (abrir concert). */
+export interface EngineSamplerPrepare {
+  ok: boolean;
+  /** `true` quando o arquivo/programa já estava no cache. */
+  cacheHit: boolean;
+  ms: number;
+  name: string;
+  format: string;
+  regions: number;
+  samples: number;
+  bytes: number;
+  error: string;
+}
+
+/** Resultado de aquecer um instrumento nativo (bancos/tabelas). */
+export interface EngineNativePrepare {
+  ok: boolean;
+  ms: number;
+  name: string;
+  error: string;
+}
+
+export interface EngineSamplerCacheStats {
+  files: number;
+  entries: number;
+  maxFiles: number;
+  maxEntries: number;
+  hits?: number;
+  misses?: number;
+  evictions?: number;
+}
+
 /** Estado completo de um plugin, serializado por `getStateInformation`. */
 export interface EnginePluginStateChunk {
   layerId: string;
@@ -165,6 +197,28 @@ export interface EngineCommands {
   ping: { args: {}; result: { pong: true } };
   quit: { args: {}; result: null };
   devices: { args: {}; result: EngineDevices };
+  swapStats: { args: { reset?: boolean }; result: Record<string, unknown> };
+  /** T0/abertura do concert: prepara um instrumento de sampler e mede. */
+  samplerPrepare: {
+    args: { path: string; bank?: number; program?: number };
+    result: EngineSamplerPrepare;
+  };
+  /** Aquece os bancos de um instrumento nativo, sem entrar no grafo. */
+  nativePrepare: {
+    args: {
+      plugin: string;
+      factoryPatches?: string;
+      zynBankDir?: string;
+      zynUserDir?: string;
+    };
+    result: EngineNativePrepare;
+  };
+  /** Dimensiona o cache de samplers para o concert que está abrindo. */
+  samplerCacheReserve: {
+    args: { files: number; programs: number };
+    result: EngineSamplerCacheStats;
+  };
+  samplerCacheStats: { args: {}; result: EngineSamplerCacheStats };
   audioConfiguration: { args: { rescan?: boolean }; result: EngineDevices };
   /** Abre o painel do driver (modal no motor) e devolve o estado depois de fechado. */
   audioControlPanel: { args: {}; result: EngineDevices };

@@ -14,6 +14,7 @@ import { LibraryGeneratorModal } from './concert/LibraryGeneratorModal';
 import { TemplatePrepareModal } from './concert/TemplatePrepareModal';
 import type { TemplateReadiness } from '@shared/template-requirements';
 import { AppLoadingOverlay } from './ui/AppLoadingOverlay';
+import { ConcertPrepareOverlay } from './ui/ConcertPrepareOverlay';
 import type { ConcertMode } from './concert/ModeToolbar';
 
 const AppContent: React.FC = () => {
@@ -400,6 +401,7 @@ const AppContent: React.FC = () => {
         />
       )}
       <AppLoadingOverlay />
+      <ConcertPrepareOverlay />
     </div>
   );
 };

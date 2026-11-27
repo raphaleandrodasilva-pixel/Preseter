@@ -164,12 +164,13 @@ export class ConcertManager extends EventEmitter {
     templateId = 'vazio',
     options: { plugins?: CollectionPlugin[]; soundsFolder?: string } = {}
   ): ConcertState {
-    if (templateId === 'fullset' && options.plugins && options.plugins.length > 0) {
+    if (templateId === 'fullset') {
       // O Full Set usa a mesma montagem da coleção para já vir com instrumentos,
-      // programas e SoundFont por layer.
-      this.file = buildCollectionConcert(options.plugins, {
+      // programas e SoundFont por layer (tudo portado para o motor, sem plugins
+      // externos de instrumento). Vale mesmo sem plugins escaneados.
+      this.file = buildCollectionConcert(options.plugins ?? [], {
         tempo: 100,
-        name: 'Full Set — 40 Patches',
+        name: 'Full Set - 40 Patches',
         soundsFolder: options.soundsFolder,
       }).file;
     } else {

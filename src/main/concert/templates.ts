@@ -362,7 +362,7 @@ export const CONCERT_TEMPLATES: TemplateSpec[] = [
   {
     id: 'fullset',
     name: 'Full Set',
-    description: 'Set completo com 40 patches em 8 famílias, usando instrumentos livres (Sforzando/FSVR/Surge/Dexed nativo/Odin/Helm/MDA)',
+    description: 'Set completo com 40 patches em 8 famílias: instrumentos nativos do Preseter e o sampler nativo (MuseScore_General, Sonatina e Salamander).',
     concertName: 'Full Set — 40 Patches',
     tempo: 100,
     sets: [

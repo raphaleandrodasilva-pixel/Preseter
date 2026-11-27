@@ -126,11 +126,42 @@ juce::File getSampleCacheFolder();
 class InstrumentCache
 {
 public:
+    /** Resultado de uma preparação síncrona (abrir concert / depurar lentidão). */
+    struct PrepareResult
+    {
+        bool ok = false;
+        bool cacheHit = false;
+        juce::String error;
+        juce::String name;
+        juce::String format;
+        int regions = 0;
+        int samples = 0;
+        juce::int64 fileBytes = 0;
+        double ms = 0.0;
+    };
+
+    /** Situação do cache para diagnóstico e para dimensionar o concert. */
+    struct Stats
+    {
+        int files = 0;
+        int entries = 0;
+        int maxFiles = 0;
+        int maxEntries = 0;
+        juce::int64 hits = 0;
+        juce::int64 misses = 0;
+        juce::int64 evictions = 0;
+    };
+
     static InstrumentCache& get();
 
     std::shared_ptr<Instrument> load (const juce::File& file, int bank, int program,
                                       juce::String& error);
+    /** Carrega de forma síncrona e mede; usado para preparar o concert inteiro. */
+    bool prepare (const juce::File& file, int bank, int program, PrepareResult& result);
     void preloadAsync (const juce::File& file, int bank, int program);
+    /** Garante espaço para o conjunto do concert não ser descartado no meio. */
+    void reserve (int filesNeeded, int programsNeeded);
+    Stats stats() const;
     void clear();
 
 private:
@@ -153,8 +184,8 @@ private:
         int program = 0;
     };
 
-    static constexpr int kMaxFiles = 16;
-    static constexpr int kMaxEntries = 128;
+    static constexpr int kDefaultMaxFiles = 16;
+    static constexpr int kDefaultMaxEntries = 128;
     juce::CriticalSection lock;
     juce::CriticalSection preloadLock;
     std::vector<Entry> entries;
@@ -162,6 +193,11 @@ private:
     std::vector<PreloadJob> preloadQueue;
     std::set<juce::String> preloadQueued;
     bool preloadRunning = false;
+    int maxFiles = kDefaultMaxFiles;
+    int maxEntries = kDefaultMaxEntries;
+    juce::int64 hits = 0;
+    juce::int64 misses = 0;
+    juce::int64 evictions = 0;
 };
 } // namespace sampler
 } // namespace preseter

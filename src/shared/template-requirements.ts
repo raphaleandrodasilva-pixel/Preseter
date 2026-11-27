@@ -30,7 +30,10 @@ export interface TemplateReadiness {
 
 const REQUIREMENTS: Record<string, TemplateRequirements> = {
   fullset: {
-    storeIds: ['sforzando', 'surge-xt', 'mda', 'odin2', 'helm', 'musescore-general'],
+    // O Full Set usa a montagem da coleção: sampler nativo + instrumentos nativos.
+    // Nada de Sforzando/MDA/Surge/Odin/Helm — o que falta são só as bibliotecas
+    // de sample que o sampler nativo lê (pianos, orquestra e GM).
+    storeIds: ['musescore-general', 'sonatina', 'salamander'],
   },
 };
 

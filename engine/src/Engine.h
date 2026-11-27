@@ -183,9 +183,20 @@ public:
     juce::String reloadDexedBank (const juce::String& layerId, juce::var& result);
     /** Relê os presets .xiz de um Zyn nativo e devolve o layer atualizado. */
     juce::String reloadZynBank (const juce::String& layerId, juce::var& result);
+    /** Diagnóstico Z0 do Preseter Zyn: lista de programas com caminho/tamanho/gzip. */
+    juce::var describeZynPrograms (const juce::String& layerId = {}) const;
+    /** Diagnóstico Z0 do Preseter Zyn: último perfil de carga + contadores. */
+    juce::var describeZynDiagnostics (const juce::String& layerId = {}) const;
+    /** Diagnóstico Z0 do Preseter Zyn: carrega um .xiz por caminho, sem trocar o programa. */
+    bool loadZynPresetForDiagnostics (const juce::String& layerId, const juce::String& path,
+                                      juce::var& result);
+    /** Diagnóstico Z0 do Preseter Zyn: zera contadores. */
+    void resetZynDiagnostics (const juce::String& layerId = {});
     /** Efetiva a troca de patch: ativa os layers encadeados e silencia (ou drena) o patch anterior. */
     juce::var commitPatchSwap (bool silencePrevious);
-    bool unloadPlugin (const juce::String& layerId = {});
+    /** Descarrega um layer. `rebuildNow = false` deixa a reconstrução do grafo
+        para quem chamou (uma só por troca de patch, em vez de uma por layer). */
+    bool unloadPlugin (const juce::String& layerId = {}, bool rebuildNow = true);
     juce::String setLayerRange (const juce::String& layerId, int minNote, int maxNote);
     /** Liga/desliga o MIDI de um layer (usado na geração em lote de presets). */
     juce::String setLayerMidiEnabled (const juce::String& layerId, bool enabled);
@@ -285,7 +296,7 @@ public:
     // ---- Inserts (efeitos por channel strip, Fase 3.1) -------------------
     /** Carrega (substituindo o que houver) um efeito no slot de insert do layer. */
     void setInsert (const juce::String& layerId, int slot, const juce::String& idOrPath,
-                    bool bypass, Done done);
+                    bool bypass, Done done, bool rebuild = true);
     /** Remove o efeito de um slot de insert, se houver. */
     juce::String removeInsert (const juce::String& layerId, int slot, juce::var& result);
     /** Liga/desliga (bypass) o efeito de um slot, sem descarregá-lo. */
@@ -322,6 +333,11 @@ public:
     // ---- MIDI manual -----------------------------------------------------
     juce::String sendMidi (const juce::MidiMessage& message);
     juce::String panic();
+
+    /** Diagnóstico da troca de patch (T0): zera os contadores. */
+    void resetSwapStats();
+    /** Diagnóstico da troca de patch (T0): tempos e contagens em JSON. */
+    juce::var describeSwapStats() const;
 
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
@@ -406,18 +422,83 @@ private:
         void tick();
 
         std::atomic<int> xruns { 0 };
+        /** Maior intervalo entre callbacks: mostra se a falha foi um bloco
+            perdido ou um engasgo de vários blocos. */
+        std::atomic<double> maxGapMs { 0.0 };
         double expectedMs = 0.0;
         double lastCallbackMs = 0.0;
     };
 
+    /** T0: operações cujo tempo em volta da trava medimos. */
+    enum class GraphOp
+    {
+        add,
+        remove,
+        rebuild,
+        unload,
+        commit,
+        graphRebuild,
+        prepare,
+        callback,
+        count
+    };
+
+    struct GraphOpStats
+    {
+        std::atomic<uint64_t> count { 0 };
+        std::atomic<uint64_t> waitTicks { 0 };
+        std::atomic<uint64_t> holdTicks { 0 };
+        std::atomic<uint64_t> maxWaitTicks { 0 };
+        std::atomic<uint64_t> maxHoldTicks { 0 };
+    };
+
+    static uint64_t nowTicks() noexcept
+    {
+        return (uint64_t) juce::Time::getHighResolutionTicks();
+    }
+
+    static void recordMax (std::atomic<uint64_t>& target, uint64_t value) noexcept
+    {
+        auto current = target.load (std::memory_order_relaxed);
+        while (value > current
+               && ! target.compare_exchange_weak (current, value,
+                                                  std::memory_order_relaxed))
+        {
+        }
+    }
+
+    static void recordOp (GraphOpStats& stats, uint64_t wait, uint64_t hold) noexcept
+    {
+        stats.count.fetch_add (1, std::memory_order_relaxed);
+        stats.waitTicks.fetch_add (wait, std::memory_order_relaxed);
+        stats.holdTicks.fetch_add (hold, std::memory_order_relaxed);
+        recordMax (stats.maxWaitTicks, wait);
+        recordMax (stats.maxHoldTicks, hold);
+    }
+
     PreseterAudioDeviceManager deviceManager;
     juce::AudioPluginFormatManager formatManager;
     AudioTimingMeter timingMeter;
+    std::array<GraphOpStats, (size_t) GraphOp::count> graphOpStats;
+    std::atomic<bool> graphLockHeld { false };
+    /** Operação que está segurando a trava (-1 = ninguém). O callback usa isto
+        para distinguir "MIDI chegou durante uma troca" de "MIDI chegou durante
+        o processamento normal". */
+    std::atomic<int> graphLockOp { -1 };
+    std::atomic<uint64_t> midiReceived { 0 };
+    std::atomic<uint64_t> midiNoteOnReceived { 0 };
+    std::atomic<uint64_t> midiDelivered { 0 };
+    std::atomic<uint64_t> midiNoteOnDelivered { 0 };
+    std::atomic<uint64_t> midiWhileLocked { 0 };
     bool deviceTypesScanned = false;
     juce::KnownPluginList knownPlugins;
     Graph graph;
     juce::CriticalSection audioGraphLock;
     std::atomic<bool> audioPrepared { false };
+    /** Taxa/bloco atuais do dispositivo: usados para pré-aquecer um nó novo
+        fora da trava antes de inseri-lo no grafo. */
+    std::atomic<double> currentSampleRate { 0.0 };
+    std::atomic<int> currentBlockSize { 0 };
     juce::MidiMessageCollector midiCollector;
     /** Canais de entrada que não têm um canal de saída correspondente. */
     juce::AudioBuffer<float> inputScratch;
@@ -650,5 +731,61 @@ private:
 
     // Evita chamar callbacks assíncronos depois que o Engine foi destruído.
     std::shared_ptr<bool> aliveFlag = std::make_shared<bool> (true);
+
+    // Declarados depois dos membros que usam (audioGraphLock, graphOpStats e
+    // graphLockHeld) para o compilador aceitar a referência.
+    /** Trava do grafo medida (espera + tempo segurando). */
+    class ScopedGraphLock
+    {
+    public:
+        ScopedGraphLock (Engine& ownerToUse, GraphOp opToUse)
+            : owner (ownerToUse), op (opToUse)
+        {
+            waitStart = nowTicks();
+            owner.audioGraphLock.enter();
+            holdStart = nowTicks();
+            owner.graphLockOp.store ((int) op, std::memory_order_relaxed);
+            owner.graphLockHeld.store (true, std::memory_order_relaxed);
+        }
+
+        ~ScopedGraphLock()
+        {
+            const auto hold = nowTicks() - holdStart;
+            recordOp (owner.graphOpStats[(size_t) op], holdStart - waitStart, hold);
+            owner.graphLockOp.store (-1, std::memory_order_relaxed);
+            owner.graphLockHeld.store (false, std::memory_order_relaxed);
+            owner.audioGraphLock.exit();
+        }
+
+        ScopedGraphLock (const ScopedGraphLock&) = delete;
+        ScopedGraphLock& operator= (const ScopedGraphLock&) = delete;
+
+    private:
+        Engine& owner;
+        GraphOp op;
+        uint64_t waitStart = 0;
+        uint64_t holdStart = 0;
+    };
+
+    /** Trabalho medido fora da trava (commit, unload, graph.rebuild). */
+    class ScopedOpTimer
+    {
+    public:
+        ScopedOpTimer (Engine& ownerToUse, GraphOp opToUse)
+            : owner (ownerToUse), op (opToUse), start (nowTicks()) {}
+
+        ~ScopedOpTimer()
+        {
+            recordOp (owner.graphOpStats[(size_t) op], 0, nowTicks() - start);
+        }
+
+        ScopedOpTimer (const ScopedOpTimer&) = delete;
+        ScopedOpTimer& operator= (const ScopedOpTimer&) = delete;
+
+    private:
+        Engine& owner;
+        GraphOp op;
+        uint64_t start;
+    };
 };
 } // namespace preseter

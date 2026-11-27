@@ -212,6 +212,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   concertSync: (payload: unknown) => ipcRenderer.invoke('concert-sync', payload),
   concertStripsRealign: () => ipcRenderer.invoke('concert-strips-realign'),
   concertRecent: () => ipcRenderer.invoke('concert-recent'),
+  concertPrepareCancel: () => ipcRenderer.invoke('concert-prepare-cancel'),
 
   // === Layout ===
   layoutChange: (layout: any) => ipcRenderer.invoke('layout-change', layout),
@@ -236,6 +237,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('vst-scanned', (_event: Electron.IpcRendererEvent, plugins: unknown) => callback(plugins as any[])),
   onPresetLoadProgress: (callback: (progress: any) => void) =>
     ipcRenderer.on('preset-load-progress', (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress)),
+  onConcertPrepareStart: (callback: (data: any) => void) =>
+    ipcRenderer.on('concert-prepare-start', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data)),
+  onConcertPrepareProgress: (callback: (data: any) => void) =>
+    ipcRenderer.on('concert-prepare-progress', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data)),
+  onConcertPrepareDone: (callback: (data: any) => void) =>
+    ipcRenderer.on('concert-prepare-done', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data)),
+  onConcertPrepareCancelled: (callback: (data: any) => void) =>
+    ipcRenderer.on('concert-prepare-cancelled', (_event: Electron.IpcRendererEvent, data: unknown) => callback(data)),
   onVstPresetsUpdated: (callback: (result: any) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, result: unknown) => callback(result);
     ipcRenderer.on('vst-presets-updated', listener);

@@ -8,10 +8,12 @@
 #include "Misc/XMLwrapper.h"
 #include "DSP/FFTwrapper.h"
 #include "Params/Controller.h"
+#include "Output.h"
 
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -23,14 +25,126 @@ namespace native
 {
 namespace
 {
-/** Alocador simples para o Part (o Zyn usa o mesmo tipo no Master). */
+/** Contadores do Z0. Tudo atômico e sem I/O; o alocador do Part passa por aqui. */
+struct ZynDiagnosticsCounters
+{
+    std::atomic<uint64_t> allocCount { 0 };
+    std::atomic<uint64_t> allocBytes { 0 };
+    std::atomic<uint64_t> freeCount { 0 };
+    std::atomic<uint64_t> allocInAudio { 0 };
+    std::atomic<uint64_t> freeInAudio { 0 };
+    std::atomic<bool> inAudioBlock { false };
+};
+
+/** Perfil de uma carga de preset (só na message thread). */
+struct ZynLoadProfile
+{
+    juce::String path;
+    int index = -1;
+    bool ok = false;
+    int64_t fileBytes = 0;
+    bool gzip = false;
+    int loadXmlResult = 0;
+    double createMs = 0.0;
+    double loadXmlMs = 0.0;
+    double applyParametersMs = 0.0;
+    double initializeRtMs = 0.0;
+    double installMs = 0.0;
+    double destroyOldMs = 0.0;
+    double totalMs = 0.0;
+};
+
+static uint64_t diagTicksNow() noexcept
+{
+    return (uint64_t) juce::Time::getHighResolutionTicks();
+}
+
+static double diagTicksToMs (uint64_t ticks) noexcept
+{
+    const auto perSecond = juce::Time::getHighResolutionTicksPerSecond();
+    return perSecond > 0 ? (double) ticks * 1000.0 / (double) perSecond : 0.0;
+}
+
+static double diagElapsedMs (uint64_t startTicks) noexcept
+{
+    return diagTicksToMs (diagTicksNow() - startTicks);
+}
+
+static bool isGzipFile (const juce::String& path)
+{
+    const juce::File file (path);
+    juce::FileInputStream stream (file);
+    if (! stream.openedOk())
+        return false;
+
+    char magic[2] {};
+    return stream.read (magic, 2) == 2
+        && (juce::uint8) magic[0] == 0x1f
+        && (juce::uint8) magic[1] == 0x8b;
+}
+
+static juce::var profileToVar (const ZynLoadProfile& profile)
+{
+    return Obj()
+        .set ("path", profile.path)
+        .set ("index", profile.index)
+        .set ("ok", profile.ok)
+        .set ("fileBytes", (juce::int64) profile.fileBytes)
+        .set ("gzip", profile.gzip)
+        .set ("loadXmlResult", profile.loadXmlResult)
+        .set ("createMs", profile.createMs)
+        .set ("loadXmlMs", profile.loadXmlMs)
+        .set ("applyParametersMs", profile.applyParametersMs)
+        .set ("initializeRtMs", profile.initializeRtMs)
+        .set ("installMs", profile.installMs)
+        .set ("destroyOldMs", profile.destroyOldMs)
+        .set ("totalMs", profile.totalMs);
+}
+
+/** Marca o callback de áudio para os contadores do alocador. */
+struct AudioBlockFlag
+{
+    explicit AudioBlockFlag (std::atomic<bool>& flagToUse) : flag (flagToUse)
+    {
+        flag.store (true, std::memory_order_relaxed);
+    }
+
+    ~AudioBlockFlag()
+    {
+        flag.store (false, std::memory_order_relaxed);
+    }
+
+    std::atomic<bool>& flag;
+};
+
+/** Alocador do Part com contagem para o Z0 (o Zyn usa o mesmo tipo no Master). */
 class MallocAllocator final : public zyn::Allocator
 {
 public:
-    void* alloc_mem (size_t size) override { return std::malloc (size); }
-    void dealloc_mem (void* memory) override { std::free (memory); }
+    explicit MallocAllocator (ZynDiagnosticsCounters& countersToUse) : counters (countersToUse) {}
+
+    void* alloc_mem (size_t size) override
+    {
+        counters.allocCount.fetch_add (1, std::memory_order_relaxed);
+        counters.allocBytes.fetch_add ((uint64_t) size, std::memory_order_relaxed);
+        if (counters.inAudioBlock.load (std::memory_order_relaxed))
+            counters.allocInAudio.fetch_add (1, std::memory_order_relaxed);
+        return std::malloc (size);
+    }
+
+    void dealloc_mem (void* memory) override
+    {
+        counters.freeCount.fetch_add (1, std::memory_order_relaxed);
+        if (counters.inAudioBlock.load (std::memory_order_relaxed))
+            counters.freeInAudio.fetch_add (1, std::memory_order_relaxed);
+        std::free (memory);
+    }
+
     void addMemory (void*, size_t) override {}
     bool lowMemory (unsigned, size_t) const override { return false; }
+
+private:
+    ZynDiagnosticsCounters& counters;
 };
 
 constexpr int kZynBlockSize = 32;
@@ -125,6 +239,8 @@ public:
 
     void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override
     {
+        // Z0: só uma flag atômica por bloco; nenhum log/alocação aqui.
+        AudioBlockFlag audioFlag (diagCounters.inAudioBlock);
         juce::ScopedNoDenormals noDenormals;
         buffer.clear();
 
@@ -209,7 +325,7 @@ public:
             return;
 
         const int target = juce::jlimit (0, (int) programs.size() - 1, index);
-        if (! loadPreset (programs[(size_t) target].path))
+        if (! loadPreset (programs[(size_t) target].path, target))
         {
             // Mantém o programa anterior se o arquivo não puder ser lido.
             return;
@@ -280,6 +396,56 @@ public:
         macrosDirty.store (true);
     }
 
+    // ---- Diagnóstico Z0 (message thread) ---------------------------------
+    bool loadPresetForDiagnostics (const juce::String& path, juce::var& result)
+    {
+        const bool ok = loadPreset (path);
+        result = Obj().set ("ok", ok).set ("profile", profileToVar (lastProfile));
+        return ok;
+    }
+
+    juce::var describePrograms() const
+    {
+        juce::Array<juce::var> list;
+        for (size_t i = 0; i < programs.size(); ++i)
+        {
+            const auto& program = programs[i];
+            list.add (Obj()
+                          .set ("index", (int) i)
+                          .set ("display", program.display)
+                          .set ("path", program.path)
+                          .set ("fileBytes", (juce::int64) juce::File (program.path).getSize())
+                          .set ("gzip", isGzipFile (program.path)));
+        }
+        return juce::var (list);
+    }
+
+    juce::var describeDiagnostics() const
+    {
+        return Obj()
+            .set ("last", profileToVar (lastProfile))
+            .set ("allocCount", (juce::int64) diagCounters.allocCount.load())
+            .set ("allocBytes", (juce::int64) diagCounters.allocBytes.load())
+            .set ("freeCount", (juce::int64) diagCounters.freeCount.load())
+            .set ("allocInAudio", (juce::int64) diagCounters.allocInAudio.load())
+            .set ("freeInAudio", (juce::int64) diagCounters.freeInAudio.load())
+            .set ("programCount", (int) programs.size())
+            .set ("currentProgram", currentProgram)
+            .set ("activeVoices", activeVoices())
+            .set ("blockSize", kZynBlockSize)
+            .set ("sampleRate", currentSampleRate);
+    }
+
+    void resetDiagnostics()
+    {
+        diagCounters.allocCount.store (0);
+        diagCounters.allocBytes.store (0);
+        diagCounters.freeCount.store (0);
+        diagCounters.allocInAudio.store (0);
+        diagCounters.freeInAudio.store (0);
+        lastProfile = ZynLoadProfile {};
+    }
+
 private:
     struct Program
     {
@@ -303,6 +469,12 @@ private:
                 && fx[0] == other.fx[0] && fx[1] == other.fx[1] && fx[2] == other.fx[2];
         }
     };
+
+    /** Declarado antes de `instance` para sobreviver à destruição do Part,
+        que devolve memória pelo mesmo alocador. */
+    ZynDiagnosticsCounters diagCounters;
+    /** Só a message thread escreve/lê. */
+    ZynLoadProfile lastProfile;
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -408,7 +580,7 @@ private:
         fresh->synth->oscilsize = 1024;
         fresh->synth->alias();
 
-        fresh->allocator = std::make_unique<MallocAllocator>();
+        fresh->allocator = std::make_unique<MallocAllocator> (diagCounters);
         // FFT própria: a área de trabalho da FFT nunca é dividida com a thread de áudio.
         fresh->fft = std::make_unique<zyn::FFTwrapper> (fresh->synth->oscilsize);
         fresh->microtonal = std::make_unique<zyn::Microtonal> (gzipCompression);
@@ -430,34 +602,71 @@ private:
      * carregar um preset: gera as tabelas do PADsynth (sem elas o PADsynth
      * fica mudo), inicia os efeitos, aplica os knobs e a alavanca atual.
      */
-    void finishInstance (ZynInstance& fresh)
+    void finishInstance (ZynInstance& fresh, ZynLoadProfile* profile = nullptr)
     {
+        const auto applyStart = diagTicksNow();
         fresh.part->applyparameters();
+        if (profile != nullptr)
+            profile->applyParametersMs = diagElapsedMs (applyStart);
+
+        const auto initStart = diagTicksNow();
         fresh.part->initialize_rt();
+        if (profile != nullptr)
+            profile->initializeRtMs = diagElapsedMs (initStart);
+
         writeMacros (*fresh.part, currentMacros());
         fresh.part->ctl.setpitchwheel (pitchWheel.load());
     }
 
     /** Coloca o instrumento novo para tocar; o antigo é destruído fora da trava. */
-    void install (std::unique_ptr<ZynInstance> fresh)
+    void install (std::unique_ptr<ZynInstance> fresh, ZynLoadProfile* profile = nullptr)
     {
+        const auto swapStart = diagTicksNow();
         {
             const juce::SpinLock::ScopedLockType lock (instanceLock);
             std::swap (instance, fresh);
             lastMacros = currentMacros();
             pendingPos = kZynBlockSize;
         }
+        if (profile != nullptr)
+            profile->installMs = diagElapsedMs (swapStart);
+
+        const auto destroyStart = diagTicksNow();
         fresh.reset();
+        if (profile != nullptr)
+            profile->destroyOldMs = diagElapsedMs (destroyStart);
     }
 
-    bool loadPreset (const juce::String& path)
+    bool loadPreset (const juce::String& path, int index = -1)
     {
-        auto fresh = createInstance (currentSampleRate);
-        if (fresh->part->loadXMLinstrument (path.toRawUTF8()) != 0)
-            return false;
+        ZynLoadProfile profile;
+        profile.path = path;
+        profile.index = index;
+        profile.fileBytes = juce::File (path).getSize();
+        profile.gzip = isGzipFile (path);
 
-        finishInstance (*fresh);
-        install (std::move (fresh));
+        const auto totalStart = diagTicksNow();
+        const auto createStart = totalStart;
+        auto fresh = createInstance (currentSampleRate);
+        profile.createMs = diagElapsedMs (createStart);
+
+        const auto loadStart = diagTicksNow();
+        profile.loadXmlResult = fresh->part->loadXMLinstrument (path.toRawUTF8());
+        profile.loadXmlMs = diagElapsedMs (loadStart);
+
+        if (profile.loadXmlResult != 0)
+        {
+            profile.totalMs = diagElapsedMs (totalStart);
+            profile.ok = false;
+            lastProfile = profile;
+            return false;
+        }
+
+        finishInstance (*fresh, &profile);
+        install (std::move (fresh), &profile);
+        profile.totalMs = diagElapsedMs (totalStart);
+        profile.ok = true;
+        lastProfile = profile;
         return true;
     }
 
@@ -610,6 +819,35 @@ bool reloadZynBank (juce::AudioProcessor* processor)
         return true;
     }
     return false;
+}
+
+juce::var describeZynPrograms (juce::AudioProcessor* processor)
+{
+    if (auto* zyn = dynamic_cast<ZynProcessor*> (processor))
+        return zyn->describePrograms();
+    return {};
+}
+
+bool loadZynPresetForDiagnostics (juce::AudioProcessor* processor,
+                                  const juce::String& path,
+                                  juce::var& result)
+{
+    if (auto* zyn = dynamic_cast<ZynProcessor*> (processor))
+        return zyn->loadPresetForDiagnostics (path, result);
+    return false;
+}
+
+juce::var describeZynDiagnostics (juce::AudioProcessor* processor)
+{
+    if (auto* zyn = dynamic_cast<ZynProcessor*> (processor))
+        return zyn->describeDiagnostics();
+    return {};
+}
+
+void resetZynDiagnostics (juce::AudioProcessor* processor)
+{
+    if (auto* zyn = dynamic_cast<ZynProcessor*> (processor))
+        zyn->resetDiagnostics();
 }
 } // namespace native
 } // namespace preseter

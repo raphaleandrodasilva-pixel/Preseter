@@ -20,6 +20,7 @@ import {
   SavedAudioSettings,
   AppPreferences,
   AppLoadProgress,
+  ConcertPrepareState,
   ConcertState,
   ConcertSyncPayload,
   ConcertSettings,
@@ -74,6 +75,11 @@ export interface AppContextType {
   /** Overlay global de carregamento de arquivo/patch. */
   loadProgress: AppLoadProgress | null;
   dismissLoadProgress: () => void;
+  /** Preparação dos instrumentos do concert (bloqueia o palco até terminar). */
+  concertPrepare: ConcertPrepareState | null;
+  cancelConcertPrepare: () => void;
+  /** Fecha o aviso de preparação concluída/cancelada. */
+  dismissConcertPrepare: () => void;
   currentPreset: Preset | null;
   loadedPlugins: VstPluginInfo[];
   mixState: EngineMixState | null;
@@ -430,6 +436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   /** Falso depois de fechar o arquivo, até abrir ou criar um concert. */
   const [concertActive, setConcertActive] = useState(false);
   const [loadProgress, setLoadProgress] = useState<AppLoadProgress | null>(null);
+  const [concertPrepare, setConcertPrepare] = useState<ConcertPrepareState | null>(null);
   const [concertPath, setConcertPath] = useState<string | null>(null);
   const [concertDirty, setConcertDirty] = useState(false);
   const [concertError, setConcertError] = useState<string | null>(null);
@@ -790,6 +797,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       });
     });
+
+    // Preparação do concert: barra bloqueante até todos os instrumentos estarem
+    // prontos. O main só libera o palco depois disso (ou do cancelamento).
+    window.electronAPI.onConcertPrepareStart((data) => {
+      setLoadProgress(null);
+      setConcertPrepare({
+        total: data.total,
+        done: 0,
+        patches: data.patches,
+        samplers: data.samplers,
+        natives: data.natives,
+        currentName: '',
+        phase: 'loading',
+        startedAt: Date.now(),
+        finished: false,
+        cancelled: false,
+        elapsedMs: 0,
+        cacheHits: 0,
+        errors: [],
+      });
+    });
+    window.electronAPI.onConcertPrepareProgress((data) => {
+      setConcertPrepare((previous) => previous
+        ? {
+            ...previous,
+            done: data.done,
+            total: data.total,
+            currentName: data.name,
+            phase: data.phase,
+            elapsedMs: Date.now() - previous.startedAt,
+          }
+        : previous);
+    });
+    window.electronAPI.onConcertPrepareDone((data) => {
+      setConcertPrepare((previous) => previous
+        ? {
+            ...previous,
+            done: data.done,
+            total: data.total,
+            currentName: '',
+            phase: 'done',
+            finished: true,
+            cancelled: false,
+            elapsedMs: data.elapsedMs,
+            cacheHits: data.cacheHits,
+            errors: data.errors ?? [],
+          }
+        : previous);
+    });
+    window.electronAPI.onConcertPrepareCancelled((data) => {
+      setConcertPrepare((previous) => previous
+        ? {
+            ...previous,
+            done: data.done,
+            total: data.total,
+            currentName: '',
+            phase: 'done',
+            finished: true,
+            cancelled: true,
+            elapsedMs: Date.now() - previous.startedAt,
+          }
+        : previous);
+    });
     void window.electronAPI.vstList()
       .then((plugins) => {
         if (Array.isArray(plugins) && plugins.length > 0) setScannedPlugins(plugins);
@@ -984,6 +1054,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [presets, materializePatchLayout]);
 
   const dismissLoadProgress = useCallback(() => setLoadProgress(null), []);
+
+  const cancelConcertPrepare = useCallback(() => {
+    void window.electronAPI.concertPrepareCancel();
+  }, []);
+
+  const dismissConcertPrepare = useCallback(() => setConcertPrepare(null), []);
+
+  // Preparação concluída sem avisos: some sozinha depois de mostrar 100%.
+  useEffect(() => {
+    if (!concertPrepare?.finished || concertPrepare.cancelled || concertPrepare.errors.length > 0) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setConcertPrepare(null), 900);
+    return () => clearTimeout(timer);
+  }, [concertPrepare]);
 
   const openConcertState = useCallback(async (state: ConcertState): Promise<void> => {
     setLoadProgress({
@@ -2342,6 +2427,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     concertActive,
     loadProgress,
     dismissLoadProgress,
+    concertPrepare,
+    cancelConcertPrepare,
+    dismissConcertPrepare,
     currentPreset,
     loadedPlugins,
     mixState,

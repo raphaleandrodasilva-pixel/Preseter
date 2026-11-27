@@ -1324,6 +1324,7 @@ public:
     const juce::String getName() const override { return "Preseter Channel Strip"; }
     void prepareToPlay (double rate, int blockSize) override
     {
+        currentSampleRate.store (rate > 0.0 ? rate : 44100.0, std::memory_order_relaxed);
         peakDecay = std::pow (0.5f, (float) blockSize / (float) (juce::jmax (1.0, rate) * 0.35));
     }
     void releaseResources() override {}
@@ -1331,6 +1332,13 @@ public:
     {
         return layout.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
             && layout.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    }
+    /** T3: fade curto ao entrar no palco, para a troca de patch não estalar. */
+    void startFadeIn (double seconds = 0.006)
+    {
+        const int length = juce::jmax (1, (int) std::lround (currentSampleRate.load (std::memory_order_relaxed) * seconds));
+        fadeLength.store (length, std::memory_order_relaxed);
+        fadeRemaining.store (length, std::memory_order_relaxed);
     }
     void processBlock (juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) override
     {
@@ -1373,16 +1381,33 @@ public:
         }
         else
         {
+            int fadeLeft = fadeRemaining.load (std::memory_order_relaxed);
+            const int fadeTotal = fadeLength.load (std::memory_order_relaxed);
             for (int channel = 0; channel < audio.getNumChannels(); ++channel)
             {
                 auto* samples = audio.getWritePointer (channel);
                 const auto channelGain = channel == 0 ? leftGain : rightGain;
-                for (int sample = 0; sample < audio.getNumSamples(); ++sample)
+                const int numSamples = audio.getNumSamples();
+                int sample = 0;
+                int remaining = fadeLeft;
+                if (remaining > 0 && fadeTotal > 0)
+                {
+                    const float invFade = 1.0f / (float) fadeTotal;
+                    for (; sample < numSamples && remaining > 0; ++sample, --remaining)
+                    {
+                        samples[sample] *= channelGain * (1.0f - (float) remaining * invFade);
+                        blockPeak = juce::jmax (blockPeak, std::abs (samples[sample]));
+                    }
+                }
+                for (; sample < numSamples; ++sample)
                 {
                     samples[sample] *= channelGain;
                     blockPeak = juce::jmax (blockPeak, std::abs (samples[sample]));
                 }
             }
+            if (fadeLeft > 0)
+                fadeRemaining.store (juce::jmax (0, fadeLeft - audio.getNumSamples()),
+                                     std::memory_order_relaxed);
         }
 
         const auto decayedPeak = peak.load() * peakDecay;
@@ -1426,6 +1451,9 @@ private:
     std::atomic<bool> muted { false };
     std::atomic<bool> solo { false };
     float peakDecay = 0.99f;
+    std::atomic<double> currentSampleRate { 44100.0 };
+    std::atomic<int> fadeLength { 0 };
+    std::atomic<int> fadeRemaining { 0 };
 };
 
 /** Ganho de um send post-fader: o nível do send é aplicado aqui (Fase 3.2). */
@@ -1621,19 +1649,45 @@ Engine::~Engine()
 // ---- Áudio e MIDI -----------------------------------------------------------
 Engine::Graph::Node::Ptr Engine::addGraphNode (std::unique_ptr<juce::AudioProcessor> processor)
 {
-    const juce::ScopedLock lock (audioGraphLock);
-    return graph.addNode (std::move (processor));
+    // T1: o nó ainda não está no grafo, então ninguém no áudio o toca. Preparar
+    // aqui (fora da trava do grafo) tira do caminho crítico a alocação de
+    // buffers/tabelas do sampler ou do plugin novo.
+    if (processor != nullptr
+        && audioPrepared.load (std::memory_order_acquire))
+    {
+        const double sampleRate = currentSampleRate.load (std::memory_order_relaxed);
+        const int blockSize = currentBlockSize.load (std::memory_order_relaxed);
+        if (sampleRate > 0.0 && blockSize > 0)
+        {
+            ScopedOpTimer timer (*this, GraphOp::prepare);
+            processor->setRateAndBufferSizeDetails (sampleRate, blockSize);
+            processor->prepareToPlay (sampleRate, blockSize);
+        }
+    }
+
+    // `UpdateKind::none`: quem montou o nó decide quando reconstruir. Sem isso
+    // cada addNode disparava uma reconstrução completa do grafo sob a trava.
+    ScopedGraphLock lock (*this, GraphOp::add);
+    return graph.addNode (std::move (processor), {}, Graph::UpdateKind::none);
 }
 
 void Engine::removeGraphNode (Graph::NodeID nodeId)
 {
-    const juce::ScopedLock lock (audioGraphLock);
-    graph.removeNode (nodeId);
+    Graph::Node::Ptr node;
+    {
+        ScopedGraphLock lock (*this, GraphOp::remove);
+        node = graph.getNodeForId (nodeId);
+        graph.removeNode (nodeId, Graph::UpdateKind::none);
+    }
+    // A última referência é solta fora da trava: liberar um sampler/piano grande
+    // não pode segurar o callback de áudio.
+    node.reset();
 }
 
 void Engine::AudioTimingMeter::start (juce::AudioIODevice* device)
 {
     xruns.store (0, std::memory_order_relaxed);
+    maxGapMs.store (0.0, std::memory_order_relaxed);
     lastCallbackMs = 0.0;
     expectedMs = 0.0;
     if (device != nullptr)
@@ -1656,9 +1710,78 @@ void Engine::AudioTimingMeter::tick()
         return;
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
-    if (lastCallbackMs > 0.0 && (now - lastCallbackMs) > expectedMs * 1.75)
-        xruns.fetch_add (1, std::memory_order_relaxed);
+    if (lastCallbackMs > 0.0)
+    {
+        const auto gap = now - lastCallbackMs;
+        if (gap > expectedMs * 1.75)
+            xruns.fetch_add (1, std::memory_order_relaxed);
+
+        auto currentMax = maxGapMs.load (std::memory_order_relaxed);
+        while (gap > currentMax
+               && ! maxGapMs.compare_exchange_weak (currentMax, gap,
+                                                    std::memory_order_relaxed))
+        {
+        }
+    }
     lastCallbackMs = now;
+}
+
+void Engine::resetSwapStats()
+{
+    for (auto& stats : graphOpStats)
+    {
+        stats.count.store (0, std::memory_order_relaxed);
+        stats.waitTicks.store (0, std::memory_order_relaxed);
+        stats.holdTicks.store (0, std::memory_order_relaxed);
+        stats.maxWaitTicks.store (0, std::memory_order_relaxed);
+        stats.maxHoldTicks.store (0, std::memory_order_relaxed);
+    }
+    midiReceived.store (0, std::memory_order_relaxed);
+    midiNoteOnReceived.store (0, std::memory_order_relaxed);
+    midiDelivered.store (0, std::memory_order_relaxed);
+    midiNoteOnDelivered.store (0, std::memory_order_relaxed);
+    midiWhileLocked.store (0, std::memory_order_relaxed);
+    timingMeter.xruns.store (0, std::memory_order_relaxed);
+    timingMeter.maxGapMs.store (0.0, std::memory_order_relaxed);
+}
+
+juce::var Engine::describeSwapStats() const
+{
+    const auto ticksPerSecond = juce::Time::getHighResolutionTicksPerSecond();
+    const auto toMs = [ticksPerSecond] (uint64_t ticks)
+    {
+        return ticksPerSecond > 0 ? (double) ticks * 1000.0 / (double) ticksPerSecond : 0.0;
+    };
+
+    static constexpr const char* names[] = {
+        "add", "remove", "rebuild", "unload", "commit", "graphRebuild", "prepare", "callback"
+    };
+
+    juce::Array<juce::var> ops;
+    for (size_t i = 0; i < (size_t) GraphOp::count; ++i)
+    {
+        const auto& stats = graphOpStats[i];
+        ops.add (Obj()
+                     .set ("name", names[i])
+                     .set ("count", (int64_t) stats.count.load (std::memory_order_relaxed))
+                     .set ("waitTotalMs", toMs (stats.waitTicks.load (std::memory_order_relaxed)))
+                     .set ("holdTotalMs", toMs (stats.holdTicks.load (std::memory_order_relaxed)))
+                     .set ("waitMaxMs", toMs (stats.maxWaitTicks.load (std::memory_order_relaxed)))
+                     .set ("holdMaxMs", toMs (stats.maxHoldTicks.load (std::memory_order_relaxed))));
+    }
+
+    return Obj()
+        .set ("ops", juce::var (ops))
+        .set ("midi", Obj()
+                          .set ("received", (int64_t) midiReceived.load (std::memory_order_relaxed))
+                          .set ("noteOnReceived", (int64_t) midiNoteOnReceived.load (std::memory_order_relaxed))
+                          .set ("delivered", (int64_t) midiDelivered.load (std::memory_order_relaxed))
+                          .set ("noteOnDelivered", (int64_t) midiNoteOnDelivered.load (std::memory_order_relaxed))
+                          .set ("duringGraphChange", (int64_t) midiWhileLocked.load (std::memory_order_relaxed)))
+        .set ("xruns", timingMeter.xruns.load (std::memory_order_relaxed))
+        .set ("maxCallbackGapMs", timingMeter.maxGapMs.load (std::memory_order_relaxed))
+        .set ("expectedBlockMs", timingMeter.expectedMs)
+        .set ("lockHeld", graphLockHeld.load (std::memory_order_relaxed));
 }
 
 void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
@@ -1673,6 +1796,8 @@ void Engine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 
     const double sampleRate = device->getCurrentSampleRate();
     const int blockSize = device->getCurrentBufferSizeSamples();
+    currentSampleRate.store (sampleRate, std::memory_order_relaxed);
+    currentBlockSize.store (blockSize, std::memory_order_relaxed);
 
     // D1: o relógio mestre passa a contar com a taxa do dispositivo e volta ao
     // compasso 1 quando o áudio (re)inicia.
@@ -1725,7 +1850,7 @@ void Engine::audioDeviceIOCallbackWithContext (
         return;
     }
 
-    const juce::ScopedLock lock (audioGraphLock);
+    ScopedGraphLock lock (*this, GraphOp::callback);
     if (! audioPrepared.load (std::memory_order_acquire))
     {
         clearOutputs();
@@ -1771,6 +1896,13 @@ void Engine::audioDeviceIOCallbackWithContext (
     juce::MidiBuffer midi;
     midiCollector.removeNextBlockOfMessages (midi, numSamples);
 
+    for (const auto metadata : midi)
+    {
+        midiDelivered.fetch_add (1, std::memory_order_relaxed);
+        if (metadata.getMessage().isNoteOn())
+            midiNoteOnDelivered.fetch_add (1, std::memory_order_relaxed);
+    }
+
     // D1: publica a posição deste bloco antes de processar o grafo. Arp,
     // metrônomo, sequenciador (D4) e os plugins leem a mesma posição.
     masterClock.beginBlock (numSamples);
@@ -1789,6 +1921,12 @@ void Engine::audioDeviceStopped()
 
 void Engine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
 {
+    midiReceived.fetch_add (1, std::memory_order_relaxed);
+    if (message.isNoteOn())
+        midiNoteOnReceived.fetch_add (1, std::memory_order_relaxed);
+    const int lockOp = graphLockOp.load (std::memory_order_relaxed);
+    if (lockOp >= 0 && lockOp != (int) GraphOp::callback)
+        midiWhileLocked.fetch_add (1, std::memory_order_relaxed);
     if (audioPrepared.load (std::memory_order_acquire))
         midiCollector.addMessageToQueue (message);
 }
@@ -2953,7 +3091,8 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
 
             layers.push_back (std::move (layer));
             updateSoloState();
-            rebuildConnections();
+            if (! staged)
+                rebuildConnections();
             done (describeLoadedPlugin (layerId), {});
             return;
         }
@@ -3023,7 +3162,8 @@ void Engine::loadPlugin (const juce::String& idOrPath, const juce::String& reque
 
             layers.push_back (std::move (layer));
             updateSoloState();
-            rebuildConnections();
+            if (! staged)
+                rebuildConnections();
             done (describeLoadedPlugin (layerId), {});
         });
 }
@@ -3103,7 +3243,8 @@ void Engine::loadSampler (const juce::String& filePath, const juce::String& requ
 
     layers.push_back (std::move (layer));
     updateSoloState();
-    rebuildConnections();
+    if (! staged)
+        rebuildConnections();
     done (describeLoadedPlugin (layerId), {});
 }
 
@@ -3195,7 +3336,8 @@ void Engine::loadNative (const juce::String& nativeId, const juce::String& reque
 
     layers.push_back (std::move (layer));
     updateSoloState();
-    rebuildConnections();
+    if (! staged)
+        rebuildConnections();
     done (describeLoadedPlugin (layerId), {});
 }
 
@@ -3250,20 +3392,84 @@ juce::String Engine::reloadZynBank (const juce::String& layerId, juce::var& resu
     return {};
 }
 
+juce::var Engine::describeZynPrograms (const juce::String& layerId) const
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0)
+        return {};
+
+    const auto& layer = layers[(size_t) index];
+    if (layer.native == nullptr || layer.native->getStableId() != "preseter.zyn")
+        return {};
+
+    return layer.native->describeZynPrograms();
+}
+
+juce::var Engine::describeZynDiagnostics (const juce::String& layerId) const
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0)
+        return {};
+
+    const auto& layer = layers[(size_t) index];
+    if (layer.native == nullptr || layer.native->getStableId() != "preseter.zyn")
+        return {};
+
+    return layer.native->describeZynDiagnostics();
+}
+
+bool Engine::loadZynPresetForDiagnostics (const juce::String& layerId, const juce::String& path,
+                                          juce::var& result)
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0)
+        return false;
+
+    auto& layer = layers[(size_t) index];
+    if (layer.native == nullptr || layer.native->getStableId() != "preseter.zyn")
+        return false;
+
+    return layer.native->loadZynPresetForDiagnostics (path, result);
+}
+
+void Engine::resetZynDiagnostics (const juce::String& layerId)
+{
+    const int index = findLayer (resolveLayerId (layerId));
+    if (index < 0)
+        return;
+
+    auto& layer = layers[(size_t) index];
+    if (layer.native != nullptr && layer.native->getStableId() == "preseter.zyn")
+        layer.native->resetZynDiagnostics();
+}
+
 juce::var Engine::commitPatchSwap (bool silencePrevious)
 {
+    ScopedOpTimer timer (*this, GraphOp::commit);
     for (auto& layer : layers)
     {
         // Strips do concert/set não pertencem a nenhum patch: seguem como estão.
         if (layer.pinned)
             continue;
         if (layer.role == Layer::Role::staged || layer.role == Layer::Role::adopted)
+        {
             layer.role = Layer::Role::active;
+            // T3: o patch novo entra com um fade curto no strip; sem ele, a
+            // descontinuidade na troca de conexões vira estalo.
+            if (auto* strip = layer.stripNode != nullptr
+                    ? dynamic_cast<ChannelStripProcessor*> (layer.stripNode->getProcessor())
+                    : nullptr)
+                strip->startFadeIn();
+        }
         else if (layer.role == Layer::Role::active)
+        {
             layer.role = Layer::Role::lingering;
+        }
     }
 
     // "Silence Previous Patch": corta o patch anterior na hora, sem esperar as caudas.
+    // A reconstrução fica para o fim: antes, cada unload reconstruía o grafo
+    // inteiro (uma janela de trava por layer descarregado).
     if (silencePrevious)
     {
         juce::StringArray toUnload;
@@ -3271,7 +3477,7 @@ juce::var Engine::commitPatchSwap (bool silencePrevious)
             if (layer.role == Layer::Role::lingering)
                 toUnload.add (layer.id);
         for (const auto& id : toUnload)
-            unloadPlugin (id);
+            unloadPlugin (id, false);
     }
 
     rebuildConnections();
@@ -3292,13 +3498,16 @@ juce::var Engine::commitPatchSwap (bool silencePrevious)
         .set ("lingering", juce::var (lingering));
 }
 
-bool Engine::unloadPlugin (const juce::String& requestedLayerId)
+bool Engine::unloadPlugin (const juce::String& requestedLayerId, bool rebuildNow)
 {
+    ScopedOpTimer timer (*this, GraphOp::unload);
     if (requestedLayerId.isEmpty())
     {
         const bool hadLayers = ! layers.empty();
         while (! layers.empty())
-            unloadPlugin (layers.back().id);
+            unloadPlugin (layers.back().id, false);
+        if (hadLayers && rebuildNow)
+            rebuildConnections();
         return hadLayers;
     }
 
@@ -3321,7 +3530,8 @@ bool Engine::unloadPlugin (const juce::String& requestedLayerId)
         loadingInsertKeys.removeString (layer.id + "#" + juce::String (slot));
     layers.erase (layers.begin() + index);
     updateSoloState();
-    rebuildConnections();
+    if (rebuildNow)
+        rebuildConnections();
     return true;
 }
 
@@ -3824,7 +4034,7 @@ juce::var Engine::describeInserts (const juce::String& layerId) const
 }
 
 void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
-                        const juce::String& idOrPath, bool bypass, Done done)
+                        const juce::String& idOrPath, bool bypass, Done done, bool rebuild)
 {
     if (insertSlotNode (requestedOwnerId, slot) == nullptr)
     {
@@ -3870,7 +4080,7 @@ void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
 
     formatManager.createPluginInstanceAsync (
         description, sampleRate, blockSize,
-        [this, alive, done, ownerId, slot, bypass] (
+        [this, alive, done, ownerId, slot, bypass, rebuild] (
             std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             const auto stillAlive = alive.lock();
@@ -3910,7 +4120,8 @@ void Engine::setInsert (const juce::String& requestedOwnerId, int slot,
             *slotNode = node;
             if (auto* bypassPtr = insertSlotBypass (ownerId, slot))
                 *bypassPtr = bypass;
-            rebuildConnections();
+            if (rebuild)
+                rebuildConnections();
             done (describeInsert (ownerId, slot), {});
         });
 }
@@ -4815,7 +5026,7 @@ void Engine::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void Engine::rebuildConnections()
 {
-    const juce::ScopedLock lock (audioGraphLock);
+    ScopedGraphLock lock (*this, GraphOp::rebuild);
 
     // D1: todo MIDI FX (arpejador) segue o mesmo relógio mestre.
     for (auto& layer : layers)
@@ -5048,7 +5259,10 @@ void Engine::rebuildConnections()
     // Uma reconstrução só, no fim. Antes, cada add/remove reconstruía a ordem
     // de processamento do grafo com o callback de áudio esperando a trava,
     // o que podia causar estalos em cada troca de patch ou de dispositivo.
-    graph.rebuild();
+    {
+        ScopedOpTimer timer (*this, GraphOp::graphRebuild);
+        graph.rebuild();
+    }
 }
 
 void Engine::updateTailTimer()
@@ -5087,7 +5301,10 @@ void Engine::drainLingeringLayers()
     }
 
     for (const auto& id : toUnload)
-        unloadPlugin (id);
+        unloadPlugin (id, false);
+
+    if (! toUnload.isEmpty())
+        rebuildConnections();
 
     updateTailTimer();
 }
@@ -5111,6 +5328,12 @@ juce::String Engine::sendMidi (const juce::MidiMessage& message)
 
     auto copy = message;
     copy.setTimeStamp (juce::Time::getMillisecondCounterHiRes() * 0.001);
+    midiReceived.fetch_add (1, std::memory_order_relaxed);
+    if (copy.isNoteOn())
+        midiNoteOnReceived.fetch_add (1, std::memory_order_relaxed);
+    const int lockOp = graphLockOp.load (std::memory_order_relaxed);
+    if (lockOp >= 0 && lockOp != (int) GraphOp::callback)
+        midiWhileLocked.fetch_add (1, std::memory_order_relaxed);
     midiCollector.addMessageToQueue (copy);
     return {};
 }

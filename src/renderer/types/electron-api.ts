@@ -263,6 +263,8 @@ export interface ElectronAPI {
   /** Realinha no motor os channel strips do concert/set (após desfazer/refazer). */
   concertStripsRealign: () => Promise<boolean>;
   concertRecent: () => Promise<RecentConcert[]>;
+  /** Cancela a preparação do concert em andamento (o concert abre parcial). */
+  concertPrepareCancel: () => Promise<{ cancelled: boolean }>;
 
   // Layout
   layoutChange: (layout: any) => Promise<boolean>;
@@ -287,6 +289,29 @@ export interface ElectronAPI {
     name: string;
     phase: string;
   }) => void) => void;
+  /** Começou a preparação dos instrumentos do concert aberto. */
+  onConcertPrepareStart: (callback: (data: {
+    total: number;
+    patches: number;
+    samplers: number;
+    natives: number;
+  }) => void) => void;
+  onConcertPrepareProgress: (callback: (data: {
+    done: number;
+    total: number;
+    name: string;
+    kind: 'sampler' | 'native';
+    phase: 'loading' | 'done';
+  }) => void) => void;
+  onConcertPrepareDone: (callback: (data: {
+    total: number;
+    done: number;
+    elapsedMs: number;
+    cacheHits: number;
+    errors: Array<{ name: string; error: string }>;
+    cache: unknown;
+  }) => void) => void;
+  onConcertPrepareCancelled: (callback: (data: { done: number; total: number }) => void) => void;
   onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => () => void;
   onPluginLoaded: (callback: (plugin: any) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;

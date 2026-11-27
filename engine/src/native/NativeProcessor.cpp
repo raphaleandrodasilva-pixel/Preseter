@@ -1485,6 +1485,33 @@ bool NativeProcessor::reloadZynBank()
     return native::reloadZynBank (delegatedProcessor.get());
 }
 
+juce::var NativeProcessor::describeZynPrograms() const
+{
+    if (kind != NativeKind::zyn || delegatedProcessor == nullptr)
+        return {};
+    return native::describeZynPrograms (delegatedProcessor.get());
+}
+
+juce::var NativeProcessor::describeZynDiagnostics() const
+{
+    if (kind != NativeKind::zyn || delegatedProcessor == nullptr)
+        return {};
+    return native::describeZynDiagnostics (delegatedProcessor.get());
+}
+
+bool NativeProcessor::loadZynPresetForDiagnostics (const juce::String& path, juce::var& result)
+{
+    if (kind != NativeKind::zyn || delegatedProcessor == nullptr)
+        return false;
+    return native::loadZynPresetForDiagnostics (delegatedProcessor.get(), path, result);
+}
+
+void NativeProcessor::resetZynDiagnostics()
+{
+    if (kind == NativeKind::zyn && delegatedProcessor != nullptr)
+        native::resetZynDiagnostics (delegatedProcessor.get());
+}
+
 void NativeProcessor::setMasterClock (const MasterClock* clockToUse)
 {
     masterClock = clockToUse;

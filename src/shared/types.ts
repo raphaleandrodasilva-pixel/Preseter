@@ -19,6 +19,26 @@ export interface AppLoadProgress {
   error?: string;
 }
 
+/** Preparação dos instrumentos do concert aberto (bloqueia o palco). */
+export interface ConcertPrepareState {
+  total: number;
+  done: number;
+  patches: number;
+  samplers: number;
+  natives: number;
+  /** Item carregado no momento. */
+  currentName: string;
+  phase: 'loading' | 'done';
+  /** Momento em que a preparação começou (epoch ms), para o tempo decorrido. */
+  startedAt: number;
+  /** Quando a preparação terminou ou foi cancelada. */
+  finished: boolean;
+  cancelled: boolean;
+  elapsedMs: number;
+  cacheHits: number;
+  errors: Array<{ name: string; error: string }>;
+}
+
 /** Resultado detalhado da última varredura de plugins. */
 export interface VstScanReport {
   count: number;

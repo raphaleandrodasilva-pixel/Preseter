@@ -24,6 +24,10 @@ const EVENT_METHODS = [
   'onLayoutChange',
   'onVstScanned',
   'onPresetLoadProgress',
+  'onConcertPrepareStart',
+  'onConcertPrepareProgress',
+  'onConcertPrepareDone',
+  'onConcertPrepareCancelled',
   'onVstPresetsUpdated',
   'onVstFxpProgress',
   'onPluginLoaded',
@@ -445,6 +449,7 @@ export function createElectronApiMock(): ElectronApiMock {
     concertSync: vi.fn(async () => ({ dirty: true })),
     concertStripsRealign: vi.fn(async () => true),
     concertRecent: vi.fn(async () => []),
+    concertPrepareCancel: vi.fn(async () => ({ cancelled: true })),
 
     layoutChange: vi.fn(async () => true),
     uiElementAdd: vi.fn(async () => null),

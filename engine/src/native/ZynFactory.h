@@ -19,5 +19,20 @@ void setZynBankDirs (juce::AudioProcessor* processor,
 
 /** Relê os presets .xiz do disco. */
 bool reloadZynBank (juce::AudioProcessor* processor);
+
+/** Diagnóstico Z0: lista os programas com caminho, tamanho e se são gzip. */
+juce::var describeZynPrograms (juce::AudioProcessor* processor);
+
+/** Diagnóstico Z0: carrega um .xiz por caminho e devolve o perfil por etapa.
+    Não altera o programa atual do banco. */
+bool loadZynPresetForDiagnostics (juce::AudioProcessor* processor,
+                                  const juce::String& path,
+                                  juce::var& result);
+
+/** Diagnóstico Z0: último perfil de carga + contadores do alocador. */
+juce::var describeZynDiagnostics (juce::AudioProcessor* processor);
+
+/** Diagnóstico Z0: zera contadores e o último perfil. */
+void resetZynDiagnostics (juce::AudioProcessor* processor);
 } // namespace native
 } // namespace preseter

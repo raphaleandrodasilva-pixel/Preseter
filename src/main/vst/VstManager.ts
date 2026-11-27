@@ -4,8 +4,11 @@ import * as fs from 'fs';
 import type {
   EngineInsertState,
   EngineLoadedPlugin,
+  EngineNativePrepare,
   EngineParameter,
   EnginePluginInfo,
+  EngineSamplerCacheStats,
+  EngineSamplerPrepare,
 } from '../../shared/engine-protocol';
 import type {
   AudioDeviceSnapshot,
@@ -377,6 +380,11 @@ export class VstManager extends EventEmitter {
     return this.engine.request('params', { layerId: ownerId, slot });
   }
 
+  /** T0: estatísticas da troca de patch (trava, MIDI, xruns). */
+  async swapStats(reset = false): Promise<Record<string, unknown>> {
+    return this.engine.request('swapStats', { reset });
+  }
+
   /** Arpejador MIDI do layer (Fase 7.2). */
   async setArp(layerId: string, settings: ArpSettings): Promise<EngineArpState> {
     return this.engine.request('setArp', { layerId, ...settings });
@@ -587,6 +595,40 @@ export class VstManager extends EventEmitter {
     return this.engine.request('samplerReload', { layerId, samplePath, ...options }, 120_000);
   }
 
+  /** Prepara um instrumento de sampler de forma síncrona e mede (abertura do concert). */
+  async prepareSampler(
+    item: { path: string; bank?: number; program?: number }
+  ): Promise<EngineSamplerPrepare> {
+    return this.engine.request(
+      'samplerPrepare',
+      { path: item.path, bank: item.bank ?? 0, program: item.program ?? 0 },
+      1_800_000
+    );
+  }
+
+  /** Aquece os bancos de um instrumento nativo (Dexed/Zyn/Synth2). */
+  async prepareNative(plugin: string): Promise<EngineNativePrepare> {
+    return this.engine.request(
+      'nativePrepare',
+      {
+        plugin,
+        factoryPatches: this.synth2FactoryDir,
+        zynBankDir: this.zynBankDir,
+        zynUserDir: this.zynUserDir,
+      },
+      120_000
+    );
+  }
+
+  /** Garante que o cache não descarte os programas do concert que está abrindo. */
+  async reserveSamplerCache(files: number, programs: number): Promise<EngineSamplerCacheStats> {
+    return this.engine.request('samplerCacheReserve', { files, programs });
+  }
+
+  async samplerCacheStats(): Promise<EngineSamplerCacheStats> {
+    return this.engine.request('samplerCacheStats', {});
+  }
+
   async setPluginProgram(layerOrPluginId: string, programIndex: number): Promise<boolean> {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;
@@ -787,15 +829,16 @@ export class VstManager extends EventEmitter {
     layerId: string,
     slot: number,
     pluginPathOrId: string,
-    bypass = false
+    bypass = false,
+    staged = false
   ): Promise<EngineInsertState> {
     return this.enqueueLoad(async () => {
       const scanned = this.scannedPlugins.find(
         (plugin) => plugin.path === pluginPathOrId || plugin.id === pluginPathOrId
       );
       const request = scanned
-        ? { layerId, slot, plugin: scanned.id, bypass }
-        : { layerId, slot, path: pluginPathOrId, bypass };
+        ? { layerId, slot, plugin: scanned.id, bypass, ...(staged ? { stage: true } : {}) }
+        : { layerId, slot, path: pluginPathOrId, bypass, ...(staged ? { stage: true } : {}) };
       const state = await this.engine.request('setInsert', request, 60_000);
       try {
         await this.ensureAudioRunning();
@@ -804,6 +847,16 @@ export class VstManager extends EventEmitter {
       }
       return state;
     });
+  }
+
+  /** Carrega o insert sem reconstruir o grafo; o commit do patch reconstrói. */
+  async stageInsert(
+    layerId: string,
+    slot: number,
+    pluginPathOrId: string,
+    bypass = false
+  ): Promise<EngineInsertState> {
+    return this.setInsert(layerId, slot, pluginPathOrId, bypass, true);
   }
 
   private async ensureAudioRunning(): Promise<void> {

@@ -143,7 +143,7 @@
       "licenseUrl": "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General_License.md",
       "defaultSelected": true,
       "soundfontPatterns": ["MuseScore_General.sf2"],
-      "notes": "Carregue este arquivo dentro do Sforzando (tecla V)."
+      "notes": "O Preseter Sampler carrega este SF2 direto, sem precisar do Sforzando."
     },
     {
       "id": "sonatina",
