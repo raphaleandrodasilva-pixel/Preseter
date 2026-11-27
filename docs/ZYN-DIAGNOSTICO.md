@@ -385,7 +385,7 @@ pré-alocado) e os avisos `std::cerr`/`fprintf` do `Part` no caminho de nota for
 | Falhas do pool | **0** |
 | Estado salvo (`getState`) | 79.890 bytes |
 | Estado restaurado (`setState`) | programa **412**, Volume **0,300** e Bend Range **0,708** |
-| Controles novos | Vel Sensitivity **102** no Part e `AD Engine=Ligado` no kit |
+| Controles novos | Vel Sensitivity **102**, `AD Engine=Ligado`, Cutoff **102** e Ressonância **38** no Part |
 | Resultado | **ok** |
 
 O teste de estado usa os comandos `getState`/`setState` do engine: salva o layer inteiro,

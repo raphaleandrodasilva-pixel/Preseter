@@ -28,7 +28,7 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
     items: [
       'Preseter Organ (setBfree), Preseter Tines (MDA ePiano) e Preseter Wurly (OpenWurli) já vêm no app.',
       'Preseter Synth2: a coleção Fábrica traz 58 patches .sy1 do projeto; Importar/+ Pasta carrega os seus (Documentos/Preseter/Synth2).',
-      'Preseter Zyn (ZynAddSubFX): 1318 presets .xiz em 32 bancos. Escolher o banco só filtra a lista; use a busca e escolha o programa. Presets pesados mostram “Carregando…” e o som atual continua até a troca.',
+      'Preseter Zyn (ZynAddSubFX): 1318 presets .xiz em 32 bancos. Escolher o banco só filtra a lista; use a busca e escolha o programa. Presets pesados mostram “Carregando…” e o som atual continua até a troca. O painel traz Parte, Controladores, Cutoff/Ressonância ao vivo, AD/SUB e bypass dos FX internos.',
       'Synth2: o seletor de programas no topo também usa o banco Fábrica; Program Change não usado chega ao instrumento se a opção em Concert Settings estiver ligada.',
       'Em qualquer controle do Synth2, o botão MIDI arma o próximo CC do controlador (o mapping fica salvo no concert).',
       'VST3/LV2: adicione pela lista de plugins ou pelos canais do set.',

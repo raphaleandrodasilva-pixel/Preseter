@@ -336,6 +336,20 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
         </div>
       </details>
 
+      <details className="hw-inset p-3" open>
+        <summary className="hw-label cursor-pointer select-none">Som</summary>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['Cutoff', 'Resonance'].map((name) => {
+            const item = param(name);
+            return item ? <ZynKnob key={name} param={item} onChange={onChange} /> : null;
+          })}
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          Offset ao vivo do filtro; a profundidade fica nos Controladores. ADSR, LFO, detune e
+          largura ainda exigem recarregar o preset.
+        </p>
+      </details>
+
       <details className="hw-inset p-3">
         <summary className="hw-label cursor-pointer select-none">Motores</summary>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">

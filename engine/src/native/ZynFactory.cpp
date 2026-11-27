@@ -587,6 +587,8 @@ public:
                     .set ("modWheelDepth", (int) part.ctl.modwheel.depth)
                     .set ("filterCutoffDepth", (int) part.ctl.filtercutoff.depth)
                     .set ("filterQDepth", (int) part.ctl.filterq.depth)
+                    .set ("cutoffData", part.ctl.filtercutoff.data)
+                    .set ("resonanceData", part.ctl.filterq.data)
                     .set ("expressionReceive", part.ctl.expression.receive)
                     .set ("sustainReceive", part.ctl.sustain.receive)
                     .set ("kit", juce::var (kit));
@@ -654,6 +656,8 @@ private:
         int modWheelDepth = 80;
         int filterCutoffDepth = 64;
         int filterQDepth = 64;
+        int cutoff = 64;      // 64 = neutro; offset ao vivo via controlador
+        int resonance = 64;   // 64 = neutro
         bool expressionReceive = true;
         bool sustainReceive = true;
 
@@ -673,6 +677,7 @@ private:
                 && modWheelDepth == other.modWheelDepth
                 && filterCutoffDepth == other.filterCutoffDepth
                 && filterQDepth == other.filterQDepth
+                && cutoff == other.cutoff && resonance == other.resonance
                 && expressionReceive == other.expressionReceive
                 && sustainReceive == other.sustainReceive
                 && adEngine == other.adEngine && subEngine == other.subEngine;
@@ -821,6 +826,8 @@ private:
         addInt ("modWheelDepth", "Mod Wheel Depth", 0, 127, 80);
         addInt ("filterCutoffDepth", "Filter Cutoff Depth", 0, 127, 64);
         addInt ("filterQDepth", "Filter Q Depth", 0, 127, 64);
+        addInt ("cutoff", "Cutoff", 0, 127, 64);
+        addInt ("resonance", "Resonance", 0, 127, 64);
         addBool ("expressionReceive", "Expression Receive", true);
         addBool ("sustainReceive", "Sustain Receive", true);
         addInt ("adEngine", "AD Engine", -1, 1, -1);
@@ -858,6 +865,8 @@ private:
         state.modWheelDepth = (int) std::lround (value ("modWheelDepth"));
         state.filterCutoffDepth = (int) std::lround (value ("filterCutoffDepth"));
         state.filterQDepth = (int) std::lround (value ("filterQDepth"));
+        state.cutoff = (int) std::lround (value ("cutoff"));
+        state.resonance = (int) std::lround (value ("resonance"));
         state.expressionReceive = value ("expressionReceive") >= 0.5f;
         state.sustainReceive = value ("sustainReceive") >= 0.5f;
         state.adEngine = (int) std::lround (value ("adEngine"));
@@ -896,8 +905,10 @@ private:
         part.ctl.setmodwheel();
 
         part.ctl.filtercutoff.depth = (unsigned char) juce::jlimit (0, 127, macros.filterCutoffDepth);
+        part.ctl.filtercutoff.data = juce::jlimit (0, 127, macros.cutoff);
         part.ctl.setfiltercutoff();
         part.ctl.filterq.depth = (unsigned char) juce::jlimit (0, 127, macros.filterQDepth);
+        part.ctl.filterq.data = juce::jlimit (0, 127, macros.resonance);
         part.ctl.setfilterq();
 
         part.ctl.expression.receive = macros.expressionReceive;

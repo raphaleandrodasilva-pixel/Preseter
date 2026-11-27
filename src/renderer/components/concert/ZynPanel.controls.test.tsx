@@ -26,6 +26,8 @@ const params = [
   param(6, 'Bend Range', 0.5, '2'),
   param(7, 'AD Engine', 0, '-1'),
   param(8, 'Legato', 0, 'Off'),
+  param(9, 'Cutoff', 0.5, '64'),
+  param(10, 'Resonance', 0.5, '64'),
 ];
 
 const names = [
@@ -56,6 +58,8 @@ describe('ZynPanel — controles da primeira leva (Z4a)', () => {
     expect(screen.getByText('Motores')).toBeInTheDocument();
     expect(screen.getByLabelText('Vel Sensitivity')).toBeInTheDocument();
     expect(screen.getByLabelText('Bend Range')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cutoff')).toBeInTheDocument();
+    expect(screen.getByLabelText('Resonance')).toBeInTheDocument();
     expect(screen.getByLabelText('ADsynth')).toBeInTheDocument();
     expect(screen.getByText('2 st')).toBeInTheDocument();
   });
@@ -65,6 +69,9 @@ describe('ZynPanel — controles da primeira leva (Z4a)', () => {
 
     fireEvent.change(screen.getByLabelText('Vel Sensitivity'), { target: { value: '0.8' } });
     expect(onChange).toHaveBeenCalledWith('Vel Sensitivity', 0.8);
+
+    fireEvent.change(screen.getByLabelText('Cutoff'), { target: { value: '0.8' } });
+    expect(onChange).toHaveBeenCalledWith('Cutoff', 0.8);
 
     fireEvent.change(screen.getByLabelText('ADsynth'), { target: { value: '1' } });
     expect(onChange).toHaveBeenCalledWith('AD Engine', 1);

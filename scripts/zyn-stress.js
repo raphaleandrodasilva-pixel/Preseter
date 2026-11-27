@@ -149,15 +149,24 @@ async function main() {
   if (audio && !audio.error) {
     const velocity = params.find((parameter) => parameter.name === 'Vel Sensitivity');
     const engine = params.find((parameter) => parameter.name === 'AD Engine');
-    if (velocity && engine) {
+    const cutoff = params.find((parameter) => parameter.name === 'Cutoff');
+    const resonance = params.find((parameter) => parameter.name === 'Resonance');
+    if (velocity && engine && cutoff && resonance) {
       await request('setParam', { layerId: LAYER, index: velocity.index, value: 0.8 });
+      await request('setParam', { layerId: LAYER, index: cutoff.index, value: 0.8 });
+      await request('setParam', { layerId: LAYER, index: resonance.index, value: 0.3 });
       await request('setParam', { layerId: LAYER, index: engine.index, value: 1 });
       await sleep(150);
       const part = (await request('zynDiag', { action: 'stats', layerId: LAYER })).part;
       controls = {
         velSensitivity: part?.velSensitivity ?? null,
         adEnabled: part?.kit?.[0]?.add ?? null,
-        ok: part?.velSensitivity === 102 && part?.kit?.[0]?.add === true,
+        cutoffData: part?.cutoffData ?? null,
+        resonanceData: part?.resonanceData ?? null,
+        ok: part?.velSensitivity === 102
+          && part?.kit?.[0]?.add === true
+          && part?.cutoffData === 102
+          && part?.resonanceData === 38,
       };
     }
   }
