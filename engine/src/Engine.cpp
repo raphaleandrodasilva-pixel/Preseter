@@ -4800,8 +4800,16 @@ juce::String Engine::setPluginProgram (const juce::String& layerId, int programI
         auto* native = layers[(size_t) layerIndex].native;
         if (! juce::isPositiveAndBelow (programIndex, native->getNumPrograms()))
             return utf8 ("Programa inválido: ") + juce::String (programIndex);
-        native->setCurrentProgram (programIndex);
-        result = describeLoadedPlugin (layerId);
+        if (! native->setCurrentProgramChecked (programIndex))
+            return utf8 ("Não foi possível carregar o programa \"")
+                 + native->getProgramName (programIndex)
+                 + utf8 ("\".");
+        // A troca nativa devolve só o programa atual; os nomes ficam no cache
+        // da interface e só são reenviados no load/reload do banco.
+        result = Obj()
+                     .set ("layerId", layers[(size_t) layerIndex].id)
+                     .set ("program", native->getCurrentProgram())
+                     .set ("programCount", native->getNumPrograms());
         return {};
     }
 

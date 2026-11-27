@@ -430,7 +430,6 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
   const [dexedNames, setDexedNames] = useState<string[]>([]);
   const [dexedProgram, setDexedProgram] = useState(0);
   const [zynNames, setZynNames] = useState<string[]>([]);
-  const [zynProgram, setZynProgram] = useState(0);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [box, setBox] = useState({ x: 80, y: 80, w: 980, h: 640 });
@@ -450,7 +449,6 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     }
     if (kind === 'zyn' && plugin?.programNames?.length) {
       setZynNames(plugin.programNames);
-      setZynProgram(plugin.program ?? assignment.programIndex ?? 0);
     }
   }, [kind, plugin?.programNames, plugin?.program, assignment.programIndex]);
 
@@ -525,7 +523,8 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     try {
       await window.electronAPI.vstSetProgram(layerId, index);
       if (kind === 'dexed') setDexedProgram(index);
-      if (kind === 'zyn') setZynProgram(index);
+      // O Zyn usa `plugin.program` (atualizado pelo evento plugin-program);
+      // não há estado local para uma resposta atrasada voltar.
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao trocar o preset.');
@@ -546,7 +545,6 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
       if (result.plugin?.programNames?.length) {
         if (kind === 'zyn') {
           setZynNames(result.plugin.programNames);
-          setZynProgram(result.plugin.program ?? 0);
         } else {
           setDexedNames(result.plugin.programNames);
           setDexedProgram(result.plugin.program ?? 0);
@@ -575,7 +573,7 @@ export const NativeInstrumentWindow: React.FC<NativeInstrumentWindowProps> = ({
     return Array.from({ length: programCount }, (_, index) => `Preset ${index + 1}`);
   }, [kind, dexedNames, zynNames, plugin?.programNames, programCount]);
 
-  const displayedProgram = kind === 'dexed' ? dexedProgram : kind === 'zyn' ? zynProgram : program;
+  const displayedProgram = kind === 'dexed' ? dexedProgram : program;
 
   const polyphonyMax = kind === 'piano'
     ? Math.round(8 + 24 * valueOf('Polyphony'))

@@ -254,6 +254,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onPluginLoaded: (callback: (plugin: any) => void) =>
     ipcRenderer.on('plugin-loaded', (_event: Electron.IpcRendererEvent, plugin: unknown) => callback(plugin as any)),
+  onPluginProgram: (callback: (update: { layerId: string; program: number }) => void) =>
+    ipcRenderer.on('plugin-program', (_event: Electron.IpcRendererEvent, update: unknown) =>
+      callback(update as { layerId: string; program: number })),
   onPluginUnloaded: (callback: (pluginId: string) => void) =>
     ipcRenderer.on('plugin-unloaded', (_event: Electron.IpcRendererEvent, pluginId: unknown) => callback(String(pluginId))),
   onParameterChanged: (callback: (data: any) => void) =>

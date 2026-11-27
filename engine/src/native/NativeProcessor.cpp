@@ -1082,13 +1082,23 @@ int NativeProcessor::getCurrentProgram()
 
 void NativeProcessor::setCurrentProgram (int index)
 {
+    setCurrentProgramChecked (index);
+}
+
+bool NativeProcessor::setCurrentProgramChecked (int index)
+{
+    const int count = juce::jmax (1, getNumPrograms());
+    const int target = juce::jlimit (0, count - 1, index);
+
     if (delegatedProcessor)
     {
-        delegatedProcessor->setCurrentProgram (index);
+        delegatedProcessor->setCurrentProgram (target);
         currentProgram = delegatedProcessor->getCurrentProgram();
-        return;
+        return currentProgram == target;
     }
-    applyProgram (juce::jlimit (0, getNumPrograms() - 1, index));
+
+    applyProgram (target);
+    return currentProgram == target;
 }
 
 void NativeProcessor::applyProgram (int index)

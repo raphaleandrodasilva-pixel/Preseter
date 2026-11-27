@@ -1,18 +1,15 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { ZynPanel } from './ZynPanel';
 
 /**
- * Z0: documenta o comportamento atual do painel com os 1318 presets reais.
+ * Z1: banco e lista com os 1318 presets reais.
  *
- * O banco exibido é derivado de `program`; escolher outro banco só chama
- * `onProgram(primeiro)`. Enquanto a prop `program` não muda (porque o load
- * falhou ou ainda está carregando), a lista continua no banco antigo.
- * Este teste passa de propósito: ele é a prova do defeito. No Z1 ele será
- * substituído pelo teste do banco como estado da tela.
+ * O banco escolhido é estado da tela (só filtra). Trocar de programa não muda
+ * o banco, e uma atualização do plugin não volta a lista para o banco antigo.
  */
 function realProgramNames(): string[] {
   const root = path.join(process.cwd(), 'vendor', 'zyn', 'banks');
@@ -49,55 +46,121 @@ const splitBanks = (names: string[]) => {
   return banks;
 };
 
-describe('ZynPanel — Z0 (comportamento atual)', () => {
-  it('tem 1318 nomes e só troca a lista quando a prop program muda', () => {
-    const names = realProgramNames();
-    const banks = splitBanks(names);
+const names = realProgramNames();
+const banks = splitBanks(names);
+
+const renderPanel = (overrides: Partial<React.ComponentProps<typeof ZynPanel>> = {}) => {
+  const onProgram = vi.fn(async () => undefined);
+  const result = render(
+    <ZynPanel
+      params={[]}
+      program={banks[0].entries[0].index}
+      programNames={names}
+      onChange={() => undefined}
+      onProgram={onProgram}
+      onImport={() => undefined}
+      {...overrides}
+    />
+  );
+  return { ...result, onProgram };
+};
+
+describe('ZynPanel — banco e programa (Z1)', () => {
+  it('tem 1318 nomes e troca a lista na hora ao escolher o banco', () => {
     expect(names).toHaveLength(1318);
     expect(banks.length).toBeGreaterThan(10);
 
-    const firstProgram = banks[0].entries[0].index;
-    const onProgram = vi.fn();
-
-    const renderStart = performance.now();
-    const { rerender } = render(
-      <ZynPanel
-        params={[]}
-        program={firstProgram}
-        programNames={names}
-        onChange={() => undefined}
-        onProgram={onProgram}
-        onImport={() => undefined}
-      />
-    );
-    const renderMs = performance.now() - renderStart;
-
+    const { onProgram } = renderPanel();
     const bank = screen.getByLabelText('Banco do Zyn');
     expect(bank).toHaveValue('0');
 
     fireEvent.change(bank, { target: { value: '5' } });
-    expect(onProgram).toHaveBeenCalledWith(banks[5].entries[0].index);
 
-    // Sem uma nova prop `program`, a tela continua no banco antigo. É o
-    // sintoma que o Rafael vê quando o preset do banco novo não carrega.
-    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('0');
+    // Escolher banco não dispara carga; só filtra.
+    expect(onProgram).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('5');
+    expect(screen.getByRole('option', { name: banks[5].entries[0].name })).toBeInTheDocument();
+    expect(screen.getByText(`${banks[5].entries.length} programas`)).toBeInTheDocument();
+  });
 
-    // Quando a prop muda (load concluído), a lista acompanha.
-    const updateStart = performance.now();
+  it('trocar de programa não muda o banco escolhido', () => {
+    const { onProgram } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Banco do Zyn'), { target: { value: '5' } });
+
+    const target = banks[5].entries[1] ?? banks[5].entries[0];
+    fireEvent.change(screen.getByLabelText('Programa do Zyn'), {
+      target: { value: String(target.index) },
+    });
+
+    expect(onProgram).toHaveBeenCalledWith(target.index);
+    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('5');
+  });
+
+  it('a seleção do banco sobrevive a uma atualização do plugin', () => {
+    const { rerender, onProgram } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Banco do Zyn'), { target: { value: '5' } });
+    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('5');
+
+    // O plugin volta com o programa antigo (banco 0); a tela não deve voltar.
     rerender(
       <ZynPanel
         params={[]}
-        program={banks[5].entries[0].index}
+        program={banks[0].entries[0].index}
         programNames={names}
         onChange={() => undefined}
         onProgram={onProgram}
         onImport={() => undefined}
       />
     );
-    const updateMs = performance.now() - updateStart;
-    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('5');
 
-    // Proxy de jsdom, não pintura real no app (a confirmar).
-    console.log(`[Z0] ZynPanel 1318 nomes: render ${renderMs.toFixed(1)} ms, troca de banco ${updateMs.toFixed(1)} ms`);
+    expect(screen.getByLabelText('Banco do Zyn')).toHaveValue('5');
+  });
+
+  it('busca pelo nome dentro do banco escolhido', () => {
+    renderPanel();
+    fireEvent.change(screen.getByLabelText('Banco do Zyn'), { target: { value: '5' } });
+
+    const first = banks[5].entries[0].name;
+    const query = first.slice(0, Math.min(5, first.length));
+    fireEvent.change(screen.getByLabelText('Buscar programa do Zyn'), {
+      target: { value: query },
+    });
+
+    const expected = banks[5].entries.filter((entry) =>
+      entry.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        .includes(query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
+    ).length;
+    expect(screen.getByText(`${expected} de ${banks[5].entries.length} programas`)).toBeInTheDocument();
+  });
+
+  it('fila de 1: a última escolha vence e mostra Carregando…', async () => {
+    let releaseFirst: (() => void) | null = null;
+    let calls = 0;
+    const onProgram = vi.fn((_index: number) => {
+      calls += 1;
+      if (calls === 1) {
+        return new Promise<void>((resolve) => { releaseFirst = resolve; });
+      }
+      return Promise.resolve();
+    });
+
+    renderPanel({ onProgram });
+    const bank = screen.getByLabelText('Banco do Zyn');
+    fireEvent.change(bank, { target: { value: '5' } });
+
+    const first = banks[5].entries[0];
+    const last = banks[5].entries[2] ?? banks[5].entries[1];
+    fireEvent.change(screen.getByLabelText('Programa do Zyn'), { target: { value: String(first.index) } });
+    expect(onProgram).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Programa do Zyn'), { target: { value: String(last.index) } });
+    // Ainda está carregando o primeiro; o segundo fica na fila.
+    expect(onProgram).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(releaseFirst).not.toBeNull());
+    releaseFirst?.();
+    await waitFor(() => expect(onProgram).toHaveBeenCalledTimes(2));
+    expect(onProgram).toHaveBeenLastCalledWith(last.index);
   });
 });

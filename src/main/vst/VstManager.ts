@@ -633,6 +633,23 @@ export class VstManager extends EventEmitter {
     const plugin = this.findLoadedPlugin(layerOrPluginId);
     if (!plugin?.layerId) return false;
     const result = await this.engine.request('setProgram', { layerId: plugin.layerId, index: programIndex });
+
+    const current = this.loadedPlugins.get(plugin.layerId);
+    if (!current) return true;
+
+    // Nativos do Preseter devolvem só o programa atual (sem os nomes). Atualiza
+    // o cache e avisa a interface com um evento pequeno; os 1318 nomes ficam
+    // onde estão, sem atravessar o IPC a cada troca.
+    if (current.id.startsWith('preseter.')) {
+      const program = typeof result.program === 'number' ? result.program : programIndex;
+      const updated = { ...current, program };
+      this.loadedPlugins.set(plugin.layerId, updated);
+      this.emit('plugin-program', { layerId: plugin.layerId, program });
+      return true;
+    }
+
+    // VSTs podem mudar parâmetros junto com o programa; mantém o refresh
+    // completo (o payload deles não tem os 1318 nomes do Zyn).
     await this.refreshLoadedPlugin(plugin.layerId, result);
     return true;
   }

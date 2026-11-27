@@ -785,6 +785,40 @@ describe('VstManager plugin operations', () => {
     expect(await manager.setPluginPresetFile('missing', 'x')).toBe(false);
   });
 
+  it('native program changes emit a small plugin-program event', async () => {
+    const made = makeEngine((command) => {
+      if (command === 'load') {
+        return enginePlugin({
+          layerId: 'layer-1',
+          id: 'preseter.zyn',
+          name: 'Preseter Zyn',
+          format: 'Native',
+          program: 0,
+          programCount: 3,
+          programNames: ['P0', 'P1', 'P2'],
+        });
+      }
+      if (command === 'params') return [];
+      if (command === 'setProgram') return { layerId: 'layer-1', program: 2, programCount: 3 };
+      return undefined;
+    });
+    const manager = new VstManager(made.engine);
+    await manager.loadPlugin('preseter.zyn', 'layer-1');
+
+    const program = vi.fn();
+    const loaded = vi.fn();
+    manager.on('plugin-program', program);
+    manager.on('plugin-loaded', loaded);
+    made.request.mockClear();
+
+    expect(await manager.setPluginProgram('layer-1', 2)).toBe(true);
+    expect(program).toHaveBeenCalledWith({ layerId: 'layer-1', program: 2 });
+    expect(loaded).not.toHaveBeenCalled();
+    expect(made.request).not.toHaveBeenCalledWith('params', expect.anything());
+    expect(manager.getLoadedPlugins()[0].program).toBe(2);
+    expect(manager.getLoadedPlugins()[0].programNames).toEqual(['P0', 'P1', 'P2']);
+  });
+
   it('exports the current sound as a .vstpreset', async () => {
     const { manager, request } = await loadedManager((command) => {
       if (command === 'getPresetFile') {

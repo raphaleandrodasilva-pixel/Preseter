@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { EngineParameter } from '@shared/engine-protocol';
 import { ChoiceButton, Knob } from './native-controls';
 
@@ -36,6 +36,17 @@ const splitBanks = (names: string[]): Bank[] => {
   return banks;
 };
 
+const bankIndexOf = (banks: Bank[], program: number): number => {
+  const found = banks.findIndex((bank) =>
+    bank.entries.some((entry) => entry.index === program)
+  );
+  return found >= 0 ? found : 0;
+};
+
+/** Busca sem diferenciar maiúsculas nem acentos. */
+const normalize = (text: string): string =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 const displayOf = (param: EngineParameter): string => {
   if (param.text && param.text.trim().length > 0) return param.text.trim();
   return `${Math.round(param.value * 100)}%`;
@@ -55,7 +66,7 @@ const ZynKnob: React.FC<{
   />
 );
 
-/** Painel enxuto do Preseter Zyn: presets, parte e efeitos. */
+/** Painel do Preseter Zyn: presets, parte e efeitos. */
 export const ZynPanel: React.FC<ZynPanelProps> = ({
   params,
   program,
@@ -69,16 +80,83 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
   const banks = useMemo(() => splitBanks(programNames), [programNames]);
   const param = (name: string) => params.find((item) => item.name === name);
 
-  const bankIndex = Math.max(0, banks.findIndex((bank) =>
-    bank.entries.some((entry) => entry.index === program)
-  ));
+  // O banco é estado da tela: escolher um banco só filtra a lista; o preset
+  // atual continua soando até o usuário escolher um programa. Assim uma
+  // atualização do plugin (ou uma troca lenta) não volta a lista para o banco
+  // antigo.
+  const [selectedBank, setSelectedBank] = useState(() => bankIndexOf(banks, program));
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [pendingProgram, setPendingProgram] = useState<number | null>(null);
+  const loadingRef = useRef(false);
+  const queuedRef = useRef<number | null>(null);
+  /** Só a primeira chegada dos nomes alinha o banco ao programa atual. */
+  const bankInitialized = useRef(programNames.length > 0);
+
+  useEffect(() => {
+    if (!bankInitialized.current && programNames.length > 0) {
+      bankInitialized.current = true;
+      setSelectedBank(bankIndexOf(banks, program));
+    }
+  }, [banks, programNames.length, program]);
+
+  useEffect(() => {
+    if (selectedBank >= banks.length)
+      setSelectedBank(Math.max(0, banks.length - 1));
+  }, [banks.length, selectedBank]);
+
+  const bankIndex = Math.min(selectedBank, Math.max(0, banks.length - 1));
   const bank = banks[bankIndex] ?? banks[0];
   const currentEntry = bank.entries.find((entry) => entry.index === program);
 
+  const visibleEntries = useMemo(() => {
+    const query = normalize(search.trim());
+    if (!query) return bank.entries;
+    return bank.entries.filter((entry) => normalize(entry.name).includes(query));
+  }, [bank, search]);
+
   const chooseBank = (index: number) => {
-    const next = banks[index];
-    if (next?.entries[0]) void onProgram(next.entries[0].index);
+    bankInitialized.current = true;
+    setSelectedBank(index);
+    setSearch('');
   };
+
+  /**
+   * Fila de 1: se o usuário escolher outro programa enquanto o atual carrega,
+   * guarda só o último. A troca em andamento termina antes de a próxima sair.
+   */
+  const runProgramChange = async (first: number) => {
+    if (loadingRef.current) {
+      queuedRef.current = first;
+      return;
+    }
+
+    loadingRef.current = true;
+    setLoading(true);
+
+    let next: number | null = first;
+    try {
+      while (next !== null) {
+        queuedRef.current = null;
+        setPendingProgram(next);
+        await onProgram(next);
+        next = queuedRef.current;
+      }
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+      setPendingProgram(null);
+    }
+  };
+
+  const changeProgram = (index: number) => {
+    if (index < 0) return;
+    void runProgramChange(index).catch(() => undefined);
+  };
+
+  const selectedProgram = loading && pendingProgram !== null
+    ? pendingProgram
+    : currentEntry?.index ?? -1;
 
   return (
     <div className="space-y-3">
@@ -103,11 +181,15 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             Programa
             <select
               aria-label="Programa do Zyn"
+              aria-busy={loading}
               className="hw-inset mt-1 w-full px-2 py-1.5 text-[11px] text-white"
-              value={currentEntry?.index ?? -1}
-              onChange={(event) => void onProgram(Number(event.target.value))}
+              value={selectedProgram}
+              onChange={(event) => changeProgram(Number(event.target.value))}
             >
-              {bank.entries.map((entry) => (
+              {!currentEntry && !(loading && pendingProgram !== null) && (
+                <option value={-1}>Escolha um programa…</option>
+              )}
+              {visibleEntries.map((entry) => (
                 <option key={`${entry.index}-${entry.name}`} value={entry.index}>
                   {entry.name}
                 </option>
@@ -124,6 +206,28 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             {importBusy ? 'Importando…' : 'Importar preset .xiz…'}
           </button>
         </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            aria-label="Buscar programa do Zyn"
+            placeholder="Buscar programa…"
+            className="hw-inset min-w-0 flex-1 px-2 py-1 text-[10px] text-white"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <span className="text-[10px]" style={{ color: '#8E8E93' }}>
+            {search.trim()
+              ? `${visibleEntries.length} de ${bank.entries.length} programas`
+              : `${bank.entries.length} programas`}
+          </span>
+          {loading && (
+            <span className="text-[10px] font-semibold" style={{ color: '#FFB74D' }} aria-live="polite">
+              Carregando…
+            </span>
+          )}
+        </div>
+
         {importMessage && (
           <p className="mt-2 text-[10px]" style={{ color: importMessage.startsWith('Erro') ? '#FF8A80' : '#7BE38F' }}>
             {importMessage}

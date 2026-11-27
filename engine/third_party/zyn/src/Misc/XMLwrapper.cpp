@@ -411,7 +411,11 @@ char *XMLwrapper::doloadfile(const string &filename) const
     juce::MemoryOutputStream text;
     if (gzip)
     {
-        juce::GZIPDecompressorInputStream decompressor (raw.get(), false);
+        // Os .xiz são gzip (magic 1f 8b), não zlib. O construtor de dois
+        // argumentos usa zlibFormat por padrão; sem o formato explícito o
+        // inflate falha e o preset não carrega.
+        juce::GZIPDecompressorInputStream decompressor (
+            raw.get(), false, juce::GZIPDecompressorInputStream::gzipFormat);
         text.writeFromInputStream (decompressor, -1);
     }
     else

@@ -771,6 +771,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
 
+    // Troca de programa nativa: evento pequeno, sem os 1318 nomes do Zyn.
+    window.electronAPI.onPluginProgram((update) => {
+      setLoadedPlugins((prev) => prev.map((plugin) =>
+        (plugin.layerId ?? plugin.id) === update.layerId
+          ? { ...plugin, program: update.program }
+          : plugin
+      ));
+    });
+
     window.electronAPI.onPluginUnloaded((pluginId) => {
       setLoadedPlugins((prev) => prev.filter((p) => (p.layerId ?? p.id) !== pluginId));
     });

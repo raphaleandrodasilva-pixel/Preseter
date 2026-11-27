@@ -267,6 +267,7 @@ class MainWindow {
     this.concertManager.on('changed', () => this.updateTitle());
     this.concertManager.on('recent-changed', () => this.buildMenu());
     this.vstManager.on('plugin-loaded', (plugin) => this.sendToRenderer('plugin-loaded', plugin));
+    this.vstManager.on('plugin-program', (update) => this.sendToRenderer('plugin-program', update));
     this.vstManager.on('plugin-unloaded', (pluginId) => this.sendToRenderer('plugin-unloaded', pluginId));
     this.vstManager.on('scanned', (plugins) => this.sendToRenderer('vst-scanned', plugins));
     this.vstManager.on('parameter-changed', (change) => this.sendToRenderer('parameter-changed', change));
@@ -988,7 +989,9 @@ class MainWindow {
 
     ipcMain.handle('vst-set-program', async (_event, layerId: string, index: number) => {
       await this.vstManager.setPluginProgram(layerId, index);
-      return this.vstManager.getLoadedPlugins().find((item) => item.layerId === layerId) ?? null;
+      // A interface recebe o programa pelo evento plugin-program. Devolver o
+      // objeto carregado aqui reenviaria os 1318 nomes do Zyn a cada troca.
+      return null;
     });
 
     ipcMain.handle('dexed-import-cartridge', async (_event, layerId: string) => {

@@ -20,7 +20,9 @@ Apenas o núcleo de um instrumento (`Part`), sem `Master`, `MiddleWare`, UI
 - `FFTwrapper` usa `juce::dsp::FFT` (sem FFTW). A inversa é multiplicada pelo
   tamanho da FFT para manter a convenção sem escala do FFTW.
 - `XMLwrapper` lê/grava gzip com `GZIPDecompressorInputStream` /
-  `GZIPCompressorOutputStream` do JUCE (sem zlib externo).
+  `GZIPCompressorOutputStream` do JUCE (sem zlib externo). A leitura passa
+  `GZIPDecompressorInputStream::gzipFormat` explicitamente: o default do JUCE é
+  `zlibFormat`, que não reconhece os `.xiz` gzip (magic `1f 8b`).
 - `Part::activeVoices()` adicionado para o rodapé do painel.
 - Nenhuma alteração no DSP, nos parâmetros ou no formato `.xiz`.
 

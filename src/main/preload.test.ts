@@ -145,6 +145,7 @@ describe('preload electronAPI', () => {
       ['onVstScanned', 'vst-scanned'],
       ['onVstPresetsUpdated', 'vst-presets-updated'],
       ['onPluginLoaded', 'plugin-loaded'],
+      ['onPluginProgram', 'plugin-program'],
       ['onPluginUnloaded', 'plugin-unloaded'],
       ['onParameterChanged', 'parameter-changed'],
       ['onEngineCrashed', 'engine-crashed'],

@@ -314,6 +314,7 @@ export interface ElectronAPI {
   onConcertPrepareCancelled: (callback: (data: { done: number; total: number }) => void) => void;
   onVstPresetsUpdated: (callback: (result: VstPresetListResult) => void) => () => void;
   onPluginLoaded: (callback: (plugin: any) => void) => void;
+  onPluginProgram: (callback: (update: { layerId: string; program: number }) => void) => void;
   onPluginUnloaded: (callback: (pluginId: string) => void) => void;
   onParameterChanged: (callback: (data: any) => void) => void;
   onEngineCrashed: (callback: (data: { message: string }) => void) => void;

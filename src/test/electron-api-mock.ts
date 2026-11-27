@@ -31,6 +31,7 @@ const EVENT_METHODS = [
   'onVstPresetsUpdated',
   'onVstFxpProgress',
   'onPluginLoaded',
+  'onPluginProgram',
   'onPluginUnloaded',
   'onParameterChanged',
   'onEngineCrashed',
