@@ -556,8 +556,43 @@ public:
         return juce::var (list);
     }
 
-    juce::var describeDiagnostics() const
+    juce::var describeDiagnostics()
     {
+        juce::var partInfo;
+        {
+            const juce::SpinLock::ScopedTryLockType lock (instanceLock);
+            if (lock.isLocked() && instance != nullptr)
+            {
+                const auto& part = *instance->part;
+                juce::Array<juce::var> kit;
+                for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+                    kit.add (Obj()
+                                 .set ("enabled", part.kit[n].Penabled)
+                                 .set ("add", part.kit[n].Padenabled)
+                                 .set ("sub", part.kit[n].Psubenabled)
+                                 .set ("pad", part.kit[n].Ppadenabled));
+
+                partInfo = Obj()
+                    .set ("volume", part.Volume)
+                    .set ("panning", (int) part.Ppanning)
+                    .set ("velSensitivity", (int) part.Pvelsns)
+                    .set ("velOffset", (int) part.Pveloffs)
+                    .set ("keyLimit", (int) part.Pkeylimit)
+                    .set ("minKey", (int) part.Pminkey)
+                    .set ("maxKey", (int) part.Pmaxkey)
+                    .set ("legato", part.Plegatomode)
+                    .set ("portamento", part.ctl.portamento.portamento)
+                    .set ("portamentoTime", (int) part.ctl.portamento.time)
+                    .set ("bendRangeCents", (int) part.ctl.pitchwheel.bendrange)
+                    .set ("modWheelDepth", (int) part.ctl.modwheel.depth)
+                    .set ("filterCutoffDepth", (int) part.ctl.filtercutoff.depth)
+                    .set ("filterQDepth", (int) part.ctl.filterq.depth)
+                    .set ("expressionReceive", part.ctl.expression.receive)
+                    .set ("sustainReceive", part.ctl.sustain.receive)
+                    .set ("kit", juce::var (kit));
+            }
+        }
+
         return Obj()
             .set ("last", profileToVar (lastProfile))
             .set ("allocCount", (juce::int64) diagCounters.allocCount.load())
@@ -573,7 +608,8 @@ public:
             .set ("currentProgram", currentProgram)
             .set ("activeVoices", activeVoices())
             .set ("blockSize", kZynBlockSize)
-            .set ("sampleRate", currentSampleRate);
+            .set ("sampleRate", currentSampleRate)
+            .set ("part", partInfo);
     }
 
     void resetDiagnostics()
@@ -605,11 +641,41 @@ private:
         bool mono = false;
         bool fx[3] = { false, false, false };
 
+        int velSensitivity = 64;
+        int velOffset = 64;
+        int keyLimit = 15;
+        int minKey = 0;
+        int maxKey = 127;
+        bool portamento = false;
+        int portamentoTime = 64;
+        bool legato = false;
+
+        int bendRange = 2; // semitons
+        int modWheelDepth = 80;
+        int filterCutoffDepth = 64;
+        int filterQDepth = 64;
+        bool expressionReceive = true;
+        bool sustainReceive = true;
+
+        /** -1 = manter o que veio no preset; 0 = desligar; 1 = ligar. */
+        int adEngine = -1;
+        int subEngine = -1;
+
         bool operator== (const MacroState& other) const
         {
             return volume == other.volume && pan == other.pan && voices == other.voices
                 && keyShift == other.keyShift && mono == other.mono
-                && fx[0] == other.fx[0] && fx[1] == other.fx[1] && fx[2] == other.fx[2];
+                && fx[0] == other.fx[0] && fx[1] == other.fx[1] && fx[2] == other.fx[2]
+                && velSensitivity == other.velSensitivity && velOffset == other.velOffset
+                && keyLimit == other.keyLimit && minKey == other.minKey && maxKey == other.maxKey
+                && portamento == other.portamento && portamentoTime == other.portamentoTime
+                && legato == other.legato && bendRange == other.bendRange
+                && modWheelDepth == other.modWheelDepth
+                && filterCutoffDepth == other.filterCutoffDepth
+                && filterQDepth == other.filterQDepth
+                && expressionReceive == other.expressionReceive
+                && sustainReceive == other.sustainReceive
+                && adEngine == other.adEngine && subEngine == other.subEngine;
         }
     };
 
@@ -730,6 +796,35 @@ private:
             juce::ParameterID { "fx2", 1 }, "FX2 Bypass", false));
         layout.add (std::make_unique<juce::AudioParameterBool> (
             juce::ParameterID { "fx3", 1 }, "FX3 Bypass", false));
+
+        const auto addInt = [&layout] (const char* id, const char* name,
+                                       int min, int max, int defaultValue)
+        {
+            layout.add (std::make_unique<juce::AudioParameterInt> (
+                juce::ParameterID { id, 1 }, name, min, max, defaultValue));
+        };
+        const auto addBool = [&layout] (const char* id, const char* name, bool defaultValue)
+        {
+            layout.add (std::make_unique<juce::AudioParameterBool> (
+                juce::ParameterID { id, 1 }, name, defaultValue));
+        };
+
+        addInt ("velSensitivity", "Vel Sensitivity", 0, 127, 64);
+        addInt ("velOffset", "Vel Offset", 0, 127, 64);
+        addInt ("keyLimit", "Key Limit", 0, 127, 15);
+        addInt ("minKey", "Min Key", 0, 127, 0);
+        addInt ("maxKey", "Max Key", 0, 127, 127);
+        addBool ("portamento", "Portamento", false);
+        addInt ("portamentoTime", "Portamento Time", 0, 127, 64);
+        addBool ("legato", "Legato", false);
+        addInt ("bendRange", "Bend Range", -24, 24, 2);
+        addInt ("modWheelDepth", "Mod Wheel Depth", 0, 127, 80);
+        addInt ("filterCutoffDepth", "Filter Cutoff Depth", 0, 127, 64);
+        addInt ("filterQDepth", "Filter Q Depth", 0, 127, 64);
+        addBool ("expressionReceive", "Expression Receive", true);
+        addBool ("sustainReceive", "Sustain Receive", true);
+        addInt ("adEngine", "AD Engine", -1, 1, -1);
+        addInt ("subEngine", "SUB Engine", -1, 1, -1);
         return layout;
     }
 
@@ -750,19 +845,72 @@ private:
         state.fx[0] = value ("fx1") >= 0.5f;
         state.fx[1] = value ("fx2") >= 0.5f;
         state.fx[2] = value ("fx3") >= 0.5f;
+
+        state.velSensitivity = (int) std::lround (value ("velSensitivity"));
+        state.velOffset = (int) std::lround (value ("velOffset"));
+        state.keyLimit = (int) std::lround (value ("keyLimit"));
+        state.minKey = (int) std::lround (value ("minKey"));
+        state.maxKey = (int) std::lround (value ("maxKey"));
+        state.portamento = value ("portamento") >= 0.5f;
+        state.portamentoTime = (int) std::lround (value ("portamentoTime"));
+        state.legato = value ("legato") >= 0.5f;
+        state.bendRange = (int) std::lround (value ("bendRange"));
+        state.modWheelDepth = (int) std::lround (value ("modWheelDepth"));
+        state.filterCutoffDepth = (int) std::lround (value ("filterCutoffDepth"));
+        state.filterQDepth = (int) std::lround (value ("filterQDepth"));
+        state.expressionReceive = value ("expressionReceive") >= 0.5f;
+        state.sustainReceive = value ("sustainReceive") >= 0.5f;
+        state.adEngine = (int) std::lround (value ("adEngine"));
+        state.subEngine = (int) std::lround (value ("subEngine"));
         return state;
     }
 
-    static void writeMacros (zyn::Part& part, const MacroState& macros)
+    void writeMacros (zyn::Part& part, const MacroState& macros)
     {
         part.setVolumedB (macros.volume);
         part.setPpanning ((char) juce::jlimit (0, 127, (int) std::lround ((macros.pan + 1.0f) * 63.5f)));
         part.setvoicelimit ((unsigned char) juce::jlimit (0, 64, macros.voices));
         part.Pkeyshift = (unsigned char) juce::jlimit (0, 127, 64 + macros.keyShift);
         part.Ppolymode = ! macros.mono;
-        part.Plegatomode = false;
+        part.Plegatomode = macros.legato;
         for (int i = 0; i < 3; ++i)
             part.Pefxbypass[i] = macros.fx[i];
+
+        part.Pvelsns = (unsigned char) juce::jlimit (0, 127, macros.velSensitivity);
+        part.Pveloffs = (unsigned char) juce::jlimit (0, 127, macros.velOffset);
+        part.setkeylimit ((unsigned char) juce::jlimit (0, 127, macros.keyLimit));
+
+        const int lowKey = juce::jlimit (0, 127, macros.minKey);
+        const int highKey = juce::jlimit (0, 127, macros.maxKey);
+        part.Pminkey = (unsigned char) juce::jmin (lowKey, highKey);
+        part.Pmaxkey = (unsigned char) juce::jmax (lowKey, highKey);
+
+        part.ctl.portamento.time = (unsigned char) juce::jlimit (0, 127, macros.portamentoTime);
+        part.ctl.portamento.portamento = macros.portamento;
+        part.ctl.setportamento (macros.portamento ? 127 : 0);
+
+        part.ctl.pitchwheel.bendrange = (short) juce::jlimit (-6400, 6400, macros.bendRange * 100);
+        part.ctl.setpitchwheel (pitchWheel.load());
+
+        part.ctl.modwheel.depth = (unsigned char) juce::jlimit (0, 127, macros.modWheelDepth);
+        part.ctl.setmodwheel();
+
+        part.ctl.filtercutoff.depth = (unsigned char) juce::jlimit (0, 127, macros.filterCutoffDepth);
+        part.ctl.setfiltercutoff();
+        part.ctl.filterq.depth = (unsigned char) juce::jlimit (0, 127, macros.filterQDepth);
+        part.ctl.setfilterq();
+
+        part.ctl.expression.receive = macros.expressionReceive;
+        part.ctl.setexpression();
+        part.ctl.sustain.receive = macros.sustainReceive;
+
+        // -1 = preserva o que veio no preset; 0/1 desliga/liga o motor no kit inteiro.
+        if (macros.adEngine >= 0)
+            for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+                part.kit[n].Padenabled = macros.adEngine == 1;
+        if (macros.subEngine >= 0)
+            for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+                part.kit[n].Psubenabled = macros.subEngine == 1;
     }
 
     /** Thread de áudio: aplica os knobs do painel quando eles mudam. */

@@ -1,8 +1,8 @@
 # Controles do Zyn (Z3)
 
-> Documento do **Z3** de `ZYN-COMPLETAR.md`. Aqui está o inventário lido no código do
-> ZynAddSubFX 3.0.7 e uma proposta de divisão para o painel. **Nada foi implementado
-> ainda**: o Rafael escolhe o que entra na primeira leva (Z4).
+> Documento do **Z3** de `ZYN-COMPLETAR.md` e registro do **Z4a**. O inventário abaixo foi
+> lido no código do ZynAddSubFX 3.0.7. A primeira leva implementada está na seção 7; o
+> restante continua como proposta para o Rafael escolher.
 >
 > `a confirmar` = o código não deixa claro se dá para aplicar ao vivo com segurança, ou o
 > valor/faixa depende do preset carregado. Os testes de áudio do Z0/Z2 ajudam a decidir,
@@ -223,3 +223,32 @@ Cada controle aprovado precisa de:
 - `.../Effects/EffectMgr.h` e os headers de cada efeito.
 - `engine/src/native/ZynFactory.cpp` (APVTS atual, macros e estado).
 - `docs/ZYN-DIAGNOSTICO.md` (Z0/Z1/Z2: carga, alocação e troca).
+
+## 7. Z4a implementado
+
+Entrou no `ZynProcessor`/APVTS e no `ZynPanel`:
+
+| Grupo | Controles |
+|---|---|
+| Parte | Volume, Pan, Voices, Key Shift (já existiam), Vel Sensitivity, Vel Offset, Key Limit, Min Key, Max Key, Portamento Time, Mono, Legato, Portamento |
+| Controladores | Bend Range (semitons), Mod Wheel Depth, Filter Cutoff Depth, Filter Q Depth, Expressão (CC11), Sustain (CC64) |
+| Motores | AD Engine e SUB Engine com 3 estados: **Preset** (-1, mantém o .xiz), **Desligado**, **Ligado** |
+| Efeitos | Bypass dos FX1–3 (já existia) |
+
+- Todos são parâmetros do APVTS: aparecem no `EngineParameter`, são mapeáveis por MIDI e
+  usáveis nos layouts por instrumento.
+- O estado por patch é salvo no `getStateInformation`/`getState`; o stress test restaurou
+  Volume e Bend Range depois de trocar o programa.
+- O painel usa grupos recolhíveis, knobs com duplo clique no padrão e selects para os
+  motores. “Legato atua no modo Mono.”
+- Testes: `ZynPanel.controls.test.tsx` e `scripts/zyn-stress.js` (controles + estado).
+  Resultado: 100 trocas, 0 xruns, 0 heap, 0 falhas do pool; `Vel Sensitivity` chegou a 102
+  no Part e `AD Engine=Ligado` ligou o AD no kit.
+
+**Ainda fora desta leva (Z4b–d):** macros de Som (cutoff/ADSR/LFO/detune/largura/brilho),
+volume dos motores, PADsynth on/off/volume, tipo e parâmetros dos FX internos. Os motivos
+estão nas seções 3.2–3.4: os macros exigem reload/fade e o PAD exige `applyparameters`.
+
+**a confirmar:** o som de cada controle no app (o teste prova que o Part recebe o valor, não
+que o timbre muda como esperado), o Legato em presets polifônicos e o custo dos FX internos
+com o pool de 8 MB.

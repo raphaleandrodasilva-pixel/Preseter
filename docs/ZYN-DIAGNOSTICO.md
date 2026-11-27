@@ -377,14 +377,15 @@ pré-alocado) e os avisos `std::cerr`/`fprintf` do `Part` no caminho de nota for
 | Medida | Resultado |
 |---|---:|
 | Trocas | 100 |
-| Tempo total | 2.639 ms |
-| Tempo por troca | 26,39 ms |
+| Tempo total | 2.657 ms |
+| Tempo por troca | 26,57 ms |
 | Programa errado depois da troca | **0** |
 | Xruns | **0** |
 | Alocações no heap no áudio | **0** |
 | Falhas do pool | **0** |
-| Estado salvo (`getState`) | 79.290 bytes |
-| Estado restaurado (`setState`) | programa **412** e Volume **0,300** de volta |
+| Estado salvo (`getState`) | 79.890 bytes |
+| Estado restaurado (`setState`) | programa **412**, Volume **0,300** e Bend Range **0,708** |
+| Controles novos | Vel Sensitivity **102** no Part e `AD Engine=Ligado` no kit |
 | Resultado | **ok** |
 
 O teste de estado usa os comandos `getState`/`setState` do engine: salva o layer inteiro,

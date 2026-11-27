@@ -55,16 +55,44 @@ const displayOf = (param: EngineParameter): string => {
 const ZynKnob: React.FC<{
   param: EngineParameter;
   onChange: (name: string, value: number) => void | Promise<void>;
-}> = ({ param, onChange }) => (
+  format?: (param: EngineParameter) => string;
+}> = ({ param, onChange, format }) => (
   <Knob
     label={param.name}
     value={param.value}
-    display={displayOf(param)}
+    display={format ? format(param) : displayOf(param)}
     onChange={(value) => void onChange(param.name, value)}
     onReset={() => void onChange(param.name, param.defaultValue)}
     step={param.stepCount > 0 ? 1 / param.stepCount : 0.01}
   />
 );
+
+const EngineSelect: React.FC<{
+  name: string;
+  label: string;
+  param: (name: string) => EngineParameter | undefined;
+  onChange: (name: string, value: number) => void | Promise<void>;
+}> = ({ name, label, param, onChange }) => {
+  const item = param(name);
+  if (!item) return null;
+  const parsed = Number(item.text);
+  const current = Number.isFinite(parsed) ? parsed : Math.round(item.value * 2) - 1;
+  return (
+    <label className="text-[10px]" style={{ color: '#9A9AA0' }}>
+      {label}
+      <select
+        aria-label={label}
+        className="hw-inset mt-1 w-full px-2 py-1 text-[11px] text-white"
+        value={String(current)}
+        onChange={(event) => void onChange(name, (Number(event.target.value) + 1) / 2)}
+      >
+        <option value="-1">Preset</option>
+        <option value="0">Desligado</option>
+        <option value="1">Ligado</option>
+      </select>
+    </label>
+  );
+};
 
 /** Painel do Preseter Zyn: presets, parte e efeitos. */
 export const ZynPanel: React.FC<ZynPanelProps> = ({
@@ -235,20 +263,94 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
         )}
       </section>
 
-      <section className="hw-inset p-3">
-        <div className="hw-label mb-3">Parte</div>
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-4">
-          {['Volume', 'Pan', 'Voices', 'Key Shift'].map((name) => {
+      <details className="hw-inset p-3" open>
+        <summary className="hw-label cursor-pointer select-none">Parte</summary>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['Volume', 'Pan', 'Voices', 'Key Shift', 'Vel Sensitivity', 'Vel Offset',
+            'Key Limit', 'Min Key', 'Max Key', 'Portamento Time'].map((name) => {
             const item = param(name);
             return item ? <ZynKnob key={name} param={item} onChange={onChange} /> : null;
           })}
         </div>
-      </section>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {[
+            ['Mono', 'Mono'],
+            ['Legato', 'Legato'],
+            ['Portamento', 'Portamento'],
+          ].map(([name, label]) => {
+            const item = param(name);
+            if (!item) return null;
+            const active = item.value >= 0.5;
+            return (
+              <ChoiceButton
+                key={name}
+                active={active}
+                onClick={() => void onChange(name, active ? 0 : 1)}
+              >
+                {label}
+              </ChoiceButton>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          Legato atua no modo Mono.
+        </p>
+      </details>
 
-      <section className="hw-inset p-3">
-        <div className="hw-label mb-2">Modo e efeitos</div>
-        <div className="flex flex-wrap gap-1.5">
-          {['Mono', 'FX1 Bypass', 'FX2 Bypass', 'FX3 Bypass'].map((name) => {
+      <details className="hw-inset p-3" open>
+        <summary className="hw-label cursor-pointer select-none">Controladores</summary>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['Bend Range', 'Mod Wheel Depth', 'Filter Cutoff Depth', 'Filter Q Depth'].map((name) => {
+            const item = param(name);
+            if (!item) return null;
+            return (
+              <ZynKnob
+                key={name}
+                param={item}
+                onChange={onChange}
+                format={name === 'Bend Range'
+                  ? (parameter) => `${parameter.text?.trim() || '0'} st`
+                  : undefined}
+              />
+            );
+          })}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {[
+            ['Expression Receive', 'Expressão (CC11)'],
+            ['Sustain Receive', 'Sustain (CC64)'],
+          ].map(([name, label]) => {
+            const item = param(name);
+            if (!item) return null;
+            const active = item.value >= 0.5;
+            return (
+              <ChoiceButton
+                key={name}
+                active={active}
+                onClick={() => void onChange(name, active ? 0 : 1)}
+              >
+                {label}
+              </ChoiceButton>
+            );
+          })}
+        </div>
+      </details>
+
+      <details className="hw-inset p-3">
+        <summary className="hw-label cursor-pointer select-none">Motores</summary>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <EngineSelect name="AD Engine" label="ADsynth" param={param} onChange={onChange} />
+          <EngineSelect name="SUB Engine" label="SUBsynth" param={param} onChange={onChange} />
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          “Preset” mantém o que veio no .xiz. PADsynth e os macros de som entram na próxima leva.
+        </p>
+      </details>
+
+      <details className="hw-inset p-3">
+        <summary className="hw-label cursor-pointer select-none">Modo e efeitos</summary>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {['FX1 Bypass', 'FX2 Bypass', 'FX3 Bypass'].map((name) => {
             const item = param(name);
             if (!item) return null;
             const active = item.value >= 0.5;
@@ -263,7 +365,7 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             );
           })}
         </div>
-      </section>
+      </details>
 
       <p className="px-1 text-[9px] leading-relaxed" style={{ color: '#6E6E73' }}>
         Motor: ZynAddSubFX 3.0.7 · Nasca Octavian Paul (GPL-2.0-or-later). Efeitos de inserção

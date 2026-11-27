@@ -126,8 +126,10 @@ async function main() {
   await request('setProgram', { layerId: LAYER, index: fast[0].index });
   const params = await request('params', { layerId: LAYER });
   const volume = params.find((parameter) => parameter.name === 'Volume');
-  if (!volume) throw new Error('Parâmetro Volume não encontrado.');
+  const bendRange = params.find((parameter) => parameter.name === 'Bend Range');
+  if (!volume || !bendRange) throw new Error('Parâmetros Volume/Bend Range não encontrados.');
   await request('setParam', { layerId: LAYER, index: volume.index, value: 0.3 });
+  await request('setParam', { layerId: LAYER, index: bendRange.index, value: 0.7 });
   const saved = await request('getState', { layerId: LAYER });
   const savedProgram = saved && saved.data
     ? (await request('zynDiag', { action: 'stats', layerId: LAYER })).currentProgram
@@ -135,10 +137,30 @@ async function main() {
 
   await request('setProgram', { layerId: LAYER, index: fast[1].index });
   await request('setParam', { layerId: LAYER, index: volume.index, value: 0.7 });
+  await request('setParam', { layerId: LAYER, index: bendRange.index, value: 0.2 });
   await request('setState', { layerId: LAYER, data: saved.data });
   const restoredParams = await request('params', { layerId: LAYER });
   const restoredVolume = restoredParams.find((parameter) => parameter.name === 'Volume')?.value;
+  const restoredBendRange = restoredParams.find((parameter) => parameter.name === 'Bend Range')?.value;
   const restoredProgram = (await request('zynDiag', { action: 'stats', layerId: LAYER })).currentProgram;
+
+  // Controles novos: o Part tem de refletir o que o parâmetro mandou.
+  let controls = { skipped: true };
+  if (audio && !audio.error) {
+    const velocity = params.find((parameter) => parameter.name === 'Vel Sensitivity');
+    const engine = params.find((parameter) => parameter.name === 'AD Engine');
+    if (velocity && engine) {
+      await request('setParam', { layerId: LAYER, index: velocity.index, value: 0.8 });
+      await request('setParam', { layerId: LAYER, index: engine.index, value: 1 });
+      await sleep(150);
+      const part = (await request('zynDiag', { action: 'stats', layerId: LAYER })).part;
+      controls = {
+        velSensitivity: part?.velSensitivity ?? null,
+        adEnabled: part?.kit?.[0]?.add ?? null,
+        ok: part?.velSensitivity === 102 && part?.kit?.[0]?.add === true,
+      };
+    }
+  }
 
   const report = {
     engine: { version: hello.version, build: hello.build },
@@ -172,16 +194,25 @@ async function main() {
       volumeBefore: volume.value,
       volumeSet: 0.3,
       volumeRestored: restoredVolume,
+      bendBefore: bendRange.value,
+      bendSet: 0.7,
+      bendRestored: restoredBendRange,
       ok: restoredProgram === savedProgram
         && typeof restoredVolume === 'number'
-        && Math.abs(restoredVolume - 0.3) < 0.02,
+        && Math.abs(restoredVolume - 0.3) < 0.02
+        && typeof restoredBendRange === 'number'
+        && Math.abs(restoredBendRange - 0.7) < 0.02,
     },
+    controls,
     ok: mismatches === 0
       && (stats.allocFailures ?? 0) === 0
       && (stats.heapAllocInAudio ?? 0) === 0
       && restoredProgram === savedProgram
       && typeof restoredVolume === 'number'
-      && Math.abs(restoredVolume - 0.3) < 0.02,
+      && Math.abs(restoredVolume - 0.3) < 0.02
+      && typeof restoredBendRange === 'number'
+      && Math.abs(restoredBendRange - 0.7) < 0.02
+      && (controls.skipped === true || controls.ok === true),
   };
 
   fs.writeFileSync(JSON_PATH, JSON.stringify(report, null, 2));
