@@ -284,8 +284,10 @@ confirmar** com o app aberto.
 ### Reprodutibilidade
 
 - `scripts/zyn-diag.js` — inventário, bancos, 20 tempos, áudio, alocação e JSON.
-- `src/renderer/components/concert/ZynPanel.diag.test.tsx` — os 1318 nomes reais e o
-  comportamento atual do banco.
+- `scripts/zyn-stress.js` — 100 trocas + estado (`getState`/`setState`).
+- `src/renderer/components/concert/ZynPanel.diag.test.tsx` — os 1318 nomes reais, banco,
+  busca e fila de 1.
+- `docs/ZYN-CONTROLES.md` — inventário de parâmetros do Zyn e proposta do Z3.
 - `engine/src/native/ZynFactory.cpp` — `zynDiag`/contadores (comando oculto).
 - `docs/TROCA-PATCH-DIAGNOSTICO.md` — o T0 da troca de patch é outro documento; este não
   repete as medições dele.
@@ -368,7 +370,28 @@ As 1600 alocações continuam existindo, mas são fatias de uma arena já reserv
 chama `malloc`. O `NoteOn` também deixou de usar as `new[]` do `OscilGen` (buffer
 pré-alocado) e os avisos `std::cerr`/`fprintf` do `Part` no caminho de nota foram removidos.
 
-### 9.3 O que ainda precisa do Rafael
+### 9.3 Z5: 100 trocas e estado
+
+`scripts/zyn-stress.js` (ASIO 48 kHz/256, nota segurada, 4 presets rápidos alternados):
+
+| Medida | Resultado |
+|---|---:|
+| Trocas | 100 |
+| Tempo total | 2.639 ms |
+| Tempo por troca | 26,39 ms |
+| Programa errado depois da troca | **0** |
+| Xruns | **0** |
+| Alocações no heap no áudio | **0** |
+| Falhas do pool | **0** |
+| Estado salvo (`getState`) | 79.290 bytes |
+| Estado restaurado (`setState`) | programa **412** e Volume **0,300** de volta |
+| Resultado | **ok** |
+
+O teste de estado usa os comandos `getState`/`setState` do engine: salva o layer inteiro,
+troca o programa e o Volume, restaura e confere o programa e o parâmetro. Rode com
+`node scripts/zyn-stress.js --no-audio` para pular o ASIO.
+
+### 9.4 O que ainda precisa do Rafael
 
 - Abrir o app e confirmar de ouvido: 10 bancos seguidos mostram 10 listas; a troca não
   estala; o preset pesado de ~3,5 s mostra “Carregando…” e mantém o som antigo.

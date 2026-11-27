@@ -28,6 +28,7 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
     items: [
       'Preseter Organ (setBfree), Preseter Tines (MDA ePiano) e Preseter Wurly (OpenWurli) já vêm no app.',
       'Preseter Synth2: a coleção Fábrica traz 58 patches .sy1 do projeto; Importar/+ Pasta carrega os seus (Documentos/Preseter/Synth2).',
+      'Preseter Zyn (ZynAddSubFX): 1318 presets .xiz em 32 bancos. Escolher o banco só filtra a lista; use a busca e escolha o programa. Presets pesados mostram “Carregando…” e o som atual continua até a troca.',
       'Synth2: o seletor de programas no topo também usa o banco Fábrica; Program Change não usado chega ao instrumento se a opção em Concert Settings estiver ligada.',
       'Em qualquer controle do Synth2, o botão MIDI arma o próximo CC do controlador (o mapping fica salvo no concert).',
       'VST3/LV2: adicione pela lista de plugins ou pelos canais do set.',
@@ -66,6 +67,7 @@ const SECTIONS: Array<{ title: string; items: string[] }> = [
       'Preseter Tines, Piano, DX10 e JX10: MDA / Paul Kellett, porte JUCE de M.I. Hollemans (MIT).',
       'Preseter Wurly: OpenWurli (GPL-3.0-or-later).',
       'Preseter Synth2: Oxo Synth2, François Chabloz (chab), sl23 e Eufex (MIT). Recriação do Synth1 de Daichi Laboratory; nenhum código ou arte do original.',
+      'Preseter Zyn: ZynAddSubFX 3.0.7, Nasca Octavian Paul e contribuidores (GPL-2.0-or-later); bancos .xiz do projeto original.',
       'Preseter Drums: kit MuseScore_General, S. Christian Collins / FluidR3 (MIT); ver docs/LICENCAS.md.',
       'Efeitos Preseter: calfnXT / Calf Studio Gear, fork boomshop/calfnxt (GPL-3.0-or-later).',
       'Efeitos de guitarra: Guitarix (GPL-3.0-or-later), com zita-convolver/resampler (GPL-3.0-or-later) e FFTW (GPL-2.0-or-later).',

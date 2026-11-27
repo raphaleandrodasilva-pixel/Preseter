@@ -32,7 +32,7 @@ Catálogo de plugins e samples atualizado pelo GitHub, com instalação em um cl
 
 - **Concert → Sets → Patches**: organização completa, com troca por Program Change, setas, atalhos de teclado e busca.
 - **Anfitrião de plugins**: VST3 no Windows/Linux e LV2 (Guitarix embutido), com editor nativo, presets, estado por patch e MIDI learn.
-- **Instrumentos nativos**: órgão, piano elétrico (Tines/Wurly), piano acústico, DX10, JX10, Synth2, bateria e sampler (SF2/SFZ).
+- **Instrumentos nativos**: órgão, piano elétrico (Tines/Wurly), piano acústico, DX10, JX10, Synth2, Zyn (ZynAddSubFX), bateria e sampler (SF2/SFZ).
 - **34 efeitos embutidos** (29 calfnXT + 5 Guitarix) com painéis próprios, presets em valores reais (dB, ms, Hz), versões para insert e para Aux, reset por duplo clique, roda do mouse e entrada numérica.
 - **Console ao vivo**: Master do Patch, 4 Aux (reverb/delay), sends por layer, 4 saídas, pan e mute.
 - **Tudo mapeável**: controles de tela, pedais, expressão, sustain, knobs e pads via MIDI learn; mappings por concert/set/patch.
@@ -109,7 +109,7 @@ Componentes de terceiros mantêm suas licenças:
 - **calfNXT / Calf Studio Gear** — GPL-3.0-or-later, fork [boomshop/calfnxt](https://github.com/boomshop/calfnxt) (bundle: `vendor/calfnxt`).
 - **Guitarix** — GPL-3.0-or-later, LV2 portado (bundle: `vendor/guitarix`).
 - **JUCE** — AGPL-3.0 / comercial.
-- **setBfree**, **mda-ePiano**, **OpenWurli** — licenças em `engine/third_party/*`.
+- **setBfree**, **mda-ePiano**, **OpenWurli**, **ZynAddSubFX** — licenças em `engine/third_party/*`.
 
 ## Créditos
 
