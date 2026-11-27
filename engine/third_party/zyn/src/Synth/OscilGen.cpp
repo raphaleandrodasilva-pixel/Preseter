@@ -476,6 +476,9 @@ OscilGen::OscilGen(const SYNTH_T &synth_, FFTwrapper *fft_, const Resonance *res
     randseed = 1; // TODO: take care of random?
     ADvsPAD  = false;
 
+    // Reserva uma vez (thread de carga); o NoteOn só usa esta área.
+    adaptiveBuffer.resize((size_t) synth_.oscilsize);
+
     defaults();
 }
 
@@ -1007,7 +1010,7 @@ void OscilGen::adaptiveharmonic(fft_t *f, float freq) const
     if(freq < 1.0f)
         freq = 440.0f;
 
-    fft_t *inf = new fft_t[synth.oscilsize / 2]; // XXXRT
+    fft_t *inf = adaptiveBuffer.data();
     for(int i = 0; i < synth.oscilsize / 2; ++i)
         inf[i] = f[i];
     clearAll(f, synth.oscilsize);
@@ -1046,25 +1049,26 @@ void OscilGen::adaptiveharmonic(fft_t *f, float freq) const
 
     f[1] += f[0];
     clearDC(f);
-    delete[] inf;
 }
 
 void OscilGen::adaptiveharmonicpostprocess(fft_t *f, int size) const
 {
     if(Padaptiveharmonics <= 1)
         return;
-    fft_t *inf = new fft_t[size]; // XXXRT
+    const int count = size < (int) adaptiveBuffer.size()
+                        ? size : (int) adaptiveBuffer.size();
+    fft_t *inf = adaptiveBuffer.data();
     float  par = Padaptiveharmonicspar * 0.01f;
     par = 1.0f - powf((1.0f - par), 1.5f);
 
-    for(int i = 0; i < size; ++i) {
+    for(int i = 0; i < count; ++i) {
         inf[i] = f[i] * par;
         f[i]  *= (1.0f - par);
     }
 
 
     if(Padaptiveharmonics == 2) { //2n+1
-        for(int i = 0; i < size; ++i)
+        for(int i = 0; i < count; ++i)
             if((i % 2) == 0)
                 f[i] += inf[i];  //i=0 first harmonic,etc.
     }
@@ -1072,16 +1076,14 @@ void OscilGen::adaptiveharmonicpostprocess(fft_t *f, int size) const
         int nh = (Padaptiveharmonics - 3) / 2 + 2;
         int sub_vs_add = (Padaptiveharmonics - 3) % 2;
         if(sub_vs_add == 0) {
-            for(int i = 0; i < size; ++i)
+            for(int i = 0; i < count; ++i)
                 if(((i + 1) % nh) == 0)
                     f[i] += inf[i];
         }
         else
-            for(int i = 0; i < size / nh - 1; ++i)
+            for(int i = 0; i < count / nh - 1; ++i)
                 f[(i + 1) * nh - 1] += inf[i];
     }
-
-    delete [] inf;
 }
 
 void OscilGen::newrandseed(unsigned int randseed)

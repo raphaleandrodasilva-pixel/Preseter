@@ -196,6 +196,7 @@ target_include_directories(PreseterEngine PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/tuning-library/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/dexed/mts-esp"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/tlsf"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/mxml"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/zyn/rtosc/include"
     "${PRESETER_SETBFREE_DIR}/src"

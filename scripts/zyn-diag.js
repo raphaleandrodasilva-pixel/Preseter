@@ -354,6 +354,10 @@ async function allocation(programs) {
       freeCount: stats.freeCount,
       allocInAudio: stats.allocInAudio,
       freeInAudio: stats.freeInAudio,
+      heapAllocCount: stats.heapAllocCount,
+      heapAllocInAudio: stats.heapAllocInAudio,
+      allocFailures: stats.allocFailures,
+      arenaBytes: stats.arenaBytes,
       activeVoices: stats.activeVoices,
     };
   } catch (error) {
@@ -464,7 +468,7 @@ async function audio(programs, loaded) {
   const attack = await baseline(fast);
   await runCase('rapido', fast, { recordMs: 1500 });
   await runCase('pesado', heavy, { recordMs: 2500 });
-  if (gzip) await runCase('gzip-falha', gzip, { recordMs: 1200 });
+  if (gzip) await runCase('gzip-agora', gzip, { recordMs: 1200 });
   // Nota segurada sem re-ataque: o preset novo não recebe a nota.
   await request('setProgram', { layerId: LAYER, index: fast?.index ?? 0 }, 60000);
   await runCase('sem-reataque', fast, { retrigger: false, recordMs: 1200 });

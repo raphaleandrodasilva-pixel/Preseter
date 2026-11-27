@@ -116,6 +116,10 @@ até a prop `program` mudar.
 
 ## 3. Tempo de carga de 20 presets
 
+> **Esta tabela é a linha de base do Z0, antes do conserto do gzip.** Os números depois do
+> Z1/Z2 estão na seção 9. Aqui, “hoje” = caminho quebrado; “real” = cópia XML pura em
+> `%TEMP%`, sem a descompressão gzip (0,06–1,39 ms; mediana 0,19 ms).
+
 Seleção determinística: 10 comuns (não PAD, espalhados por tamanho), 5 PADsynth e os 5
 maiores. A coluna **“hoje”** é o caminho real; a coluna **“real”** carrega uma cópia do XML
 descompactada em `%TEMP%`, que mede o custo depois do conserto do gzip, **sem** o tempo de
@@ -285,3 +289,89 @@ confirmar** com o app aberto.
 - `engine/src/native/ZynFactory.cpp` — `zynDiag`/contadores (comando oculto).
 - `docs/TROCA-PATCH-DIAGNOSTICO.md` — o T0 da troca de patch é outro documento; este não
   repete as medições dele.
+
+---
+
+## 9. Z1/Z2 — depois das correções
+
+As seções 1–8 são a linha de base do Z0. Depois delas, o Z1 corrigiu o gzip e o banco/lista,
+e o Z2 atacou a troca no áudio. Números medidos no mesmo ASIO4ALL 48 kHz/256:
+
+### 9.1 Z1: todos os bancos carregam
+
+| Antes (Z0) | Depois (Z1/Z2) |
+|---|---|
+| 160/1318 presets carregavam | **1318/1318** carregam |
+| 1 de 32 bancos utilizável | **32/32** |
+| Resposta de `setProgram`: 58.711 bytes | **56 bytes** |
+| `plugin-loaded` levava os 1318 nomes a cada troca | evento `plugin-program` só com `layerId` + `program` |
+
+Os 10 primeiros bancos, pedindo o primeiro programa de cada um, agora retornam `xml=0` e o
+programa correto; o mais lento da amostra foi `Companion` (176 ms) e o `Drums` (32 ms).
+
+O painel virou estado da tela: escolher um banco só filtra a lista; a lista não volta quando
+o `plugin` é atualizado. A busca, a contagem e o “Carregando…” estão no `ZynPanel`; a fila
+de 1 garante que a última escolha vence.
+
+### 9.2 Z2: troca no áudio
+
+Implementado:
+
+1. **Worker de baixa prioridade** (`juce::Thread::Priority::low`) carrega o preset; a
+   message thread espera o resultado para manter o erro síncrono do Z1. O áudio nunca é
+   bloqueado pela carga.
+2. **Prewarm** de 8 blocos silenciosos depois de `applyparameters`/`initialize_rt`.
+3. **Pool TLSF de 8 MB** por instrumento: o `NoteOn` não chama mais `malloc`/`free`.
+4. **Fade de 8 ms**: o worker pede ao áudio para descer a zero, troca o ponteiro e o preset
+   novo sobe.
+5. **Notas seguradas** são re-articuladas no preset novo antes da troca.
+6. **Debounce** no painel (fila de 1) e o worker só processa o pedido atual.
+
+#### Tempo (mediana, ms) — depois
+
+| Grupo | Antes (Z0) | Depois (Z2) |
+|---|---:|---:|
+| 10 comuns | falha em ~1 ms; 3–10 ms no XML puro | **6,7–22,6 ms** |
+| 5 PADsynth | falha em ~1 ms; 80–169 ms no XML puro | **55,7–179,0 ms** |
+| Maior PAD (`Drum Kit`, 374 KB) | falha; 2.054 ms no XML puro | **1.884 ms** |
+| Maior sem PAD (`Wide Bass`, 368 KB) | falha; 228 ms no XML puro | **82,6 ms** |
+| PAD 239 KB (`Ghost Ensemble`) | falha; 849 ms no XML puro | **574,6 ms** |
+
+O maior preset continua em ~1,9 s (PADsynth). Na troca de áudio, o preset pesado
+(`FX dark ambient 2`) levou **3,47 s** no teste com o worker de baixa prioridade, contra
+~2,1 s no Z0 na message thread. O som antigo continua soando durante todo esse tempo; o
+painel mostra “Carregando…”.
+
+#### Áudio (ASIO 48 kHz/256)
+
+| Caso | Troca | Xruns | Gap no WAV |
+|---|---:|---:|---:|
+| Preset rápido (`hard fat lead`) | 31 ms | 0 | **nenhum** |
+| PAD pesado (`FX dark ambient 2`) | 3.466 ms | 0 | **61,9 ms** (ataque/fade) |
+| Gzip (`Arpeggio1`, agora carrega) | 19 ms | 0 | nenhum |
+| Rápido **sem re-ataque** | 24 ms | 0 | **nenhum** (a nota segurada sobreviveu) |
+
+O gap de 1,44 s do Z0 (nota perdida sem re-ataque) **desapareceu**. O fade de 8 ms não
+aparece como gap no `silencedetect`; a confirmação de “sem estalo” ainda é de ouvido.
+
+#### Alocação
+
+| Contador | Z0 | Z2 |
+|---|---:|---:|
+| Alocações no bloco de áudio | 1600 | 1600 (todas no pool TLSF) |
+| Alocações no heap no bloco de áudio | 1600 (malloc) | **0** |
+| Falhas do pool | — | **0** |
+| Arena por instrumento | — | 8 MB |
+| Bytes para 20 notas | 777.960 | 777.960 |
+
+As 1600 alocações continuam existindo, mas são fatias de uma arena já reservada; nenhuma
+chama `malloc`. O `NoteOn` também deixou de usar as `new[]` do `OscilGen` (buffer
+pré-alocado) e os avisos `std::cerr`/`fprintf` do `Part` no caminho de nota foram removidos.
+
+### 9.3 O que ainda precisa do Rafael
+
+- Abrir o app e confirmar de ouvido: 10 bancos seguidos mostram 10 listas; a troca não
+  estala; o preset pesado de ~3,5 s mostra “Carregando…” e mantém o som antigo.
+- Ubuntu/JACK: repetir o `scripts/zyn-diag.js`.
+- Definir o limite aceitável para o preset pesado de baixa prioridade (hoje ~3,5 s).
+- A seção 9 não substitui os números do Z0; ela mostra o depois.

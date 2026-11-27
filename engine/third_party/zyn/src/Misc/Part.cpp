@@ -682,8 +682,9 @@ bool Part::NoteOnInternal(note_t note,
                         {memory.alloc<PADnote>(kit[i].padpars, pars, interpolation, wm,
                             (pre+"kit"+i+"/padpars/").c_str, constPowerMixing), 2, i},
                                     portamento_realtime);
-        } catch (std::bad_alloc & ba) {
-            std::cerr << "dropped new note: " << ba.what() << std::endl;
+        } catch (std::bad_alloc &) {
+            // Sem log na thread de áudio: a falha do pool já é contada no
+            // alocador do Preseter (ZynFactory) e a nota é descartada.
         }
 
         //Partial Kit Use
@@ -972,10 +973,7 @@ float Part::getVelocity(uint8_t velocity, uint8_t velocity_sense,
 void Part::verifyKeyMode(void)
 {
     if(Plegatomode && !Pdrummode && Ppolymode) {
-            fprintf(stderr,
-                "WARNING: Poly & Legato modes are On, that shouldn't happen\n"
-                "Disabling Legato mode...\n"
-                "(Part.cpp::NoteOn(..))\n");
+            // Sem fprintf na thread de áudio; só corrige o modo.
             Plegatomode = 0;
     }
 }

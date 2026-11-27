@@ -18,6 +18,7 @@
 #include <rtosc/ports.h>
 #include "../Params/Presets.h"
 #include "../DSP/FFTwrapper.h"
+#include <vector>
 
 namespace zyn {
 
@@ -218,6 +219,9 @@ class OscilGen:public Presets, NoCopyNoMove
         bool needPrepare(OscilGenBuffers& bfrs) const;
         bool needPrepare() { return needPrepare(myBuffers()); }
     private:
+
+        // Buffer pré-alocado para as harmônicas adaptativas; evita new[] no NoteOn.
+        mutable std::vector<fft_t> adaptiveBuffer;
 
         //Do the adaptive harmonic stuff
         void adaptiveharmonic(fft_t *f, float freq) const;

@@ -24,6 +24,13 @@ Apenas o núcleo de um instrumento (`Part`), sem `Master`, `MiddleWare`, UI
   `GZIPDecompressorInputStream::gzipFormat` explicitamente: o default do JUCE é
   `zlibFormat`, que não reconhece os `.xiz` gzip (magic `1f 8b`).
 - `Part::activeVoices()` adicionado para o rodapé do painel.
+- O alocador do `Part` no Preseter (`ZynFactory.cpp`) usa uma arena TLSF de 8 MB
+  criada fora da thread de áudio; o `NoteOn` não chama mais `malloc`/`free`.
+- `OscilGen` reserva um buffer para as harmônicas adaptativas no construtor;
+  `adaptiveharmonic`/`adaptiveharmonicpostprocess` não usam mais `new[]` no
+  caminho de nota.
+- Os avisos de `Part` que usavam `std::cerr`/`fprintf` no NoteOn foram removidos
+  (nada de I/O na thread de áudio).
 - Nenhuma alteração no DSP, nos parâmetros ou no formato `.xiz`.
 
 ## Dependências embutidas
