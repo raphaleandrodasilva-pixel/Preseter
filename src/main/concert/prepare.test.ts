@@ -32,7 +32,7 @@ describe('collectConcertPrepareItems', () => {
         id: 'p2',
         programNumber: 1,
         plugins: [
-          assignment({ samplePath: 'C:/Sons/Piano.sf2', bank: 0, programIndex: 0 }),
+          assignment({ samplePath: path.join(sounds, 'Piano.sf2'), bank: 0, programIndex: 0 }),
           assignment({ name: 'Strings', samplePath: 'Piano.sf2', bank: 0, programIndex: 5 }),
         ],
       }),
