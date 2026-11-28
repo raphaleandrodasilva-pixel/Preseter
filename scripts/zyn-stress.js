@@ -151,22 +151,43 @@ async function main() {
     const engine = params.find((parameter) => parameter.name === 'AD Engine');
     const cutoff = params.find((parameter) => parameter.name === 'Cutoff');
     const resonance = params.find((parameter) => parameter.name === 'Resonance');
-    if (velocity && engine && cutoff && resonance) {
+    const ampAttack = params.find((parameter) => parameter.name === 'Amp Attack');
+    const adVolume = params.find((parameter) => parameter.name === 'AD Volume');
+    const fxType = params.find((parameter) => parameter.name === 'FX1 Type');
+    const bendDown = params.find((parameter) => parameter.name === 'Bend Range Down');
+    const splitBend = params.find((parameter) => parameter.name === 'Split Bend');
+    if (velocity && engine && cutoff && resonance && ampAttack && adVolume
+        && fxType && bendDown && splitBend) {
       await request('setParam', { layerId: LAYER, index: velocity.index, value: 0.8 });
       await request('setParam', { layerId: LAYER, index: cutoff.index, value: 0.8 });
       await request('setParam', { layerId: LAYER, index: resonance.index, value: 0.3 });
       await request('setParam', { layerId: LAYER, index: engine.index, value: 1 });
-      await sleep(150);
+      await request('setParam', { layerId: LAYER, index: ampAttack.index, value: 0.8 });
+      await request('setParam', { layerId: LAYER, index: adVolume.index, value: 0.8 });
+      await request('setParam', { layerId: LAYER, index: fxType.index, value: 2 / 11 });
+      await request('setParam', { layerId: LAYER, index: bendDown.index, value: 0.7 });
+      await request('setParam', { layerId: LAYER, index: splitBend.index, value: 1 });
+      await sleep(250);
       const part = (await request('zynDiag', { action: 'stats', layerId: LAYER })).part;
       controls = {
         velSensitivity: part?.velSensitivity ?? null,
         adEnabled: part?.kit?.[0]?.add ?? null,
         cutoffData: part?.cutoffData ?? null,
         resonanceData: part?.resonanceData ?? null,
+        ampAttack: part?.ampAttack ?? null,
+        adVolume: part?.adVolume ?? null,
+        fx1Type: part?.fx1Type ?? null,
+        bendDownCents: part?.bendRangeDownCents ?? null,
+        splitBend: part?.splitBend ?? null,
         ok: part?.velSensitivity === 102
           && part?.kit?.[0]?.add === true
           && part?.cutoffData === 102
-          && part?.resonanceData === 38,
+          && part?.resonanceData === 38
+          && typeof part?.ampAttack === 'number' && part.ampAttack > 0.001
+          && typeof part?.adVolume === 'number' && part.adVolume > 0
+          && part?.fx1Type === 1
+          && part?.bendRangeDownCents === 1000
+          && part?.splitBend === true,
       };
     }
   }

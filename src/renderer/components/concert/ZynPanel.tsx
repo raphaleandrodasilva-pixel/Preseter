@@ -95,6 +95,59 @@ const EngineSelect: React.FC<{
 };
 
 /** Painel do Preseter Zyn: presets, parte e efeitos. */
+const FX_TYPES: Array<[string, string]> = [
+  ['-1', 'Preset'],
+  ['0', 'Desligado'],
+  ['1', 'Reverb'],
+  ['2', 'Echo'],
+  ['3', 'Chorus'],
+  ['4', 'Phaser'],
+  ['5', 'Alienwah'],
+  ['6', 'Distortion'],
+  ['7', 'EQ'],
+  ['8', 'DynFilter'],
+  ['9', 'Sympathetic'],
+  ['10', 'Reverse'],
+];
+
+const FxRow: React.FC<{
+  index: number;
+  param: (name: string) => EngineParameter | undefined;
+  onChange: (name: string, value: number) => void | Promise<void>;
+}> = ({ index, param, onChange }) => {
+  const type = param(`FX${index} Type`);
+  if (!type) return null;
+  const parsed = Number(type.text);
+  const current = Number.isFinite(parsed) ? parsed : Math.round(type.value * 11) - 1;
+
+  return (
+    <div className="space-y-2 rounded p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+      <label className="block text-[10px]" style={{ color: '#9A9AA0' }}>
+        FX{index}
+        <select
+          aria-label={`FX${index} tipo`}
+          className="hw-inset mt-1 w-full px-2 py-1 text-[11px] text-white"
+          value={String(current)}
+          onChange={(event) => void onChange(
+            `FX${index} Type`,
+            (Number(event.target.value) + 1) / 11
+          )}
+        >
+          {FX_TYPES.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex flex-wrap gap-x-3 gap-y-3">
+        {[1, 2, 3].map((p) => {
+          const item = param(`FX${index} P${p}`);
+          return item ? <ZynKnob key={p} param={item} onChange={onChange} /> : null;
+        })}
+      </div>
+    </div>
+  );
+};
+
 export const ZynPanel: React.FC<ZynPanelProps> = ({
   params,
   program,
@@ -334,6 +387,41 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             );
           })}
         </div>
+
+        <details className="mt-3 rounded p-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <summary className="cursor-pointer text-[10px] font-semibold" style={{ color: '#C6C6CB' }}>
+            Avançados
+          </summary>
+          <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+            {['Bend Range Down', 'Portamento Prop Rate', 'Portamento Prop Depth',
+              'Portamento Pitch Thresh', 'Panning Depth', 'Bandwidth Depth',
+              'Resonance Center Depth', 'Resonance Bandwidth Depth'].map((name) => {
+              const item = param(name);
+              return item ? <ZynKnob key={name} param={item} onChange={onChange} /> : null;
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {[
+              ['Split Bend', 'Bend separado'],
+              ['Portamento Proportional', 'Port. proporcional'],
+              ['Volume Receive', 'Volume (CC7)'],
+              ['FM Amp Receive', 'FM Amp'],
+            ].map(([name, label]) => {
+              const item = param(name);
+              if (!item) return null;
+              const active = item.value >= 0.5;
+              return (
+                <ChoiceButton
+                  key={name}
+                  active={active}
+                  onClick={() => void onChange(name, active ? 0 : 1)}
+                >
+                  {label}
+                </ChoiceButton>
+              );
+            })}
+          </div>
+        </details>
       </details>
 
       <details className="hw-inset p-3" open>
@@ -351,13 +439,35 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
       </details>
 
       <details className="hw-inset p-3">
+        <summary className="hw-label cursor-pointer select-none">Envelopes</summary>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['Amp Attack', 'Amp Decay', 'Amp Sustain', 'Amp Release',
+            'Filter Attack', 'Filter Decay', 'Filter Sustain', 'Filter Release'].map((name) => {
+            const item = param(name);
+            return item ? <ZynKnob key={name} param={item} onChange={onChange} /> : null;
+          })}
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          Escalas/offset sobre o preset; valem para notas novas nos envelopes globais. Vozes
+          individuais ficam a confirmar.
+        </p>
+      </details>
+
+      <details className="hw-inset p-3">
         <summary className="hw-label cursor-pointer select-none">Motores</summary>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <EngineSelect name="AD Engine" label="ADsynth" param={param} onChange={onChange} />
           <EngineSelect name="SUB Engine" label="SUBsynth" param={param} onChange={onChange} />
         </div>
+        <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-4">
+          {['AD Volume', 'SUB Volume', 'PAD Volume'].map((name) => {
+            const item = param(name);
+            return item ? <ZynKnob key={name} param={item} onChange={onChange} /> : null;
+          })}
+        </div>
         <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
-          “Preset” mantém o que veio no .xiz. PADsynth e os macros de som entram na próxima leva.
+          “Preset” mantém o que veio no .xiz. Os volumes são offset sobre o preset. PAD on/off
+          ainda exige recarregar.
         </p>
       </details>
 
@@ -379,6 +489,19 @@ export const ZynPanel: React.FC<ZynPanelProps> = ({
             );
           })}
         </div>
+      </details>
+
+      <details className="hw-inset p-3">
+        <summary className="hw-label cursor-pointer select-none">FX internos</summary>
+        <div className="mt-3 space-y-2">
+          {[1, 2, 3].map((index) => (
+            <FxRow key={index} index={index} param={param} onChange={onChange} />
+          ))}
+        </div>
+        <p className="mt-2 text-[9px]" style={{ color: '#8E8E93' }}>
+          P1–P3 são os três primeiros parâmetros do tipo escolhido; o significado muda com o
+          efeito. O bypass fica em “Modo e efeitos”.
+        </p>
       </details>
 
       <p className="px-1 text-[9px] leading-relaxed" style={{ color: '#6E6E73' }}>

@@ -8,6 +8,11 @@
 #include "Misc/XMLwrapper.h"
 #include "DSP/FFTwrapper.h"
 #include "Params/Controller.h"
+#include "Params/ADnoteParameters.h"
+#include "Params/SUBnoteParameters.h"
+#include "Params/PADnoteParameters.h"
+#include "Params/EnvelopeParams.h"
+#include "Effects/EffectMgr.h"
 #include "Output.h"
 #include "tlsf.h"
 
@@ -197,8 +202,31 @@ constexpr int kZynBlockSize = 32;
  * lugar com o instrumento que está tocando. Assim a thread de áudio nunca lê
  * um Part pela metade. O Part é o último membro: é destruído primeiro.
  */
+struct EnvelopeBase
+{
+    float attack = 0.009f;
+    float decay = 0.009f;
+    float release = 0.009f;
+    int sustain = 64;
+};
+
+/** Valores do preset usados como base dos macros. */
+struct EngineBases
+{
+    std::array<float, NUM_KIT_ITEMS> adVolume {};
+    std::array<float, NUM_KIT_ITEMS> subVolume {};
+    std::array<int, NUM_KIT_ITEMS> padVolume {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> adAmp {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> adFilter {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> subAmp {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> subFilter {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> padAmp {};
+    std::array<EnvelopeBase, NUM_KIT_ITEMS> padFilter {};
+};
+
 struct ZynInstance
 {
+    EngineBases bases;
     std::unique_ptr<zyn::SYNTH_T> synth;
     std::unique_ptr<ZynPoolAllocator> allocator;
     std::unique_ptr<zyn::FFTwrapper> fft;
@@ -589,6 +617,29 @@ public:
                     .set ("filterQDepth", (int) part.ctl.filterq.depth)
                     .set ("cutoffData", part.ctl.filtercutoff.data)
                     .set ("resonanceData", part.ctl.filterq.data)
+                    .set ("bendRangeDownCents", (int) part.ctl.pitchwheel.bendrange_down)
+                    .set ("splitBend", part.ctl.pitchwheel.is_split)
+                    .set ("portamentoProportional", part.ctl.portamento.proportional)
+                    .set ("portamentoPropRate", (int) part.ctl.portamento.propRate)
+                    .set ("portamentoPropDepth", (int) part.ctl.portamento.propDepth)
+                    .set ("panningDepth", (int) part.ctl.panning.depth)
+                    .set ("bandwidthDepth", (int) part.ctl.bandwidth.depth)
+                    .set ("resonanceCenterDepth", (int) part.ctl.resonancecenter.depth)
+                    .set ("resonanceBandwidthDepth", (int) part.ctl.resonancebandwidth.depth)
+                    .set ("volumeReceive", part.ctl.volume.receive)
+                    .set ("fmAmpReceive", part.ctl.fmamp.receive)
+                    .set ("adVolume", part.kit[0].adpars != nullptr ? part.kit[0].adpars->GlobalPar.Volume : 0.0f)
+                    .set ("subVolume", part.kit[0].subpars != nullptr ? part.kit[0].subpars->Volume : 0.0f)
+                    .set ("padVolume", part.kit[0].padpars != nullptr ? (int) part.kit[0].padpars->PVolume : 0)
+                    .set ("ampAttack", part.kit[0].adpars != nullptr && part.kit[0].adpars->GlobalPar.AmpEnvelope != nullptr
+                        ? part.kit[0].adpars->GlobalPar.AmpEnvelope->A_dt : 0.0f)
+                    .set ("ampSustain", part.kit[0].adpars != nullptr && part.kit[0].adpars->GlobalPar.AmpEnvelope != nullptr
+                        ? (int) part.kit[0].adpars->GlobalPar.AmpEnvelope->PS_val : 0)
+                    .set ("filterAttack", part.kit[0].adpars != nullptr && part.kit[0].adpars->GlobalPar.FilterEnvelope != nullptr
+                        ? part.kit[0].adpars->GlobalPar.FilterEnvelope->A_dt : 0.0f)
+                    .set ("fx1Type", part.partefx[0]->geteffect())
+                    .set ("fx2Type", part.partefx[1]->geteffect())
+                    .set ("fx3Type", part.partefx[2]->geteffect())
                     .set ("expressionReceive", part.ctl.expression.receive)
                     .set ("sustainReceive", part.ctl.sustain.receive)
                     .set ("kit", juce::var (kit));
@@ -661,9 +712,39 @@ private:
         bool expressionReceive = true;
         bool sustainReceive = true;
 
+        int bendRangeDown = 0;
+        bool splitBend = false;
+        bool portamentoProportional = false;
+        int portamentoPropRate = 80;
+        int portamentoPropDepth = 90;
+        int portamentoPitchThresh = 3;
+        int panningDepth = 64;
+        int bandwidthDepth = 64;
+        int resonanceCenterDepth = 64;
+        int resonanceBandwidthDepth = 64;
+        bool volumeReceive = true;
+        bool fmAmpReceive = true;
+
+        float adVolume = 0.0f;  // offset em dB
+        float subVolume = 0.0f; // offset em dB
+        int padVolume = 0;      // offset em unidades 0..127
+
+        float ampAttack = 1.0f;
+        float ampDecay = 1.0f;
+        float ampRelease = 1.0f;
+        int ampSustain = 0;
+        float filterAttack = 1.0f;
+        float filterDecay = 1.0f;
+        float filterRelease = 1.0f;
+        int filterSustain = 0;
+
         /** -1 = manter o que veio no preset; 0 = desligar; 1 = ligar. */
         int adEngine = -1;
         int subEngine = -1;
+
+        /** -1 = manter; 0..10 = tipo; P1..P3 só valem quando o tipo é escolhido. */
+        int fxType[3] = { -1, -1, -1 };
+        int fxParam[3][3] = { { 64, 64, 64 }, { 64, 64, 64 }, { 64, 64, 64 } };
 
         bool operator== (const MacroState& other) const
         {
@@ -680,7 +761,30 @@ private:
                 && cutoff == other.cutoff && resonance == other.resonance
                 && expressionReceive == other.expressionReceive
                 && sustainReceive == other.sustainReceive
-                && adEngine == other.adEngine && subEngine == other.subEngine;
+                && bendRangeDown == other.bendRangeDown && splitBend == other.splitBend
+                && portamentoProportional == other.portamentoProportional
+                && portamentoPropRate == other.portamentoPropRate
+                && portamentoPropDepth == other.portamentoPropDepth
+                && portamentoPitchThresh == other.portamentoPitchThresh
+                && panningDepth == other.panningDepth && bandwidthDepth == other.bandwidthDepth
+                && resonanceCenterDepth == other.resonanceCenterDepth
+                && resonanceBandwidthDepth == other.resonanceBandwidthDepth
+                && volumeReceive == other.volumeReceive && fmAmpReceive == other.fmAmpReceive
+                && adVolume == other.adVolume && subVolume == other.subVolume
+                && padVolume == other.padVolume
+                && ampAttack == other.ampAttack && ampDecay == other.ampDecay
+                && ampRelease == other.ampRelease && ampSustain == other.ampSustain
+                && filterAttack == other.filterAttack && filterDecay == other.filterDecay
+                && filterRelease == other.filterRelease && filterSustain == other.filterSustain
+                && adEngine == other.adEngine && subEngine == other.subEngine
+                && fxType[0] == other.fxType[0] && fxType[1] == other.fxType[1]
+                && fxType[2] == other.fxType[2]
+                && fxParam[0][0] == other.fxParam[0][0] && fxParam[0][1] == other.fxParam[0][1]
+                && fxParam[0][2] == other.fxParam[0][2]
+                && fxParam[1][0] == other.fxParam[1][0] && fxParam[1][1] == other.fxParam[1][1]
+                && fxParam[1][2] == other.fxParam[1][2]
+                && fxParam[2][0] == other.fxParam[2][0] && fxParam[2][1] == other.fxParam[2][1]
+                && fxParam[2][2] == other.fxParam[2][2];
         }
     };
 
@@ -813,6 +917,13 @@ private:
             layout.add (std::make_unique<juce::AudioParameterBool> (
                 juce::ParameterID { id, 1 }, name, defaultValue));
         };
+        const auto addFloat = [&layout] (const char* id, const char* name,
+                                         float min, float max, float step, float defaultValue)
+        {
+            layout.add (std::make_unique<juce::AudioParameterFloat> (
+                juce::ParameterID { id, 1 }, name,
+                juce::NormalisableRange<float> (min, max, step), defaultValue));
+        };
 
         addInt ("velSensitivity", "Vel Sensitivity", 0, 127, 64);
         addInt ("velOffset", "Vel Offset", 0, 127, 64);
@@ -832,6 +943,45 @@ private:
         addBool ("sustainReceive", "Sustain Receive", true);
         addInt ("adEngine", "AD Engine", -1, 1, -1);
         addInt ("subEngine", "SUB Engine", -1, 1, -1);
+
+        addInt ("bendRangeDown", "Bend Range Down", -24, 24, 0);
+        addBool ("splitBend", "Split Bend", false);
+        addBool ("portamentoProportional", "Portamento Proportional", false);
+        addInt ("portamentoPropRate", "Portamento Prop Rate", 0, 127, 80);
+        addInt ("portamentoPropDepth", "Portamento Prop Depth", 0, 127, 90);
+        addInt ("portamentoPitchThresh", "Portamento Pitch Thresh", 0, 127, 3);
+        addInt ("panningDepth", "Panning Depth", 0, 127, 64);
+        addInt ("bandwidthDepth", "Bandwidth Depth", 0, 127, 64);
+        addInt ("resonanceCenterDepth", "Resonance Center Depth", 0, 127, 64);
+        addInt ("resonanceBandwidthDepth", "Resonance Bandwidth Depth", 0, 127, 64);
+        addBool ("volumeReceive", "Volume Receive", true);
+        addBool ("fmAmpReceive", "FM Amp Receive", true);
+
+        addFloat ("adVolume", "AD Volume", -24.0f, 12.0f, 0.1f, 0.0f);
+        addFloat ("subVolume", "SUB Volume", -24.0f, 12.0f, 0.1f, 0.0f);
+        addInt ("padVolume", "PAD Volume", -64, 64, 0);
+
+        addFloat ("ampAttack", "Amp Attack", 0.25f, 4.0f, 0.01f, 1.0f);
+        addFloat ("ampDecay", "Amp Decay", 0.25f, 4.0f, 0.01f, 1.0f);
+        addFloat ("ampRelease", "Amp Release", 0.25f, 4.0f, 0.01f, 1.0f);
+        addInt ("ampSustain", "Amp Sustain", -64, 64, 0);
+        addFloat ("filterAttack", "Filter Attack", 0.25f, 4.0f, 0.01f, 1.0f);
+        addFloat ("filterDecay", "Filter Decay", 0.25f, 4.0f, 0.01f, 1.0f);
+        addFloat ("filterRelease", "Filter Release", 0.25f, 4.0f, 0.01f, 1.0f);
+        addInt ("filterSustain", "Filter Sustain", -64, 64, 0);
+
+        for (int fx = 0; fx < 3; ++fx)
+        {
+            const auto n = juce::String (fx + 1);
+            addInt (("fx" + n + "Type").toRawUTF8(), ("FX" + n + " Type").toRawUTF8(),
+                    -1, 10, -1);
+            for (int p = 0; p < 3; ++p)
+            {
+                const auto pn = juce::String (p + 1);
+                addInt (("fx" + n + "P" + pn).toRawUTF8(),
+                        ("FX" + n + " P" + pn).toRawUTF8(), 0, 127, 64);
+            }
+        }
         return layout;
     }
 
@@ -871,10 +1021,48 @@ private:
         state.sustainReceive = value ("sustainReceive") >= 0.5f;
         state.adEngine = (int) std::lround (value ("adEngine"));
         state.subEngine = (int) std::lround (value ("subEngine"));
+
+        state.bendRangeDown = (int) std::lround (value ("bendRangeDown"));
+        state.splitBend = value ("splitBend") >= 0.5f;
+        state.portamentoProportional = value ("portamentoProportional") >= 0.5f;
+        state.portamentoPropRate = (int) std::lround (value ("portamentoPropRate"));
+        state.portamentoPropDepth = (int) std::lround (value ("portamentoPropDepth"));
+        state.portamentoPitchThresh = (int) std::lround (value ("portamentoPitchThresh"));
+        state.panningDepth = (int) std::lround (value ("panningDepth"));
+        state.bandwidthDepth = (int) std::lround (value ("bandwidthDepth"));
+        state.resonanceCenterDepth = (int) std::lround (value ("resonanceCenterDepth"));
+        state.resonanceBandwidthDepth = (int) std::lround (value ("resonanceBandwidthDepth"));
+        state.volumeReceive = value ("volumeReceive") >= 0.5f;
+        state.fmAmpReceive = value ("fmAmpReceive") >= 0.5f;
+
+        state.adVolume = value ("adVolume");
+        state.subVolume = value ("subVolume");
+        state.padVolume = (int) std::lround (value ("padVolume"));
+
+        state.ampAttack = value ("ampAttack");
+        state.ampDecay = value ("ampDecay");
+        state.ampRelease = value ("ampRelease");
+        state.ampSustain = (int) std::lround (value ("ampSustain"));
+        state.filterAttack = value ("filterAttack");
+        state.filterDecay = value ("filterDecay");
+        state.filterRelease = value ("filterRelease");
+        state.filterSustain = (int) std::lround (value ("filterSustain"));
+
+        for (int fx = 0; fx < 3; ++fx)
+        {
+            const auto n = juce::String (fx + 1);
+            state.fxType[fx] = (int) std::lround (value (("fx" + n + "Type").toRawUTF8()));
+            for (int p = 0; p < 3; ++p)
+            {
+                const auto pn = juce::String (p + 1);
+                state.fxParam[fx][p] = (int) std::lround (
+                    value (("fx" + n + "P" + pn).toRawUTF8()));
+            }
+        }
         return state;
     }
 
-    void writeMacros (zyn::Part& part, const MacroState& macros)
+    void writeMacros (zyn::Part& part, const MacroState& macros, const ZynInstance& instance)
     {
         part.setVolumedB (macros.volume);
         part.setPpanning ((char) juce::jlimit (0, 127, (int) std::lround ((macros.pan + 1.0f) * 63.5f)));
@@ -915,13 +1103,110 @@ private:
         part.ctl.setexpression();
         part.ctl.sustain.receive = macros.sustainReceive;
 
+        part.ctl.pitchwheel.is_split = macros.splitBend;
+        part.ctl.pitchwheel.bendrange_down =
+            (short) juce::jlimit (-6400, 6400, macros.bendRangeDown * 100);
+        part.ctl.setpitchwheel (pitchWheel.load());
+
+        part.ctl.portamento.proportional = macros.portamentoProportional;
+        part.ctl.portamento.propRate = (unsigned char) juce::jlimit (0, 127, macros.portamentoPropRate);
+        part.ctl.portamento.propDepth = (unsigned char) juce::jlimit (0, 127, macros.portamentoPropDepth);
+        part.ctl.portamento.pitchthresh = (unsigned char) juce::jlimit (0, 127, macros.portamentoPitchThresh);
+
+        part.ctl.panning.depth = (unsigned char) juce::jlimit (0, 127, macros.panningDepth);
+        part.ctl.setpanning();
+        part.ctl.bandwidth.depth = (unsigned char) juce::jlimit (0, 127, macros.bandwidthDepth);
+        part.ctl.setbandwidth();
+        part.ctl.resonancecenter.depth = (unsigned char) juce::jlimit (0, 127, macros.resonanceCenterDepth);
+        part.ctl.setresonancecenter();
+        part.ctl.resonancebandwidth.depth = (unsigned char) juce::jlimit (0, 127, macros.resonanceBandwidthDepth);
+        part.ctl.setresonancebw();
+
+        part.ctl.volume.receive = macros.volumeReceive;
+        part.ctl.setvolume();
+        part.ctl.fmamp.receive = macros.fmAmpReceive;
+        part.ctl.setfmamp();
+
+        // Volumes dos motores são offsets sobre o valor do preset (base capturada no load).
+        for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+        {
+            if (part.kit[n].adpars != nullptr)
+                part.kit[n].adpars->GlobalPar.Volume =
+                    instance.bases.adVolume[(size_t) n] + macros.adVolume;
+            if (part.kit[n].subpars != nullptr)
+                part.kit[n].subpars->Volume = instance.bases.subVolume[(size_t) n] + macros.subVolume;
+            if (part.kit[n].padpars != nullptr)
+                part.kit[n].padpars->PVolume = (unsigned char) juce::jlimit (
+                    0, 127, instance.bases.padVolume[(size_t) n] + macros.padVolume);
+        }
+
+        const auto applyEnvelope = [] (zyn::EnvelopeParams* envelope, const EnvelopeBase& base,
+                                       float attackScale, float decayScale, int sustainOffset,
+                                       float releaseScale)
+        {
+            if (envelope == nullptr)
+                return;
+            envelope->A_dt = juce::jlimit (0.001f, 10.0f, base.attack * attackScale);
+            envelope->D_dt = juce::jlimit (0.001f, 10.0f, base.decay * decayScale);
+            envelope->R_dt = juce::jlimit (0.001f, 10.0f, base.release * releaseScale);
+            envelope->PS_val = (unsigned char) juce::jlimit (0, 127, base.sustain + sustainOffset);
+        };
+
+        for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+        {
+            if (part.kit[n].adpars != nullptr)
+            {
+                auto* ad = part.kit[n].adpars;
+                applyEnvelope (ad->GlobalPar.AmpEnvelope, instance.bases.adAmp[(size_t) n],
+                               macros.ampAttack, macros.ampDecay, macros.ampSustain,
+                               macros.ampRelease);
+                applyEnvelope (ad->GlobalPar.FilterEnvelope, instance.bases.adFilter[(size_t) n],
+                               macros.filterAttack, macros.filterDecay, macros.filterSustain,
+                               macros.filterRelease);
+            }
+            if (part.kit[n].subpars != nullptr)
+            {
+                auto* sub = part.kit[n].subpars;
+                applyEnvelope (sub->AmpEnvelope, instance.bases.subAmp[(size_t) n],
+                               macros.ampAttack, macros.ampDecay, macros.ampSustain,
+                               macros.ampRelease);
+                applyEnvelope (sub->GlobalFilterEnvelope, instance.bases.subFilter[(size_t) n],
+                               macros.filterAttack, macros.filterDecay, macros.filterSustain,
+                               macros.filterRelease);
+            }
+            if (part.kit[n].padpars != nullptr)
+            {
+                auto* pad = part.kit[n].padpars;
+                applyEnvelope (pad->AmpEnvelope, instance.bases.padAmp[(size_t) n],
+                               macros.ampAttack, macros.ampDecay, macros.ampSustain,
+                               macros.ampRelease);
+                applyEnvelope (pad->FilterEnvelope, instance.bases.padFilter[(size_t) n],
+                               macros.filterAttack, macros.filterDecay, macros.filterSustain,
+                               macros.filterRelease);
+            }
+        }
+
         // -1 = preserva o que veio no preset; 0/1 desliga/liga o motor no kit inteiro.
         if (macros.adEngine >= 0)
             for (int n = 0; n < NUM_KIT_ITEMS; ++n)
-                part.kit[n].Padenabled = macros.adEngine == 1;
+                if (part.kit[n].adpars != nullptr)
+                    part.kit[n].Padenabled = macros.adEngine == 1;
         if (macros.subEngine >= 0)
             for (int n = 0; n < NUM_KIT_ITEMS; ++n)
-                part.kit[n].Psubenabled = macros.subEngine == 1;
+                if (part.kit[n].subpars != nullptr)
+                    part.kit[n].Psubenabled = macros.subEngine == 1;
+
+        // FX internos: tipo e 3 parâmetros. Só mexe quando o tipo foi escolhido.
+        for (int i = 0; i < 3; ++i)
+        {
+            if (macros.fxType[i] < 0)
+                continue;
+            if (part.partefx[i]->geteffect() != macros.fxType[i])
+                part.partefx[i]->changeeffectrt (macros.fxType[i]);
+            for (int p = 0; p < 3; ++p)
+                part.partefx[i]->seteffectparrt (p, (unsigned char) juce::jlimit (
+                    0, 127, macros.fxParam[i][p]));
+        }
     }
 
     /** Thread de áudio: aplica os knobs do painel quando eles mudam. */
@@ -931,7 +1216,7 @@ private:
         if (! force && ! macrosDirty.exchange (false) && macros == lastMacros)
             return;
         lastMacros = macros;
-        writeMacros (part, macros);
+        writeMacros (part, macros, *instance);
     }
 
     /** Monta um instrumento novo (padrão do Zyn) fora da thread de áudio. */
@@ -962,6 +1247,48 @@ private:
         return fresh;
     }
 
+    /** Guarda os volumes do preset antes de aplicar os offsets dos macros. */
+    void captureBases (ZynInstance& fresh)
+    {
+        const auto captureEnvelope = [] (zyn::EnvelopeParams* envelope)
+        {
+            EnvelopeBase base;
+            if (envelope != nullptr)
+            {
+                base.attack = envelope->A_dt;
+                base.decay = envelope->D_dt;
+                base.release = envelope->R_dt;
+                base.sustain = (int) envelope->PS_val;
+            }
+            return base;
+        };
+
+        for (int n = 0; n < NUM_KIT_ITEMS; ++n)
+        {
+            if (fresh.part->kit[n].adpars != nullptr)
+            {
+                auto* ad = fresh.part->kit[n].adpars;
+                fresh.bases.adVolume[(size_t) n] = ad->GlobalPar.Volume;
+                fresh.bases.adAmp[(size_t) n] = captureEnvelope (ad->GlobalPar.AmpEnvelope);
+                fresh.bases.adFilter[(size_t) n] = captureEnvelope (ad->GlobalPar.FilterEnvelope);
+            }
+            if (fresh.part->kit[n].subpars != nullptr)
+            {
+                auto* sub = fresh.part->kit[n].subpars;
+                fresh.bases.subVolume[(size_t) n] = sub->Volume;
+                fresh.bases.subAmp[(size_t) n] = captureEnvelope (sub->AmpEnvelope);
+                fresh.bases.subFilter[(size_t) n] = captureEnvelope (sub->GlobalFilterEnvelope);
+            }
+            if (fresh.part->kit[n].padpars != nullptr)
+            {
+                auto* pad = fresh.part->kit[n].padpars;
+                fresh.bases.padVolume[(size_t) n] = pad->PVolume;
+                fresh.bases.padAmp[(size_t) n] = captureEnvelope (pad->AmpEnvelope);
+                fresh.bases.padFilter[(size_t) n] = captureEnvelope (pad->FilterEnvelope);
+            }
+        }
+    }
+
     /**
      * Deixa o instrumento pronto para tocar, como o MiddleWare do Zyn faz ao
      * carregar um preset: gera as tabelas do PADsynth (sem elas o PADsynth
@@ -979,7 +1306,8 @@ private:
         if (profile != nullptr)
             profile->initializeRtMs = diagElapsedMs (initStart);
 
-        writeMacros (*fresh.part, currentMacros());
+        captureBases (fresh);
+        writeMacros (*fresh.part, currentMacros(), fresh);
         fresh.part->ctl.setpitchwheel (pitchWheel.load());
     }
 

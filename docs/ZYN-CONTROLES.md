@@ -232,9 +232,10 @@ Entrou no `ZynProcessor`/APVTS e no `ZynPanel`:
 |---|---|
 | Parte | Volume, Pan, Voices, Key Shift (já existiam), Vel Sensitivity, Vel Offset, Key Limit, Min Key, Max Key, Portamento Time, Mono, Legato, Portamento |
 | Controladores | Bend Range (semitons), Mod Wheel Depth, Filter Cutoff Depth, Filter Q Depth, Expressão (CC11), Sustain (CC64) |
-| Motores | AD Engine e SUB Engine com 3 estados: **Preset** (-1, mantém o .xiz), **Desligado**, **Ligado** |
-| Som (parcial) | **Cutoff** e **Ressonância** ao vivo via `ctl.filtercutoff`/`ctl.filterq` (64 = neutro) |
-| Efeitos | Bypass dos FX1–3 (já existia) |
+| Motores | AD Engine e SUB Engine com 3 estados: **Preset** (-1, mantém o .xiz), **Desligado**, **Ligado**; volumes AD/SUB/PAD como offset sobre o preset |
+| Som (parcial) | **Cutoff** e **Ressonância** ao vivo via `ctl.filtercutoff`/`ctl.filterq`; **ADSR global** do amplificador e do filtro (escalas/offset sobre o preset) |
+| Efeitos | Bypass dos FX1–3; **tipo** (Disabled…Reverse) e **P1–P3** de cada FX |
+| Controladores avançados | Bend separado/para baixo, portamento proporcional (rate/depth/threshold), panning/bandwidth/resonance depths, receber volume/FM amp |
 
 - Todos são parâmetros do APVTS: aparecem no `EngineParameter`, são mapeáveis por MIDI e
   usáveis nos layouts por instrumento.
@@ -246,11 +247,15 @@ Entrou no `ZynProcessor`/APVTS e no `ZynPanel`:
   Resultado: 100 trocas, 0 xruns, 0 heap, 0 falhas do pool; `Vel Sensitivity` chegou a 102
   no Part e `AD Engine=Ligado` ligou o AD no kit.
 
-**Ainda fora desta leva (Z4b–d):** ADSR (amplificador/filtro), quantidade do envelope de
-filtro, LFO (vibrato/filtro), detune, largura estéreo e brilho; volume dos motores, PADsynth
-on/off/volume; tipo e parâmetros dos FX internos. Os motivos estão nas seções 3.2–3.4: esses
-macros exigem reload/fade e o PAD exige `applyparameters`. **Cutoff e Ressonância** já são
-ao vivo porque usam os controladores internos do Zyn, que são seguros na thread de áudio.
+**Ainda fora desta leva (Z4b–d):** quantidade do envelope de filtro, LFO (vibrato/filtro),
+detune, largura estéreo e brilho; **PADsynth on/off** (exige `applyparameters`/reload). O ADSR
+implementado é o dos **envelopes globais** de cada kit item; os envelopes por voz (quando o
+preset usa `AmpEnvelope`/`FilterEnvelope` da voz) ficam `a confirmar`. Os volumes são offsets
+sobre o preset; o controle de volume só aparece quando o motor existe no preset.
+
+**Cutoff/Ressonância** usam os controladores internos, seguros na thread de áudio. O ADSR, os
+volumes e os FX são aplicados diretamente aos parâmetros do `Part` (os FX via
+`changeeffectrt`/`seteffectparrt`, com o pool TLSF).
 
 **a confirmar:** o som de cada controle no app (o teste prova que o Part recebe o valor, não
 que o timbre muda como esperado), o Legato em presets polifônicos e o custo dos FX internos
